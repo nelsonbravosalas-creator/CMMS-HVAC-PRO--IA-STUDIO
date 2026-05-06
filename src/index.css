@@ -1,0 +1,155 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --animate-spin-slow: spin 3s linear infinite;
+}
+
+@layer base {
+  /* Al fondo blanco -> Gris Oscuro */
+  .bg-white {
+    background-color: #0f172a !important; /* slate-900 */
+  }
+  .bg-slate-50 {
+    background-color: #020617 !important; /* slate-950 */
+  }
+  .bg-slate-100 {
+    background-color: #1e293b !important; /* slate-800 */
+  }
+
+  /* De fuentes negras -> Blanco/Gris Claro */
+  .text-slate-900, .text-black, .text-slate-800, .text-slate-700 {
+    color: #f8fafc !important; /* slate-50 */
+  }
+  .text-slate-600, .text-slate-500 {
+    color: #94a3b8 !important; /* slate-400 */
+  }
+
+  /* Bordes suaves */
+  .border-slate-200, .border-slate-100 {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  /* Excepción para etiquetas imprimibles */
+  #printable-tag, #printable-tag * {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #e2e8f0 !important;
+  }
+}
+
+/* CMMS HVAC visual extraction for AI Studio */
+[data-theme="light"],
+:root {
+  color-scheme: dark;
+
+  --cmms-bg-base: #020617; /* slate-950 */
+  --cmms-bg-surface: #0f172a; /* slate-900 */
+  --cmms-bg-card: #1e293b; /* slate-800 */
+  --cmms-bg-modal: #020617;
+
+  --cmms-text-primary: #f8fafc; /* slate-50 */
+  --cmms-text-secondary: #e2e8f0; /* slate-200 */
+  --cmms-text-muted: #94a3b8; /* slate-400 */
+  --cmms-text-faint: #64748b;
+
+  --cmms-border: rgba(255, 255, 255, 0.1);
+  --cmms-border-md: rgba(255, 255, 255, 0.15);
+  --cmms-border-lg: rgba(255, 255, 255, 0.2);
+
+  --cmms-overlay-subtle: rgba(255, 255, 255, 0.03);
+  --cmms-overlay-soft: rgba(255, 255, 255, 0.05);
+
+  --cmms-accent: #22d3ee;
+  --cmms-accent-strong: #06b6d4;
+  --cmms-success: #10b981;
+  --cmms-warning: #f59e0b;
+  --cmms-danger: #ef4444;
+  --cmms-info: #3b82f6;
+  --cmms-violet: #8b5cf6;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --cmms-bg-base: #0a0d14;
+  --cmms-bg-surface: #0f1320;
+  --cmms-bg-card: #1a1f2e;
+  --cmms-bg-modal: #0d1117;
+
+  --cmms-text-primary: #f3f4f6;
+  --cmms-text-secondary: #e5e7eb;
+  --cmms-text-muted: #9ca3af;
+  --cmms-text-faint: #6b7280;
+
+  --cmms-border: rgba(255, 255, 255, 0.05);
+  --cmms-border-md: rgba(255, 255, 255, 0.08);
+  --cmms-border-lg: rgba(255, 255, 255, 0.1);
+
+  --cmms-overlay-subtle: rgba(255, 255, 255, 0.03);
+  --cmms-overlay-soft: rgba(255, 255, 255, 0.05);
+
+  --cmms-accent: #22d3ee;
+  --cmms-accent-strong: #06b6d4;
+  --cmms-success: #10b981;
+  --cmms-warning: #f59e0b;
+  --cmms-danger: #ef4444;
+  --cmms-info: #3b82f6;
+  --cmms-violet: #8b5cf6;
+
+  --cmms-shadow-xs: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --cmms-shadow-sm: 0 6px 14px rgba(0, 0, 0, 0.28);
+  --cmms-shadow-md: 0 14px 30px rgba(0, 0, 0, 0.34);
+  --cmms-shadow-lg: 0 25px 50px rgba(0, 0, 0, 0.45);
+
+  --cmms-radius-sm: 0.5rem;
+  --cmms-radius-md: 0.75rem;
+  --cmms-radius-lg: 1rem;
+  --cmms-radius-xl: 1.25rem;
+
+  --cmms-font-sans: "Inter", system-ui, sans-serif;
+  --cmms-font-mono: "JetBrains Mono", "Fira Code", Menlo, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--cmms-bg-base);
+  color: var(--cmms-text-primary);
+  font-family: var(--cmms-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+@layer utilities {
+  .pulse-red {
+    animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-red {
+    0%, 100% {
+      border-color: rgb(239 68 68 / 0.1);
+      background-color: transparent;
+    }
+    50% {
+      border-color: rgb(239 68 68 / 0.4);
+      background-color: rgb(239 68 68 / 0.05);
+    }
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

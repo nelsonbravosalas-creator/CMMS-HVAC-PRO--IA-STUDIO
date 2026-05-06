@@ -1,0 +1,6 @@
+{
+  "name": "HVAC PRO - CMMS",
+  "description": "Sistema de gestión de mantenimiento HVAC con reportes técnicos avanzados, OCR por IA y firmas digitales.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}
