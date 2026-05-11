@@ -102,13 +102,21 @@ export default function ScannerQR() {
     nombreEquipo: '1-4 SALA SERVIDORES'
   });
   
-  /** URL base para los códigos QR (Redirige a la ficha técnica del activo) */
-  const [baseUrl, setBaseUrl] = useState(`${typeof window !== 'undefined' ? window.location.origin : ''}/scanner?tag=`);
+  /** 
+   * URL base para los códigos QR.
+   * Se utiliza window.location.origin para asegurar que el QR apunte siempre al dominio correcto,
+   * ya sea en desarrollo local o en producción (Vercel).
+   */
+  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "");
 
   /** TAG completo calculado (ej: 21-STK.AC.012) */
   const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
-  /** URL final incrustada en el código QR */
-  const qrUrl = `${baseUrl}${fullTag}`;
+  
+  /** 
+   * URL final incrustada en el código QR.
+   * Se construye dinámicamente agregando el parámetro 'tag'.
+   */
+  const qrUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}tag=${encodeURIComponent(fullTag)}`;
   /** Endpoint externo para la generación del código QR */
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 
@@ -154,8 +162,12 @@ export default function ScannerQR() {
       // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
       setLastResult(tagValue);
       
-      // BÚSQUEDA EN BASE DE DATOS LOCAL:
-      // Usamos el archivo /src/data/equipos.ts para buscar la ficha técnica del activo.
+      // BÚSQUEDA EN BASE DE DATOS:
+      // Actualmente lee del archivo local /src/data/equipos.ts.
+      // PARA PRODUCCIÓN CON FIREBASE:
+      // 1. Reemplazar EQUIPOS_DATA.find por una consulta a Firestore:
+      //    const q = query(collection(db, "equipos"), where("tag", "==", tagValue));
+      // 2. Manejar la promesa y setear el estado.
       const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
       
       if (equipo) {
