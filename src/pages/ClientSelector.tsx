@@ -24,8 +24,9 @@ export default function ClientSelector() {
 
   const handleLogout = () => {
     localStorage.removeItem("is_authenticated");
+    localStorage.removeItem("auth_pin");
     localStorage.removeItem("active_client");
-    setLocation("/login");
+    window.location.href = "/login";
   };
 
   return (

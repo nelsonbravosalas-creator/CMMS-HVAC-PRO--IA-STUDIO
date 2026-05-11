@@ -30,7 +30,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  * Envuelve la aplicación para inyectar los datos del usuario.
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<Usuario | null>(USUARIOS_MOCK[0]); // Por defecto el primer mock para desarrollo
+  const [user, setUser] = useState<Usuario | null>(() => {
+    // Intentar recuperar sesión persistida
+    const savedPin = localStorage.getItem('auth_pin');
+    if (savedPin) {
+      return USUARIOS_MOCK.find(u => u.pin === savedPin && u.activo) || null;
+    }
+    // Si estamos en entorno de desarrollo local, podríamos usar el mock 0, pero en prod mejor null
+    if (localStorage.getItem("is_authenticated") === "true") {
+       return USUARIOS_MOCK[0]; // Fallback
+    }
+    return null;
+  });
   
   /** Derivación reactiva de permisos basada en el perfil del usuario */
   const permisos = user ? PERMISOS_POR_PERFIL[user.perfil] : null;
@@ -43,12 +54,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const found = USUARIOS_MOCK.find(u => u.pin === pin && u.activo);
     if (found) {
       setUser(found);
+      localStorage.setItem('auth_pin', pin);
+      localStorage.setItem('is_authenticated', 'true');
       return true;
     }
     return false;
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('auth_pin');
+    localStorage.removeItem('is_authenticated');
+    localStorage.removeItem('active_client');
+  };
 
   return (
     <AuthContext.Provider value={{ user, permisos, login, logout }}>
