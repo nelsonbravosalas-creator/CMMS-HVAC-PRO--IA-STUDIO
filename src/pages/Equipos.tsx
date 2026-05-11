@@ -27,6 +27,9 @@ import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdow
 import { QRLabelModal } from "../components/modals/QRLabelModal";
 import { useAuth } from "../context/AuthContext";
 
+import { collection, onSnapshot, query } from "firebase/firestore";
+import { db } from "../lib/firebase";
+
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
 interface FilterState {
@@ -61,12 +64,34 @@ export default function Equipos() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [, setLocation] = useLocation();
 
+  const [equiposData, setEquiposData] = useState<Equipo[]>(EQUIPOS_DATA);
+  const [loadingEquipos, setLoadingEquipos] = useState(true);
+
   useEffect(() => {
     localStorage.setItem("equipos_filters", JSON.stringify(filters));
   }, [filters]);
 
+  useEffect(() => {
+    const q = query(collection(db, "equipos"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      // Mezclamos en desarrollo con los locales para que se vea contenido si la BD está vacía (opcional)
+      const merged = [...data];
+      // Para evitar duplicados de tags si estamos testeando
+      EQUIPOS_DATA.forEach(eq => {
+         if(!merged.find(m => m.tag === eq.tag)) merged.push(eq);
+      });
+      setEquiposData(merged);
+      setLoadingEquipos(false);
+    }, (err) => {
+      console.error("Error cargando equipos", err);
+      setLoadingEquipos(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const filteredEquipos = useMemo(() => {
-    return EQUIPOS_DATA.filter(eq => {
+    return equiposData.filter(eq => {
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;
