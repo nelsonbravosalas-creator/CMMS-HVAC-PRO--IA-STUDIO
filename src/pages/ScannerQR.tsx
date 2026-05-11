@@ -121,29 +121,49 @@ export default function ScannerQR() {
     setEquipoEscaneado(null);
   };
 
+  /** 
+   * Función que se ejecuta cuando el sensor de la cámara detecta un código.
+   * Procesa el texto (que puede ser una URL o solo el TAG) y busca en la base de datos.
+   */
   const handleScanSuccess = (text: string) => {
     if (text) {
+      // Detenemos el scanner para evitar múltiples lecturas seguidas
       setIsScannerActive(false);
 
-      // Si es una URL de nuestra app escaneada (como window.location.origin + '/scanner?tag=TAG')
+      // LÓGICA DE EXTRACCIÓN DE TAG:
+      // El QR puede contener una URL completa como "https://dominio.com/scanner?tag=21-STK.AC.002"
+      // o un formato antiguo "https://.../EQUIPOS/21-STK.AC.002".
+      // Esta lógica "limpia" la entrada para obtener solo el identificador "21-STK.AC.002".
       let tagValue = text;
       try {
-        const urlObj = new URL(text);
-        const searchParams = new URLSearchParams(urlObj.search);
-        if (searchParams.has('tag')) {
-          tagValue = searchParams.get('tag')!;
+        if (text.includes('?tag=')) {
+          // Extraemos el valor del parámetro 'tag'
+          const urlObj = new URL(text);
+          tagValue = urlObj.searchParams.get('tag') || text;
+        } else if (text.includes('/EQUIPOS/')) {
+          // Si es formato de ruta, tomamos lo que viene después de /EQUIPOS/
+          tagValue = text.split('/EQUIPOS/').pop() || text;
+        } else if (text.includes('/scanner/')) {
+          // Caso genérico de ruta /scanner/TAG
+          tagValue = text.split('/scanner/').pop() || text;
         }
       } catch (e) {
-        // No es una URL válida, asumir que es directo el tag
+        // Si no es una URL (es decir, el QR solo contiene el texto del TAG), lo usamos directo
       }
 
+      // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
       setLastResult(tagValue);
       
+      // BÚSQUEDA EN BASE DE DATOS LOCAL:
+      // Usamos el archivo /src/data/equipos.ts para buscar la ficha técnica del activo.
       const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
+      
       if (equipo) {
+        // Si el equipo existe, lo guardamos para renderizar su nombre y ubicación
         setEquipoEscaneado(equipo);
       } else {
-        setEquipoEscaneado({ error: "Equipo no encontrado en la base de datos." });
+        // Si no existe, preparamos un mensaje de error para el usuario
+        setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
       }
     }
   };
@@ -339,12 +359,12 @@ export default function ScannerQR() {
                         {lastResult ? (
                           <>
                             <div className="mb-2 text-blue-400 font-bold">DETECTADO: {lastResult}</div>
-                            {equipoEscaneado && equipoEscaneado.id ? (
+                            {equipoEscaneado && equipoEscaneado.tag ? (
                                <div className="text-[10px] text-white">
                                  <div><strong className="text-slate-500">Equipo:</strong> {equipoEscaneado.nombre}</div>
                                  <div className="mt-1"><strong className="text-slate-500">Ubicación:</strong> {equipoEscaneado.ubicacion}</div>
                                  <button 
-                                   onClick={() => setLocation(`/equipos/${equipoEscaneado.id}`)}
+                                   onClick={() => setLocation(`/equipos/${equipoEscaneado.tag}`)}
                                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
                                  >
                                    Ver Ficha Completa

@@ -21,7 +21,11 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     modelo: '',
     serie: ''
   });
-  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "https://myapp.vercel.app/scanner");
+  /** 
+   * URL dinámico para los códigos QR. 
+   * Al estar en Vercel, window.location.origin detectará automáticamente el dominio de producción. 
+   */
+  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "https://cmms-hvac-pro-ia-studio.vercel.app/scanner");
   
   const [voltaje, setVoltaje] = useState<number>(220);
   const [corriente, setCorriente] = useState<number>(10);

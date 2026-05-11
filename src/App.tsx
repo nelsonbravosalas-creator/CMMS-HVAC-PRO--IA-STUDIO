@@ -100,6 +100,7 @@ function App() {
         <Route path="/scanner" component={ScannerQR} />
         <Route path="/equipos" component={Equipos} />
         <Route path="/equipos/:tag" component={DetalleEquipo} />
+        <Route path="/EQUIPOS/:tag" component={DetalleEquipo} />
         <Route path="/mapa" component={Mapa} />
         <Route path="/mantenimientos" component={Mantenimientos} />
         <Route path="/ordenes-servicio" component={OrdenesServicio} />
