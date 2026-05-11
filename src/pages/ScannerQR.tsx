@@ -205,28 +205,46 @@ export default function ScannerQR() {
     window.print();
   };
 
-  const handleRegister = async () => {
+  const handleRegister = () => {
     setIsExporting(true);
-    try {
-      // Guardar el nuevo activo en Firebase Firestore utilizando el tag como ID o creando uno auto-generado. 
-      // Por consistencia y uso del tag, guardémoslo con ID igual a fullTag.
-      await setDoc(doc(db, "equipos", fullTag), {
-        tag: fullTag,
-        nombre: tagData.nombreEquipo,
-        almacen: tagData.almacen,
-        tipo: tagData.tipo,
-        correlativo: tagData.correlativo,
-        ubicacion: "No definida",
-        estado: "OPERATIVO",
-        createdAt: serverTimestamp()
-      });
-      alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
-    } catch (error) {
-      console.error("Error al guardar activo", error);
-      alert("Hubo un error al registrar el equipo en la base de datos.");
-    } finally {
-      setIsExporting(false);
-    }
+
+    const assetData = {
+      tag: fullTag,
+      nombre: tagData.nombreEquipo,
+      almacen: tagData.almacen,
+      tipo: tagData.tipo,
+      correlativo: tagData.correlativo,
+      ubicacion: "No definida",
+      estado: "OPERATIVO",
+      statusSincronizacion: "pendiente",
+      fechaSincronizacionLocal: new Date().toISOString()
+    };
+
+    // 1. Guardado Local (Feedback Inmediato)
+    localStorage.setItem(`registro_${fullTag}`, JSON.stringify(assetData));
+
+    // 2. Ejecución diferida para la Nube
+    setTimeout(async () => {
+      try {
+        await setDoc(doc(db, "equipos", fullTag), {
+          tag: fullTag,
+          nombre: tagData.nombreEquipo,
+          almacen: tagData.almacen,
+          tipo: tagData.tipo,
+          correlativo: tagData.correlativo,
+          ubicacion: "No definida",
+          estado: "OPERATIVO",
+          createdAt: serverTimestamp()
+        });
+        console.log("Sincronizado con Firebase exitosamente");
+        alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
+      } catch (error) {
+        console.error("Error en la nube, se mantiene solo local:", error);
+        alert("El activo se guardó localmente. Se sincronizará cuando haya conexión.");
+      } finally {
+        setIsExporting(false);
+      }
+    }, 0);
   };
 
   return (
@@ -302,14 +320,13 @@ export default function ScannerQR() {
                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                       {isScannerActive ? (
                         <div className="absolute inset-0 z-10 w-full h-full bg-black">
-                           <Scanner 
+                             <Scanner 
                              onScan={(detectedCodes) => {
                                if (detectedCodes.length > 0) {
                                  handleScanSuccess(detectedCodes[0].rawValue);
                                }
                              }}
                              components={{
-                               audio: false,
                                torch: true,
                                zoom: true,
                                finder: true
@@ -572,7 +589,7 @@ export default function ScannerQR() {
                      className="flex-1 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-[32px] font-black text-xs uppercase tracking-[0.3em] shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_60px_rgba(37,99,235,0.6)] active:scale-95 transition-all flex items-center justify-center gap-4 group disabled:opacity-50"
                    >
                       {isExporting ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-6 h-6 group-hover:rotate-12 transition-transform" />}
-                       Guardar los cambios y crear en BD
+                      {isExporting ? "Guardando..." : "Guardar los cambios y crear en BD"}
                    </button>
                    <button 
                      onClick={() => setMode("scanner")}

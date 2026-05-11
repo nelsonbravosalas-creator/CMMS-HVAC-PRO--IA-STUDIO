@@ -111,13 +111,28 @@ export default function EditorOrdenServicio() {
 
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
+
+    const assetData = {
+      generalData,
+      checklist,
+      hallazgos,
+      galeria,
+      status: 'firmada',
+      statusSincronizacion: "pendiente",
+      fechaSincronizacionLocal: new Date().toISOString()
+    };
+
+    // 1. Guardado Local (Feedback Inmediato)
+    localStorage.setItem(`registro_os_${id || 'nuevo'}`, JSON.stringify(assetData));
+
+    // 2. Ejecución diferida para la Nube
     setTimeout(() => {
       setStatus('firmada');
       setIsSyncing(false);
       localStorage.removeItem(OS_DRAFT_KEY);
       alert("Orden de Servicio guardada y firmada exitosamente.");
       setLocation("/ordenes-servicio");
-    }, 1500);
+    }, 0);
   };
 
   const menu: { id: Section, label: string, icon: any }[] = [

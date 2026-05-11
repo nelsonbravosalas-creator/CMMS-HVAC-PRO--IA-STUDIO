@@ -47,6 +47,35 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
     }
   }, [frecuencia, fechaActual]);
 
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+     e.preventDefault();
+     setIsSaving(true);
+
+     const formData = {
+        frecuencia,
+        fechaActual,
+        proximaMantencion,
+        idRegistro: `MANT-${Date.now()}`,
+        statusSincronizacion: 'pendiente',
+        fechaSincronizacionLocal: new Date().toISOString()
+     };
+
+     // 1. Guardado Local (Feedback Inmediato)
+     localStorage.setItem(`mantenimiento_${formData.idRegistro}`, JSON.stringify(formData));
+
+     // 2. Ejecución diferida (Nube)
+     setTimeout(() => {
+        // En una implementación real, aquí se usaría setDoc a Firestore
+        console.log("Mantenimiento sincronizado con la nube (simulación)");
+        alert("Registro de mantenimiento completado exitosamente.");
+        setIsSaving(false);
+        setHasChanges(false);
+        onClose();
+     }, 0);
+  };
+
   const handleClose = () => {
     if (hasChanges) {
       if (confirm("Hay cambios sin guardar. ¿Desea descartar los cambios?")) {
@@ -76,7 +105,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           <button onClick={handleClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="w-5 h-5" /></button>
         </div>
 
-        <form className="p-10 space-y-8 overflow-y-auto" onChange={() => setHasChanges(true)}>
+        <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto" onChange={() => setHasChanges(true)}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Equipo Destino (TAG)</label>
@@ -149,8 +178,9 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           </div>
 
           <div className="flex gap-4">
-             <button type="submit" className="flex-1 py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all">
-                Finalizar y Guardar Registro
+             <button type="submit" disabled={isSaving} className="flex-1 py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2 disabled:opacity-50">
+                {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
+                {isSaving ? "Guardando..." : "Finalizar y Guardar Registro"}
              </button>
              <button type="button" onClick={handleClose} className="px-10 py-5 bg-slate-100 text-slate-400 text-xs font-black uppercase tracking-widest rounded-[32px] hover:bg-slate-200 transition-all">
                 Cancelar

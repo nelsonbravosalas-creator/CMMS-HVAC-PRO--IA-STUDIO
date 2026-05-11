@@ -47,6 +47,31 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     setShowAssetSearch(false);
   };
 
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    
+    // Simulate non-blocking save
+    const ticketData = {
+      tag,
+      equipoDesc,
+      cliente,
+      sucursal,
+      fecha: new Date().toISOString(),
+      statusSincronizacion: 'pendiente'
+    };
+
+    localStorage.setItem(`ticket_${Date.now()}`, JSON.stringify(ticketData));
+
+    setTimeout(() => {
+      setIsSaving(false);
+      alert('Ticket Guardado Correctamente.');
+      onClose();
+    }, 0);
+  };
+  
   const today = new Date().toLocaleDateString('es-CL');
 
   return (
@@ -62,7 +87,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
             <button onClick={onClose} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
           </div>
 
-          <form className="p-8 space-y-6 overflow-y-auto">
+          <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
             {/* Asset Link Section */}
             <div className="bg-blue-50/30 p-6 rounded-[32px] border border-blue-100/50 space-y-4">
               <div className="flex justify-between items-center">
@@ -182,9 +207,9 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
               </button>
             </div>
 
-            <button type="submit" className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 mt-4 flex items-center justify-center gap-3">
-              <Save className="w-5 h-5" />
-              Emitir y Guardar Ticket
+            <button disabled={isSaving} type="submit" className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 mt-4 flex items-center justify-center gap-3 disabled:opacity-50">
+              {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5" />}
+              {isSaving ? "Guardando..." : "Emitir y Guardar Ticket"}
             </button>
           </form>
         </div>

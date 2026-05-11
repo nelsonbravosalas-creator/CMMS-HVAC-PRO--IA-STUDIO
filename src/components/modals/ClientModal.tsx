@@ -16,8 +16,27 @@ interface SubLocation {
 
 export function ClientModal({ isOpen, onClose }: ClientModalProps) {
   const [subs, setSubs] = useState<SubLocation[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleSave = () => {
+    setIsSaving(true);
+    
+    // Non blocking save
+    const clientData = {
+      subs,
+      fechaSincronizacionLocal: new Date().toISOString()
+    };
+    
+    localStorage.setItem(`cliente_${Date.now()}`, JSON.stringify(clientData));
+    
+    setTimeout(() => {
+      setIsSaving(false);
+      alert('Cliente Registrado Correctamente');
+      onClose();
+    }, 0);
+  };
 
   const addSub = () => {
     setSubs([...subs, { id: Math.random().toString(), tipo: 'Tienda', nombre: '', direccion: '', codigo: '' }]);
@@ -145,11 +164,12 @@ export function ClientModal({ isOpen, onClose }: ClientModalProps) {
           </div>
 
           <div className="p-6 pl-[26px] -ml-[5px] mb-[26px] mt-0 mr-0 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
-             <button onClick={onClose} className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-600 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border border-slate-200">
+             <button disabled={isSaving} onClick={onClose} className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-600 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border border-slate-200 disabled:opacity-50">
                 Cancelar
              </button>
-             <button onClick={onClose} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20">
-                Guardar Cliente
+             <button disabled={isSaving} onClick={handleSave} className="flex gap-2 items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50">
+                {isSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
+                {isSaving ? "Guardando..." : "Guardar Cliente"}
              </button>
           </div>
        </div>

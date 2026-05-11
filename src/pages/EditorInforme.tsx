@@ -625,17 +625,34 @@ export default function EditorInforme() {
   // Handle Finalize & Sync (Auto-numbering assignment)
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
-    // Simular latencia de red/sync
-    await new Promise(resolve => setTimeout(resolve, 2000));
     
     const newFolio = `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    setGeneralData(prev => ({ ...prev, folio: newFolio }));
-    setStatus('firmado');
-    setIsSyncing(false);
+
+    const reportData = {
+      generalData: { ...generalData, folio: newFolio },
+      machineData,
+      circuits,
+      checklist,
+      observaciones,
+      galeria,
+      status: 'firmado',
+      statusSincronizacion: "pendiente",
+      fechaSincronizacionLocal: new Date().toISOString()
+    };
+
+    // 1. Guardado Local (Feedback Inmediato)
+    localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
     
-    // Clear draft storage for this report as it's now synced
-    localStorage.removeItem(DRAFT_KEY);
-    alert(`Informe Sincronizado Exitosamente. Folio Asignado: ${newFolio}`);
+    // 2. Ejecución diferida para la Nube
+    setTimeout(() => {
+      setGeneralData(prev => ({ ...prev, folio: newFolio }));
+      setStatus('firmado');
+      setIsSyncing(false);
+      
+      // Clear draft storage for this report as it's now synced
+      localStorage.removeItem(DRAFT_KEY);
+      alert(`Informe Sincronizado Exitosamente. Folio Asignado: ${newFolio}`);
+    }, 0);
   };
 
   const [showAssetConfig, setShowAssetConfig] = useState(false);

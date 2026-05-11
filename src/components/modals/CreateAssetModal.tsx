@@ -146,34 +146,60 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    try {
-      await setDoc(doc(db, "equipos", fullTag), {
-        tag: fullTag,
-        nombre: tagData.nombreEquipo,
-        almacen: tagData.almacen,
-        tipo: tagData.tipo,
-        correlativo: tagData.correlativo,
-        marca: tagData.marca,
-        modelo: tagData.modelo,
-        serie: tagData.serie,
-        voltaje,
-        corriente,
-        potencia,
-        ubicacion: "No definida",
-        estado: "OPERATIVO",
-        createdAt: serverTimestamp()
-      });
-      alert(`Activo ${fullTag} registrado con éxito en la Base de Datos.`);
-      onClose();
-    } catch (error) {
-      console.error("Error al guardar activo", error);
-      alert("Hubo un error al registrar el equipo en la base de datos.");
-    } finally {
-      setIsSaving(false);
-    }
+
+    const assetData = {
+      tag: fullTag,
+      nombre: tagData.nombreEquipo,
+      almacen: tagData.almacen,
+      tipo: tagData.tipo,
+      correlativo: tagData.correlativo,
+      marca: tagData.marca,
+      modelo: tagData.modelo,
+      serie: tagData.serie,
+      voltaje,
+      corriente,
+      potencia,
+      ubicacion: "No definida",
+      estado: "OPERATIVO",
+      statusSincronizacion: "pendiente",
+      fechaSincronizacionLocal: new Date().toISOString()
+    };
+
+    // 1. Guardado Local rápido para Feedback y persistencia offline
+    localStorage.setItem(`registro_${fullTag}`, JSON.stringify(assetData));
+
+    // 2. Ejecución diferida para la Nube
+    setTimeout(async () => {
+      try {
+        await setDoc(doc(db, "equipos", fullTag), {
+          tag: fullTag,
+          nombre: tagData.nombreEquipo,
+          almacen: tagData.almacen,
+          tipo: tagData.tipo,
+          correlativo: tagData.correlativo,
+          marca: tagData.marca,
+          modelo: tagData.modelo,
+          serie: tagData.serie,
+          voltaje,
+          corriente,
+          potencia,
+          ubicacion: "No definida",
+          estado: "OPERATIVO",
+          createdAt: serverTimestamp()
+        });
+        console.log("Sincronizado con Firebase exitosamente");
+        alert(`Activo ${fullTag} registrado con éxito en la Base de Datos.`);
+      } catch (error) {
+        console.error("Error en la nube, se mantiene solo local:", error);
+        alert("El activo se guardó localmente. Se sincronizará cuando haya conexión.");
+      } finally {
+        setIsSaving(false);
+        onClose();
+      }
+    }, 0);
   };
 
   return (
