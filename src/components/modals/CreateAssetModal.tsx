@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { EQUIPOS_DATA } from '../../data/equipos';
 import { GoogleGenAI, Type } from "@google/genai";
+import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 interface CreateAssetModalProps {
   onClose: () => void;
@@ -140,6 +142,38 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, "equipos", fullTag), {
+        tag: fullTag,
+        nombre: tagData.nombreEquipo,
+        almacen: tagData.almacen,
+        tipo: tagData.tipo,
+        correlativo: tagData.correlativo,
+        marca: tagData.marca,
+        modelo: tagData.modelo,
+        serie: tagData.serie,
+        voltaje,
+        corriente,
+        potencia,
+        ubicacion: "No definida",
+        estado: "OPERATIVO",
+        createdAt: serverTimestamp()
+      });
+      alert(`Activo ${fullTag} registrado con éxito en la Base de Datos.`);
+      onClose();
+    } catch (error) {
+      console.error("Error al guardar activo", error);
+      alert("Hubo un error al registrar el equipo en la base de datos.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -278,7 +312,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
              </div>
           </div>
 
-          <form className="space-y-6 lg:space-y-8" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-6 lg:space-y-8" onSubmit={handleSubmit}>
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                 <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">Sucursal / Almacén</label>
@@ -405,10 +439,11 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-[2] py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-600/30 active:scale-95 hover:bg-blue-700 hover:shadow-blue-600/40 transition-all flex items-center justify-center gap-3 group"
+                  disabled={isSaving}
+                  className="flex-[2] py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-600/30 active:scale-95 hover:bg-blue-700 hover:shadow-blue-600/40 transition-all flex items-center justify-center gap-3 group disabled:opacity-50"
                 >
-                   <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
-                   <span>Crear Activo</span>
+                   {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> }
+                   <span>Guardar Cambios y Crear en BD</span>
                 </button>
              </div>
           </form>
