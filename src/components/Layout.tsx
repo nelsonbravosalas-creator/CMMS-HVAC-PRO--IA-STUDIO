@@ -340,9 +340,12 @@ export default function Layout({ children }: LayoutProps) {
             {/* Client Selector (Desktop) */}
             <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
               isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800 hover:border-slate-500 hover:shadow-sm' : 'bg-white border-slate-300 text-slate-900 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm'
-            }`}>
+            }`}
+            onClick={() => window.location.href = "/client-selector"}>
               <Database className={`w-3.5 h-3.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <span className="tracking-widest">SANTIAGO-B01</span>
+              <span className="tracking-widest uppercase">
+                {localStorage.getItem("active_client") || "Entorno General"}
+              </span>
               <ChevronDown className="w-3 h-3 opacity-50" />
             </div>
 

@@ -33,6 +33,7 @@ import Login from "./pages/Login";
 import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
+import { CLIENTS } from "./data/clientes";
 
 /**
  * Componente funcional App.
@@ -59,7 +60,7 @@ export default function App() {
     // Initial routing logic
     if (!auth && location !== "/login") {
       setLocation("/login");
-    } else if (auth && !client && location !== "/client-selector") {
+    } else if (auth && !client && CLIENTS.length > 0 && location !== "/client-selector") {
       setLocation("/client-selector");
     }
   }, [location, setLocation]);
@@ -70,7 +71,7 @@ export default function App() {
   }
 
   // Tenant selector (no layout)
-  if (isAuthenticated && !hasClientSelected) {
+  if (isAuthenticated && !hasClientSelected && CLIENTS.length > 0) {
     return <ClientSelector />;
   }
 
