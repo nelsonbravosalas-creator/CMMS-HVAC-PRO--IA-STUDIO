@@ -22,6 +22,19 @@
  * Interfaz fundamental que define la estructura o "Schema" de los equipos físicos.
  * Todo nuevo equipo debe seguir exactamente esta estructura.
  */
+/**
+ * =========================================================================
+ * ARCHIVO DE DATOS: equipos.ts (Simulación de Base de Datos Local)
+ * =========================================================================
+ * 
+ * ¿QUÉ ES ESTO?:
+ * Este archivo contiene la estructura y datos de los equipos HVAC.
+ * En desarrollo, sirve como una base de datos local (Mock DB).
+ * 
+ * INTERACCIÓN CON FIREBASE:
+ * En producción, esta interfaz se utiliza para mapear los documentos de la 
+ * colección 'equipos' en Google Firebase Firestore.
+ */
 export interface Equipo {
   tag: string;             // Identificador único universal en formato Almacen.Tipo.Correlativo
   nombre: string;          // Nombre legíble para el sistema

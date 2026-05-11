@@ -41,6 +41,23 @@ import { Scanner } from '@yudiel/react-qr-scanner';
  * 
  * @returns {JSX.Element} Interfaz de captura y generación de activos.
  */
+/**
+ * =========================================================================
+ * COMPONENTE: ScannerQR.tsx (Lógica de Interacción Física-Digital)
+ * =========================================================================
+ * 
+ * FUNCIONAMIENTO:
+ * Este componente es el puente entre el código QR físico y la base de datos.
+ * 
+ * FLUJO DE DOCUMENTACIÓN:
+ * 1. El usuario escanea un QR que apunta a la URL de Vercel (ej: .../scanner?tag=XXX).
+ * 2. Al cargar, el useEffect lee el parámetro 'tag' de la URL.
+ * 3. Se realiza un "llamado a la base de datos" (actualmente a EQUIPOS_DATA) para recuperar la ficha técnica.
+ * 
+ * INTERACCIONES:
+ * - data/equipos.ts: Provee la información del equipo tras el escaneo.
+ * - react-qr-scanner: Maneja la interfaz de cámara.
+ */
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
 

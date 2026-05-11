@@ -46,7 +46,24 @@ import { CLIENTS } from "./data/clientes";
  * 
  * @returns {JSX.Element} El árbol de componentes de la aplicación.
  */
-export default function App() {
+export default /**
+ * =========================================================================
+ * ARCHIVO PRINCIPAL: App.tsx (Controlador de Navegación)
+ * =========================================================================
+ * 
+ * FUNCIÓN:
+ * Es el cerebro del front-end en Vercel. Decide qué página mostrar según la URL.
+ * 
+ * INTERACCIONES:
+ * - AuthContext: Valida si el usuario inició sesión en Firebase.
+ * - LocalStorage: Recuerda qué cliente seleccionó el usuario.
+ * 
+ * FLUJO DE ARRANQUE:
+ * 1. Verifica si hay sesión. Si no, manda a /login.
+ * 2. Si hay sesión pero no cliente, intenta mandar a /client-selector.
+ * 3. Si no hay clientes (nuevo entorno), salta directo al Dashboard.
+ */
+function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [hasClientSelected, setHasClientSelected] = useState<boolean>(false);
   const [location, setLocation] = useLocation();
