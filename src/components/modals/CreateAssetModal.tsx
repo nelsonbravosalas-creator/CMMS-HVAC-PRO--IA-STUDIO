@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LoadingIndicator from '../LoadingIndicator';
 import * as htmlToImage from 'html-to-image';
 import { 
-  X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles
+  X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
 } from 'lucide-react';
 import { EQUIPOS_DATA } from '../../data/equipos';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -394,13 +394,21 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                 </div>
              </div>
 
-             <div className="space-y-1 pt-4">
+             <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <button 
+                  type="button" 
+                  onClick={onClose}
+                  className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-black uppercase tracking-widest rounded-[32px] transition-all flex items-center justify-center gap-3 active:scale-95"
+                >
+                   <ChevronLeft className="w-5 h-5" /> 
+                   <span>Volver Atrás</span>
+                </button>
                 <button 
                   type="submit" 
-                  className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-600/30 active:scale-95 hover:bg-blue-700 hover:shadow-blue-600/40 transition-all flex items-center justify-center gap-3 group"
+                  className="flex-[2] py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-600/30 active:scale-95 hover:bg-blue-700 hover:shadow-blue-600/40 transition-all flex items-center justify-center gap-3 group"
                 >
                    <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
-                   <span>Registrar Activo en Sistema</span>
+                   <span>Crear Activo</span>
                 </button>
              </div>
           </form>

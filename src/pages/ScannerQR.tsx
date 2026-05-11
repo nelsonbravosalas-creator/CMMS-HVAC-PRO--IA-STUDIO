@@ -554,13 +554,13 @@ export default function ScannerQR() {
                      className="flex-1 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-[32px] font-black text-xs uppercase tracking-[0.3em] shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_60px_rgba(37,99,235,0.6)] active:scale-95 transition-all flex items-center justify-center gap-4 group disabled:opacity-50"
                    >
                       {isExporting ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-6 h-6 group-hover:rotate-12 transition-transform" />}
-                       Registrar en Base de Datos
+                       Crear Activo
                    </button>
                    <button 
                      onClick={() => setMode("scanner")}
                      className="px-8 py-6 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-[32px] font-bold text-xs uppercase tracking-[0.3em] border border-white/5 transition-all flex items-center justify-center gap-4"
                    >
-                     <X className="w-5 h-5" /> Cancelar
+                     <ChevronLeft className="w-5 h-5" /> Volver Atrás
                    </button>
                 </div>
              </div>
