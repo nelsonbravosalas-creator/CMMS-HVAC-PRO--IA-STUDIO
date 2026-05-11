@@ -12,7 +12,6 @@
 
 import { Route, Switch, useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider } from "./context/AuthContext";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -127,7 +126,6 @@ function App() {
         </Route>
       </Switch>
     </Layout>
-    <Analytics />
     </AuthProvider>
   );
 }
