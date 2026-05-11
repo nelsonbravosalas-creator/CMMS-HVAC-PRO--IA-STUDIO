@@ -27,9 +27,6 @@ import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdow
 import { QRLabelModal } from "../components/modals/QRLabelModal";
 import { useAuth } from "../context/AuthContext";
 
-import { collection, onSnapshot, query } from "firebase/firestore";
-import { db } from "../lib/firebase";
-
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
 interface FilterState {
@@ -72,22 +69,41 @@ export default function Equipos() {
   }, [filters]);
 
   useEffect(() => {
-    const q = query(collection(db, "equipos"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      // Mezclamos en desarrollo con los locales para que se vea contenido si la BD está vacía (opcional)
-      const merged = [...data];
-      // Para evitar duplicados de tags si estamos testeando
-      EQUIPOS_DATA.forEach(eq => {
-         if(!merged.find(m => m.tag === eq.tag)) merged.push(eq);
-      });
-      setEquiposData(merged);
-      setLoadingEquipos(false);
-    }, (err) => {
-      console.error("Error cargando equipos", err);
-      setLoadingEquipos(false);
-    });
-    return () => unsubscribe();
+    let active = true;
+
+    const fetchEquipos = async () => {
+      try {
+        const response = await fetch('/api/activos');
+        const json = await response.json();
+        
+        if (json.success && active) {
+          const data = json.data.map((row: any) => ({
+            tag: row.id,
+            nombre: row.nombre,
+            tipo: row.tipo,
+            ubicacion: row.ubicacion,
+            estado: row.estado,
+            marca: '',
+            modelo: '',
+            proximoMantenimiento: row.ultima_revision // Simplified for example
+          }));
+
+          const merged = [...data];
+          EQUIPOS_DATA.forEach(eq => {
+            if(!merged.find(m => m.tag === eq.tag)) merged.push(eq);
+          });
+          setEquiposData(merged);
+        }
+      } catch (err) {
+        console.error("Error cargando equipos", err);
+      } finally {
+        if (active) setLoadingEquipos(false);
+      }
+    };
+
+    fetchEquipos();
+
+    return () => { active = false; };
   }, []);
 
   const filteredEquipos = useMemo(() => {

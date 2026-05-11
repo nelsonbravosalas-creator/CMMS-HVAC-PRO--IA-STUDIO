@@ -6,8 +6,6 @@ import {
 } from 'lucide-react';
 import { EQUIPOS_DATA } from '../../data/equipos';
 import { GoogleGenAI, Type } from "@google/genai";
-import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
 
 interface CreateAssetModalProps {
   onClose: () => void;
@@ -174,23 +172,24 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     // 2. Ejecución diferida para la Nube
     setTimeout(async () => {
       try {
-        await setDoc(doc(db, "equipos", fullTag), {
-          tag: fullTag,
-          nombre: tagData.nombreEquipo,
-          almacen: tagData.almacen,
-          tipo: tagData.tipo,
-          correlativo: tagData.correlativo,
-          marca: tagData.marca,
-          modelo: tagData.modelo,
-          serie: tagData.serie,
-          voltaje,
-          corriente,
-          potencia,
-          ubicacion: "No definida",
-          estado: "OPERATIVO",
-          createdAt: serverTimestamp()
+        const response = await fetch('/api/activos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: fullTag,
+            tag_tecnico: fullTag,
+            nombre: tagData.nombreEquipo,
+            tipo: tagData.tipo,
+            ubicacion: "No definida",
+            estado: "OPERATIVO"
+          })
         });
-        console.log("Sincronizado con Firebase exitosamente");
+
+        if (!response.ok) {
+          throw new Error('Error al guardar en la base de datos');
+        }
+
+        console.log("Sincronizado con Neon DB exitosamente");
         alert(`Activo ${fullTag} registrado con éxito en la Base de Datos.`);
       } catch (error) {
         console.error("Error en la nube, se mantiene solo local:", error);

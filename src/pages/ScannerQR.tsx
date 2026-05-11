@@ -26,8 +26,6 @@ import * as htmlToImage from 'html-to-image';
 import { EQUIPOS_DATA } from "../data/equipos";
 import { useEffect } from "react";
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 
 /**
  * Componente ScannerQR.
@@ -226,17 +224,24 @@ export default function ScannerQR() {
     // 2. Ejecución diferida para la Nube
     setTimeout(async () => {
       try {
-        await setDoc(doc(db, "equipos", fullTag), {
-          tag: fullTag,
-          nombre: tagData.nombreEquipo,
-          almacen: tagData.almacen,
-          tipo: tagData.tipo,
-          correlativo: tagData.correlativo,
-          ubicacion: "No definida",
-          estado: "OPERATIVO",
-          createdAt: serverTimestamp()
+        const response = await fetch('/api/activos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: fullTag,
+            tag_tecnico: fullTag,
+            nombre: tagData.nombreEquipo,
+            tipo: tagData.tipo,
+            ubicacion: "No definida",
+            estado: "OPERATIVO"
+          })
         });
-        console.log("Sincronizado con Firebase exitosamente");
+
+        if (!response.ok) {
+          throw new Error('Error al guardar en la base de datos');
+        }
+
+        console.log("Sincronizado con Neon DB exitosamente");
         alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
       } catch (error) {
         console.error("Error en la nube, se mantiene solo local:", error);
