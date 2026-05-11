@@ -26,6 +26,8 @@ import * as htmlToImage from 'html-to-image';
 import { EQUIPOS_DATA } from "../data/equipos";
 import { useEffect } from "react";
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 /**
  * Componente ScannerQR.
@@ -203,12 +205,28 @@ export default function ScannerQR() {
     window.print();
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setIsExporting(true);
-    setTimeout(() => {
-      setIsExporting(false);
+    try {
+      // Guardar el nuevo activo en Firebase Firestore utilizando el tag como ID o creando uno auto-generado. 
+      // Por consistencia y uso del tag, guardémoslo con ID igual a fullTag.
+      await setDoc(doc(db, "equipos", fullTag), {
+        tag: fullTag,
+        nombre: tagData.nombreEquipo,
+        almacen: tagData.almacen,
+        tipo: tagData.tipo,
+        correlativo: tagData.correlativo,
+        ubicacion: "No definida",
+        estado: "OPERATIVO",
+        createdAt: serverTimestamp()
+      });
       alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
-    }, 2000);
+    } catch (error) {
+      console.error("Error al guardar activo", error);
+      alert("Hubo un error al registrar el equipo en la base de datos.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -554,7 +572,7 @@ export default function ScannerQR() {
                      className="flex-1 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-[32px] font-black text-xs uppercase tracking-[0.3em] shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_60px_rgba(37,99,235,0.6)] active:scale-95 transition-all flex items-center justify-center gap-4 group disabled:opacity-50"
                    >
                       {isExporting ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-6 h-6 group-hover:rotate-12 transition-transform" />}
-                       Crear Activo
+                       Guardar los cambios y crear en BD
                    </button>
                    <button 
                      onClick={() => setMode("scanner")}
