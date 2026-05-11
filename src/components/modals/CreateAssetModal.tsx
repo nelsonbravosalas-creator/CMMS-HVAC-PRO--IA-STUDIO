@@ -21,7 +21,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     modelo: '',
     serie: ''
   });
-  const [baseUrl, setBaseUrl] = useState("https://nelsonbravosalas-creator.github.io/APP.-ACTIVOS/");
+  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "https://myapp.vercel.app/scanner");
   
   const [voltaje, setVoltaje] = useState<number>(220);
   const [corriente, setCorriente] = useState<number>(10);

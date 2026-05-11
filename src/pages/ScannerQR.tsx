@@ -23,6 +23,9 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
 import * as htmlToImage from 'html-to-image';
+import { EQUIPOS_DATA } from "../data/equipos";
+import { useEffect } from "react";
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 /**
  * Componente ScannerQR.
@@ -40,6 +43,7 @@ import * as htmlToImage from 'html-to-image';
  */
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
+
   /** Modos de la vista: scanner (captura) o generator (creación) */
   const [mode, setMode] = useState<"scanner" | "generator">("scanner");
   /** Estado de carga durante la exportación de imagen o registro en BD */
@@ -48,8 +52,30 @@ export default function ScannerQR() {
   const [isScannerActive, setIsScannerActive] = useState(false);
   /** Almacena el último resultado de escaneo exitoso */
   const [lastResult, setLastResult] = useState<string | null>(null);
+  /** Datos del equipo encontrado en la base de datos */
+  const [equipoEscaneado, setEquipoEscaneado] = useState<any>(null);
+
   /** Referencia al elemento DOM de la etiqueta para html2canvas */
   const tagRef = useRef<HTMLDivElement>(null);
+
+  /** Hook de efecto para leer los parámetros al cargar la página si viene desde un QR */
+  useEffect(() => {
+    // Leemos la URL para ver si la aplicación fue abierta escaneando un código QR
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tagParam = params.get("tag");
+      if (tagParam) {
+        setLastResult(tagParam);
+        // Hacemos el "llamado a la base de datos" local (EQUIPOS_DATA mock por ahora)
+        const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagParam);
+        if (equipo) {
+          setEquipoEscaneado(equipo);
+        } else {
+          setEquipoEscaneado({ error: "Equipo no encontrado en la base de datos." });
+        }
+      }
+    }
+  }, []);
 
   /** Datos para pre-poblar el generador de etiquetas */
   const [tagData, setTagData] = useState({
@@ -60,7 +86,7 @@ export default function ScannerQR() {
   });
   
   /** URL base para los códigos QR (Redirige a la ficha técnica del activo) */
-  const [baseUrl, setBaseUrl] = useState("https://nelsonbravosalas-creator.github.io/APP.-ACTIVOS/EQUIPOS/");
+  const [baseUrl, setBaseUrl] = useState(`${typeof window !== 'undefined' ? window.location.origin : ''}/scanner?tag=`);
 
   /** TAG completo calculado (ej: 21-STK.AC.012) */
   const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
@@ -71,15 +97,38 @@ export default function ScannerQR() {
 
   /**
    * Inicia el proceso de escaneo.
-   * En producción, integraría la API de cámara del navegador.
    */
   const handleStartScanner = () => {
     setIsScannerActive(true);
-    // Simulación de detección tras 3 segundos
-    setTimeout(() => {
-        setIsScannerActive(false);
-        setLastResult(fullTag);
-    }, 3000);
+    setLastResult(null);
+    setEquipoEscaneado(null);
+  };
+
+  const handleScanSuccess = (text: string) => {
+    if (text) {
+      setIsScannerActive(false);
+
+      // Si es una URL de nuestra app escaneada (como window.location.origin + '/scanner?tag=TAG')
+      let tagValue = text;
+      try {
+        const urlObj = new URL(text);
+        const searchParams = new URLSearchParams(urlObj.search);
+        if (searchParams.has('tag')) {
+          tagValue = searchParams.get('tag')!;
+        }
+      } catch (e) {
+        // No es una URL válida, asumir que es directo el tag
+      }
+
+      setLastResult(tagValue);
+      
+      const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
+      if (equipo) {
+        setEquipoEscaneado(equipo);
+      } else {
+        setEquipoEscaneado({ error: "Equipo no encontrado en la base de datos." });
+      }
+    }
   };
 
   const handleExport = async () => {
@@ -185,14 +234,28 @@ export default function ScannerQR() {
                 <div className="relative aspect-[4/3] bg-slate-900 rounded-[40px] border border-white/5 overflow-hidden shadow-2xl group">
                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                       {isScannerActive ? (
-                        <div className="flex flex-col items-center gap-4">
-                           <LoadingIndicator size="xl" color="text-blue-500" label="Buscando Código..." />
-                           <button 
-                             onClick={() => setIsScannerActive(false)}
-                             className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
-                           >
-                             Detener Cámara
-                           </button>
+                        <div className="absolute inset-0 z-10 w-full h-full bg-black">
+                           <Scanner 
+                             onScan={(detectedCodes) => {
+                               if (detectedCodes.length > 0) {
+                                 handleScanSuccess(detectedCodes[0].rawValue);
+                               }
+                             }}
+                             components={{
+                               audio: false,
+                               torch: true,
+                               zoom: true,
+                               finder: true
+                             }}
+                           />
+                           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+                             <button 
+                               onClick={() => setIsScannerActive(false)}
+                               className="px-6 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-full text-[10px] font-bold uppercase tracking-widest transition-all shadow-xl backdrop-blur-md"
+                             >
+                               Detener Cámara
+                             </button>
+                           </div>
                         </div>
                       ) : (
                         <>
@@ -255,8 +318,28 @@ export default function ScannerQR() {
                 <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 space-y-4">
                    <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Última Lectura</h5>
                    <div className="p-5 bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
-                      <span className="text-xs font-mono text-slate-400 break-all">
-                        {lastResult ? `DETECTADO: ${lastResult}` : "Esperando datos..."}
+                      <span className="text-xs font-mono text-slate-400 break-all text-center">
+                        {lastResult ? (
+                          <>
+                            <div className="mb-2 text-blue-400 font-bold">DETECTADO: {lastResult}</div>
+                            {equipoEscaneado && equipoEscaneado.id ? (
+                               <div className="text-[10px] text-white">
+                                 <div><strong className="text-slate-500">Equipo:</strong> {equipoEscaneado.nombre}</div>
+                                 <div className="mt-1"><strong className="text-slate-500">Ubicación:</strong> {equipoEscaneado.ubicacion}</div>
+                                 <button 
+                                   onClick={() => setLocation(`/equipos/${equipoEscaneado.id}`)}
+                                   className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                                 >
+                                   Ver Ficha Completa
+                                 </button>
+                               </div>
+                            ) : equipoEscaneado && equipoEscaneado.error ? (
+                               <div className="text-red-400 text-[10px]">{equipoEscaneado.error}</div>
+                            ) : (
+                               <div className="text-amber-400 text-[10px]">Buscando en base de datos...</div>
+                            )}
+                          </>
+                        ) : "Esperando datos..."}
                       </span>
                    </div>
                 </div>

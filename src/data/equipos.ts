@@ -1,25 +1,48 @@
 
+/**
+ * =========================================================================
+ * ARCHIVO DE BASE DE DATOS LOCAL MOCK: equipos.ts
+ * =========================================================================
+ * 
+ * PROPÓSITO:
+ * Este archivo actúa como una tabla de base de datos "simulada" en memoria 
+ * (Mock DB) para el desarrollo del frontend. En un entorno de producción real,
+ * la data aquí definida se obtendría mediante consultas a un backend 
+ * (ej., PostgreSQL, MongoDB, Firebase Firestore).
+ * 
+ * INTERACCIONES (QUIÉN LO USA):
+ * - ScannerQR.tsx: Lo utiliza para buscar un equipo por su campo "tag" cuando
+ *   se escanea un código QR u ocurre una redirección desde el QR impreso.
+ * - CreateAssetModal.tsx: Lo utilizaría para guardar nuevos equipos en la BD 
+ *   (aunque al ser local se resetea al recargar).
+ * - Componentes de Dashboard: Leen la lista de equipos para mostrar métricas.
+ */
+
+/**
+ * Interfaz fundamental que define la estructura o "Schema" de los equipos físicos.
+ * Todo nuevo equipo debe seguir exactamente esta estructura.
+ */
 export interface Equipo {
-  tag: string;
-  nombre: string;
-  tipo: string;
-  marca: string;
-  modelo: string;
-  serie: string;
-  ubicacion: string;
-  area: string;
-  capacidad: string;
-  voltaje: string;
-  corriente: string;
-  refrigerante: string;
+  tag: string;             // Identificador único universal en formato Almacen.Tipo.Correlativo
+  nombre: string;          // Nombre legíble para el sistema
+  tipo: string;            // Categoría del dispositivo
+  marca: string;           // Identificación extraída por OCR u operador
+  modelo: string;          
+  serie: string;           
+  ubicacion: string;       
+  area: string;            
+  capacidad: string;       // BTU/h o Vatios
+  voltaje: string;         // Detectado por OCR via AI
+  corriente: string;       
+  refrigerante: string;    
   fechaInstalacion: string;
-  vidaUtil: number;
-  estado: 'Operativo' | 'Falla' | 'Mantenimiento' | 'Baja'; 
-  ultimoMantenimiento: string;
+  vidaUtil: number;        
+  estado: 'Operativo' | 'Falla' | 'Mantenimiento' | 'Baja'; // Estado operacional de la máquina
+  ultimoMantenimiento: string; 
   proximoMantenimiento: string;
-  horasOperacion: number;
-  tecnicos: string[];
-  notas: string;
+  horasOperacion: number;  
+  tecnicos: string[];      // Referencia a una tabla de "Usuarios"
+  notas: string;           
 }
 
 export const EQUIPOS_DATA: Equipo[] = [
@@ -191,7 +214,7 @@ export const EQUIPOS_DATA: Equipo[] = [
     "estado": "operativo",
     "ultimoMantenimiento": "2026-02-02",
     "proximoMantenimiento": "2026-05-03",
-    "hoursOperacion": 0,
+    "horasOperacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
