@@ -59,10 +59,23 @@ const DATA_STATUS = [
   { name: 'Preventivo', value: 10, color: '#f59e0b' },
 ];
 
+/**
+ * Vista de Panel de Control (Dashboard).
+ * Provee una visión holística de la salud operativa de los activos HVAC.
+ * 
+ * @module pages/Dashboard
+ */
+
 export default function Dashboard() {
+  /** Estado para filtrar por sucursal / almacén */
   const [almacen, setAlmacen] = useState("");
+  /** Estado para filtrar por estado técnico (falla, mantenimiento, operativo) */
   const [estado, setEstado] = useState("");
 
+  /**
+   * Memoización de equipos filtrados.
+   * Optimiza el rendimiento evitando re-filtros en re-renders innecesarios.
+   */
   const filteredEquipos = useMemo(() => {
     return EQUIPOS_DATA.filter(eq => {
       const matchAlmacen = almacen ? eq.tag.startsWith(almacen) : true;
@@ -107,7 +120,7 @@ export default function Dashboard() {
       {/* Header / Filter Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Salud Operativa</h2>
+          <h2 className="text-2xl font-black text-[#a7e6b1] tracking-tight uppercase">Salud Operativa</h2>
           <p className="text-slate-500 text-sm font-medium">Resumen ejecutivo y monitoreo de activos real-time.</p>
         </div>
         

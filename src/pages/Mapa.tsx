@@ -13,7 +13,7 @@ import {
   Settings,
   Bell,
   User,
-  ArrowLeft,
+  X,
   Info,
   Clock,
   Wrench,
@@ -196,7 +196,7 @@ export default function App() {
             <div className="flex flex-col md:flex-row h-full min-h-[600px]">
               <div className="md:w-1/2 p-12">
                 <button onClick={() => setView("map")} className="flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-colors mb-10 group">
-                  <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                  <X className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                   <span className="text-[11px] font-black uppercase tracking-widest">Volver a Monitor</span>
                 </button>
 

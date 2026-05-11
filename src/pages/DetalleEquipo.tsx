@@ -22,7 +22,8 @@ import {
   Copy,
   Info,
   Edit2,
-  ScanLine
+  ScanLine,
+  X
 } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { EQUIPOS_DATA, Equipo } from "../data/equipos";
@@ -69,7 +70,7 @@ export default function DetalleEquipo() {
         <div className="flex items-center gap-4">
           <Link href="/equipos">
             <button className="p-2.5 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+              <X className="w-5 h-5" />
             </button>
           </Link>
           <div>

@@ -1,3 +1,11 @@
+/**
+ * Componente de Diseño Estructural (Layout).
+ * Define el marco visual persistente, incluyendo la barra lateral (Desktop) 
+ * y la navegación optimizada para pulgar (Mobile).
+ * 
+ * @module components/Layout
+ */
+
 import { 
   LayoutDashboard, 
   ScanLine, 
@@ -12,8 +20,7 @@ import {
   Calendar as CalendarIcon,
   Terminal,
   Settings,
-  Building,
-  Menu,
+  Database,
   Bell,
   WifiOff,
   Moon,
@@ -23,14 +30,15 @@ import {
   X,
   AlertTriangle,
   Zap,
+  Menu as MenuIcon,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { motion, AnimatePresence } from "motion/react";
 
-interface LayoutProps {
-  children: ReactNode;
-}
-
+/**
+ * Propiedades del componente NavItem.
+ */
 interface NavItemProps {
   href: string;
   icon: any;
@@ -39,9 +47,31 @@ interface NavItemProps {
   badgeColor?: string;
   onClick?: () => void;
   variant?: 'default' | 'large';
+  isDarkMode?: boolean;
 }
 
-function NavItem({ href, icon: Icon, label, badge, badgeColor = "bg-red-500", onClick, variant = 'default' }: NavItemProps) {
+const NAV_ITEMS = [
+  { href: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/scanner", icon: ScanLine, label: "Scanner QR" },
+  { href: "/equipos", icon: Box, label: "Equipos" },
+  { href: "/mapa", icon: MapPin, label: "Mapa" },
+  { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'mantenimientosPendientes', badgeColor: "bg-amber-500" },
+  { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
+  { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio" },
+  { href: "/informes", icon: FileText, label: "Informes HVAC", badgeKey: 'informesPendientesFirma', badgeColor: "bg-blue-500" },
+  { href: "/tickets", icon: Ticket, label: "Tickets", badgeKey: 'ticketsAbiertos' },
+  { href: "/reportes", icon: BarChart3, label: "Reportes" },
+  { href: "/eficiencia", icon: Zap, label: "Eficiencia Energética" },
+  { href: "/administracion", icon: Users, label: "Administración", section: "Configuración" },
+  { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración" },
+  { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración" },
+];
+
+/**
+ * Componente de navegación individual.
+ * Soporta dos variantes: 'default' para barra lateral desktop y 'large' para menú táctil móvil.
+ */
+function NavItem({ href, icon: Icon, label, badge, badgeColor = "bg-red-500", onClick, variant = 'default', isDarkMode = true }: NavItemProps) {
   const [location] = useLocation();
   const isActive = location === href;
 
@@ -51,12 +81,14 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor = "bg-red-500", on
         <div className={`mx-4 my-2 p-5 rounded-3xl border-2 flex items-center gap-6 cursor-pointer transition-all active:scale-95 ${
           isActive 
             ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/30 font-black" 
-            : "bg-slate-900/50 border-white/10 text-slate-400 hover:bg-slate-800"
+            : isDarkMode
+              ? "bg-slate-900/50 border-white/10 text-slate-100 hover:bg-slate-800"
+              : "bg-white border-slate-200 text-slate-900 hover:bg-slate-50 shadow-sm"
         }`}>
-          <Icon className={`w-8 h-8 ${isActive ? "text-white" : "text-slate-500"}`} />
+          <Icon className={`w-8 h-8 ${isActive ? "text-white" : isDarkMode ? "text-slate-100" : "text-slate-900"}`} />
           <span className="flex-1 whitespace-nowrap text-sm font-black uppercase tracking-[0.1em]">{label}</span>
           {badge !== undefined && badge > 0 && (
-            <span className={`${badgeColor} text-white rounded-full w-8 h-8 flex items-center justify-center text-[10px] font-black border-2 border-slate-900`}>
+            <span className={`${badgeColor} text-white rounded-full w-8 h-8 flex items-center justify-center text-[10px] font-black border-2 ${isDarkMode ? 'border-slate-900' : 'border-white'}`}>
               {badge}
             </span>
           )}
@@ -69,11 +101,13 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor = "bg-red-500", on
     <Link href={href} onClick={onClick}>
       <div className={`flex items-center gap-3 px-6 py-3 cursor-pointer transition-colors text-sm border-l-4 ${
         isActive 
-          ? "bg-slate-800 text-white border-blue-500 font-semibold" 
-          : "hover:bg-slate-800 hover:text-slate-50 border-transparent text-slate-400"
+          ? `font-semibold border-blue-500 ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-blue-50 text-blue-700'}`
+          : isDarkMode 
+            ? "hover:bg-slate-800 hover:text-white border-transparent text-slate-100"
+            : "hover:bg-slate-100 hover:text-slate-900 border-transparent text-slate-900"
       }`}>
-        <Icon className={`w-4 h-4 ${isActive ? "text-blue-400" : ""}`} />
-        <span className="flex-1 whitespace-nowrap">{label}</span>
+        <Icon className={`w-4 h-4 ${isActive ? (isDarkMode ? "text-blue-400" : "text-blue-600") : ""}`} />
+        <span className="flex-1 whitespace-nowrap font-medium">{label}</span>
         {badge !== undefined && badge > 0 && (
           <span className={`${badgeColor} text-white rounded px-1.5 py-px text-[10px] ml-auto font-bold animate-pulse`}>
             {badge}
@@ -84,14 +118,44 @@ function NavItem({ href, icon: Icon, label, badge, badgeColor = "bg-red-500", on
   );
 }
 
+/**
+ * Propiedades del Layout.
+ * @interface LayoutProps
+ */
+interface LayoutProps {
+  /** Contenido de la página actual que será renderizado dentro del marco. */
+  children: ReactNode;
+}
+
+/**
+ * Componente funcional Layout.
+ * 
+ * Funcionalidades transversales:
+ * - Persistencia de Barra Lateral: Navegación rápida entre módulos CMMS.
+ * - Soporte PWA: Banner de instalación para capacidades offline.
+ * - Tematización: Cambio entre modo claro / oscuro (Dark Mode nativo).
+ * - UX Móvil: Navegación de una sola mano con switch de lateralidad (Zurdo/Diestro).
+ * - Monitoreo de Red: Visualización de operaciones pendientes de sincronización (Offline ops).
+ * 
+ * @param {LayoutProps} props
+ * @returns {JSX.Element} Estructura base con Header, Sidebar y Main Area.
+ */
 export default function Layout({ children }: LayoutProps) {
+  /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  /** Control del drawer de acciones secundarias (Mobile) */
   const [isMoreDrawerOpen, setIsMoreDrawerOpen] = useState(false);
+  /** Estado del tema visual (Persistente durante la sesión) */
   const [isDarkMode, setIsDarkMode] = useState(true);
+  /** Visibilidad del banner de Progressive Web App */
   const [showPWABanner, setShowPWABanner] = useState(true);
+  /** Posición de los controles móviles para ergonimía (Derecha/Izquierda) */
   const [menuPosition, setMenuPosition] = useState<'left' | 'right'>('right');
 
-  // Mock data for badges
+  /** 
+   * Estadísticas y contadores de insignias (Badges).
+   * En producción, estos valores provienen de listeners reales de Firestore.
+   */
   const stats = {
     ticketsAbiertos: 4,
     mantenimientosPendientes: 12,
@@ -116,21 +180,23 @@ export default function Layout({ children }: LayoutProps) {
         </div>
         
         <nav className="mt-4 flex-1 flex flex-col overflow-y-auto scrollbar-hide py-2">
-          <NavItem href="/" icon={LayoutDashboard} label="Dashboard" />
-          <NavItem href="/scanner" icon={ScanLine} label="Scanner QR" />
-          <NavItem href="/equipos" icon={Box} label="Equipos" />
-          <NavItem href="/mapa" icon={MapPin} label="Mapa" />
-          <NavItem href="/mantenimientos" icon={Wrench} label="Mantenimientos" badge={stats.mantenimientosPendientes} badgeColor="bg-amber-500" />
-          <NavItem href="/planificacion" icon={CalendarIcon} label="Calendario" />
-          <NavItem href="/informes" icon={FileText} label="Informes HVAC" badge={stats.informesPendientesFirma} badgeColor="bg-blue-500" />
-          <NavItem href="/tickets" icon={Ticket} label="Tickets" badge={stats.ticketsAbiertos} />
-          <NavItem href="/reportes" icon={BarChart3} label="Reportes" />
-          <NavItem href="/eficiencia" icon={Zap} label="Eficiencia Energética" />
-          
-          <div className={`mt-6 mb-2 px-6 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`}>Configuración</div>
-          <NavItem href="/administracion" icon={Users} label="Administración" />
-          <NavItem href="/consola" icon={Terminal} label="Consola" />
-          <NavItem href="/configuracion" icon={Settings} label="Configuración" />
+          {NAV_ITEMS.map((item, idx) => (
+            <div key={item.href}>
+              {item.section && (idx === 0 || NAV_ITEMS[idx-1].section !== item.section) && (
+                <div className={`mt-6 mb-2 px-6 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {item.section}
+                </div>
+              )}
+              <NavItem 
+                isDarkMode={isDarkMode} 
+                href={item.href} 
+                icon={item.icon} 
+                label={item.label} 
+                badge={item.badgeKey ? (stats as any)[item.badgeKey] : undefined}
+                badgeColor={item.badgeColor}
+              />
+            </div>
+          ))}
         </nav>
 
         {/* Sidebar Footer Alerts */}
@@ -160,52 +226,74 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </aside>
 
-      {/* Mobile Menu Backdrop */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" 
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+      {/* Mobile Drawer Navigation */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+            />
+            
+            {/* Drawer */}
+            <motion.aside
+              initial={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className={`fixed top-0 ${menuPosition === 'right' ? 'right-0' : 'left-0'} h-full w-[320px] z-[110] lg:hidden shadow-2xl flex flex-col ${
+                isDarkMode ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
+              } border-x overflow-hidden`}
+            >
+              <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                    <span className="text-[10px] text-white font-black">HV</span>
+                  </div>
+                  <span className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Menu Principal</span>
+                </div>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
+                    isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+                  }`}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-      {/* Mobile Sidebar Drawer (Thumb Consistent) */}
-      <aside className={`fixed top-0 ${menuPosition === 'right' ? 'right-0' : 'left-0'} h-full w-[320px] bg-slate-950 z-[100] transition-transform duration-500 lg:hidden shadow-2xl flex flex-col ${
-        isMobileMenuOpen 
-          ? 'translate-x-0' 
-          : (menuPosition === 'right' ? 'translate-x-full' : '-translate-x-full')
-      }`}>
-        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
-          <span className="text-white font-black uppercase tracking-[0.2em] text-xs underline decoration-blue-500 underline-offset-8">Menu Operativo</span>
-          <div className="p-4 bg-white/5 rounded-2xl cursor-pointer active:scale-90 transition-transform border border-white/10" onClick={() => setIsMobileMenuOpen(false)}>
-            <X className="text-slate-400 w-6 h-6" />
-          </div>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-6 space-y-2 custom-scrollbar">
-          <NavItem variant="large" href="/" icon={LayoutDashboard} label="DASHBOARD" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/scanner" icon={ScanLine} label="SCANNER QR" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/equipos" icon={Box} label="Equipos" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/mantenimientos" icon={Wrench} label="Mantenimientos" badge={stats.mantenimientosPendientes} badgeColor="bg-amber-500" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/planificacion" icon={CalendarIcon} label="Calendario" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/informes" icon={FileText} label="Informes HVAC" badge={stats.informesPendientesFirma} onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/tickets" icon={Ticket} label="Tickets" badge={stats.ticketsAbiertos} onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/mapa" icon={MapPin} label="Mapa" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/reportes" icon={BarChart3} label="Reportes" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/eficiencia" icon={Zap} label="EFICIENCIA" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/administracion" icon={Users} label="Administración" onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/configuracion" icon={Settings} label="Configuración" onClick={() => setIsMobileMenuOpen(false)} />
-        </nav>
+              <nav className="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
+                {NAV_ITEMS.map((item) => (
+                  <NavItem 
+                    key={item.href}
+                    isDarkMode={isDarkMode} 
+                    variant="large" 
+                    href={item.href} 
+                    icon={item.icon} 
+                    label={item.label} 
+                    badge={item.badgeKey ? (stats as any)[item.badgeKey] : undefined}
+                    badgeColor={item.badgeColor}
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                  />
+                ))}
+              </nav>
 
-        {/* Global Exit Button for thumb interaction */}
-        <div className="p-8 border-t border-white/5 bg-slate-950/80 backdrop-blur-md">
-           <button 
-             onClick={() => setIsMobileMenuOpen(false)}
-             className="w-full py-6 bg-yellow-400 hover:bg-yellow-500 text-slate-950 font-black text-sm rounded-[32px] uppercase tracking-[0.3em] shadow-[0_15px_40px_rgba(250,204,21,0.3)] active:scale-95 transition-all border-b-8 border-yellow-600 flex items-center justify-center gap-3"
-           >
-             <X className="w-5 h-5" />
-             Volver
-           </button>
-        </div>
-      </aside>
+              <div className={`p-6 border-t ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white border-slate-100'} backdrop-blur-md`}>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-[24px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  Continuar
+                </button>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main Content Viewport */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
@@ -213,8 +301,11 @@ export default function Layout({ children }: LayoutProps) {
         {/* Header */}
         <header className={`h-16 shrink-0 border-b flex items-center justify-between px-4 lg:px-8 z-30 shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-4">
-            <button className="lg:hidden p-2 text-slate-400 hover:text-blue-500 transition-colors" onClick={() => setIsMobileMenuOpen(true)}>
-              <Menu className="w-6 h-6" />
+            <button 
+              className={`lg:hidden p-2 transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`} 
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <MenuIcon className="w-6 h-6" />
             </button>
             <h1 className={`text-xs font-bold uppercase tracking-widest hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
               Panel Operativo Global
@@ -232,7 +323,7 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Notifications Bell */}
             <div className="relative cursor-pointer group p-2">
-              <Bell className={`w-5 h-5 transition-transform group-hover:scale-110 ${stats.equiposEnFalla > 0 ? 'text-red-500 animate-bounce' : 'text-slate-400'}`} />
+              <Bell className={`w-5 h-5 transition-transform group-hover:scale-110 ${stats.equiposEnFalla > 0 ? 'text-red-500 animate-bounce' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`} />
               {stats.equiposEnFalla > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-slate-900"></span>
               )}
@@ -247,11 +338,11 @@ export default function Layout({ children }: LayoutProps) {
             </button>
 
             {/* Client Selector (Desktop) */}
-            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded border text-[10px] font-bold cursor-pointer transition-colors ${
-              isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
+              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800 hover:border-slate-500 hover:shadow-sm' : 'bg-white border-slate-300 text-slate-900 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm'
             }`}>
-              <Building className="w-3 h-3" />
-              <span>SANTIAGO-B01</span>
+              <Database className={`w-3.5 h-3.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              <span className="tracking-widest">SANTIAGO-B01</span>
               <ChevronDown className="w-3 h-3 opacity-50" />
             </div>
 
@@ -300,20 +391,20 @@ export default function Layout({ children }: LayoutProps) {
             {menuPosition === 'right' ? 'R' : 'L'}
           </button>
 
-          <div className={`flex items-center gap-2 p-2 rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 ${
+          <div className={`flex items-center gap-2 p-2 mt-0 -mb-[23px] mr-[1px] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 ${
             isDarkMode ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-200'
           } ${menuPosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}>
             
             {/* Secondary Actions (More) */}
             <div 
-              className="w-12 h-12 rounded-2xl flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:bg-slate-800 transition-colors"
+              className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
               onClick={() => setIsMoreDrawerOpen(true)}
             >
               <MoreHorizontal className="w-6 h-6" />
             </div>
 
             <Link href="/mantenimientos">
-              <div className="w-12 h-12 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-colors relative">
+              <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-colors relative ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`}>
                 <Wrench className="w-6 h-6" />
                 {stats.mantenimientosPendientes > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-amber-500 text-[10px] text-white flex items-center justify-center rounded-full font-black border-2 border-slate-900">
@@ -331,7 +422,7 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
 
             <Link href="/">
-              <div className="w-12 h-12 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-colors">
+              <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`}>
                 <LayoutDashboard className="w-6 h-6" />
               </div>
             </Link>

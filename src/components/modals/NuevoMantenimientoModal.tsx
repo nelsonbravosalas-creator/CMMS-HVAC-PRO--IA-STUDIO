@@ -10,6 +10,42 @@ interface NuevoMantenimientoModalProps {
 
 export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = ({ onClose, duplicateId }) => {
   const [hasChanges, setHasChanges] = useState(false);
+  const [frecuencia, setFrecuencia] = useState("Mensual");
+  const [fechaActual, setFechaActual] = useState(new Date().toISOString().split('T')[0]);
+  const [proximaMantencion, setProximaMantencion] = useState("");
+
+  React.useEffect(() => {
+    if(!fechaActual) return;
+    try {
+      const dateParts = fechaActual.split('-');
+      if (dateParts.length !== 3) return;
+      const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+      
+      let nextDate: Date | null = null;
+      switch(frecuencia) {
+          case "Mensual": date.setMonth(date.getMonth() + 1); nextDate = date; break;
+          case "Bi-Mestral": date.setMonth(date.getMonth() + 2); nextDate = date; break;
+          case "Trimestral": date.setMonth(date.getMonth() + 3); nextDate = date; break;
+          case "Cuatrimestral": date.setMonth(date.getMonth() + 4); nextDate = date; break;
+          case "Semestral": date.setMonth(date.getMonth() + 6); nextDate = date; break;
+          case "Anual": date.setFullYear(date.getFullYear() + 1); nextDate = date; break;
+          case "Por Demanda": 
+          case "Unico":
+          default: nextDate = null; break;
+      }
+      if (nextDate) {
+          // Format back to YYYY-MM-DD correctly protecting against timezone shifts
+          const year = nextDate.getFullYear();
+          const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+          const day = String(nextDate.getDate()).padStart(2, '0');
+          setProximaMantencion(`${year}-${month}-${day}`);
+      } else {
+          setProximaMantencion("");
+      }
+    } catch(e) {
+      // Ignorar errores de fecha inválida
+    }
+  }, [frecuencia, fechaActual]);
 
   const handleClose = () => {
     if (hasChanges) {
@@ -65,7 +101,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-             <Field label="Fecha" type="date" defaultValue={new Date().toISOString().split('T')[0]} icon={<Calendar className="w-3 h-3" />} />
+             <Field label="Fecha" type="date" value={fechaActual} onChange={(e) => setFechaActual(e.target.value)} icon={<Calendar className="w-3 h-3" />} />
              <Field label="Técnico" type="text" defaultValue="Nelson Bravo" icon={<User className="w-3 h-3" />} />
              <Field label="Duración (Min)" type="number" defaultValue="60" icon={<Clock className="w-3 h-3" />} />
              <Field label="Costo Materiales" type="number" defaultValue="0" icon={<DollarSign className="w-3 h-3" />} />
@@ -88,14 +124,27 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
              </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 bg-slate-50 rounded-[32px] border border-slate-100">
              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Próxima Mantención</label>
-                <input type="date" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold outline-none" />
+                <label className="text-[10px] font-black uppercase text-slate-400">Frecuencia</label>
+                <select value={frecuencia} onChange={(e) => setFrecuencia(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10">
+                  <option value="Unico">Único</option>
+                  <option value="Mensual">Mensual</option>
+                  <option value="Bi-Mestral">Bi-Mestral</option>
+                  <option value="Trimestral">Trimestral</option>
+                  <option value="Cuatrimestral">Cuatrimestral</option>
+                  <option value="Semestral">Semestral</option>
+                  <option value="Anual">Anual</option>
+                  <option value="Por Demanda">Por Demanda</option>
+                </select>
              </div>
              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Repuestos Utilizados (Separar por coma)</label>
-                <input type="text" placeholder="Filtro 20x20, Refrigerante R410..." className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold outline-none" />
+                <label className="text-[10px] font-black uppercase text-slate-400">Sugerencia Próx. Mantención</label>
+                <input type="date" value={proximaMantencion} onChange={(e) => setProximaMantencion(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10" />
+             </div>
+             <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-slate-400">Repuestos Utilizados</label>
+                <input type="text" placeholder="Filtro 20x20, Refrigerante..." className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10" />
              </div>
           </div>
 
@@ -113,14 +162,14 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
   );
 };
 
-function Field({ label, type, defaultValue, icon }: { label: string, type: string, defaultValue: string, icon: React.ReactNode }) {
+function Field({ label, type, value, defaultValue, onChange, icon }: { label: string, type: string, value?: string, defaultValue?: string, onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void, icon: React.ReactNode }) {
   return (
     <div className="space-y-1">
        <div className="flex items-center gap-1.5 ml-1">
           <div className="text-slate-300">{icon}</div>
           <label className="text-[9px] font-black uppercase text-slate-400">{label}</label>
        </div>
-       <input type={type} defaultValue={defaultValue} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none" />
+       <input type={type} value={value} defaultValue={defaultValue} onChange={onChange} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none" />
     </div>
   );
 }

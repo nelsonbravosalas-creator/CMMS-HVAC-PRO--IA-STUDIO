@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Info, 
   Settings, 
@@ -13,7 +13,9 @@ import {
   Github, 
   Mail,
   HardDrive,
-  Coins
+  Coins,
+  Image as ImageIcon,
+  Upload
 } from "lucide-react";
 
 export default function Configuracion() {
@@ -30,7 +32,7 @@ export default function Configuracion() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = reader.result;
+        const base64 = reader.result as string;
         setAppLogo(base64);
         localStorage.setItem("system_logo", base64);
       };

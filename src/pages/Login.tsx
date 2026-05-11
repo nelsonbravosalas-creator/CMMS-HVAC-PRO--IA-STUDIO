@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, LogIn, Sun, Moon, ShieldCheck } from "lucide-react";
 import { useLocation } from "wouter";
+import LoadingIndicator from "../components/LoadingIndicator";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -20,10 +22,13 @@ export default function Login() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo/prototype, any non-empty values work
     if (email && pin) {
-      localStorage.setItem("is_authenticated", "true");
-      setLocation("/client-selector");
+      setIsLoading(true);
+      // Simulate network request
+      setTimeout(() => {
+        localStorage.setItem("is_authenticated", "true");
+        setLocation("/client-selector");
+      }, 1500);
     }
   };
 
@@ -81,9 +86,14 @@ export default function Login() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-3 transition-all active:scale-95"
+            disabled={isLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            INGRESAR <LogIn className="w-4 h-4" />
+            {isLoading ? (
+              <LoadingIndicator size="sm" color="text-white" label="Validando..." className="flex-row gap-2" />
+            ) : (
+              <>INGRESAR <LogIn className="w-4 h-4" /></>
+            )}
           </button>
         </form>
 

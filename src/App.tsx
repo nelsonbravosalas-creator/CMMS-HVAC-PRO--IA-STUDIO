@@ -3,6 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * Componente principal de la aplicación que gestiona el enrutamiento global,
+ * la persistencia de sesión y la jerarquía de vistas.
+ * 
+ * @module App
+ */
+
 import { Route, Switch, useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { AuthProvider } from "./context/AuthContext";
@@ -13,6 +20,8 @@ import Equipos from "./pages/Equipos";
 import DetalleEquipo from "./pages/DetalleEquipo";
 import Mapa from "./pages/Mapa";
 import Mantenimientos from "./pages/Mantenimientos";
+import EditorOrdenServicio from "./pages/EditorOrdenServicio";
+import OrdenesServicio from "./pages/OrdenesServicio";
 import InformesHVAC from "./pages/InformesHVAC";
 import EditorInforme from "./pages/EditorInforme";
 import Tickets from "./pages/Tickets";
@@ -25,6 +34,17 @@ import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
 
+/**
+ * Componente funcional App.
+ * Controla el acceso basado en el estado de autenticación y selección del cliente (Tenant).
+ * 
+ * Interacciones:
+ * - LocalStorage: Verifica "is_authenticated" y "active_client".
+ * - AuthProvider: Provee contexto de Firebase Auth a toda la aplicación.
+ * - Layout: Envuelve las páginas protegidas con la barra lateral y navegación superior.
+ * 
+ * @returns {JSX.Element} El árbol de componentes de la aplicación.
+ */
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [hasClientSelected, setHasClientSelected] = useState<boolean>(false);
@@ -64,6 +84,8 @@ export default function App() {
         <Route path="/equipos/:tag" component={DetalleEquipo} />
         <Route path="/mapa" component={Mapa} />
         <Route path="/mantenimientos" component={Mantenimientos} />
+        <Route path="/ordenes-servicio" component={OrdenesServicio} />
+        <Route path="/ordenes-servicio/:id" component={EditorOrdenServicio} />
         <Route path="/planificacion" component={Planificacion} />
         <Route path="/informes" component={InformesHVAC} />
         <Route path="/informes/:id" component={EditorInforme} />

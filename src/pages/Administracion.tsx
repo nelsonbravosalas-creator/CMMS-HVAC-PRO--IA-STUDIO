@@ -23,12 +23,14 @@ import {
   UserCircle
 } from "lucide-react";
 import { USUARIOS_MOCK, Usuario, CLIENTES_MOCK, Cliente } from "../data/usuarios";
+import { ClientModal } from "../components/modals/ClientModal";
 
 type AdminTab = "usuarios" | "clientes";
 
 export default function Administracion() {
   const [activeTab, setActiveTab] = useState<AdminTab>("usuarios");
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
   const [filter, setFilter] = useState("");
 
   return (
@@ -43,7 +45,7 @@ export default function Administracion() {
             <RotateCcw className="w-4 h-4" /> Actualizar Lista
           </button>
           <button 
-            onClick={() => setShowUserModal(true)}
+            onClick={() => activeTab === 'usuarios' ? setShowUserModal(true) : setShowClientModal(true)}
             className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-slate-900/10"
           >
             <Plus className="w-4 h-4" /> {activeTab === 'usuarios' ? 'Nuevo Usuario' : 'Nuevo Cliente'}
@@ -180,6 +182,8 @@ export default function Administracion() {
            </div>
         </div>
       )}
+
+      <ClientModal isOpen={showClientModal} onClose={() => setShowClientModal(false)} />
     </div>
   );
 }
