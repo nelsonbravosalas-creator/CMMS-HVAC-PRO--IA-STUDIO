@@ -173,16 +173,24 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     // 2. Ejecución diferida para la Nube
     setTimeout(async () => {
       try {
-        const response = await fetch('/api/activos', {
+        const response = await fetch('/api/equipos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            id: fullTag,
-            tag_tecnico: fullTag,
+            tag: fullTag,
             nombre: tagData.nombreEquipo,
-            tipo: tagData.tipo,
-            ubicacion: tagData.almacen,
-            estado: "OPERATIVO"
+            estado: "operativo",
+            especificaciones: {
+              tipo: tagData.tipo,
+              correlativo: tagData.correlativo,
+              almacen: tagData.almacen,
+              marca: tagData.marca,
+              modelo: tagData.modelo,
+              serie: tagData.serie,
+              voltaje, corriente, potencia
+            },
+            tecnicos: [],
+            mantenimiento_history: []
           })
         });
 

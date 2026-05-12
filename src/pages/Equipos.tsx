@@ -67,20 +67,23 @@ export default function Equipos() {
 
     const fetchEquipos = async () => {
       try {
-        const response = await fetch('/api/activos');
+        const response = await fetch('/api/equipos');
         const json = await response.json();
         
         if (json.success && active) {
-          const data = json.data.map((row: any) => ({
-            tag: row.id,
-            nombre: row.nombre,
-            tipo: row.tipo,
-            ubicacion: row.ubicacion,
-            estado: row.estado,
-            marca: '',
-            modelo: '',
-            proximo_mantenimiento: row.ultima_revision // Simplified for example
-          }));
+          const data = json.data.map((row: any) => {
+            const especs = typeof row.especificaciones === 'string' ? JSON.parse(row.especificaciones) : (row.especificaciones || {});
+            return {
+              tag: row.tag,
+              nombre: row.nombre,
+              tipo: especs.tipo || '',
+              ubicacion: especs.almacen || '',
+              estado: row.estado,
+              marca: especs.marca || '',
+              modelo: especs.modelo || '',
+              proximo_mantenimiento: row.ultimo_mantenimiento || null
+            };
+          });
 
           const merged = [...data];
           EQUIPOS_DATA.forEach(eq => {
