@@ -66,13 +66,31 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
      localStorage.setItem(`mantenimiento_${formData.idRegistro}`, JSON.stringify(formData));
 
      // 2. Ejecución diferida (Nube)
-     setTimeout(() => {
-        // En una implementación real, aquí se usaría setDoc a Firestore
-        console.log("Mantenimiento sincronizado con la nube (simulación)");
-        alert("Registro de mantenimiento completado exitosamente.");
-        setIsSaving(false);
-        setHasChanges(false);
-        onClose();
+     setTimeout(async () => {
+        try {
+           await fetch('/api/mantenimientos', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+                id: formData.idRegistro || Date.now().toString(),
+                tag: 'SIN-ASIGNAR', // Fallback, could be selected in form
+                tipo: 'correctivo',
+                fecha: formData.fechaActual,
+                estado: 'programado',
+                ...formData
+             })
+           });
+           console.log("Mantenimiento sincronizado con la nube a través de Neon/Vercel");
+           alert("Registro de mantenimiento completado exitosamente.");
+           setIsSaving(false);
+           setHasChanges(false);
+           onClose();
+        } catch (error) {
+           console.error("Error sincronizando mantenimiento", error);
+           setIsSaving(false);
+           alert("Guardado localmente. Falló la sincronización con la nube.");
+           onClose();
+        }
      }, 0);
   };
 

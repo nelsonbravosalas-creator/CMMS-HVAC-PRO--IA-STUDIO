@@ -44,12 +44,12 @@ export interface Equipo {
   voltaje: string;         // Detectado por OCR via AI
   corriente: string;       
   refrigerante: string;    
-  fechaInstalacion: string;
-  vidaUtil: number;        
+  fecha_instalacion: string;
+  vida_util: number;        
   estado: 'operativo' | 'falla' | 'mantenimiento' | 'baja'; // Estado operacional de la máquina
-  ultimoMantenimiento: string; 
-  proximoMantenimiento: string;
-  horasOperacion: number;  
+  ultimo_mantenimiento: string; 
+  proximo_mantenimiento: string;
+  horas_operacion: number;  
   tecnicos: string[];      // Referencia a una tabla de "Usuarios"
   notas: string;           
 }
@@ -68,12 +68,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "220",
     "corriente": "5.1",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 10,
+    "fecha_instalacion": "",
+    "vida_util": 10,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-02",
-    "proximoMantenimiento": "2026-08-01",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-02",
+    "proximo_mantenimiento": "2026-08-01",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
@@ -93,12 +93,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "220",
     "corriente": "4.0",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 10,
+    "fecha_instalacion": "",
+    "vida_util": 10,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-02",
-    "proximoMantenimiento": "2026-08-01",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-02",
+    "proximo_mantenimiento": "2026-08-01",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
@@ -118,12 +118,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "220",
     "corriente": "10.8",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 10,
+    "fecha_instalacion": "",
+    "vida_util": 10,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-02",
-    "proximoMantenimiento": "2026-08-01",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-02",
+    "proximo_mantenimiento": "2026-08-01",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
@@ -143,12 +143,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "220",
     "corriente": "7.9",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 10,
+    "fecha_instalacion": "",
+    "vida_util": 10,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-02",
-    "proximoMantenimiento": "2026-08-01",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-02",
+    "proximo_mantenimiento": "2026-08-01",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
@@ -168,12 +168,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "220",
     "corriente": "10.9",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 8,
+    "fecha_instalacion": "",
+    "vida_util": 8,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-02",
-    "proximoMantenimiento": "2026-08-01",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-02",
+    "proximo_mantenimiento": "2026-08-01",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
@@ -193,12 +193,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "220",
     "corriente": "7.6",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 8,
+    "fecha_instalacion": "",
+    "vida_util": 8,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-02",
-    "proximoMantenimiento": "2026-08-01",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-02",
+    "proximo_mantenimiento": "2026-08-01",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
@@ -218,12 +218,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "220",
     "corriente": "10.2",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 10,
+    "fecha_instalacion": "",
+    "vida_util": 10,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-02",
-    "proximoMantenimiento": "2026-05-03",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-02",
+    "proximo_mantenimiento": "2026-05-03",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
@@ -243,12 +243,12 @@ export const EQUIPOS_DATA: Equipo[] = [
     "voltaje": "380",
     "corriente": "0.0",
     "refrigerante": "R-410A",
-    "fechaInstalacion": "",
-    "vidaUtil": 8,
+    "fecha_instalacion": "",
+    "vida_util": 8,
     "estado": "operativo",
-    "ultimoMantenimiento": "2026-02-15",
-    "proximoMantenimiento": "2026-08-14",
-    "horasOperacion": 0,
+    "ultimo_mantenimiento": "2026-02-15",
+    "proximo_mantenimiento": "2026-08-14",
+    "horas_operacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"

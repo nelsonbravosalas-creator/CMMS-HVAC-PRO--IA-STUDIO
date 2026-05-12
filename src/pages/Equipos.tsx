@@ -79,7 +79,7 @@ export default function Equipos() {
             estado: row.estado,
             marca: '',
             modelo: '',
-            proximoMantenimiento: row.ultima_revision // Simplified for example
+            proximo_mantenimiento: row.ultima_revision // Simplified for example
           }));
 
           const merged = [...data];
@@ -215,7 +215,7 @@ export default function Equipos() {
               >
                 <option value="tag">Ordenar por TAG</option>
                 <option value="nombre">Ordenar por Nombre</option>
-                <option value="ultimoMantenimiento">Mantenimiento</option>
+                <option value="ultimo_mantenimiento">Mantenimiento</option>
               </select>
               <button 
                 onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
@@ -329,7 +329,7 @@ const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void 
           </div>
           <div className="flex justify-between items-center text-[10px] font-bold uppercase">
              <span className="text-slate-400">Próximo Mantenimiento:</span>
-             <span className="text-slate-900">{equipo.proximoMantenimiento}</span>
+             <span className="text-slate-900">{equipo.proximo_mantenimiento}</span>
           </div>
        </div>
 
@@ -380,7 +380,7 @@ const EquipoRowList: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }
           {equipo.estado}
         </span>
       </td>
-      <td className="px-6 py-4 font-bold text-slate-600">{equipo.proximoMantenimiento}</td>
+      <td className="px-6 py-4 font-bold text-slate-600">{equipo.proximo_mantenimiento}</td>
       <td className="px-6 py-4 text-right">
          <div className="flex justify-end gap-2 text-slate-300 group-hover:text-slate-500">
             <Edit2 className="w-4 h-4 hover:text-blue-500" />

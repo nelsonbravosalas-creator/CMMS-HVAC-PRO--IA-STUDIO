@@ -97,12 +97,12 @@ export default async function handler(req, res) {
               ${equipo.voltaje || ''}, 
               ${equipo.corriente || ''}, 
               ${equipo.refrigerante || ''}, 
-              ${equipo.fechaInstalacion || ''}, 
-              ${equipo.vidaUtil || 0}, 
+              ${equipo.fecha_instalacion || ''}, 
+              ${equipo.vida_util || 0}, 
               ${equipo.estado || 'operativo'}, 
-              ${equipo.ultimoMantenimiento || ''}, 
-              ${equipo.proximoMantenimiento || ''}, 
-              ${equipo.horasOperacion || 0}, 
+              ${equipo.ultimo_mantenimiento || ''}, 
+              ${equipo.proximo_mantenimiento || ''}, 
+              ${equipo.horas_operacion || 0}, 
               ${equipo.notas || ''}, 
               ${JSON.stringify(equipo)}
             )

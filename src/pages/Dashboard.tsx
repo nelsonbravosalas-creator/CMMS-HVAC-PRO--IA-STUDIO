@@ -301,7 +301,7 @@ export default function Dashboard() {
                   <div className="flex-1">
                     <div className="flex justify-between items-center text-[10px] font-bold mb-1">
                       <span className="text-slate-400 uppercase">Preventivo Programado</span>
-                      <span className="text-blue-600 uppercase">{eq.proximoMantenimiento}</span>
+                      <span className="text-blue-600 uppercase">{eq.proximo_mantenimiento}</span>
                     </div>
                     <p className="text-sm font-bold text-slate-800 uppercase tracking-tight">{eq.nombre} / {eq.tag}</p>
                   </div>

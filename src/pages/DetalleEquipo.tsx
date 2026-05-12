@@ -159,9 +159,9 @@ export default function DetalleEquipo() {
                       <div className="space-y-4">
                          <ParamRow label="Área / Departamento" value={equipo.area} editable={isEditing} />
                          <ParamRow label="Ubicación Física" value={equipo.ubicacion} editable={isEditing} />
-                         <ParamRow label="Vida Útil (Años)" value={`${equipo.vidaUtil} años`} editable={isEditing} />
+                         <ParamRow label="Vida Útil (Años)" value={`${equipo.vida_util} años`} editable={isEditing} />
                          <ParamRow label="Voltaje / Corriente" value={`${equipo.voltaje}V / ${equipo.corriente}A`} editable={isEditing} />
-                         <ParamRow label="Fecha Instalación" value={equipo.fechaInstalacion || 'S/I'} editable={isEditing} />
+                         <ParamRow label="Fecha Instalación" value={equipo.fecha_instalacion || 'S/I'} editable={isEditing} />
                       </div>
                    </div>
                 </div>
