@@ -46,4 +46,4 @@ async function testConnection() {
   }
 }
 
-testConnection();
+// testConnection(); // Comentado para evitar el console.error "Could not reach Cloud Firestore backend" cuando se usa NeonDB
