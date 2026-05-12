@@ -72,16 +72,15 @@ export default function Equipos() {
         
         if (json.success && active) {
           const data = json.data.map((row: any) => {
-            const especs = typeof row.especificaciones === 'string' ? JSON.parse(row.especificaciones) : (row.especificaciones || {});
             return {
               tag: row.tag,
               nombre: row.nombre,
-              tipo: especs.tipo || '',
-              ubicacion: especs.almacen || '',
+              tipo: row.tipo || '',
+              ubicacion: row.ubicacion || '',
               estado: row.estado,
-              marca: especs.marca || '',
-              modelo: especs.modelo || '',
-              proximo_mantenimiento: row.ultimo_mantenimiento || null
+              marca: row.marca || '',
+              modelo: row.modelo || '',
+              proximo_mantenimiento: row.proximo_mantenimiento || null
             };
           });
 

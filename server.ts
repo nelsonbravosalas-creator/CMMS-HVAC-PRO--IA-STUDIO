@@ -52,32 +52,45 @@ async function startServer() {
         const ts = new Date().toISOString();
         const nuevoMantenimiento = { ...mantenimiento, fecha: ts };
         
-        const rows = await sql`SELECT mantenimiento_history FROM equipos WHERE tag = ${tag}`;
+        const rows = await sql`SELECT notas FROM equipos WHERE tag = ${tag}`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: "Equipo no encontrado" });
         
-        const history = Array.isArray(rows[0].mantenimiento_history) ? rows[0].mantenimiento_history : [];
-        history.push(nuevoMantenimiento);
-        
+        // As a fallback since we dropped mantenimiento_history JSON, let's append it as notes or just update ultimo_mantenimiento
+        const currentNotas = rows[0].notas || '';
+        const updatedNotas = `${currentNotas}\n- Mantenimiento: ${JSON.stringify(nuevoMantenimiento)}`;
+
         await sql`
           UPDATE equipos 
-          SET mantenimiento_history = ${JSON.stringify(history)}, 
-              ultimo_mantenimiento = ${ts}
+          SET ultimo_mantenimiento = ${ts}, notas = ${updatedNotas}
           WHERE tag = ${tag}
         `;
         return res.json({ success: true, message: "Mantenimiento registrado." });
       } else {
-        const { nombre, especificaciones, tecnicos, mantenimiento_history, ultimo_mantenimiento, estado } = req.body;
+        const { nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas } = req.body;
         
         const resData = await sql`
-          INSERT INTO equipos (tag, nombre, especificaciones, tecnicos, mantenimiento_history, ultimo_mantenimiento, estado)
-          VALUES (${tag}, ${nombre}, ${especificaciones ? JSON.stringify(especificaciones) : null}, ${tecnicos ? tecnicos : null}, ${mantenimiento_history ? JSON.stringify(mantenimiento_history) : null}, ${ultimo_mantenimiento || null}, ${estado || 'operativo'})
+          INSERT INTO equipos (tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas)
+          VALUES (${tag}, ${nombre}, ${tipo || ''}, ${marca || ''}, ${modelo || ''}, ${serie || ''}, ${ubicacion || ''}, ${area || ''}, ${capacidad || ''}, ${voltaje || ''}, ${corriente || ''}, ${refrigerante || ''}, ${fecha_instalacion || ''}, ${vida_util || 0}, ${estado || 'operativo'}, ${ultimo_mantenimiento || null}, ${proximo_mantenimiento || null}, ${horas_operacion || 0}, ${tecnicos ? JSON.stringify(tecnicos) : null}, ${notas || ''})
           ON CONFLICT (tag) DO UPDATE SET
             nombre = EXCLUDED.nombre,
-            especificaciones = EXCLUDED.especificaciones,
-            tecnicos = EXCLUDED.tecnicos,
-            mantenimiento_history = EXCLUDED.mantenimiento_history,
+            tipo = EXCLUDED.tipo,
+            marca = EXCLUDED.marca,
+            modelo = EXCLUDED.modelo,
+            serie = EXCLUDED.serie,
+            ubicacion = EXCLUDED.ubicacion,
+            area = EXCLUDED.area,
+            capacidad = EXCLUDED.capacidad,
+            voltaje = EXCLUDED.voltaje,
+            corriente = EXCLUDED.corriente,
+            refrigerante = EXCLUDED.refrigerante,
+            fecha_instalacion = EXCLUDED.fecha_instalacion,
+            vida_util = EXCLUDED.vida_util,
+            estado = EXCLUDED.estado,
             ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento,
-            estado = EXCLUDED.estado
+            proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
+            horas_operacion = EXCLUDED.horas_operacion,
+            tecnicos = EXCLUDED.tecnicos,
+            notas = EXCLUDED.notas
           RETURNING *;
         `;
         return res.json({ success: true, data: resData[0] });

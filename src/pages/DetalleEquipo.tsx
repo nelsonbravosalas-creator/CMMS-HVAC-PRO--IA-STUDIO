@@ -63,20 +63,11 @@ export default function DetalleEquipo() {
         .then(data => {
           if (data.success && data.data) {
             const eqData = data.data;
-            let especs = eqData.especificaciones;
-            if (typeof especs === 'string') {
-               especs = JSON.parse(especs);
+            if (typeof eqData.tecnicos === 'string') {
+               try { eqData.tecnicos = JSON.parse(eqData.tecnicos); } catch(e){}
             }
-            if (typeof eqData.mantenimiento_history === 'string') {
-               eqData.mantenimiento_history = JSON.parse(eqData.mantenimiento_history);
-            }
-            
-            // Map JSONB fields to the root object to satisfy existing UI
-            const mergedEquipo = {
-              ...eqData,
-              ...especs
-            };
-            setEquipo(mergedEquipo);
+            // Use directly without spreading especs
+            setEquipo(eqData);
           } else {
             console.warn(data.message);
             // Fallback a EQUIPOS_DATA local si no existe en Neon

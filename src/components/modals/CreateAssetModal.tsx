@@ -180,17 +180,15 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
             tag: fullTag,
             nombre: tagData.nombreEquipo,
             estado: "operativo",
-            especificaciones: {
-              tipo: tagData.tipo,
-              correlativo: tagData.correlativo,
-              almacen: tagData.almacen,
-              marca: tagData.marca,
-              modelo: tagData.modelo,
-              serie: tagData.serie,
-              voltaje, corriente, potencia
-            },
-            tecnicos: [],
-            mantenimiento_history: []
+            tipo: tagData.tipo,
+            ubicacion: tagData.almacen,
+            marca: tagData.marca,
+            modelo: tagData.modelo,
+            serie: tagData.serie,
+            voltaje, 
+            corriente, 
+            capacidad: potencia,
+            tecnicos: []
           })
         });
 

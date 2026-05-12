@@ -238,13 +238,9 @@ export default function ScannerQR() {
             tag: fullTag,
             nombre: tagData.nombreEquipo,
             estado: "operativo",
-            especificaciones: {
-              tipo: tagData.tipo,
-              correlativo: tagData.correlativo,
-              almacen: tagData.almacen
-            },
-            tecnicos: [],
-            mantenimiento_history: []
+            tipo: tagData.tipo,
+            ubicacion: tagData.almacen,
+            tecnicos: []
           })
         });
 
