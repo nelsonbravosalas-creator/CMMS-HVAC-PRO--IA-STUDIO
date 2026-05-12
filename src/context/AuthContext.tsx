@@ -33,10 +33,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<Usuario | null>(() => {
     // Intentar recuperar sesión persistida
     const savedPin = localStorage.getItem('auth_pin');
+    
     if (savedPin) {
-      return USUARIOS_MOCK.find(u => u.pin === savedPin && u.activo) || null;
+      const foundUser = USUARIOS_MOCK.find(u => u.pin === savedPin && u.activo);
+      if (foundUser) {
+        return foundUser;
+      } else {
+        // If the pin is stale (e.g. mock data changed), remove it so they can re-login
+        // or we can fallback to the mock user 0 if is_authenticated is true.
+        localStorage.removeItem('auth_pin');
+      }
     }
-    // Si estamos en entorno de desarrollo local, podríamos usar el mock 0, pero en prod mejor null
+    
+    // Si estamos en entorno de desarrollo local, o si se saltó el login
     if (localStorage.getItem("is_authenticated") === "true") {
        return USUARIOS_MOCK[0]; // Fallback
     }
