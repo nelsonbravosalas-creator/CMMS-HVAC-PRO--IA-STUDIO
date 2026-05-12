@@ -8,7 +8,12 @@ import { EVENTOS_MOCK } from '../src/data/eventos.js';
 import { SUCURSALES } from '../src/data/sucursales.js';
 
 export default async function handler(req, res) {
-  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const defaultUrl = 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || defaultUrl;
+  if (connectionString && (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://'))) {
+    connectionString = defaultUrl;
+  }
+  
   if (!connectionString) {
     return res.status(500).json({ success: false, error: "Missing DATABASE_URL / POSTGRES_URL" });
   }
@@ -18,44 +23,115 @@ export default async function handler(req, res) {
       const sql = neon(connectionString);
       let resultados = {};
 
-      const createTableActivos = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'activos'`;
-      if (createTableActivos[0].count === '0' || createTableActivos[0].count === 0) {
+      const tableActivosCount = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'activos'`;
+      if (tableActivosCount[0].count === '0' || tableActivosCount[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS activos (
             id TEXT PRIMARY KEY,
-            tag_tecnico TEXT,
+            tag TEXT,
             nombre TEXT,
             tipo TEXT,
+            marca TEXT,
+            modelo TEXT,
+            serie TEXT,
             ubicacion TEXT,
+            area TEXT,
+            capacidad TEXT,
+            voltaje TEXT,
+            corriente TEXT,
+            refrigerante TEXT,
+            fecha_instalacion TEXT,
+            vida_util INTEGER,
             estado TEXT,
-            ultima_revision TIMESTAMP,
+            ultimo_mantenimiento TEXT,
+            proximo_mantenimiento TEXT,
+            horas_operacion INTEGER,
+            notas TEXT,
             data JSONB
           );
         `;
+      } else {
+        // Intentar agregar columnas si faltan en DB existente
+        try {
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS tag TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS marca TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS modelo TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS serie TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS area TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS capacidad TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS voltaje TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS corriente TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS refrigerante TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS fecha_instalacion TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS vida_util INTEGER`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS ultimo_mantenimiento TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS proximo_mantenimiento TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS horas_operacion INTEGER`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS notas TEXT`;
+        } catch (e) {
+          console.warn("Fallo al actualizar columnas de activos:", e.message);
+        }
+      }
+
+      const checkActivos = await sql`SELECT count(*) FROM activos`;
+      if (checkActivos[0].count === '0' || checkActivos[0].count === 0 || req.query.force === 'true') {
         let count = 0;
         for (const equipo of EQUIPOS_DATA) {
-          const id = equipo.tag;
-          const tag_tecnico = equipo.tag;
-          const nombre = equipo.nombre;
-          const tipo = equipo.tipo;
-          const ubicacion = equipo.ubicacion || 'No definida';
-          const estado = equipo.estado || 'operativo';
-          const ultima_revision = new Date();
-
           await sql`
-            INSERT INTO activos (id, tag_tecnico, nombre, tipo, ubicacion, estado, ultima_revision, data)
-            VALUES (${id}, ${tag_tecnico}, ${nombre}, ${tipo}, ${ubicacion}, ${estado}, ${ultima_revision}, ${JSON.stringify(equipo)})
+            INSERT INTO activos (
+              id, tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
+              voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
+              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas, data
+            )
+            VALUES (
+              ${equipo.tag}, 
+              ${equipo.tag}, 
+              ${equipo.nombre}, 
+              ${equipo.tipo}, 
+              ${equipo.marca || ''}, 
+              ${equipo.modelo || ''}, 
+              ${equipo.serie || ''}, 
+              ${equipo.ubicacion || 'No definida'}, 
+              ${equipo.area || ''}, 
+              ${equipo.capacidad || ''}, 
+              ${equipo.voltaje || ''}, 
+              ${equipo.corriente || ''}, 
+              ${equipo.refrigerante || ''}, 
+              ${equipo.fechaInstalacion || ''}, 
+              ${equipo.vidaUtil || 0}, 
+              ${equipo.estado || 'operativo'}, 
+              ${equipo.ultimoMantenimiento || ''}, 
+              ${equipo.proximoMantenimiento || ''}, 
+              ${equipo.horasOperacion || 0}, 
+              ${equipo.notas || ''}, 
+              ${JSON.stringify(equipo)}
+            )
             ON CONFLICT (id) DO UPDATE SET
               nombre = EXCLUDED.nombre,
               tipo = EXCLUDED.tipo,
+              marca = EXCLUDED.marca,
+              modelo = EXCLUDED.modelo,
+              serie = EXCLUDED.serie,
               ubicacion = EXCLUDED.ubicacion,
+              area = EXCLUDED.area,
+              capacidad = EXCLUDED.capacidad,
+              voltaje = EXCLUDED.voltaje,
+              corriente = EXCLUDED.corriente,
+              refrigerante = EXCLUDED.refrigerante,
+              fecha_instalacion = EXCLUDED.fecha_instalacion,
+              vida_util = EXCLUDED.vida_util,
               estado = EXCLUDED.estado,
-              ultima_revision = EXCLUDED.ultima_revision,
+              ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento,
+              proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
+              horas_operacion = EXCLUDED.horas_operacion,
+              notas = EXCLUDED.notas,
               data = EXCLUDED.data;
           `;
           count++;
         }
         resultados['activos'] = count;
+      } else {
+        resultados['activos'] = `Skip (already has ${checkActivos[0].count} recs)`;
       }
 
       const createTableUsuarios = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'usuarios'`;
