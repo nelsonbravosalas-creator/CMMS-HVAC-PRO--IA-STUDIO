@@ -74,10 +74,37 @@ function App() {
     setIsAuthenticated(auth);
     setHasClientSelected(client);
 
+    // Middleware de Redirección para Código QR (?tag=...)
+    const params = new URLSearchParams(window.location.search);
+    const tagParam = params.get("tag");
+
     // Initial routing logic
     if (!auth && location !== "/login") {
+      // Store the pending tag scan if any, to redirect after login
+      if (tagParam) localStorage.setItem("pending_tag", tagParam);
       setLocation("/login");
-    } else if (auth && !client && CLIENTS.length > 0 && location !== "/client-selector") {
+      return;
+    } 
+    
+    // Si acaba de iniciar sesión y hay un tag pendiente
+    const pendingTag = localStorage.getItem("pending_tag");
+    if (auth && (tagParam || pendingTag)) {
+      const tagToRedirect = tagParam || pendingTag;
+      if (pendingTag) localStorage.removeItem("pending_tag");
+      
+      // Limpiar query params de la visualización
+      if (tagParam) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      
+      // Redirigir a Ficha de Equipo
+      if (location !== `/equipos/${tagToRedirect}`) {
+        setLocation(`/equipos/${tagToRedirect}`);
+      }
+      return;
+    }
+
+    if (auth && !client && CLIENTS.length > 0 && location !== "/client-selector") {
       setLocation("/client-selector");
     }
   }, [location, setLocation]);

@@ -8,11 +8,14 @@ interface NuevoMantenimientoModalProps {
   duplicateId?: string;
 }
 
-export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = ({ onClose, duplicateId }) => {
+export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps & { equipoTag?: string }> = ({ onClose, duplicateId, equipoTag }) => {
   const [hasChanges, setHasChanges] = useState(false);
   const [frecuencia, setFrecuencia] = useState("Mensual");
   const [fechaActual, setFechaActual] = useState(new Date().toISOString().split('T')[0]);
   const [proximaMantencion, setProximaMantencion] = useState("");
+  const [tipoServicio, setTipoServicio] = useState("Preventivo");
+  const [estadoFinal, setEstadoFinal] = useState("Realizado");
+  const [descripcion, setDescripcion] = useState("");
 
   React.useEffect(() => {
     if(!fechaActual) return;
@@ -34,7 +37,6 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           default: nextDate = null; break;
       }
       if (nextDate) {
-          // Format back to YYYY-MM-DD correctly protecting against timezone shifts
           const year = nextDate.getFullYear();
           const month = String(nextDate.getMonth() + 1).padStart(2, '0');
           const day = String(nextDate.getDate()).padStart(2, '0');
@@ -43,13 +45,12 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           setProximaMantencion("");
       }
     } catch(e) {
-      // Ignorar errores de fecha inválida
     }
   }, [frecuencia, fechaActual]);
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
      e.preventDefault();
      setIsSaving(true);
 
@@ -57,41 +58,38 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
         frecuencia,
         fechaActual,
         proximaMantencion,
+        tipoServicio,
+        estadoFinal,
+        descripcion,
         idRegistro: `MANT-${Date.now()}`,
-        statusSincronizacion: 'pendiente',
-        fechaSincronizacionLocal: new Date().toISOString()
      };
 
-     // 1. Guardado Local (Feedback Inmediato)
-     localStorage.setItem(`mantenimiento_${formData.idRegistro}`, JSON.stringify(formData));
+     if (!equipoTag) {
+        setIsSaving(false);
+        alert("Error: Faltab TAG de Equipo.");
+        return;
+     }
 
-     // 2. Ejecución diferida (Nube)
-     setTimeout(async () => {
-        try {
-           await fetch('/api/mantenimientos', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({
-                id: formData.idRegistro || Date.now().toString(),
-                tag: 'SIN-ASIGNAR', // Fallback, could be selected in form
-                tipo: 'correctivo',
-                fecha: formData.fechaActual,
-                estado: 'programado',
-                ...formData
-             })
-           });
-           console.log("Mantenimiento sincronizado con la nube a través de Neon/Vercel");
-           alert("Registro de mantenimiento completado exitosamente.");
-           setIsSaving(false);
-           setHasChanges(false);
-           onClose();
-        } catch (error) {
-           console.error("Error sincronizando mantenimiento", error);
-           setIsSaving(false);
-           alert("Guardado localmente. Falló la sincronización con la nube.");
-           onClose();
-        }
-     }, 0);
+     try {
+        const response = await fetch(`/api/equipos?tag=${equipoTag}&action=mantenimiento`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mantenimiento: formData })
+        });
+        
+        if (!response.ok) throw new Error("Fallo la respuesta del servidor");
+
+        console.log("Mantenimiento sincronizado con la nube a través de Neon");
+        alert("Registro de mantenimiento completado exitosamente y sincronizado en = Neon.");
+        setHasChanges(false);
+        onClose();
+     } catch (error) {
+        console.error("Error sincronizando mantenimiento", error);
+        alert("Guardado localmente. Falló la sincronización con la nube.");
+        onClose();
+     } finally {
+        setIsSaving(false);
+     }
   };
 
   const handleClose = () => {

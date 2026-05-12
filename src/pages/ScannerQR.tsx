@@ -108,16 +108,15 @@ export default function ScannerQR() {
    * Se utiliza window.location.origin para asegurar que el QR apunte siempre al dominio correcto,
    * ya sea en desarrollo local o en producción (Vercel).
    */
-  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "");
+  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin : "");
 
   /** TAG completo calculado (ej: 21-STK.AC.012) */
   const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
   
   /** 
    * URL final incrustada en el código QR.
-   * Se construye dinámicamente agregando el parámetro 'tag'.
    */
-  const qrUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}tag=${encodeURIComponent(fullTag)}`;
+  const qrUrl = `${baseUrl}/?tag=${encodeURIComponent(fullTag)}`;
   /** Endpoint externo para la generación del código QR */
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 
@@ -164,16 +163,27 @@ export default function ScannerQR() {
       setLastResult(tagValue);
       
       // BÚSQUEDA EN BASE DE DATOS:
-      // Actualmente lee del archivo local /src/data/equipos.ts.
-      const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
-      
-      if (equipo) {
-        // Si el equipo existe, lo guardamos para renderizar su nombre y ubicación
-        setEquipoEscaneado(equipo);
-      } else {
-        // Si no existe, preparamos un mensaje de error para el usuario
-        setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
-      }
+      fetch(`/api/equipos?tag=${tagValue}`)
+        .then(r => r.json())
+        .then(data => {
+           if (data.success && data.data) {
+             setEquipoEscaneado({
+               tag: data.data.tag,
+               nombre: data.data.nombre,
+               ubicacion: "Ubicación en BD" // Fallback if not available at root
+             });
+           } else {
+             const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
+             if (localFallback) {
+               setEquipoEscaneado(localFallback);
+             } else {
+               setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
+             }
+           }
+        })
+        .catch(err => {
+           setEquipoEscaneado({ error: `Error de conexión con Neon DB.` });
+        })
     }
   };
 
@@ -221,16 +231,20 @@ export default function ScannerQR() {
     // 2. Ejecución diferida para la Nube
     setTimeout(async () => {
       try {
-        const response = await fetch('/api/activos', {
+        const response = await fetch('/api/equipos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            id: fullTag,
-            tag_tecnico: fullTag,
+            tag: fullTag,
             nombre: tagData.nombreEquipo,
-            tipo: tagData.tipo,
-            ubicacion: tagData.almacen,
-            estado: "OPERATIVO"
+            estado: "operativo",
+            especificaciones: {
+              tipo: tagData.tipo,
+              correlativo: tagData.correlativo,
+              almacen: tagData.almacen
+            },
+            tecnicos: [],
+            mantenimiento_history: []
           })
         });
 

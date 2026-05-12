@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   ArrowLeft, 
   Settings2, 
@@ -23,11 +23,13 @@ import {
   Info,
   Edit2,
   ScanLine,
-  X
+  X,
+  Wrench
 } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { EQUIPOS_DATA, Equipo } from "../data/equipos";
 import { TicketForm } from "../components/modals/TicketForm";
+import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { 
   BarChart, 
   Bar, 
@@ -45,10 +47,58 @@ type Tab = "info" | "historial" | "historico" | "documentos";
 export default function DetalleEquipo() {
   const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
   const tag = params ? params.tag : undefined;
-  const equipo = tag ? EQUIPOS_DATA.find(e => e.tag === tag) : undefined;
+  
+  const [equipo, setEquipo] = useState<any>(undefined);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [isEditing, setIsEditing] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
+  const [showMantenimientoForm, setShowMantenimientoForm] = useState(false);
+
+  useEffect(() => {
+    if (tag) {
+      setLoading(true);
+      fetch(`/api/equipos?tag=${tag}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            const eqData = data.data;
+            let especs = eqData.especificaciones;
+            if (typeof especs === 'string') {
+               especs = JSON.parse(especs);
+            }
+            if (typeof eqData.mantenimiento_history === 'string') {
+               eqData.mantenimiento_history = JSON.parse(eqData.mantenimiento_history);
+            }
+            
+            // Map JSONB fields to the root object to satisfy existing UI
+            const mergedEquipo = {
+              ...eqData,
+              ...especs
+            };
+            setEquipo(mergedEquipo);
+          } else {
+            console.warn(data.message);
+            // Fallback a EQUIPOS_DATA local si no existe en Neon
+            const localFallback = EQUIPOS_DATA.find(e => e.tag === tag);
+            if (localFallback) {
+              setEquipo(localFallback);
+            }
+          }
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [tag]);
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500 font-medium">Cargando datos del equipo desde Neon DB...</div>;
+  }
 
   if (!equipo) {
     return (
@@ -315,8 +365,11 @@ export default function DetalleEquipo() {
                  >
                     <PenTool className="w-4 h-4" /> Abrir Ticket de Falla
                  </button>
-                 <button className="w-full py-4 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-white/10">
-                    <Layout className="w-4 h-4" /> Duplicar Mantenimiento
+                 <button 
+                  onClick={() => setShowMantenimientoForm(true)}
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-blue-500"
+                 >
+                    <Wrench className="w-4 h-4" /> Registrar Mantenimiento
                  </button>
                  <button className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
                     <Trash2 className="w-4 h-4" /> Revertir Último Cambio
@@ -347,6 +400,17 @@ export default function DetalleEquipo() {
       {showTicketForm && (
         <TicketForm 
           onClose={() => setShowTicketForm(false)} 
+          equipoTag={equipo.tag}
+        />
+      )}
+      {showMantenimientoForm && (
+        <NuevoMantenimientoModal
+          onClose={() => {
+            setShowMantenimientoForm(false);
+            // Optionally reload to fetch the new mantenimientos
+            // Ideally we'd have a refresh function but reloading the page or letting user navigate works too
+            window.location.reload();
+          }}
           equipoTag={equipo.tag}
         />
       )}
