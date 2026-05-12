@@ -102,11 +102,11 @@ export default function InformesHVAC() {
                   <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 w-fit ${
                     inf.estado === 'firmado' ? 'bg-emerald-100 text-emerald-600' : 
                     inf.estado === 'enviado' ? 'bg-blue-100 text-blue-600' : 
-                    inf.estado === 'bloqueado' ? 'bg-amber-100 text-amber-600' : 
+                    inf.estado === 'en revision' ? 'bg-amber-100 text-amber-600' : 
                     'bg-slate-100 text-slate-600'
                   }`}>
                     {inf.estado === 'firmado' && <CheckCircle2 className="w-2.5 h-2.5" />}
-                    {inf.estado === 'bloqueado' && <Lock className="w-2.5 h-2.5" />}
+                    {inf.estado === 'en revision' && <Lock className="w-2.5 h-2.5" />}
                     {inf.estado}
                   </span>
                 </td>

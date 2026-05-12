@@ -2,9 +2,9 @@
 export interface Mantenimiento {
   id: string;
   tag: string;
-  tipo: 'Preventivo' | 'Correctivo' | 'Inspeccion' | 'Instalacion';
+  tipo: 'preventivo' | 'correctivo' | 'inspeccion' | 'instalacion';
   fecha: string;
-  estado: 'Programado' | 'Ejecutado' | 'Re-Programado'| 'Anulado';
+  estado: 'programado' | 'ejecutado' | 'realizado' | 're-programado'| 'anulado' | 'atrasado';
   sucursal: string;
   tecnico: string;
   descripcion: string;

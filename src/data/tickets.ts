@@ -4,9 +4,9 @@ export interface Ticket {
   tag: string;
   titulo: string;
   descripcion: string;
-  tipo: 'Falla' | 'Inspeccion' | 'Consulta';
+  tipo: 'falla' | 'inspeccion' | 'consulta';
   prioridad: 'baja' | 'media' | 'alta' | 'critica';
-  estado: 'Abierto' | 'En_proceso' | 'Resuelto' | 'Re-Asignado';
+  estado: 'abierto' | 'en_proceso' | 'resuelto' | 're-asignado';
   creador: string;
   asignado: string;
   fecha: string;

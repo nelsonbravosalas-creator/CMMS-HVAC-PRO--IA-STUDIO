@@ -1,7 +1,7 @@
 export interface EventoConsola {
   id: string;
   timestamp: string;
-  tipo: 'Operacion' | 'sistema' | 'documento' | 'alerta';
+  tipo: 'operacion' | 'sistema' | 'documento' | 'alerta';
   nivel: 'info' | 'warn' | 'error';
   descripcion: string;
   usuario: string;

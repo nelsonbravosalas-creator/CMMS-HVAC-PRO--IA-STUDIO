@@ -50,7 +50,7 @@ export interface Equipo {
   refrigerante: string;    
   fechaInstalacion: string;
   vidaUtil: number;        
-  estado: 'Operativo' | 'Falla' | 'Mantenimiento' | 'Baja'; // Estado operacional de la máquina
+  estado: 'operativo' | 'falla' | 'mantenimiento' | 'baja'; // Estado operacional de la máquina
   ultimoMantenimiento: string; 
   proximoMantenimiento: string;
   horasOperacion: number;  

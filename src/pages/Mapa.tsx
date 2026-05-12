@@ -1,5 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import LoadingIndicator from "../components/LoadingIndicator";
+
+declare global {
+  interface Window {
+    L: any;
+  }
+}
+
 import { 
   Map as MapIcon, 
   Filter, 
@@ -43,6 +50,7 @@ export default function App() {
 
   // Carga de Leaflet (Costo 0 / Open Source)
   useEffect(() => {
+    // @ts-ignore
     if (window.L) {
       setLeafletReady(true);
       return;
