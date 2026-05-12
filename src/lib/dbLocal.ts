@@ -1,6 +1,6 @@
 import Dexie, { Table } from 'dexie';
 
-export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update';
+export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pending_delete';
 
 export interface LocalBase {
   uuid_sincro: string;
@@ -23,7 +23,7 @@ export interface LocalActivo extends LocalBase {
   refrigerante: string;
   fecha_instalacion: string;
   vida_util: number;
-  estado: string;
+  estado: 'operativo' | 'falla' | 'mantenimiento' | 'baja';
   ultimo_mantenimiento: string;
   proximo_mantenimiento: string;
   horas_operacion: number;

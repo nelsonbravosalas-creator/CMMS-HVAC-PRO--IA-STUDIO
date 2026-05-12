@@ -200,16 +200,48 @@ async function startServer() {
 
     try {
       const sql = getSql();
+      const results = [];
       
       for (const record of records) {
-        // Simple conflict resolution: Check if new record is newer
-        // For simplicity in this mock-industrial environment, we use uuid_sincro as the main key
-        // Note: Real implementation would use temporal checks
+        let folio_oficial = record.id;
+        if (table === 'activos' || table === 'equipos') {
+          folio_oficial = record.tag;
+        }
+
+        // Logic for backend FOlIO assignment (simulating a unique sequence per table)
+        if (record.sync_status === 'pending_insert') {
+          if (table === 'tickets') {
+            // Find max id matching TK-xxxx
+            const rows = await sql`
+              SELECT id FROM tickets WHERE id LIKE 'TK-%' ORDER BY id DESC LIMIT 1
+            `;
+            let nextNum = 1;
+            if (rows.length > 0) {
+              const lastId = rows[0].id;
+              const matches = lastId.match(/TK-(\d+)/);
+              if (matches) nextNum = parseInt(matches[1], 10) + 1;
+            }
+            folio_oficial = `TK-${nextNum.toString().padStart(4, '0')}`;
+            record.id = folio_oficial;
+          } else if (table === 'activos' || table === 'equipos') {
+            // If tag starts with TEMP, generate a new tag
+            if (record.tag && record.tag.startsWith('TEMP')) {
+               const rows = await sql`SELECT tag FROM activos WHERE tag LIKE 'ACT-%' ORDER BY tag DESC LIMIT 1`;
+               let nextNum = 1;
+               if (rows.length > 0) {
+                 const matches = rows[0].tag.match(/ACT-(\d+)/);
+                 if (matches) nextNum = parseInt(matches[1], 10) + 1;
+               }
+               folio_oficial = `ACT-${nextNum.toString().padStart(4, '0')}`;
+               record.tag = folio_oficial;
+            }
+          }
+        }
         
         if (table === 'activos' || table === 'equipos') {
           const d = record;
           await sql`
-            INSERT INTO equipos (
+            INSERT INTO activos (
               tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
               voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
               ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
@@ -221,34 +253,64 @@ async function startServer() {
               ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || ''}, 
               ${d.proximo_mantenimiento || ''}, ${d.horas_operacion || 0}, ${d.notas || ''},
               ${d.uuid_sincro}, ${d.modificado_en}
-            ) ON CONFLICT (tag) DO UPDATE SET
+            ) ON CONFLICT (uuid_sincro) DO UPDATE SET
+              tag = EXCLUDED.tag,
               nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
               serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
               voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
               fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
               ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
               horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas,
-              uuid_sincro = EXCLUDED.uuid_sincro, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > equipos.modificado_en;
+              modificado_en = EXCLUDED.modificado_en
+              WHERE EXCLUDED.modificado_en > activos.modificado_en;
           `;
         } else {
           // Generic handler for other tables using JSONB storage
-          const id = record.uuid_sincro;
+          const id = table === 'tickets' ? record.id : record.uuid_sincro;
           const data = JSON.stringify(record);
+          const uuid_sincro = record.uuid_sincro;
           const modificado_en = record.modificado_en;
 
-          await sql`
-            INSERT INTO ${sql(table)} (id, data, uuid_sincro, modificado_en) 
-            VALUES (${id}, ${data}, ${id}, ${modificado_en}) 
-            ON CONFLICT (uuid_sincro) DO UPDATE SET 
-              data = EXCLUDED.data, 
-              modificado_en = EXCLUDED.modificado_en
-            WHERE EXCLUDED.modificado_en > ${sql(table)}.modificado_en
-          `;
+          if (table === 'tickets') {
+            await sql`
+              INSERT INTO tickets (id, data, uuid_sincro, modificado_en) 
+              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
+              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > tickets.modificado_en
+            `;
+          } else if (table === 'mantenimientos') {
+            await sql`
+              INSERT INTO mantenimientos (id, data, uuid_sincro, modificado_en) 
+              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
+              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > mantenimientos.modificado_en
+            `;
+          } else if (table === 'clientes') {
+            await sql`
+              INSERT INTO clientes (id, data, uuid_sincro, modificado_en) 
+              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
+              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > clientes.modificado_en
+            `;
+          } else if (table === 'usuarios') {
+             await sql`
+              INSERT INTO usuarios (id, data, uuid_sincro, modificado_en) 
+              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
+              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > usuarios.modificado_en
+            `;
+          } else if (table === 'informes') {
+             await sql`
+              INSERT INTO informes (id, data, uuid_sincro, modificado_en) 
+              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
+              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > informes.modificado_en
+            `;
+          }
         }
+        
+        results.push({
+          uuid_sincro: record.uuid_sincro,
+          folio_oficial
+        });
       }
 
-      res.json({ success: true, message: "Sync successful" });
+      res.json({ success: true, message: "Sync successful", results });
     } catch (error: any) {
       console.error("Sync Error:", error);
       res.status(500).json({ success: false, error: error.message });

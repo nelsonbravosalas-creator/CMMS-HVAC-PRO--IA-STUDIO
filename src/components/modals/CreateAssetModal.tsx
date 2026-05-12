@@ -167,7 +167,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       refrigerante: '',
       fecha_instalacion: new Date().toISOString(),
       vida_util: 10,
-      estado: "operativo",
+      estado: "operativo" as const,
       ultimo_mantenimiento: '',
       proximo_mantenimiento: '',
       horas_operacion: 0,

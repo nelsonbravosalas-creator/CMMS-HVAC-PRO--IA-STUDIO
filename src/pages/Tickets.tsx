@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Ticket as TicketIcon, 
   AlertCircle, 
@@ -17,38 +17,74 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   MessageSquare,
-  Download
+  Download,
+  Cloud
 } from "lucide-react";
-import { TICKETS_MOCK, Ticket } from "../data/tickets";
 import { TicketForm } from "../components/modals/TicketForm";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "../lib/dbLocal";
+
+const SyncIndicator: React.FC<{ status: string }> = ({ status }) => {
+  if (status === 'synced') return <Cloud className="w-4 h-4 text-emerald-500" />;
+  return <Cloud className="w-4 h-4 text-amber-500 animate-pulse" />;
+};
 
 export default function Tickets() {
   const { permisos } = useAuth();
-  const [tickets, setTickets] = useState<Ticket[]>(TICKETS_MOCK);
+  const rawTickets = useLiveQuery(() => db.tickets.toArray()) || [];
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");
 
+  useEffect(() => {
+    const syncInitial = async () => {
+      try {
+        const response = await fetch('/api/tickets');
+        const json = await response.json();
+        if (json.success) {
+          for (const t of json.data) {
+            let record = t.data ? t.data : {};
+            if (typeof record === 'string') record = JSON.parse(record);
+            
+            const existing = await db.tickets.where('id').equals(t.id).first();
+            if (!existing || (record.modificado_en || 0) > (existing.modificado_en || 0)) {
+               await db.tickets.put({
+                 ...record,
+                 id: t.id,
+                 uuid_sincro: record.uuid_sincro || record.id || t.id,
+                 sync_status: 'synced',
+                 modificado_en: record.modificado_en || Date.now()
+               });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch tickets from cloud, using local storage", e);
+      }
+    };
+    syncInitial();
+  }, []);
+
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = tickets.filter(t => 
+  const filtered = useMemo(() => rawTickets.filter(t => 
     t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
-    t.tag.toLowerCase().includes(filter.toLowerCase())
-  );
+    t.equipo_tag.toLowerCase().includes(filter.toLowerCase())
+  ), [rawTickets, filter]);
 
   const exportToCSV = () => {
-    const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Tipo", "Fecha", "Creador", "Asignado"];
+    const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Fecha", "Creador", "Asignado", "Sync"];
     const rows = filtered.map(t => [
       t.id,
-      t.tag,
+      t.equipo_tag,
       t.titulo,
       t.estado,
       t.prioridad,
-      t.tipo,
-      t.fecha,
-      t.creador,
-      t.asignado
+      t.fecha_creacion,
+      t.creado_por,
+      t.asignado_a,
+      t.sync_status
     ]);
 
     const csvContent = [
@@ -143,8 +179,12 @@ export default function Tickets() {
   );
 }
 
-const TicketCard: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
+const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
   const priorities: Record<string, string> = {
+    Alta: "bg-orange-100 text-orange-600",
+    Critica: "bg-red-100 text-red-600",
+    Media: "bg-blue-100 text-blue-600",
+    Baja: "bg-slate-100 text-slate-600",
     alta: "bg-orange-100 text-orange-600",
     critica: "bg-red-100 text-red-600",
     media: "bg-blue-100 text-blue-600",
@@ -154,17 +194,20 @@ const TicketCard: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
   return (
     <div className="bg-white rounded-[40px] border border-slate-200 p-8 shadow-sm hover:shadow-2xl transition-all group flex flex-col gap-6 relative overflow-hidden">
        <div className="flex justify-between items-start">
-          <div className={`p-2.5 rounded-2xl ${priorities[ticket.prioridad]}`}>
+          <div className={`p-2.5 rounded-2xl ${priorities[ticket.prioridad] || "bg-slate-100 text-slate-600"}`}>
              <AlertTriangle className="w-5 h-5" />
           </div>
-          <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+          <div className="flex items-center gap-2">
+            <SyncIndicator status={ticket.sync_status} />
+            <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+          </div>
        </div>
 
        <div>
           <div className="flex items-center gap-2 mb-1">
              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{ticket.id}</span>
              <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-             <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{ticket.tag}</span>
+             <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{ticket.equipo_tag}</span>
           </div>
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight line-clamp-1">{ticket.titulo}</h3>
           <p className="text-[10px] font-medium text-slate-500 mt-2 line-clamp-2">{ticket.descripcion}</p>

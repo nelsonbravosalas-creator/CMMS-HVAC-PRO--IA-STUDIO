@@ -5,6 +5,8 @@ import {
 import { AssetSearchModal } from './AssetSearchModal';
 import { EQUIPOS_DATA } from '../../data/equipos';
 import { ALMACEN_LABELS } from '../../data/sucursales';
+import { db } from '../../lib/dbLocal';
+import { useSync } from '../../hooks/useSync';
 
 interface TicketFormProps {
   onClose: () => void;
@@ -41,29 +43,48 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     setShowAssetSearch(false);
   };
 
+  const { syncData } = useSync();
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     
-    // Simulate non-blocking save
+    // 1. Generate temp ID
+    const uuidLocal = crypto.randomUUID();
+    const tempFolio = `TEMP-${uuidLocal.substring(0, 8).toUpperCase()}`;
+
+    // 2. Prepare payload
     const ticketData = {
-      tag,
-      equipoDesc,
-      cliente,
-      sucursal,
-      fecha: new Date().toISOString(),
-      statusSincronizacion: 'pendiente'
+      uuid_sincro: uuidLocal,
+      modificado_en: Date.now(),
+      sync_status: 'pending_insert' as const,
+      id: tempFolio, // Local temporary ID (Folio Provisional)
+      titulo: 'FALLA REPORTADA (AUTOMATICO)', // we would use form values here
+      descripcion: equipoDesc,
+      prioridad: 'Media',
+      estado: 'abierto',
+      equipo_tag: tag,
+      cliente_id: cliente,
+      creado_por: 'Actual User',
+      asignado_a: 'Nelson Bravo (Tech Lead)',
+      fecha_creacion: new Date().toISOString(),
     };
 
-    localStorage.setItem(`ticket_${Date.now()}`, JSON.stringify(ticketData));
+    try {
+      // 3. Save to Dexie via immediate async insert
+      await db.tickets.put(ticketData);
+      
+      // 4. Trigger Sync
+      syncData(); // don't await, it's background
 
-    setTimeout(() => {
       setIsSaving(false);
-      alert('Ticket Guardado Correctamente.');
+      alert(`Ticket guardado localmente.\nFolio: ${tempFolio}`);
       onClose();
-    }, 0);
+    } catch (e) {
+      console.error("Local save error:", e);
+      setIsSaving(false);
+    }
   };
   
   const today = new Date().toLocaleDateString('es-CL');
