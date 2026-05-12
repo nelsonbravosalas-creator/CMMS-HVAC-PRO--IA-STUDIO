@@ -7,14 +7,21 @@ import { INFORMES_MOCK } from '../src/data/informes.js';
 import { EVENTOS_MOCK } from '../src/data/eventos.js';
 
 async function initializeDB() {
-  if (!process.env.DATABASE_URL) {
+  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  
+  if (!connectionString) {
     console.warn("⚠️ DATABASE_URL no está definida. Saltando la inicialización de la base de datos.");
+    return;
+  }
+
+  if (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://')) {
+    console.warn("⚠️ DATABASE_URL no es una URL de PostgreSQL válida (debe empezar con postgres://). Saltando inicialización.");
     return;
   }
 
   try {
     console.log("Iniciando conexión a Neon DB durante el build...");
-    const sql = neon(process.env.DATABASE_URL);
+    const sql = neon(connectionString);
 
     // 1. Activos (Equipos)
     const tableActivos = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'activos'`;
