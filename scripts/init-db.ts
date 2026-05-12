@@ -5,6 +5,7 @@ import { MANTENIMIENTOS_MOCK } from '../src/data/mantenimientos.js';
 import { TICKETS_MOCK } from '../src/data/tickets.js';
 import { INFORMES_MOCK } from '../src/data/informes.js';
 import { EVENTOS_MOCK } from '../src/data/eventos.js';
+import { SUCURSALES } from '../src/data/sucursales.js';
 
 async function initializeDB() {
   const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
@@ -214,6 +215,29 @@ async function initializeDB() {
         imported++;
       }
       console.log(`✅ Base de datos 'clientes' inicializada. ${imported} registros importados.`);
+    }
+
+    // 8. Sucursales
+    const tableSucursales = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'sucursales'`;
+    if (tableSucursales[0].count === '0' || tableSucursales[0].count === 0) {
+      console.log("Creando tabla 'sucursales'...");
+      await sql`
+        CREATE TABLE IF NOT EXISTS sucursales (
+          id TEXT PRIMARY KEY,
+          nombre TEXT,
+          data JSONB
+        );
+      `;
+      let imported = 0;
+      for (const s of SUCURSALES) {
+        await sql`
+          INSERT INTO sucursales (id, nombre, data)
+          VALUES (${s.id}, ${s.nombre}, ${JSON.stringify(s)})
+          ON CONFLICT (id) DO NOTHING;
+        `;
+        imported++;
+      }
+      console.log(`✅ Base de datos 'sucursales' inicializada. ${imported} registros importados.`);
     }
 
     console.log("🎉 Inicialización de Neon DB completada.");

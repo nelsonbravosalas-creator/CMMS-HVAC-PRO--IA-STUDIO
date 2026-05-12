@@ -5,6 +5,7 @@ import { MANTENIMIENTOS_MOCK } from '../src/data/mantenimientos.js';
 import { TICKETS_MOCK } from '../src/data/tickets.js';
 import { INFORMES_MOCK } from '../src/data/informes.js';
 import { EVENTOS_MOCK } from '../src/data/eventos.js';
+import { SUCURSALES } from '../src/data/sucursales.js';
 
 export default async function handler(req, res) {
   const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
@@ -196,6 +197,27 @@ export default async function handler(req, res) {
           count++;
         }
         resultados['clientes'] = count;
+      }
+
+      const createTableSucursales = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'sucursales'`;
+      if (createTableSucursales[0].count === '0' || createTableSucursales[0].count === 0) {
+        await sql`
+          CREATE TABLE IF NOT EXISTS sucursales (
+            id TEXT PRIMARY KEY,
+            nombre TEXT,
+            data JSONB
+          );
+        `;
+        let count = 0;
+        for (const s of SUCURSALES) {
+          await sql`
+            INSERT INTO sucursales (id, nombre, data)
+            VALUES (${s.id}, ${s.nombre}, ${JSON.stringify(s)})
+            ON CONFLICT (id) DO NOTHING;
+          `;
+          count++;
+        }
+        resultados['sucursales'] = count;
       }
 
       return res.status(200).json({ success: true, message: "Importación finalizada.", resultados });
