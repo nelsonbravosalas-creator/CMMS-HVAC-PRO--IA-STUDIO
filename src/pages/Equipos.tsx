@@ -28,6 +28,9 @@ import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdow
 import { QRLabelModal } from "../components/modals/QRLabelModal";
 import { useAuth } from "../context/AuthContext";
 
+import { db } from "../lib/dbLocal";
+import { useLiveQuery } from "dexie-react-hooks";
+
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
 interface FilterState {
@@ -55,55 +58,43 @@ export default function Equipos() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [, setLocation] = useLocation();
 
-  const [equiposData, setEquiposData] = useState<Equipo[]>(EQUIPOS_DATA);
-  const [loadingEquipos, setLoadingEquipos] = useState(true);
+  // OFF-FIRST: Read from Dexie
+  const localEquipos = useLiveQuery(() => db.activos.toArray()) || [];
+  const loading = !localEquipos && localEquipos.length === 0;
 
   useEffect(() => {
     localStorage.setItem("equipos_filters", JSON.stringify(filters));
   }, [filters]);
 
+  // Sync initial data from API to Dexie once
   useEffect(() => {
-    let active = true;
-
-    const fetchEquipos = async () => {
+    const syncInitial = async () => {
       try {
         const response = await fetch('/api/equipos');
         const json = await response.json();
-        
-        if (json.success && active) {
-          const data = json.data.map((row: any) => {
-            return {
-              tag: row.tag,
-              nombre: row.nombre,
-              tipo: row.tipo || '',
-              ubicacion: row.ubicacion || '',
-              estado: row.estado,
-              marca: row.marca || '',
-              modelo: row.modelo || '',
-              proximo_mantenimiento: row.proximo_mantenimiento || null
-            };
-          });
-
-          const merged = [...data];
-          EQUIPOS_DATA.forEach(eq => {
-            if(!merged.find(m => m.tag === eq.tag)) merged.push(eq);
-          });
-          setEquiposData(merged);
+        if (json.success) {
+          // Put all in Dexie if they don't exist or update if newer
+          for (const eq of json.data) {
+            const existing = await db.activos.where('tag').equals(eq.tag).first();
+            if (!existing || (eq.modificado_en || 0) > (existing.modificado_en || 0)) {
+               await db.activos.put({
+                 ...eq,
+                 uuid_sincro: eq.uuid_sincro || eq.tag, // ensure unique key
+                 sync_status: 'synced',
+                 modificado_en: eq.modificado_en || Date.now()
+               });
+            }
+          }
         }
-      } catch (err) {
-        console.error("Error cargando equipos", err);
-      } finally {
-        if (active) setLoadingEquipos(false);
+      } catch (e) {
+        console.warn("Could not fetch assets from cloud, using local storage", e);
       }
     };
-
-    fetchEquipos();
-
-    return () => { active = false; };
+    syncInitial();
   }, []);
 
   const filteredEquipos = useMemo(() => {
-    return equiposData.filter(eq => {
+    return localEquipos.filter(eq => {
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;
@@ -288,7 +279,14 @@ export default function Equipos() {
   );
 }
 
-const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
+import { Cloud, CloudOff, CloudCheck } from "lucide-react";
+
+const SyncIndicator: React.FC<{ status: string }> = ({ status }) => {
+  if (status === 'synced') return <Cloud className="w-3.5 h-3.5 text-emerald-500" />;
+  return <Cloud className="w-3.5 h-3.5 text-amber-500 animate-pulse" />;
+};
+
+const EquipoCardGrid: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
   const [, setLocation] = useLocation();
 
   return (
@@ -303,6 +301,7 @@ const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void 
             <Box className="w-6 h-6" />
           </div>
           <div className="flex items-center gap-2">
+            <SyncIndicator status={equipo.sync_status} />
             <button 
               onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
               className="p-3 bg-slate-100 hover:bg-white rounded-xl shadow-sm transition-all border border-transparent hover:border-slate-200"
@@ -344,7 +343,7 @@ const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void 
   );
 }
 
-const EquipoRowList: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
+const EquipoRowList: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
   const [, setLocation] = useLocation();
 
   return (
@@ -354,6 +353,7 @@ const EquipoRowList: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }
     >
       <td className="px-6 py-4 text-left">
         <div className="flex items-center gap-4">
+           <SyncIndicator status={equipo.sync_status} />
            <button 
              onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
              className="p-2 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-lg transition-all"

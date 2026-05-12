@@ -191,6 +191,70 @@ async function startServer() {
     }
   });
 
+  app.post("/api/sync/:table", async (req, res) => {
+    const table = req.params.table;
+    const { records } = req.body;
+    
+    if (!ALLOWED_TABLES.includes(table) && table !== 'equipos') return res.status(400).json({ error: "Invalid table" });
+    if (!Array.isArray(records)) return res.status(400).json({ error: "Records must be an array" });
+
+    try {
+      const sql = getSql();
+      
+      for (const record of records) {
+        // Simple conflict resolution: Check if new record is newer
+        // For simplicity in this mock-industrial environment, we use uuid_sincro as the main key
+        // Note: Real implementation would use temporal checks
+        
+        if (table === 'activos' || table === 'equipos') {
+          const d = record;
+          await sql`
+            INSERT INTO equipos (
+              tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
+              voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
+              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
+              uuid_sincro, modificado_en
+            ) VALUES (
+              ${d.tag}, ${d.nombre}, ${d.tipo}, ${d.marca || ''}, ${d.modelo || ''}, 
+              ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
+              ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
+              ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || ''}, 
+              ${d.proximo_mantenimiento || ''}, ${d.horas_operacion || 0}, ${d.notas || ''},
+              ${d.uuid_sincro}, ${d.modificado_en}
+            ) ON CONFLICT (tag) DO UPDATE SET
+              nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
+              serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
+              voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
+              fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
+              ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
+              horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas,
+              uuid_sincro = EXCLUDED.uuid_sincro, modificado_en = EXCLUDED.modificado_en
+              WHERE EXCLUDED.modificado_en > equipos.modificado_en;
+          `;
+        } else {
+          // Generic handler for other tables using JSONB storage
+          const id = record.uuid_sincro;
+          const data = JSON.stringify(record);
+          const modificado_en = record.modificado_en;
+
+          await sql`
+            INSERT INTO ${sql(table)} (id, data, uuid_sincro, modificado_en) 
+            VALUES (${id}, ${data}, ${id}, ${modificado_en}) 
+            ON CONFLICT (uuid_sincro) DO UPDATE SET 
+              data = EXCLUDED.data, 
+              modificado_en = EXCLUDED.modificado_en
+            WHERE EXCLUDED.modificado_en > ${sql(table)}.modificado_en
+          `;
+        }
+      }
+
+      res.json({ success: true, message: "Sync successful" });
+    } catch (error: any) {
+      console.error("Sync Error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

@@ -77,7 +77,24 @@ async function initializeDB() {
         await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS proximo_mantenimiento TEXT`;
         await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS horas_operacion INTEGER`;
         await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS notas TEXT`;
-      } catch (e) {
+        await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT UNIQUE`;
+        await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+
+        await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS uuid_sincro TEXT UNIQUE`;
+        await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+
+        await sql`ALTER TABLE mantenimientos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT UNIQUE`;
+        await sql`ALTER TABLE mantenimientos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+
+        await sql`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS uuid_sincro TEXT UNIQUE`;
+        await sql`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+
+        await sql`ALTER TABLE informes ADD COLUMN IF NOT EXISTS uuid_sincro TEXT UNIQUE`;
+        await sql`ALTER TABLE informes ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+
+        await sql`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS uuid_sincro TEXT UNIQUE`;
+        await sql`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+      } catch (e: any) {
         console.warn("Fallo al actualizar columnas de activos:", e.message);
       }
     }

@@ -20,6 +20,8 @@
     "@yudiel/react-qr-scanner": "^2.5.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dexie": "^4.4.2",
+    "dexie-react-hooks": "^4.4.0",
     "dotenv": "^17.2.3",
     "eslint": "^10.3.0",
     "express": "^4.21.2",

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LoadingIndicator from '../LoadingIndicator';
 import * as htmlToImage from 'html-to-image';
+import { db } from '../../lib/dbLocal';
+import { syncData } from '../../lib/syncEngine';
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
 } from 'lucide-react';
@@ -145,67 +147,54 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
     const assetData = {
+      uuid_sincro: crypto.randomUUID(),
       tag: fullTag,
       nombre: tagData.nombreEquipo,
-      almacen: tagData.almacen,
       tipo: tagData.tipo,
-      correlativo: tagData.correlativo,
       marca: tagData.marca,
       modelo: tagData.modelo,
       serie: tagData.serie,
-      voltaje,
-      corriente,
-      potencia,
       ubicacion: tagData.almacen,
-      estado: "OPERATIVO",
-      statusSincronizacion: "pendiente",
-      fechaSincronizacionLocal: new Date().toISOString()
+      area: tagData.almacen,
+      capacidad: potencia.toString(),
+      voltaje: voltaje.toString(),
+      corriente: corriente.toString(),
+      refrigerante: '',
+      fecha_instalacion: new Date().toISOString(),
+      vida_util: 10,
+      estado: "operativo",
+      ultimo_mantenimiento: '',
+      proximo_mantenimiento: '',
+      horas_operacion: 0,
+      tecnicos: [],
+      notas: '',
+      sync_status: 'pending_insert' as const,
+      modificado_en: Date.now()
     };
 
-    // 1. Guardado Local rápido para Feedback y persistencia offline
-    localStorage.setItem(`registro_${fullTag}`, JSON.stringify(assetData));
-
-    // 2. Ejecución diferida para la Nube
-    setTimeout(async () => {
-      try {
-        const response = await fetch('/api/equipos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tag: fullTag,
-            nombre: tagData.nombreEquipo,
-            estado: "operativo",
-            tipo: tagData.tipo,
-            ubicacion: tagData.almacen,
-            marca: tagData.marca,
-            modelo: tagData.modelo,
-            serie: tagData.serie,
-            voltaje, 
-            corriente, 
-            capacidad: potencia,
-            tecnicos: []
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al guardar en la base de datos');
-        }
-
-        console.log("Sincronizado con Neon DB exitosamente");
-        alert(`Activo ${fullTag} registrado con éxito en la Base de Datos.`);
-      } catch (error) {
-        console.error("Error en la nube, se mantiene solo local:", error);
-        alert("El activo se guardó localmente. Se sincronizará cuando haya conexión.");
-      } finally {
-        setIsSaving(false);
-        onClose();
-      }
-    }, 0);
+    try {
+      // 1. Guardado Local INMEDIATO (Dexie)
+      await db.activos.put(assetData);
+      
+      // 2. Feedback visual instantáneo
+      console.log("Guardado localmente en Dexie");
+      
+      // 3. Intentar Sincronización en Background
+      syncData(); 
+      
+      // 4. Cerrar modal al instante
+      onClose();
+    } catch (error) {
+      console.error("Error guardando localmente:", error);
+      alert("Error crítico al guardar en la base local.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
