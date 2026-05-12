@@ -8,7 +8,7 @@
  * Este archivo actúa como una tabla de base de datos "simulada" en memoria 
  * (Mock DB) para el desarrollo del frontend. En un entorno de producción real,
  * la data aquí definida se obtendría mediante consultas a un backend 
- * (ej., PostgreSQL, MongoDB, Firebase Firestore).
+ * (ej., PostgreSQL sobre NeonDB).
  * 
  * INTERACCIONES (QUIÉN LO USA):
  * - ScannerQR.tsx: Lo utiliza para buscar un equipo por su campo "tag" cuando
@@ -30,10 +30,6 @@
  * ¿QUÉ ES ESTO?:
  * Este archivo contiene la estructura y datos de los equipos HVAC.
  * En desarrollo, sirve como una base de datos local (Mock DB).
- * 
- * INTERACCIÓN CON FIREBASE:
- * En producción, esta interfaz se utiliza para mapear los documentos de la 
- * colección 'equipos' en Google Firebase Firestore.
  */
 export interface Equipo {
   tag: string;             // Identificador único universal en formato Almacen.Tipo.Correlativo

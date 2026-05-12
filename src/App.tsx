@@ -41,7 +41,7 @@ import { CLIENTS } from "./data/clientes";
  * 
  * Interacciones:
  * - LocalStorage: Verifica "is_authenticated" y "active_client".
- * - AuthProvider: Provee contexto de Firebase Auth a toda la aplicación.
+ * - AuthProvider: Provee contexto de Autenticación a toda la aplicación.
  * - Layout: Envuelve las páginas protegidas con la barra lateral y navegación superior.
  * 
  * @returns {JSX.Element} El árbol de componentes de la aplicación.
@@ -55,7 +55,7 @@ export default /**
  * Es el cerebro del front-end en Vercel. Decide qué página mostrar según la URL.
  * 
  * INTERACCIONES:
- * - AuthContext: Valida si el usuario inició sesión en Firebase.
+ * - AuthContext: Valida si el usuario inició sesión.
  * - LocalStorage: Recuerda qué cliente seleccionó el usuario.
  * 
  * FLUJO DE ARRANQUE:

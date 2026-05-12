@@ -165,10 +165,6 @@ export default function ScannerQR() {
       
       // BÚSQUEDA EN BASE DE DATOS:
       // Actualmente lee del archivo local /src/data/equipos.ts.
-      // PARA PRODUCCIÓN CON FIREBASE:
-      // 1. Reemplazar EQUIPOS_DATA.find por una consulta a Firestore:
-      //    const q = query(collection(db, "equipos"), where("tag", "==", tagValue));
-      // 2. Manejar la promesa y setear el estado.
       const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
       
       if (equipo) {

@@ -26,7 +26,7 @@ export default function Login() {
       setIsLoading(true);
       // Simulate network request
       setTimeout(() => {
-        // En un entorno real, aquí se llamaría a Firebase Auth
+        // En un entorno real, aquí se llamaría a Neon/Vercel Auth o Base de datos
         // Por ahora, persistimos la sesión simulada con el PIN
         localStorage.setItem("auth_pin", pin);
         localStorage.setItem("is_authenticated", "true");

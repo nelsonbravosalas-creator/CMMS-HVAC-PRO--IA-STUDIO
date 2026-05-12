@@ -1,7 +1,7 @@
 # Documentación Técnica - Sistema CMMS NBYB
 
 ## 1. Introducción
-Este sistema es una aplicación de gestión de mantenimiento asistido por computadora (CMMS) diseñada específicamente para operaciones HVAC y activos industriales. Utiliza una arquitectura moderna basada en React, Vite y Firebase.
+Este sistema es una aplicación de gestión de mantenimiento asistido por computadora (CMMS) diseñada específicamente para operaciones HVAC y activos industriales. Utiliza una arquitectura moderna basada en React, Vite y Neon PostgreSQL.
 
 ## 2. Pila Tecnológica (Tech Stack)
 - **Frontend**: React 18 (TypeScript)
@@ -9,34 +9,27 @@ Este sistema es una aplicación de gestión de mantenimiento asistido por comput
 - **Estilos**: Tailwind CSS con sistema de diseño personalizado.
 - **Iconografía**: Lucide React.
 - **Gráficos**: Recharts.
-- **Base de Datos**: Firebase Firestore.
-- **Autenticación**: Firebase Auth.
+- **Base de Datos**: Neon PostgreSQL.
+- **Autenticación**: Vercel/Neon Auth.
 - **Utilidades**: 
   - `html2canvas`: Generación de imágenes de etiquetas QR.
   - `motion`: Animaciones fluidas de interfaz.
 
-## 3. Arquitectura de Datos (Firestore)
-La base de datos se organiza en tres colecciones principales protegidas por reglas de seguridad de grano fino:
+## 3. Arquitectura de Datos (Neon PostgreSQL)
+La base de datos se organiza en tablas relacionales principales:
 
-### 3.1 `equipos`
+### 3.1 `activos`
 Almacena la hoja de vida de cada activo.
 - **Identificador**: TAG único (ej: 21-STK.AC.001)
-- **Propiedades clave**: `estado`, `ubicacion`, `ultimoMantenimiento`, `proximoMantenimiento`.
+- **Propiedades clave**: `estado`, `ubicacion`, `ultimo_mantenimiento`, `proximo_mantenimiento`.
 
-### 3.2 `tickets`
-Gestión de incidencias y fallas reportadas.
-- **Estados**: `Abierto`, `En proceso`, `Resuelto`.
+### 3.2 `tickets` / `informes`
+Gestión de incidencias, fallas reportadas y mantenimiento.
 - **Relatividad**: Vinculado a un TAG de equipo.
 
-### 3.3 `users`
+### 3.3 `usuarios`
 Perfiles extendidos de usuarios.
 - **Roles**: `tecnico`, `supervisor`, `administrador`, `cliente`.
-
-## 4. Seguridad (Firebase Rules)
-El archivo `firestore.rules` implementa una estrategia de "Zero Trust":
-- **Validación de Identidad**: Todo write requiere un email verificado coincidente con el `ownerId`.
-- **Inmutabilidad**: El `tag` y el `ownerId` de un equipo no pueden cambiarse tras su creación.
-- **Bloqueo por Estado**: Los equipos con estado 'Baja' quedan bloqueados para actualizaciones críticas.
 
 ## 5. Módulos Críticos
 
