@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { EQUIPOS_DATA, Equipo } from "../data/equipos";
+import { ALMACEN_LABELS } from "../data/sucursales";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import { BulkUploadModal } from "../components/modals/BulkUploadModal";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
@@ -47,13 +48,6 @@ export default function Equipos() {
     const saved = localStorage.getItem("equipos_filters");
     return saved ? JSON.parse(saved) : { search: "", tipo: "", estado: "", area: "", almacen: "" };
   });
-
-  const ALMACEN_LABELS: Record<string, string> = { 
-    '11-STK': 'Iquique', '12-STK': 'Antofagasta', '13-STK': 'Copiapó', 
-    '21-STK': 'Santiago 14 de la Fama', '21-STK-SB': 'BME La Vara 3310',
-    '23-STK': 'Viña del Mar', '24-STK': 'Rancagua', '31-STK': 'Concepción',
-    '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
-  };
 
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 

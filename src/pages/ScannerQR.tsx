@@ -24,6 +24,7 @@ import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
 import * as htmlToImage from 'html-to-image';
 import { EQUIPOS_DATA } from "../data/equipos";
+import { SUCURSALES } from "../data/sucursales";
 import { useEffect } from "react";
 import { Scanner } from '@yudiel/react-qr-scanner';
 
@@ -212,7 +213,7 @@ export default function ScannerQR() {
       almacen: tagData.almacen,
       tipo: tagData.tipo,
       correlativo: tagData.correlativo,
-      ubicacion: "No definida",
+      ubicacion: tagData.almacen,
       estado: "OPERATIVO",
       statusSincronizacion: "pendiente",
       fechaSincronizacionLocal: new Date().toISOString()
@@ -232,7 +233,7 @@ export default function ScannerQR() {
             tag_tecnico: fullTag,
             nombre: tagData.nombreEquipo,
             tipo: tagData.tipo,
-            ubicacion: "No definida",
+            ubicacion: tagData.almacen,
             estado: "OPERATIVO"
           })
         });
@@ -522,13 +523,9 @@ export default function ScannerQR() {
                         value={tagData.almacen}
                         onChange={(e) => setTagData({...tagData, almacen: e.target.value})}
                       >
-                         <option value="11-STK">11-STK - Iquique</option>
-                         <option value="12-STK">12-STK - Antofagasta</option>
-                         <option value="13-STK">13-STK - Copiapó</option>
-                         <option value="21-STK">21-STK - Santiago</option>
-                         <option value="23-STK">23-STK - Viña del Mar</option>
-                         <option value="31-STK">31-STK - Concepción</option>
-                         <option value="32-STK">32-STK - Puerto Montt</option>
+                         {SUCURSALES.map(s => (
+                           <option key={s.id} value={s.id}>{s.nombre}</option>
+                         ))}
                       </select>
                    </div>
                    <div className="space-y-3">

@@ -5,6 +5,7 @@ import {
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
 } from 'lucide-react';
 import { EQUIPOS_DATA } from '../../data/equipos';
+import { SUCURSALES } from '../../data/sucursales';
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface CreateAssetModalProps {
@@ -160,7 +161,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       voltaje,
       corriente,
       potencia,
-      ubicacion: "No definida",
+      ubicacion: tagData.almacen,
       estado: "OPERATIVO",
       statusSincronizacion: "pendiente",
       fechaSincronizacionLocal: new Date().toISOString()
@@ -180,7 +181,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
             tag_tecnico: fullTag,
             nombre: tagData.nombreEquipo,
             tipo: tagData.tipo,
-            ubicacion: "No definida",
+            ubicacion: tagData.almacen,
             estado: "OPERATIVO"
           })
         });
@@ -346,16 +347,9 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                       value={tagData.almacen}
                       onChange={(e) => setTagData({...tagData, almacen: e.target.value})}
                    >
-                      <option value="11-STK">11-STK - Iquique</option>
-                      <option value="12-STK">12-STK - Antofagasta</option>
-                      <option value="13-STK">13-STK - Copiapó</option>
-                      <option value="21-STK">21-STK - Santiago 14 de la Fama</option>
-                      <option value="21-STK-SB">21-STK-SB - BME La Vara 3310</option>
-                      <option value="23-STK">23-STK - Viña del Mar</option>
-                      <option value="24-STK">24-STK - Rancagua</option>
-                      <option value="31-STK">31-STK - Concepción</option>
-                      <option value="32-STK">32-STK - Puerto Montt</option>
-                      <option value="Planta-STK">Planta-STK - Planta Industrial</option>
+                      {SUCURSALES.map(s => (
+                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                      ))}
                    </select>
                 </div>
                 <div className="space-y-1">

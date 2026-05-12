@@ -31,6 +31,7 @@ import {
 } from "recharts";
 import { Link } from "wouter";
 import { EQUIPOS_DATA } from "../data/equipos";
+import { ALMACEN_LABELS } from "../data/sucursales";
 
 const DATA_MONTHLY = [
   { name: 'Ene', cost: 4200, activity: 120 },
@@ -38,13 +39,6 @@ const DATA_MONTHLY = [
   { name: 'Mar', cost: 5100, activity: 145 },
   { name: 'Abr', cost: 4800, activity: 130 },
 ];
-
-const ALMACEN_LABELS: Record<string, string> = { 
-  '11-STK': 'Iquique', '12-STK': 'Antofagasta', '13-STK': 'Copiapó', 
-  '21-STK': 'Santiago 14 de la Fama', '21-STK-SB': 'BME La Vara 3310',
-  '23-STK': 'Viña del Mar', '24-STK': 'Rancagua', '31-STK': 'Concepción',
-  '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
-};
 
 const DATA_POWER = [
   { name: 'Santiago', power: 400 },

@@ -38,6 +38,7 @@ import { AssetSearchModal } from "../components/modals/AssetSearchModal";
 import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatureModal";
 import { INFORMES_MOCK } from "../data/informes";
 import { EQUIPOS_DATA } from "../data/equipos";
+import { SUCURSALES, ALMACEN_LABELS } from "../data/sucursales";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -663,13 +664,6 @@ export default function EditorInforme() {
   const [searchClient, setSearchClient] = useState("");
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
-
-  const ALMACEN_LABELS: Record<string, string> = { 
-    '11-STK': 'Iquique', '12-STK': 'Antofagasta', '13-STK': 'Copiapó', 
-    '21-STK': 'Santiago 14 de la Fama', '21-STK-SB': 'BME La Vara 3310',
-    '23-STK': 'Viña del Mar', '24-STK': 'Rancagua', '31-STK': 'Concepción',
-    '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
-  };
 
   const filteredEquipos = EQUIPOS_DATA.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;

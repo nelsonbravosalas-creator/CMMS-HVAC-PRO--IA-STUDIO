@@ -4,18 +4,12 @@ import {
 } from 'lucide-react';
 import { AssetSearchModal } from './AssetSearchModal';
 import { EQUIPOS_DATA } from '../../data/equipos';
+import { ALMACEN_LABELS } from '../../data/sucursales';
 
 interface TicketFormProps {
   onClose: () => void;
   equipoTag?: string;
 }
-
-const ALMACEN_LABELS: Record<string, string> = { 
-  '11-STK': 'Iquique', '12-STK': 'Antofagasta', '13-STK': 'Copiapó', 
-  '21-STK': 'Santiago 14 de la Fama', '21-STK-SB': 'BME La Vara 3310',
-  '23-STK': 'Viña del Mar', '24-STK': 'Rancagua', '31-STK': 'Concepción',
-  '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
-};
 
 export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: initialTag }) => {
   const [showAssetSearch, setShowAssetSearch] = useState(false);
