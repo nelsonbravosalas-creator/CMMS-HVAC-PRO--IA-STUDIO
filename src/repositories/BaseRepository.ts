@@ -1,7 +1,7 @@
-import { db, CMMSDatabase, SyncStatus } from '../db/database';
+import { db, CMMSDatabase, SyncStatus, LocalBase } from '../db/database';
 import { Table } from 'dexie';
 
-export abstract class BaseRepository<T extends { uuid_sincro: string; modificado_en: number; sync_status: SyncStatus }> {
+export abstract class BaseRepository<T extends LocalBase> {
   protected table: Table<T>;
 
   constructor(tableName: keyof CMMSDatabase) {
