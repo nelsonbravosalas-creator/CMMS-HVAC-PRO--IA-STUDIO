@@ -1,46 +1,70 @@
 import { useAppStore } from '../store/useAppStore';
 import { activosRepo } from '../repositories/ActivosRepository';
 import { LocalActivo } from '../db/database';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSyncStore } from '../store/useSyncStore';
+import { syncEngine } from '../sync/syncEngine';
 
 export const useAssets = () => {
   const { activos, addActivo, updateActivo, deleteActivo } = useAppStore();
+  const queryClient = useQueryClient();
 
-  const createAsset = async (data: Partial<LocalActivo>) => {
-    const newAsset: LocalActivo = {
-      ...data,
-      uuid_sincro: crypto.randomUUID(),
-      modificado_en: Date.now(),
-      sync_status: 'pending_insert'
-    } as LocalActivo;
+  // Background sync from remote (reads latest version)
+  useQuery({
+    queryKey: ['assets_remote'],
+    queryFn: async () => {
+      // Background query logic goes here instead of direct fetch overwrites
+      return [];
+    },
+  });
 
-    const savedAsset = await activosRepo.save(newAsset);
-    addActivo(savedAsset);
-    return savedAsset;
-  };
+  const createMutation = useMutation({
+    mutationFn: async (data: Partial<LocalActivo>) => {
+      const savedAsset = await activosRepo.save({
+        ...data,
+      } as LocalActivo);
+      return savedAsset;
+    },
+    onMutate: async (newAsset) => {
+      // Optimistic local update via Zustand
+      // We wait for DB save above, so optimistic update can be immediate or after save.
+      // We do it after save to have the uuid_sincro natively
+    },
+    onSuccess: (savedAsset) => {
+      addActivo(savedAsset);
+      syncEngine.triggerSync();
+      queryClient.invalidateQueries({ queryKey: ['assets_remote'] });
+    }
+  });
 
-  const editAsset = async (uuid: string, data: Partial<LocalActivo>) => {
-    const existing = await activosRepo.getById(uuid);
-    if (!existing) throw new Error('Asset not found');
+  const editMutation = useMutation({
+    mutationFn: async ({ uuid, data }: { uuid: string, data: Partial<LocalActivo> }) => {
+      return await activosRepo.update(uuid, data);
+    },
+    onSuccess: (updatedAsset) => {
+      updateActivo(updatedAsset);
+      syncEngine.triggerSync();
+      queryClient.invalidateQueries({ queryKey: ['assets_remote'] });
+    }
+  });
 
-    const updatedAsset: LocalActivo = {
-      ...existing,
-      ...data
-    };
-
-    const savedAsset = await activosRepo.save(updatedAsset);
-    updateActivo(savedAsset);
-    return savedAsset;
-  };
-
-  const removeAsset = async (uuid: string) => {
-    await activosRepo.delete(uuid);
-    deleteActivo(uuid);
-  };
+  const removeMutation = useMutation({
+    mutationFn: async (uuid: string) => {
+      await activosRepo.delete(uuid);
+      return uuid;
+    },
+    onSuccess: (uuid) => {
+      deleteActivo(uuid);
+      syncEngine.triggerSync();
+      queryClient.invalidateQueries({ queryKey: ['assets_remote'] });
+    }
+  });
 
   return {
     activos,
-    createAsset,
-    editAsset,
-    removeAsset
+    createAsset: createMutation.mutateAsync,
+    editAsset: (uuid: string, data: Partial<LocalActivo>) => editMutation.mutateAsync({ uuid, data }),
+    removeAsset: removeMutation.mutateAsync
   };
 };
+
