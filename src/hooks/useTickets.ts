@@ -15,9 +15,9 @@ export const useTickets = () => {
       sync_status: 'pending_insert'
     } as LocalTicket;
 
-    await ticketsRepo.save(newTicket);
-    addTicketToStore(newTicket);
-    return newTicket;
+    const savedTicket = await ticketsRepo.save(newTicket);
+    addTicketToStore(savedTicket);
+    return savedTicket;
   };
 
   const updateTicket = async (uuid: string, updates: Partial<LocalTicket>) => {
@@ -26,14 +26,12 @@ export const useTickets = () => {
 
     const updated: LocalTicket = {
       ...existing,
-      ...updates,
-      modificado_en: Date.now(),
-      sync_status: 'pending_update'
+      ...updates
     };
 
-    await ticketsRepo.save(updated);
-    updateTicketInStore(updated);
-    return updated;
+    const savedTicket = await ticketsRepo.save(updated);
+    updateTicketInStore(savedTicket);
+    return savedTicket;
   };
 
   const deleteTicket = async (uuid: string) => {

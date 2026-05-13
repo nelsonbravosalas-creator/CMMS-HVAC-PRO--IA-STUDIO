@@ -13,9 +13,9 @@ export const useAssets = () => {
       sync_status: 'pending_insert'
     } as LocalActivo;
 
-    await activosRepo.save(newAsset);
-    addActivo(newAsset);
-    return newAsset;
+    const savedAsset = await activosRepo.save(newAsset);
+    addActivo(savedAsset);
+    return savedAsset;
   };
 
   const editAsset = async (uuid: string, data: Partial<LocalActivo>) => {
@@ -24,14 +24,12 @@ export const useAssets = () => {
 
     const updatedAsset: LocalActivo = {
       ...existing,
-      ...data,
-      modificado_en: Date.now(),
-      sync_status: 'pending_update'
+      ...data
     };
 
-    await activosRepo.save(updatedAsset);
-    updateActivo(updatedAsset);
-    return updatedAsset;
+    const savedAsset = await activosRepo.save(updatedAsset);
+    updateActivo(savedAsset);
+    return savedAsset;
   };
 
   const removeAsset = async (uuid: string) => {

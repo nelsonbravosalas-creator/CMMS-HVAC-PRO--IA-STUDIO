@@ -1,11 +1,15 @@
 import Dexie, { Table } from 'dexie';
 
-export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pending_delete';
+export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pending_delete' | 'failed' | 'conflicted';
 
 export interface LocalBase {
   uuid_sincro: string;
   modificado_en: number;
   sync_status: SyncStatus;
+  version: number;
+  retry_count: number;
+  last_synced_at?: number;
+  deleted_at?: number;
 }
 
 export interface LocalActivo extends LocalBase {

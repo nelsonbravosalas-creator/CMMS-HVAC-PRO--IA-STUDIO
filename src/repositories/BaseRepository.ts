@@ -16,43 +16,49 @@ export abstract class BaseRepository<T extends { uuid_sincro: string; modificado
     return this.table.get(uuid);
   }
 
-  async save(data: T): Promise<string> {
+  async save(data: T): Promise<T> {
     const now = Date.now();
+    const existing = await this.getById(data.uuid_sincro);
+    
     const record = {
       ...data,
       modificado_en: now,
-      sync_status: data.sync_status || 'pending_insert'
+      version: (existing?.version || 0) + 1,
+      retry_count: 0,
+      sync_status: (existing ? 'pending_update' : 'pending_insert') as SyncStatus
     };
     
     await this.table.put(record);
     
-    // Add to sync queue
+    // Add to sync queue with more metadata
     await db.sync_queue.add({
       table: this.table.name,
       uuid_sincro: record.uuid_sincro,
-      operation: record.sync_status === 'pending_insert' ? 'insert' : 'update',
+      operation: existing ? 'update' : 'insert',
       data: record,
       timestamp: now
     });
 
-    return record.uuid_sincro;
+    return record;
   }
 
   async delete(uuid: string): Promise<void> {
     const existing = await this.getById(uuid);
     if (!existing) return;
 
+    const now = Date.now();
     await this.table.update(uuid, {
       sync_status: 'pending_delete' as SyncStatus,
-      modificado_en: Date.now()
+      modificado_en: now,
+      deleted_at: now
     } as any);
 
     await db.sync_queue.add({
       table: this.table.name,
       uuid_sincro: uuid,
       operation: 'delete',
-      data: { uuid_sincro: uuid },
-      timestamp: Date.now()
+      data: { uuid_sincro: uuid, deleted_at: now },
+      timestamp: now
     });
   }
 
@@ -70,9 +76,12 @@ export abstract class BaseRepository<T extends { uuid_sincro: string; modificado
   }
 
   async markSynced(uuid: string): Promise<void> {
+    const now = Date.now();
     await this.table.update(uuid, {
       sync_status: 'synced' as SyncStatus,
-      modificado_en: Date.now()
+      modificado_en: now,
+      last_synced_at: now,
+      retry_count: 0
     } as any);
   }
 

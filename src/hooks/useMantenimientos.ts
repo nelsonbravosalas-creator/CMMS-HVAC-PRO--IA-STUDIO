@@ -15,9 +15,9 @@ export const useMantenimientos = () => {
       sync_status: 'pending_insert'
     } as LocalMantenimiento;
 
-    await mantenimientosRepo.save(newMant);
-    addMantToStore(newMant);
-    return newMant;
+    const savedMant = await mantenimientosRepo.save(newMant);
+    addMantToStore(savedMant);
+    return savedMant;
   };
 
   const updateMantenimiento = async (uuid: string, updates: Partial<LocalMantenimiento>) => {
@@ -26,14 +26,12 @@ export const useMantenimientos = () => {
 
     const updated: LocalMantenimiento = {
       ...existing,
-      ...updates,
-      modificado_en: Date.now(),
-      sync_status: 'pending_update'
+      ...updates
     };
 
-    await mantenimientosRepo.save(updated);
-    updateMantInStore(updated);
-    return updated;
+    const savedMant = await mantenimientosRepo.save(updated);
+    updateMantInStore(savedMant);
+    return savedMant;
   };
 
   const deleteMantenimiento = async (uuid: string) => {

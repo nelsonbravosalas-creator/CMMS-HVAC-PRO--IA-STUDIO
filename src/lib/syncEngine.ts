@@ -36,29 +36,27 @@ export const processSyncQueue = async () => {
           if (result.success && result.results) {
             const table = db[item.table as keyof typeof db] as any;
             if (table) {
-              const serverResult = result.results[0]; // Since we send records: [item.data]
+              const serverResult = result.results[0];
               
               if (item.operation === 'delete') {
                 await table.delete(item.uuid_sincro);
               } else {
-                const status: SyncStatus = 'synced';
-                const updates: any = { sync_status: status };
+                const now = Date.now();
+                const updates: any = { 
+                  sync_status: 'synced' as SyncStatus,
+                  last_synced_at: now,
+                  retry_count: 0
+                };
                 
-                // Si el servidor asignó un ID oficial (Folio), lo guardamos localmente
                 if (serverResult.folio_oficial || serverResult.id) {
                   const officialId = serverResult.folio_oficial || serverResult.id;
-                  // Para Activos el ID es 'tag', para otros es 'id'
                   if (item.table === 'activos') updates.tag = officialId;
                   else updates.id = officialId;
                 }
 
                 await table.update(item.uuid_sincro, updates);
                 
-                // Notificar al Store para que el icono de nube cambie y se vea el ID real
                 const store = useAppStore.getState();
-                store.setSyncStatus(item.table, item.uuid_sincro, status);
-                
-                // Si cambió el ID, necesitamos actualizar el objeto completo en el store
                 const updatedRecord = await table.get(item.uuid_sincro);
                 if (updatedRecord) {
                   const updateAction = `update${item.table.charAt(0).toUpperCase()}${item.table.slice(1, -1)}` as any;
@@ -69,16 +67,47 @@ export const processSyncQueue = async () => {
                 }
               }
             }
-            // Eliminar de la cola
             await db.sync_queue.delete(item.id!);
             logger.info('Sync', `Éxito al sincronizar ${item.table}:${item.uuid_sincro}`);
+            syncStore.addSyncResult({
+              id: crypto.randomUUID(),
+              table: item.table,
+              operation: item.operation,
+              status: 'success',
+              timestamp: Date.now()
+            });
           } else {
-             logger.error('Sync', `Error del servidor para ${item.uuid_sincro}`, result.error);
+             throw new Error(result.error || 'Server rejected request');
           }
+        } else {
+          throw new Error(`HTTP Error ${response.status}`);
         }
       } catch (error) {
-        logger.error('Sync', `Fallo crítico sincronizando item ${item.id}`, error);
-        break; // Detener procesamiento si hay error de red
+        logger.error('Sync', `Error sincronizando ${item.table}:${item.uuid_sincro}, marcando para reintento`, error);
+        
+        const table = db[item.table as keyof typeof db] as any;
+        if (table) {
+          const record = await table.get(item.uuid_sincro);
+          if (record) {
+            await table.update(item.uuid_sincro, {
+              sync_status: 'failed' as SyncStatus,
+              retry_count: (record.retry_count || 0) + 1
+            });
+          }
+        }
+
+        syncStore.addSyncResult({
+          id: crypto.randomUUID(),
+          table: item.table,
+          operation: item.operation,
+          status: 'error',
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now()
+        });
+
+        // Optional: delete from queue if max retries reached, or just leave it for next pass
+        // For now, we leave it in queue and break to avoid flooding when offline or server down
+        break; 
       }
     }
   } finally {

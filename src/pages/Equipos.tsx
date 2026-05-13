@@ -30,6 +30,7 @@ import { useAuth } from "../context/AuthContext";
 import { useAppStore } from "../store/useAppStore";
 import { useAssets } from "../hooks/useAssets";
 import { LocalActivo } from "../db/database";
+import { StatusIndicator } from "../components/StatusIndicator";
 
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
@@ -261,13 +262,6 @@ export default function Equipos() {
   );
 }
 
-import { Cloud, CloudOff, CloudCheck } from "lucide-react";
-
-const SyncIndicator: React.FC<{ status: string }> = ({ status }) => {
-  if (status === 'synced') return <Cloud className="w-3.5 h-3.5 text-emerald-500" />;
-  return <Cloud className="w-3.5 h-3.5 text-amber-500 animate-pulse" />;
-};
-
 const EquipoCardGrid: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
   const [, setLocation] = useLocation();
 
@@ -283,7 +277,7 @@ const EquipoCardGrid: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> 
             <Box className="w-6 h-6" />
           </div>
           <div className="flex items-center gap-2">
-            <SyncIndicator status={equipo.sync_status} />
+            <StatusIndicator status={equipo.sync_status} />
             <button 
               onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
               className="p-3 bg-slate-100 hover:bg-white rounded-xl shadow-sm transition-all border border-transparent hover:border-slate-200"
@@ -335,7 +329,7 @@ const EquipoRowList: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> =
     >
       <td className="px-6 py-4 text-left">
         <div className="flex items-center gap-4">
-           <SyncIndicator status={equipo.sync_status} />
+           <StatusIndicator status={equipo.sync_status} />
            <button 
              onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
              className="p-2 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-lg transition-all"

@@ -38,6 +38,8 @@ import { initSyncEngine } from "./lib/syncEngine";
 import { useAppStore } from "./store/useAppStore";
 import { useSyncStore } from "./store/useSyncStore";
 import { SyncIndicator } from "./components/SyncIndicator";
+import { SyncInspectorPanel } from "./components/debug/SyncInspectorPanel";
+import { networkMonitor } from "./lib/network";
 
 /**
  * Componente funcional App.
@@ -79,19 +81,8 @@ function App() {
     // 2. Iniciar motor de sincronización
     initSyncEngine();
 
-    // 3. Listener de estado de red
-    const handleStatusChange = () => {
-      const online = navigator.onLine;
-      useAppStore.getState().setOnline(online);
-      useSyncStore.getState().setOnline(online);
-    };
-    window.addEventListener('online', handleStatusChange);
-    window.addEventListener('offline', handleStatusChange);
-
-    return () => {
-      window.removeEventListener('online', handleStatusChange);
-      window.removeEventListener('offline', handleStatusChange);
-    };
+    // 3. Iniciar monitor de red
+    networkMonitor.init();
   }, []);
 
   useEffect(() => {
@@ -176,6 +167,7 @@ function App() {
             </Switch>
           </Layout>
           <SyncIndicator />
+          <SyncInspectorPanel />
         </>
       )}
     </AuthProvider>

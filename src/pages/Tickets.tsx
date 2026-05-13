@@ -25,6 +25,7 @@ import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdow
 import { useAuth } from "../context/AuthContext";
 import { useAppStore } from "../store/useAppStore";
 import { useTickets } from "../hooks/useTickets";
+import { StatusIndicator } from "../components/StatusIndicator";
 
 export default function Tickets() {
   const { permisos } = useAuth();
@@ -157,11 +158,6 @@ export default function Tickets() {
   );
 }
 
-const SyncIndicator: React.FC<{ status: string }> = ({ status }) => {
-  if (status === 'synced') return <Cloud className="w-4 h-4 text-emerald-500" />;
-  return <Cloud className="w-4 h-4 text-amber-500 animate-pulse" />;
-};
-
 const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
   const { updateTicket } = useTickets();
   const priorities: Record<string, string> = {
@@ -182,7 +178,7 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
              <AlertTriangle className="w-5 h-5" />
           </div>
           <div className="flex items-center gap-2">
-            <SyncIndicator status={ticket.sync_status} />
+            <StatusIndicator status={ticket.sync_status} />
             <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
           </div>
        </div>
