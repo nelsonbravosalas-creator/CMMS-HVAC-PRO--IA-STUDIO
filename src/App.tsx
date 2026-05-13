@@ -34,12 +34,12 @@ import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
 import { CLIENTS } from "./data/clientes";
-import { initSyncEngine } from "./lib/syncEngine";
+import { syncEngine } from "./sync/syncEngine";
 import { useAppStore } from "./store/useAppStore";
 import { useSyncStore } from "./store/useSyncStore";
 import { SyncIndicator } from "./components/SyncIndicator";
 import { SyncInspectorPanel } from "./components/debug/SyncInspectorPanel";
-import { networkMonitor } from "./lib/network";
+import { networkMonitor } from "./sync/networkMonitor";
 
 /**
  * Componente funcional App.
@@ -79,10 +79,10 @@ function App() {
     useAppStore.getState().hydrate();
     
     // 2. Iniciar motor de sincronización
-    initSyncEngine();
+    syncEngine.init();
 
-    // 3. Iniciar monitor de red
-    networkMonitor.init();
+    // 3. Monitor de red se inicia dentro de syncEngine.init() o manualmente si se prefiere
+    // networkMonitor.init(); // networkMonitor.init() ya es llamado por syncEngine.init()
   }, []);
 
   useEffect(() => {

@@ -1,13 +1,10 @@
 import { useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { syncData } from '../lib/syncEngine';
+import { syncEngine } from '../sync/syncEngine';
 
 export const useSync = () => {
   useEffect(() => {
-    const handleOnline = () => syncData();
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    // syncEngine.init() usually handles the listeners
   }, []);
 
-  return { syncData };
+  return { syncData: () => syncEngine.triggerSync() };
 };
