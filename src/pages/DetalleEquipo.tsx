@@ -58,6 +58,12 @@ export default function DetalleEquipo() {
 
   const { editAsset } = useAssets();
   
+  const mantenimientos = useCMMSStore(state => state.mantenimientos);
+  const historialMantenimiento = useMemo(() => 
+    mantenimientos.filter(m => m.equipo_tag === tag),
+    [mantenimientos, tag]
+  );
+  
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [isEditing, setIsEditing] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
@@ -235,35 +241,40 @@ export default function DetalleEquipo() {
              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Registro de Intervenciones</h3>
-                   <button className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-2">
+                   <button 
+                    onClick={() => setShowMantenimientoForm(true)}
+                    className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-2"
+                   >
                       <Plus className="w-3.5 h-3.5" /> Programar Mantenimiento
                    </button>
                 </div>
                 <div className="divide-y divide-slate-50">
-                   {[1, 2, 3].map(i => (
-                     <div key={i} className="p-6 hover:bg-slate-50 transition-colors group">
-                        <div className="flex justify-between items-start mb-4">
-                           <div className="flex items-center gap-3">
-                              <div className="p-2.5 bg-slate-100 text-slate-500 rounded-xl"><RefreshCw className="w-4 h-4" /></div>
-                              <div>
-                                 <h4 className="text-sm font-black text-slate-900 uppercase">Mantenimiento Preventivo Bimestral</h4>
-                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">REALIZADO EL 12/03/2026 POR NELSON BRAVO</p>
-                              </div>
-                           </div>
-                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"><Edit2 className="w-3.5 h-3.5" /></button>
-                              <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-slate-900"><Copy className="w-3.5 h-3.5" /></button>
-                              <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
-                           </div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[10px] font-bold uppercase">
-                           <div><span className="text-slate-400 block mb-1">Estado Filtros</span> <span className="text-emerald-600">Limpieza OK</span></div>
-                           <div><span className="text-slate-400 block mb-1">Presión Ref.</span> <span className="text-slate-700">120 PSI</span></div>
-                           <div><span className="text-slate-400 block mb-1">Consumo Eléc.</span> <span className="text-slate-700">4.2A</span></div>
-                           <div><span className="text-slate-400 block mb-1">Insumos</span> <span className="text-slate-700">Recarga R-410A</span></div>
-                        </div>
-                     </div>
-                   ))}
+                   {historialMantenimiento.length === 0 ? (
+                     <div className="p-20 text-center text-slate-400 italic text-xs font-bold uppercase">No hay registros de mantenimiento para este equipo</div>
+                   ) : (
+                     historialMantenimiento.map(m => (
+                       <div key={m.uuid_sincro} className="p-6 hover:bg-slate-50 transition-colors group">
+                          <div className="flex justify-between items-start mb-4">
+                             <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-slate-100 text-slate-500 rounded-xl"><RefreshCw className="w-4 h-4" /></div>
+                                <div>
+                                   <h4 className="text-sm font-black text-slate-900 uppercase">{m.tipo}</h4>
+                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">REALIZADO EL {m.fecha} POR {m.tecnico}</p>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"><Edit2 className="w-3.5 h-3.5" /></button>
+                                <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-slate-900"><Copy className="w-3.5 h-3.5" /></button>
+                                <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                             </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px] font-bold uppercase mt-2">
+                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Hallazgos</span> <span className="text-slate-700">{m.hallazgos || 'Ninguno'}</span></div>
+                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Acciones Tomadas</span> <span className="text-slate-700">{m.acciones || 'Ninguna'}</span></div>
+                          </div>
+                       </div>
+                     ))
+                   )}
                 </div>
              </div>
            )}

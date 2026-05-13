@@ -11,7 +11,59 @@ const getSql = () => {
   return neon(dbUrl);
 };
 
+// DATABASE INITIALIZATION //
+async function ensureTables() {
+  const sql = getSql();
+  try {
+    console.log("ðŸ“¦ Initializing Database Schema...");
+    
+    await sql`
+      CREATE TABLE IF NOT EXISTS activos (
+        tag TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        tipo TEXT,
+        marca TEXT,
+        modelo TEXT,
+        serie TEXT,
+        ubicacion TEXT,
+        area TEXT,
+        capacidad TEXT,
+        voltaje TEXT,
+        corriente TEXT,
+        refrigerante TEXT,
+        fecha_instalacion TEXT,
+        vida_util INTEGER DEFAULT 10,
+        estado TEXT DEFAULT 'operativo',
+        ultimo_mantenimiento TEXT,
+        proximo_mantenimiento TEXT,
+        horas_operacion INTEGER DEFAULT 0,
+        tecnicos JSONB,
+        notas TEXT,
+        uuid_sincro TEXT UNIQUE,
+        modificado_en BIGINT
+      )
+    `;
+
+    const genericTables = ['usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
+    for (const table of genericTables) {
+      await sql(`
+        CREATE TABLE IF NOT EXISTS ${table} (
+          id TEXT PRIMARY KEY,
+          data JSONB NOT NULL,
+          uuid_sincro TEXT UNIQUE,
+          modificado_en BIGINT
+        )
+      `);
+    }
+
+    console.log("âœ… Database Schema is OK");
+  } catch (error) {
+    console.error("â Œ Error initializing database:", error);
+  }
+}
+
 async function startServer() {
+  await ensureTables();
   const app = express();
   const PORT = 3000;
 
@@ -192,7 +244,7 @@ async function startServer() {
 
   app.post("/api/sync/:table", async (req, res) => {
     const table = req.params.table;
-    const { records } = req.body;
+    const { records, operation } = req.body;
     
     if (!ALLOWED_TABLES.includes(table) && table !== 'equipos') return res.status(400).json({ error: "Invalid table" });
     if (!Array.isArray(records)) return res.status(400).json({ error: "Records must be an array" });
@@ -202,6 +254,19 @@ async function startServer() {
       const results = [];
       
       for (const record of records) {
+        if (operation === 'delete') {
+          switch (table) {
+            case 'activos': await sql`DELETE FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'tickets': await sql`DELETE FROM tickets WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'mantenimientos': await sql`DELETE FROM mantenimientos WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'usuarios': await sql`DELETE FROM usuarios WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'informes': await sql`DELETE FROM informes WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'clientes': await sql`DELETE FROM clientes WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+          }
+          results.push({ uuid_sincro: record.uuid_sincro, deleted: true });
+          continue;
+        }
+
         let folio_oficial = record.id;
         if (table === 'activos' || table === 'equipos') {
           folio_oficial = record.tag;

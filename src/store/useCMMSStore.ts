@@ -5,6 +5,8 @@ interface CMMSState {
   activos: LocalActivo[];
   tickets: LocalTicket[];
   mantenimientos: LocalMantenimiento[];
+  usuarios: LocalUsuario[];
+  clientes: LocalCliente[];
   isLoading: boolean;
   isOnline: boolean;
 
@@ -25,23 +27,35 @@ interface CMMSState {
   addMantenimiento: (mant: LocalMantenimiento) => void;
   updateMantenimiento: (mant: LocalMantenimiento) => void;
   deleteMantenimiento: (uuid: string) => void;
+
+  addUsuario: (user: LocalUsuario) => void;
+  updateUsuario: (user: LocalUsuario) => void;
+  deleteUsuario: (uuid: string) => void;
+
+  addCliente: (client: LocalCliente) => void;
+  updateCliente: (client: LocalCliente) => void;
+  deleteCliente: (uuid: string) => void;
 }
 
 export const useCMMSStore = create<CMMSState>((set) => ({
   activos: [],
   tickets: [],
   mantenimientos: [],
+  usuarios: [],
+  clientes: [],
   isLoading: true,
   isOnline: navigator.onLine,
 
   hydrate: async () => {
     set({ isLoading: true });
-    const [activos, tickets, mantenimientos] = await Promise.all([
+    const [activos, tickets, mantenimientos, usuarios, clientes] = await Promise.all([
       db.activos.where('sync_status').notEqual('pending_delete').toArray(),
       db.tickets.where('sync_status').notEqual('pending_delete').toArray(),
-      db.mantenimientos.where('sync_status').notEqual('pending_delete').toArray()
+      db.mantenimientos.where('sync_status').notEqual('pending_delete').toArray(),
+      db.usuarios.where('sync_status').notEqual('pending_delete').toArray(),
+      db.clientes.where('sync_status').notEqual('pending_delete').toArray()
     ]);
-    set({ activos, tickets, mantenimientos, isLoading: false });
+    set({ activos, tickets, mantenimientos, usuarios, clientes, isLoading: false });
   },
 
   setOnline: (status) => set({ isOnline: status }),
@@ -91,5 +105,29 @@ export const useCMMSStore = create<CMMSState>((set) => ({
 
   deleteMantenimiento: (uuid) => set((state) => ({
     mantenimientos: state.mantenimientos.filter(m => m.uuid_sincro !== uuid)
+  })),
+
+  addUsuario: (user) => set((state) => ({
+    usuarios: [user, ...state.usuarios]
+  })),
+
+  updateUsuario: (user) => set((state) => ({
+    usuarios: state.usuarios.map(u => u.uuid_sincro === user.uuid_sincro ? user : u)
+  })),
+
+  deleteUsuario: (uuid) => set((state) => ({
+    usuarios: state.usuarios.filter(u => u.uuid_sincro !== uuid)
+  })),
+
+  addCliente: (client) => set((state) => ({
+    clientes: [client, ...state.clientes]
+  })),
+
+  updateCliente: (client) => set((state) => ({
+    clientes: state.clientes.map(c => c.uuid_sincro === client.uuid_sincro ? client : c)
+  })),
+
+  deleteCliente: (uuid) => set((state) => ({
+    clientes: state.clientes.filter(c => c.uuid_sincro !== uuid)
   }))
 }));
