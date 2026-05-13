@@ -13,22 +13,26 @@ import {
   ChevronRight,
   Clock
 } from "lucide-react";
-import { EVENTOS_MOCK, EventoConsola } from "../data/eventos";
+import { logger } from "../lib/logger";
+import { useSyncStore } from "../store/useSyncStore";
+import { db } from "../db/database";
 
 export default function Consola() {
-  const [events, setEvents] = useState<EventoConsola[]>(EVENTOS_MOCK);
+  const [logs, setLogs] = useState(logger.getLogs());
   const [filter, setFilter] = useState("");
+  const { pendingCount, isSyncing } = useSyncStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [events]);
+    const interval = setInterval(() => {
+      setLogs([...logger.getLogs()]);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const filtered = events.filter(e => 
-    e.descripcion.toLowerCase().includes(filter.toLowerCase()) ||
-    e.usuario.toLowerCase().includes(filter.toLowerCase())
+  const filtered = logs.filter(e => 
+    e.message.toLowerCase().includes(filter.toLowerCase()) ||
+    e.context.toLowerCase().includes(filter.toLowerCase())
   );
 
   return (
@@ -82,16 +86,16 @@ export default function Consola() {
             </div>
             
             <div className="space-y-1">
-               {filtered.map(e => (
-                 <div key={e.id} className="flex gap-4 p-2 hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-all group">
-                    <span className="text-slate-500 shrink-0 select-none">[{e.timestamp.split(' ')[1]}]</span>
+               {filtered.map((e, i) => (
+                 <div key={i} className="flex gap-4 p-2 hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10 transition-all group">
+                    <span className="text-slate-500 shrink-0 select-none">[{new Date(e.timestamp).toLocaleTimeString()}]</span>
                     <span className={`uppercase font-black shrink-0 w-24 ${
-                      e.nivel === 'error' ? 'text-red-500' : e.nivel === 'warn' ? 'text-amber-500' : 'text-blue-500'
+                      e.level === 'error' ? 'text-red-500' : e.level === 'warn' ? 'text-amber-500' : 'text-blue-500'
                     }`}>
-                      {e.nivel}
+                      {e.level}
                     </span>
-                    <span className="text-slate-300 flex-1">{e.descripcion}</span>
-                    <span className="text-slate-500 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">@{e.usuario}</span>
+                    <span className="text-emerald-500 shrink-0 w-24">[{e.context}]</span>
+                    <span className="text-slate-300 flex-1">{e.message}</span>
                  </div>
                ))}
                
@@ -106,9 +110,9 @@ export default function Consola() {
          {/* Console Footer */}
          <div className="p-4 bg-slate-800/30 border-t border-slate-700/50 flex justify-between items-center px-8">
             <div className="flex items-center gap-6">
-               <FooterStat icon={<Database className="w-3.5 h-3.5" />} label="Memoria" value="128MB" />
-               <FooterStat icon={<Cpu className="w-3.5 h-3.5" />} label="CPU" value="1.2%" />
-               <FooterStat icon={<ShieldAlert className="w-3.5 h-3.5" />} label="Alertas" value="0" />
+               <FooterStat icon={<Database className="w-3.5 h-3.5" />} label="Pendiente" value={`${pendingCount} items`} />
+               <FooterStat icon={<Cpu className="w-3.5 h-3.5" />} label="Syncing" value={isSyncing ? 'SÍ' : 'NO'} />
+               <FooterStat icon={<ShieldAlert className="w-3.5 h-3.5" />} label="Logs" value={`${logs.length}`} />
             </div>
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">
                Modo Inspección Activo • Root User

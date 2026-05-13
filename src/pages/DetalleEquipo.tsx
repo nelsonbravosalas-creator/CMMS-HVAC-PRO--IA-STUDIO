@@ -30,7 +30,7 @@ import { Link, useRoute } from "wouter";
 import { EQUIPOS_DATA, Equipo } from "../data/equipos";
 import { TicketForm } from "../components/modals/TicketForm";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
-import { db } from "../lib/dbLocal";
+import { db } from "../db/database";
 import { 
   BarChart, 
   Bar, 
@@ -43,7 +43,7 @@ import {
   Line
 } from "recharts";
 
-import { useCMMSStore } from "../store/useCMMSStore";
+import { useAppStore } from "../store/useAppStore";
 import { useAssets } from "../hooks/useAssets";
 
 type Tab = "info" | "historial" | "historico" | "documentos";
@@ -52,13 +52,13 @@ export default function DetalleEquipo() {
   const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
   const tag = params ? params.tag : undefined;
   
-  const activos = useCMMSStore(state => state.activos);
-  const loading = useCMMSStore(state => state.isLoading);
+  const activos = useAppStore(state => state.activos);
+  const loading = useAppStore(state => state.isLoading);
   const equipo = useMemo(() => activos.find(a => a.tag === tag), [activos, tag]);
 
   const { editAsset } = useAssets();
   
-  const mantenimientos = useCMMSStore(state => state.mantenimientos);
+  const mantenimientos = useAppStore(state => state.mantenimientos);
   const historialMantenimiento = useMemo(() => 
     mantenimientos.filter(m => m.equipo_tag === tag),
     [mantenimientos, tag]

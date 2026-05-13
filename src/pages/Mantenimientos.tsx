@@ -18,7 +18,7 @@ import {
   CheckCircle2,
   X
 } from "lucide-react";
-import { useCMMSStore } from "../store/useCMMSStore";
+import { useAppStore } from "../store/useAppStore";
 import { useMantenimientos } from "../hooks/useMantenimientos";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { MaintenanceCalendar } from "../components/modals/MaintenanceCalendar";
@@ -27,8 +27,8 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Mantenimientos() {
   const { permisos } = useAuth();
-  const mantenimientos = useCMMSStore(state => state.mantenimientos);
-  const loading = useCMMSStore(state => state.isLoading);
+  const mantenimientos = useAppStore(state => state.mantenimientos);
+  const loading = useAppStore(state => state.isLoading);
   const { createMantenimiento, deleteMantenimiento } = useMantenimientos();
   
   const [showModal, setShowModal] = useState(false);

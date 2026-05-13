@@ -1,5 +1,5 @@
 import { BaseRepository } from './BaseRepository';
-import { LocalActivo } from '../lib/dbLocal';
+import { LocalActivo } from '../db/database';
 
 class ActivosRepository extends BaseRepository<LocalActivo> {
   constructor() {

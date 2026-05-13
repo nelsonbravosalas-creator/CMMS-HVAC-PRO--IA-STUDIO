@@ -23,13 +23,13 @@ import {
 import { TicketForm } from "../components/modals/TicketForm";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
-import { useCMMSStore } from "../store/useCMMSStore";
+import { useAppStore } from "../store/useAppStore";
 import { useTickets } from "../hooks/useTickets";
 
 export default function Tickets() {
   const { permisos } = useAuth();
-  const tickets = useCMMSStore(state => state.tickets);
-  const loading = useCMMSStore(state => state.isLoading);
+  const tickets = useAppStore(state => state.tickets);
+  const loading = useAppStore(state => state.isLoading);
   const { updateTicket } = useTickets();
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");

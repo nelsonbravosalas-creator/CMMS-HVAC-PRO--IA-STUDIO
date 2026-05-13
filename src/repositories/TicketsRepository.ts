@@ -1,5 +1,5 @@
 import { BaseRepository } from './BaseRepository';
-import { LocalTicket } from '../lib/dbLocal';
+import { LocalTicket } from '../db/database';
 
 export class TicketsRepository extends BaseRepository<LocalTicket> {
   constructor() {

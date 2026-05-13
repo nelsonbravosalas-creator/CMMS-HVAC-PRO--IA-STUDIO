@@ -35,7 +35,8 @@ import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
 import { CLIENTS } from "./data/clientes";
 import { initSyncEngine } from "./lib/syncEngine";
-import { useCMMSStore } from "./store/useCMMSStore";
+import { useAppStore } from "./store/useAppStore";
+import { useSyncStore } from "./store/useSyncStore";
 import { SyncIndicator } from "./components/SyncIndicator";
 
 /**
@@ -73,14 +74,16 @@ function App() {
 
   useEffect(() => {
     // 1. Hidratar datos locales (IndexedDB -> Zustand)
-    useCMMSStore.getState().hydrate();
+    useAppStore.getState().hydrate();
     
     // 2. Iniciar motor de sincronización
     initSyncEngine();
 
     // 3. Listener de estado de red
     const handleStatusChange = () => {
-      useCMMSStore.getState().setOnline(navigator.onLine);
+      const online = navigator.onLine;
+      useAppStore.getState().setOnline(online);
+      useSyncStore.getState().setOnline(online);
     };
     window.addEventListener('online', handleStatusChange);
     window.addEventListener('offline', handleStatusChange);

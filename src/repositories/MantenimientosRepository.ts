@@ -1,5 +1,5 @@
 import { BaseRepository } from './BaseRepository';
-import { LocalMantenimiento } from '../lib/dbLocal';
+import { LocalMantenimiento } from '../db/database';
 
 export class MantenimientosRepository extends BaseRepository<LocalMantenimiento> {
   constructor() {

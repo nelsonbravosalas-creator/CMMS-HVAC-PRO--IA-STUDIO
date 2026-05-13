@@ -18,6 +18,8 @@ import {
   Upload
 } from "lucide-react";
 
+import { resetApplicationData } from "../lib/reset";
+
 export default function Configuracion() {
   const [currency, setCurrency] = useState(() => localStorage.getItem("system_currency") || "CLP");
 
@@ -49,10 +51,9 @@ export default function Configuracion() {
     localStorage.setItem("system_currency", currency);
   }, [currency]);
 
-  const resetLocalData = () => {
-    if (confirm("¿Está seguro de limpiar todos los datos locales? Se eliminarán filtros, presets y tickets locales.")) {
-      localStorage.clear();
-      window.location.reload();
+  const handleResetApplication = async () => {
+    if (confirm("¿Está seguro de realizar un RESET TOTAL del sistema? Se eliminarán todos los datos locales (IndexedDB), sesiones, logos y configuraciones. Deberá iniciar sesión nuevamente.")) {
+      await resetApplicationData();
     }
   };
 
@@ -168,8 +169,8 @@ export default function Configuracion() {
                   <button onClick={() => window.location.reload()} className="w-full py-4 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2">
                      <RefreshCw className="w-4 h-4" /> Recargar Sistema
                   </button>
-                  <button onClick={resetLocalData} className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
-                     <Trash2 className="w-4 h-4" /> Limpiar Datos Locales
+                  <button onClick={handleResetApplication} className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
+                     <Trash2 className="w-4 h-4" /> Reset Maestro de Datos
                   </button>
                </div>
                <p className="text-[9px] font-medium text-white/40 mt-6 leading-relaxed italic">

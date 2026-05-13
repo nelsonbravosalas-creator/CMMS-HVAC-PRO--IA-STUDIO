@@ -1,19 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
-import { useCMMSStore } from '../store/useCMMSStore';
-import { db } from '../lib/dbLocal';
+import { useAppStore } from '../store/useAppStore';
+import { useSyncStore } from '../store/useSyncStore';
+import { db } from '../db/database';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const SyncIndicator = () => {
-  const isOnline = useCMMSStore(state => state.isOnline);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const isOnline = useAppStore(state => state.isOnline);
+  const { isSyncing, setPendingCount, pendingCount } = useSyncStore();
 
   useEffect(() => {
     const updateCount = async () => {
        const count = await db.sync_queue.count();
        setPendingCount(count);
-       setIsSyncing(count > 0 && isOnline);
     };
 
     updateCount();

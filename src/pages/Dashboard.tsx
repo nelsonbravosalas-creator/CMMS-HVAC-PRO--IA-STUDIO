@@ -30,7 +30,7 @@ import {
   Label
 } from "recharts";
 import { Link } from "wouter";
-import { useCMMSStore } from "../store/useCMMSStore";
+import { useAppStore } from "../store/useAppStore";
 import { ALMACEN_LABELS } from "../data/sucursales";
 
 const DATA_MONTHLY = [
@@ -48,9 +48,9 @@ const DATA_POWER = [
 ];
 
 export default function Dashboard() {
-  const activos = useCMMSStore(state => state.activos);
-  const tickets = useCMMSStore(state => state.tickets);
-  const loading = useCMMSStore(state => state.isLoading);
+  const activos = useAppStore(state => state.activos);
+  const tickets = useAppStore(state => state.tickets);
+  const loading = useAppStore(state => state.isLoading);
 
   /** Estado para filtrar por sucursal / almacén */
   const [almacen, setAlmacen] = useState("");

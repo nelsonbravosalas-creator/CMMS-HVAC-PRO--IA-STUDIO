@@ -27,9 +27,9 @@ import { BulkUploadModal } from "../components/modals/BulkUploadModal";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { QRLabelModal } from "../components/modals/QRLabelModal";
 import { useAuth } from "../context/AuthContext";
-import { useCMMSStore } from "../store/useCMMSStore";
+import { useAppStore } from "../store/useAppStore";
 import { useAssets } from "../hooks/useAssets";
-import { LocalActivo } from "../lib/dbLocal";
+import { LocalActivo } from "../db/database";
 
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
@@ -48,8 +48,8 @@ export default function Equipos() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedEqLabel, setSelectedEqLabel] = useState<any | null>(null);
   
-  const activos = useCMMSStore(state => state.activos);
-  const loading = useCMMSStore(state => state.isLoading);
+  const activos = useAppStore(state => state.activos);
+  const loading = useAppStore(state => state.isLoading);
 
   const [filters, setFilters] = useState<FilterState>(() => {
     const saved = localStorage.getItem("equipos_filters");

@@ -1,11 +1,11 @@
-import { useCMMSStore } from '../store/useCMMSStore';
+import { useAppStore } from '../store/useAppStore';
 import { mantenimientosRepo } from '../repositories/MantenimientosRepository';
-import { LocalMantenimiento } from '../lib/dbLocal';
+import { LocalMantenimiento } from '../db/database';
 
 export const useMantenimientos = () => {
-  const addMantToStore = useCMMSStore(state => state.addMantenimiento);
-  const updateMantInStore = useCMMSStore(state => state.updateMantenimiento);
-  const deleteMantFromStore = useCMMSStore(state => state.deleteMantenimiento);
+  const addMantToStore = useAppStore(state => state.addMantenimiento);
+  const updateMantInStore = useAppStore(state => state.updateMantenimiento);
+  const deleteMantFromStore = useAppStore(state => state.deleteMantenimiento);
 
   const createMantenimiento = async (data: Partial<LocalMantenimiento>) => {
     const newMant: LocalMantenimiento = {

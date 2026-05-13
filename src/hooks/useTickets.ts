@@ -1,11 +1,11 @@
-import { useCMMSStore } from '../store/useCMMSStore';
+import { useAppStore } from '../store/useAppStore';
 import { ticketsRepo } from '../repositories/TicketsRepository';
-import { LocalTicket } from '../lib/dbLocal';
+import { LocalTicket } from '../db/database';
 
 export const useTickets = () => {
-  const addTicketToStore = useCMMSStore(state => state.addTicket);
-  const updateTicketInStore = useCMMSStore(state => state.updateTicket);
-  const deleteTicketFromStore = useCMMSStore(state => state.deleteTicket);
+  const addTicketToStore = useAppStore(state => state.addTicket);
+  const updateTicketInStore = useAppStore(state => state.updateTicket);
+  const deleteTicketFromStore = useAppStore(state => state.deleteTicket);
 
   const createTicket = async (data: Partial<LocalTicket>) => {
     const newTicket: LocalTicket = {

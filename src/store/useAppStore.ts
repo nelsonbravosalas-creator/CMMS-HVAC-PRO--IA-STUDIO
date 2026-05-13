@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db, LocalActivo, LocalTicket, LocalMantenimiento, SyncStatus } from '../lib/dbLocal';
+import { db, LocalActivo, LocalTicket, LocalMantenimiento, LocalUsuario, LocalCliente, SyncStatus } from '../db/database';
 
 interface CMMSState {
   activos: LocalActivo[];
@@ -37,7 +37,9 @@ interface CMMSState {
   deleteCliente: (uuid: string) => void;
 }
 
-export const useCMMSStore = create<CMMSState>((set) => ({
+import { logger } from '../lib/logger';
+
+export const useAppStore = create<CMMSState>((set) => ({
   activos: [],
   tickets: [],
   mantenimientos: [],
@@ -48,14 +50,33 @@ export const useCMMSStore = create<CMMSState>((set) => ({
 
   hydrate: async () => {
     set({ isLoading: true });
-    const [activos, tickets, mantenimientos, usuarios, clientes] = await Promise.all([
-      db.activos.where('sync_status').notEqual('pending_delete').toArray(),
-      db.tickets.where('sync_status').notEqual('pending_delete').toArray(),
-      db.mantenimientos.where('sync_status').notEqual('pending_delete').toArray(),
-      db.usuarios.where('sync_status').notEqual('pending_delete').toArray(),
-      db.clientes.where('sync_status').notEqual('pending_delete').toArray()
-    ]);
-    set({ activos, tickets, mantenimientos, usuarios, clientes, isLoading: false });
+    logger.info('Store', 'Iniciando hidratación de datos...');
+    try {
+      const [activos, tickets, mantenimientos, usuarios, clientes] = await Promise.all([
+        db.activos.where('sync_status').notEqual('pending_delete').toArray(),
+        db.tickets.where('sync_status').notEqual('pending_delete').toArray(),
+        db.mantenimientos.where('sync_status').notEqual('pending_delete').toArray(),
+        db.usuarios.where('sync_status').notEqual('pending_delete').toArray(),
+        db.clientes.where('sync_status').notEqual('pending_delete').toArray()
+      ]);
+      
+      set({ 
+        activos: activos.sort((a,b) => b.modificado_en - a.modificado_en), 
+        tickets: tickets.sort((a,b) => b.modificado_en - a.modificado_en), 
+        mantenimientos: mantenimientos.sort((a,b) => b.modificado_en - a.modificado_en), 
+        usuarios, 
+        clientes, 
+        isLoading: false 
+      });
+
+      logger.info('Store', 'Hidratación completada con éxito', { 
+        activos: activos.length, 
+        tickets: tickets.length 
+      });
+    } catch (error) {
+      logger.error('Store', 'Error en hidratación', error);
+      set({ isLoading: false });
+    }
   },
 
   setOnline: (status) => set({ isOnline: status }),
@@ -71,12 +92,13 @@ export const useCMMSStore = create<CMMSState>((set) => ({
     };
   }),
 
+  // Domain Actions using functional updates to ensure consistency
   addActivo: (activo) => set((state) => ({ 
     activos: [activo, ...state.activos] 
   })),
 
   updateActivo: (activo) => set((state) => ({
-    activos: state.activos.map(a => a.uuid_sincro === activo.uuid_sincro ? activo : a)
+    activos: state.activos.map(a => a.uuid_sincro === activo.uuid_sincro ? { ...a, ...activo } : a)
   })),
 
   deleteActivo: (uuid) => set((state) => ({
@@ -88,7 +110,7 @@ export const useCMMSStore = create<CMMSState>((set) => ({
   })),
 
   updateTicket: (ticket) => set((state) => ({
-    tickets: state.tickets.map(t => t.uuid_sincro === ticket.uuid_sincro ? ticket : t)
+    tickets: state.tickets.map(t => t.uuid_sincro === ticket.uuid_sincro ? { ...t, ...ticket } : t)
   })),
 
   deleteTicket: (uuid) => set((state) => ({
@@ -100,7 +122,7 @@ export const useCMMSStore = create<CMMSState>((set) => ({
   })),
 
   updateMantenimiento: (mant) => set((state) => ({
-    mantenimientos: state.mantenimientos.map(m => m.uuid_sincro === mant.uuid_sincro ? mant : m)
+    mantenimientos: state.mantenimientos.map(m => m.uuid_sincro === mant.uuid_sincro ? { ...m, ...mant } : m)
   })),
 
   deleteMantenimiento: (uuid) => set((state) => ({
@@ -112,7 +134,7 @@ export const useCMMSStore = create<CMMSState>((set) => ({
   })),
 
   updateUsuario: (user) => set((state) => ({
-    usuarios: state.usuarios.map(u => u.uuid_sincro === user.uuid_sincro ? user : u)
+    usuarios: state.usuarios.map(u => u.uuid_sincro === user.uuid_sincro ? { ...u, ...user } : u)
   })),
 
   deleteUsuario: (uuid) => set((state) => ({
@@ -124,7 +146,7 @@ export const useCMMSStore = create<CMMSState>((set) => ({
   })),
 
   updateCliente: (client) => set((state) => ({
-    clientes: state.clientes.map(c => c.uuid_sincro === client.uuid_sincro ? client : c)
+    clientes: state.clientes.map(c => c.uuid_sincro === client.uuid_sincro ? { ...c, ...client } : c)
   })),
 
   deleteCliente: (uuid) => set((state) => ({

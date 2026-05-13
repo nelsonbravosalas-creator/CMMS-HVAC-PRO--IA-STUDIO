@@ -46,7 +46,8 @@ async function ensureTables() {
 
     const genericTables = ['usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
     for (const table of genericTables) {
-      await sql(`
+      // Usamos any para permitir nombres de tabla dinámicos en la inicialización (seguro ya que son strings estáticos)
+      await (sql as any)(`
         CREATE TABLE IF NOT EXISTS ${table} (
           id TEXT PRIMARY KEY,
           data JSONB NOT NULL,

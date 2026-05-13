@@ -1,21 +1,26 @@
-import { db, SyncStatus } from './dbLocal';
-import { useCMMSStore } from '../store/useCMMSStore';
-
-let isSyncing = false;
+import { db, SyncStatus } from '../db/database';
+import { useAppStore } from '../store/useAppStore';
+import { useSyncStore } from '../store/useSyncStore';
+import { logger } from './logger';
 
 export const processSyncQueue = async () => {
-  if (isSyncing || !navigator.onLine) return;
-  isSyncing = true;
+  const syncStore = useSyncStore.getState();
+  if (syncStore.isSyncing || !navigator.onLine) return;
+  
+  syncStore.setSyncing(true);
+  logger.info('Sync', 'Iniciando proceso de sincronización...');
 
   try {
     const queue = await db.sync_queue.orderBy('id').toArray();
+    syncStore.setPendingCount(queue.length);
     if (queue.length === 0) return;
 
     console.log(`[SyncEngine] Procesando cola de sincronización (${queue.length} items)...`);
 
     for (const item of queue) {
+      if (!navigator.onLine) break;
       try {
-        console.log(`[SyncEngine] Sincronizando ${item.table}:${item.uuid_sincro} (${item.operation})`);
+        logger.debug('Sync', `Sincronizando ${item.table}:${item.uuid_sincro}`, { operation: item.operation });
         
         const response = await fetch(`/api/sync/${item.table}`, {
           method: 'POST',
@@ -50,7 +55,7 @@ export const processSyncQueue = async () => {
                 await table.update(item.uuid_sincro, updates);
                 
                 // Notificar al Store para que el icono de nube cambie y se vea el ID real
-                const store = useCMMSStore.getState();
+                const store = useAppStore.getState();
                 store.setSyncStatus(item.table, item.uuid_sincro, status);
                 
                 // Si cambió el ID, necesitamos actualizar el objeto completo en el store
@@ -66,18 +71,20 @@ export const processSyncQueue = async () => {
             }
             // Eliminar de la cola
             await db.sync_queue.delete(item.id!);
-            console.log(`[SyncEngine] OK: ${item.table}:${item.uuid_sincro}`);
+            logger.info('Sync', `Éxito al sincronizar ${item.table}:${item.uuid_sincro}`);
           } else {
-             console.error(`[SyncEngine] Fallo en registro ${item.uuid_sincro}:`, result.error);
+             logger.error('Sync', `Error del servidor para ${item.uuid_sincro}`, result.error);
           }
         }
       } catch (error) {
-        console.error(`[SyncEngine] Error de red procesando item ${item.id}:`, error);
+        logger.error('Sync', `Fallo crítico sincronizando item ${item.id}`, error);
         break; // Detener procesamiento si hay error de red
       }
     }
   } finally {
-    isSyncing = false;
+    useSyncStore.getState().setSyncing(false);
+    const finalCount = await db.sync_queue.count();
+    useSyncStore.getState().setPendingCount(finalCount);
   }
 };
 

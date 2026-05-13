@@ -1,9 +1,9 @@
-import { useCMMSStore } from '../store/useCMMSStore';
+import { useAppStore } from '../store/useAppStore';
 import { activosRepo } from '../repositories/ActivosRepository';
-import { LocalActivo } from '../lib/dbLocal';
+import { LocalActivo } from '../db/database';
 
 export const useAssets = () => {
-  const { activos, addActivo, updateActivo, deleteActivo } = useCMMSStore();
+  const { activos, addActivo, updateActivo, deleteActivo } = useAppStore();
 
   const createAsset = async (data: Partial<LocalActivo>) => {
     const newAsset: LocalActivo = {

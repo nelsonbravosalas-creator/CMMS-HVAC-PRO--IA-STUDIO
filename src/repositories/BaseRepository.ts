@@ -1,4 +1,4 @@
-import { db, CMMSDatabase, SyncStatus } from '../lib/dbLocal';
+import { db, CMMSDatabase, SyncStatus } from '../db/database';
 import { Table } from 'dexie';
 
 export abstract class BaseRepository<T extends { uuid_sincro: string; modificado_en: number; sync_status: SyncStatus }> {
@@ -54,5 +54,34 @@ export abstract class BaseRepository<T extends { uuid_sincro: string; modificado
       data: { uuid_sincro: uuid },
       timestamp: Date.now()
     });
+  }
+
+  async list(limit: number = 100, offset: number = 0): Promise<T[]> {
+    return this.table.offset(offset).limit(limit).toArray();
+  }
+
+  async search(query: string, fields: (keyof T)[]): Promise<T[]> {
+    return this.table.filter(item => {
+      return fields.some(field => {
+        const val = item[field];
+        return typeof val === 'string' && val.toLowerCase().includes(query.toLowerCase());
+      });
+    }).toArray();
+  }
+
+  async markSynced(uuid: string): Promise<void> {
+    await this.table.update(uuid, {
+      sync_status: 'synced' as SyncStatus,
+      modificado_en: Date.now()
+    } as any);
+  }
+
+  async markFailed(uuid: string): Promise<void> {
+    // Optional: add a failed status or increment retry count
+    console.warn(`[Repository] Sync failed for ${this.table.name}:${uuid}`);
+  }
+
+  async getSyncQueue(): Promise<any[]> {
+    return db.sync_queue.where('table').equals(this.table.name).toArray();
   }
 }
