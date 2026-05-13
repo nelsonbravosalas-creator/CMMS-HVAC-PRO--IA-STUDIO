@@ -30,6 +30,7 @@ import { Link, useRoute } from "wouter";
 import { EQUIPOS_DATA, Equipo } from "../data/equipos";
 import { TicketForm } from "../components/modals/TicketForm";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
+import { db } from "../lib/dbLocal";
 import { 
   BarChart, 
   Bar, 
@@ -56,35 +57,49 @@ export default function DetalleEquipo() {
   const [showMantenimientoForm, setShowMantenimientoForm] = useState(false);
 
   useEffect(() => {
-    if (tag) {
-      setLoading(true);
-      fetch(`/api/equipos?tag=${tag}`)
+    if (!tag) { setLoading(false); return; }
+    
+    setLoading(true);
+
+    // PASO 1: Cargar inmediatamente desde Dexie local (offline-first)
+    db.activos.where('tag').equals(tag).first().then(localData => {
+      if (localData) {
+        setEquipo(localData);
+        setLoading(false);
+      }
+      
+      // PASO 2: Actualizar en background desde la API
+      fetch(`/api/activos?tag=${tag}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data) {
             const eqData = data.data;
             if (typeof eqData.tecnicos === 'string') {
-               try { eqData.tecnicos = JSON.parse(eqData.tecnicos); } catch(e){}
+              try { eqData.tecnicos = JSON.parse(eqData.tecnicos); } catch(e) {}
             }
-            // Use directly without spreading especs
             setEquipo(eqData);
-          } else {
-            console.warn(data.message);
-            // Fallback a EQUIPOS_DATA local si no existe en Neon
-            const localFallback = EQUIPOS_DATA.find(e => e.tag === tag);
-            if (localFallback) {
-              setEquipo(localFallback);
-            }
+            // Actualizar Dexie con datos frescos de la nube
+            db.activos.put({
+              ...eqData,
+              uuid_sincro: eqData.uuid_sincro || eqData.tag,
+              sync_status: 'synced',
+              modificado_en: eqData.modificado_en || Date.now()
+            });
+          } else if (!localData) {
+            // Sin datos locales ni en la nube: fallback a datos mock
+            const fallback = EQUIPOS_DATA.find(e => e.tag === tag);
+            if (fallback) setEquipo(fallback);
           }
           setLoading(false);
         })
-        .catch(err => {
-          console.error(err);
-          setLoading(false);
+        .catch(() => {
+          if (!localData) {
+            const fallback = EQUIPOS_DATA.find(e => e.tag === tag);
+            if (fallback) setEquipo(fallback);
+            setLoading(false);
+          }
         });
-    } else {
-      setLoading(false);
-    }
+    });
   }, [tag]);
 
   if (loading) {

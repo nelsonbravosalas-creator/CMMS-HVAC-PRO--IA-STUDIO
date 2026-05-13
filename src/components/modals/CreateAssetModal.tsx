@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { EQUIPOS_DATA } from '../../data/equipos';
 import { SUCURSALES } from '../../data/sucursales';
-import { GoogleGenAI, Type } from "@google/genai";
 
 interface CreateAssetModalProps {
   onClose: () => void;
@@ -64,8 +63,6 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
     setIsScanning(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
       // Convert file to base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve) => {
@@ -74,31 +71,22 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       });
       const base64Data = await base64Promise;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            parts: [
-              { text: "Analiza esta placa de características de un equipo industrial. Extrae los siguientes datos en formato JSON: marca, modelo, serie (serial number) y voltaje (solo el número en voltios). Si no encuentras alguno, deja el string vacío." },
-              { inlineData: { data: base64Data, mimeType: file.type } }
-            ]
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              marca: { type: Type.STRING },
-              modelo: { type: Type.STRING },
-              serie: { type: Type.STRING },
-              voltaje: { type: Type.NUMBER }
-            }
-          }
-        }
+      const response = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          image: base64Data,
+          mimeType: file.type 
+        })
       });
 
-      const result = JSON.parse(response.text || "{}");
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || "Error al procesar la imagen");
+      }
+
+      const result = data.data;
       
       setTagData(prev => ({
         ...prev,

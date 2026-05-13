@@ -18,7 +18,7 @@ interface AuthContextType {
   /** Matriz de permisos derivados del perfil del usuario. */
   permisos: Permisos | null;
   /** Función para autenticar mediante PIN. */
-  login: (pin: string) => boolean;
+  login: (pin: string) => Promise<boolean>;
   /** Función para destruir la sesión actual. */
   logout: () => void;
 }
@@ -59,14 +59,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Intenta loguear un usuario buscando coincidencias de PIN en la base de datos (o mock).
    * @param pin Código de acceso del técnico/operario.
    */
-  const login = (pin: string) => {
+  const login = async (pin: string): Promise<boolean> => {
+    // 1. Intentar login contra API real
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      });
+      const json = await response.json();
+      if (json.success && json.user) {
+        setUser(json.user);
+        localStorage.setItem('auth_pin', pin);
+        localStorage.setItem('auth_user', JSON.stringify(json.user));
+        localStorage.setItem('is_authenticated', 'true');
+        return true;
+      }
+    } catch (networkError) {
+      console.warn('API no disponible, intentando login offline...');
+    }
+
+    // 2. Fallback offline: buscar en USUARIOS_MOCK
     const found = USUARIOS_MOCK.find(u => u.pin === pin && u.activo);
     if (found) {
-      setUser(found);
+      setUser(found as any);
       localStorage.setItem('auth_pin', pin);
+      localStorage.setItem('auth_user', JSON.stringify(found));
       localStorage.setItem('is_authenticated', 'true');
       return true;
     }
+
     return false;
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, LogIn, Sun, Moon, ShieldCheck } from "lucide-react";
 import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -10,6 +11,7 @@ export default function Login() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
+  const { login } = useAuth();
 
   useEffect(() => {
     // Preserve tag from URL if present
@@ -20,19 +22,17 @@ export default function Login() {
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && pin) {
+    if (pin) {
       setIsLoading(true);
-      // Simulate network request
-      setTimeout(() => {
-        // En un entorno real, aquí se llamaría a Neon/Vercel Auth o Base de datos
-        // Por ahora, persistimos la sesión simulada con el PIN
-        localStorage.setItem("auth_pin", pin);
-        localStorage.setItem("is_authenticated", "true");
-        // Forzar recarga completa para que App.tsx lea el nuevo estado y el router sincronice en Vercel
+      const success = await login(pin);
+      setIsLoading(false);
+      if (success) {
         window.location.href = "/client-selector";
-      }, 1500);
+      } else {
+        alert("PIN o correo inválido");
+      }
     }
   };
 

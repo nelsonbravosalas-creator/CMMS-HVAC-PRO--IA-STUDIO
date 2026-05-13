@@ -29,26 +29,18 @@ async function initializeDB() {
       CREATE TABLE IF NOT EXISTS activos (
         tag TEXT PRIMARY KEY,
         nombre TEXT NOT NULL,
-        tipo TEXT,
-        marca TEXT,
-        modelo TEXT,
-        serie TEXT,
-        ubicacion TEXT,
-        area TEXT,
-        capacidad TEXT,
-        voltaje TEXT,
-        corriente TEXT,
-        refrigerante TEXT,
-        fecha_instalacion TEXT,
-        vida_util INTEGER,
+        tipo TEXT, marca TEXT, modelo TEXT, serie TEXT,
+        ubicacion TEXT, area TEXT, capacidad TEXT,
+        voltaje TEXT, corriente TEXT, refrigerante TEXT,
+        fecha_instalacion TEXT, vida_util INTEGER DEFAULT 0,
         estado TEXT DEFAULT 'operativo',
-        ultimo_mantenimiento TEXT,
-        proximo_mantenimiento TEXT,
+        ultimo_mantenimiento TEXT, proximo_mantenimiento TEXT,
         horas_operacion INTEGER DEFAULT 0,
-        tecnicos JSONB,
-        notas TEXT,
+        tecnicos JSONB, notas TEXT,
+        cliente_id TEXT, sucursal_id TEXT,
         uuid_sincro TEXT UNIQUE,
-        modificado_en BIGINT
+        modificado_en BIGINT,
+        creado_en BIGINT
       );
     `;
 
@@ -63,7 +55,7 @@ async function initializeDB() {
             tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
             voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
             ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas,
-            uuid_sincro, modificado_en
+            uuid_sincro, modificado_en, creado_en
           )
           VALUES (
             ${equipo.tag}, ${equipo.nombre}, ${equipo.tipo}, ${equipo.marca || ''}, 
@@ -73,7 +65,7 @@ async function initializeDB() {
             ${equipo.vida_util || 0}, ${equipo.estado || 'operativo'}, ${equipo.ultimo_mantenimiento || ''}, 
             ${equipo.proximo_mantenimiento || ''}, ${equipo.horas_operacion || 0}, 
             ${JSON.stringify(equipo.tecnicos || [])}, ${equipo.notas || ''},
-            ${equipo.tag}, ${now}
+            ${equipo.tag}, ${now}, ${now}
           );
         `;
       }
@@ -83,11 +75,8 @@ async function initializeDB() {
     await sql`
       CREATE TABLE IF NOT EXISTS usuarios (
         id TEXT PRIMARY KEY,
-        nombre TEXT,
-        correo TEXT,
-        perfil TEXT,
-        activo BOOLEAN,
-        pin TEXT,
+        nombre TEXT, correo TEXT, perfil TEXT,
+        activo BOOLEAN DEFAULT true, pin TEXT,
         uuid_sincro TEXT UNIQUE,
         modificado_en BIGINT,
         data JSONB
@@ -96,9 +85,10 @@ async function initializeDB() {
     const usersCount = await sql`SELECT count(*) FROM usuarios`;
     if (parseInt(usersCount[0].count) === 0) {
       console.log("Tabla 'usuarios' vacía, sembrando...");
+      const now = Date.now();
       for (const u of USUARIOS_MOCK) {
         await sql`INSERT INTO usuarios (id, nombre, correo, perfil, activo, pin, uuid_sincro, modificado_en, data)
-                  VALUES (${u.id}, ${u.nombre}, ${u.correo}, ${u.perfil}, ${u.activo}, ${u.pin || '1234'}, ${u.id}, ${now}, ${JSON.stringify(u)})`;
+                  VALUES (${u.id}, ${u.nombre}, ${u.correo}, ${u.perfil}, ${u.activo !== false}, ${u.pin || '1234'}, ${u.id}, ${now}, ${JSON.stringify(u)})`;
       }
     }
 
@@ -106,11 +96,9 @@ async function initializeDB() {
     await sql`
       CREATE TABLE IF NOT EXISTS clientes (
         id TEXT PRIMARY KEY,
-        nombre TEXT,
-        empresa TEXT,
-        email TEXT,
-        telefono TEXT,
-        direccion TEXT,
+        nombre TEXT, empresa TEXT, rut TEXT,
+        email TEXT, telefono TEXT, direccion TEXT,
+        plan TEXT DEFAULT 'basico', activo BOOLEAN DEFAULT true,
         uuid_sincro TEXT UNIQUE,
         modificado_en BIGINT,
         data JSONB
@@ -119,23 +107,33 @@ async function initializeDB() {
     const clientesCount = await sql`SELECT count(*) FROM clientes`;
     if (parseInt(clientesCount[0].count) === 0) {
       console.log("Tabla 'clientes' vacía, sembrando...");
+      const now = Date.now();
       for (const c of CLIENTES_MOCK) {
         await sql`INSERT INTO clientes (id, nombre, empresa, uuid_sincro, modificado_en, data)
                   VALUES (${c.id}, ${c.nombre}, ${c.nombre}, ${c.id}, ${now}, ${JSON.stringify(c)})`;
       }
     }
 
+    // 3.1 Sucursales
+    await sql`
+      CREATE TABLE IF NOT EXISTS sucursales (
+        id TEXT PRIMARY KEY,
+        nombre TEXT, cliente_id TEXT,
+        direccion TEXT, ciudad TEXT, region TEXT,
+        uuid_sincro TEXT UNIQUE,
+        modificado_en BIGINT,
+        data JSONB
+      );
+    `;
+
     // 4. Mantenimientos
     await sql`
       CREATE TABLE IF NOT EXISTS mantenimientos (
         id TEXT PRIMARY KEY,
-        equipo_tag TEXT,
-        tecnico_id TEXT,
-        tipo TEXT,
-        fecha TEXT,
-        hallazgos TEXT,
-        acciones TEXT,
-        repuestos TEXT,
+        equipo_tag TEXT REFERENCES activos(tag) ON DELETE SET NULL,
+        tecnico_id TEXT, tipo TEXT,
+        fecha TEXT, hallazgos TEXT, acciones TEXT, repuestos TEXT,
+        firma_tecnico TEXT, firma_cliente TEXT,
         uuid_sincro TEXT UNIQUE,
         modificado_en BIGINT,
         data JSONB
@@ -146,15 +144,12 @@ async function initializeDB() {
     await sql`
       CREATE TABLE IF NOT EXISTS tickets (
         id TEXT PRIMARY KEY,
-        titulo TEXT,
-        descripcion TEXT,
-        prioridad TEXT,
-        estado TEXT,
-        equipo_tag TEXT,
-        cliente_id TEXT,
-        creado_por TEXT,
-        asignado_a TEXT,
-        fecha_creacion TEXT,
+        titulo TEXT, descripcion TEXT,
+        prioridad TEXT DEFAULT 'media',
+        estado TEXT DEFAULT 'abierto',
+        equipo_tag TEXT, cliente_id TEXT,
+        creado_por TEXT, asignado_a TEXT,
+        fecha_creacion TEXT, fecha_cierre TEXT,
         uuid_sincro TEXT UNIQUE,
         modificado_en BIGINT,
         data JSONB

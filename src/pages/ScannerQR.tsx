@@ -163,14 +163,14 @@ export default function ScannerQR() {
       setLastResult(tagValue);
       
       // BÚSQUEDA EN BASE DE DATOS:
-      fetch(`/api/equipos?tag=${tagValue}`)
+      fetch(`/api/activos?tag=${tagValue}`)
         .then(r => r.json())
         .then(data => {
            if (data.success && data.data) {
              setEquipoEscaneado({
                tag: data.data.tag,
                nombre: data.data.nombre,
-               ubicacion: "Ubicación en BD" // Fallback if not available at root
+               ubicacion: data.data.ubicacion || "Ubicación en BD"
              });
            } else {
              const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
@@ -231,7 +231,7 @@ export default function ScannerQR() {
     // 2. Ejecución diferida para la Nube
     setTimeout(async () => {
       try {
-        const response = await fetch('/api/equipos', {
+        const response = await fetch('/api/activos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

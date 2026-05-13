@@ -70,7 +70,7 @@ export default function Equipos() {
   useEffect(() => {
     const syncInitial = async () => {
       try {
-        const response = await fetch('/api/equipos');
+        const response = await fetch('/api/activos');
         const json = await response.json();
         if (json.success) {
           // Put all in Dexie if they don't exist or update if newer
