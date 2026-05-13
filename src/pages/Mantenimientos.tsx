@@ -37,11 +37,20 @@ export default function Mantenimientos() {
 
   if (!permisos?.ver_mantenimientos) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = mantenimientos.filter(m => 
+  const filtered = useMemo(() => mantenimientos.filter(m => 
     m.equipo_tag.toLowerCase().includes(filter.toLowerCase()) || 
     m.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
     m.id.toLowerCase().includes(filter.toLowerCase())
-  );
+  ), [mantenimientos, filter]);
+
+  if (loading && mantenimientos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <Wrench className="w-12 h-12 text-slate-200 mb-4 animate-bounce" />
+        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Recuperando Bitácora de Mantenimientos...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 text-left">
@@ -112,7 +121,7 @@ export default function Mantenimientos() {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filtered.map(m => (
-              <tr key={m.id} className="hover:bg-slate-50/50 transition-colors group">
+              <tr key={m.uuid_sincro} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="text-xs font-black text-slate-900">{m.id}</div>
                   <div className="text-[10px] font-bold text-slate-400">{m.fecha}</div>

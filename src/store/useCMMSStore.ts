@@ -11,6 +11,7 @@ interface CMMSState {
   // Actions
   hydrate: () => Promise<void>;
   setOnline: (status: boolean) => void;
+  setSyncStatus: (table: string, uuid: string, status: SyncStatus) => void;
   
   // Optimistic UI updates
   addActivo: (activo: LocalActivo) => void;
@@ -36,14 +37,25 @@ export const useCMMSStore = create<CMMSState>((set) => ({
   hydrate: async () => {
     set({ isLoading: true });
     const [activos, tickets, mantenimientos] = await Promise.all([
-      db.activos.toArray(),
-      db.tickets.toArray(),
-      db.mantenimientos.toArray()
+      db.activos.where('sync_status').notEqual('pending_delete').toArray(),
+      db.tickets.where('sync_status').notEqual('pending_delete').toArray(),
+      db.mantenimientos.where('sync_status').notEqual('pending_delete').toArray()
     ]);
     set({ activos, tickets, mantenimientos, isLoading: false });
   },
 
   setOnline: (status) => set({ isOnline: status }),
+
+  setSyncStatus: (table, uuid, status) => set((state) => {
+    const key = table as keyof CMMSState;
+    if (!Array.isArray(state[key])) return state;
+    
+    return {
+      [key]: (state[key] as any[]).map(item => 
+        item.uuid_sincro === uuid ? { ...item, sync_status: status } : item
+      )
+    };
+  }),
 
   addActivo: (activo) => set((state) => ({ 
     activos: [activo, ...state.activos] 

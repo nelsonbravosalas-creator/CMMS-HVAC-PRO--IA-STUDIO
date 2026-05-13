@@ -38,8 +38,18 @@ export default function Tickets() {
 
   const filtered = useMemo(() => tickets.filter(t => 
     t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
-    t.equipo_tag.toLowerCase().includes(filter.toLowerCase())
+    t.equipo_tag.toLowerCase().includes(filter.toLowerCase()) ||
+    t.id.toLowerCase().includes(filter.toLowerCase())
   ), [tickets, filter]);
+
+  if (loading && tickets.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <Clock className="w-12 h-12 text-slate-200 mb-4 animate-spin-slow" />
+        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Sincronizando Historial de Tickets...</p>
+      </div>
+    );
+  }
 
   const exportToCSV = () => {
     const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Fecha", "Creador", "Asignado", "Sync"];
@@ -137,7 +147,7 @@ export default function Tickets() {
           </div>
         ) : (
           filtered.map(t => (
-            <TicketCard key={t.id} ticket={t} />
+            <TicketCard key={t.uuid_sincro} ticket={t} />
           ))
         )}
       </div>

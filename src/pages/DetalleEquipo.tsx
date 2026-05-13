@@ -394,9 +394,6 @@ export default function DetalleEquipo() {
         <NuevoMantenimientoModal
           onClose={() => {
             setShowMantenimientoForm(false);
-            // Optionally reload to fetch the new mantenimientos
-            // Ideally we'd have a refresh function but reloading the page or letting user navigate works too
-            window.location.reload();
           }}
           equipoTag={equipo.tag}
         />

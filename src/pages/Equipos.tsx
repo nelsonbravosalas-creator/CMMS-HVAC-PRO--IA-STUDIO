@@ -86,6 +86,15 @@ export default function Equipos() {
     });
   }, [activos, filters, sortField, sortOrder]);
 
+  if (loading && activos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <Box className="w-12 h-12 text-slate-200 mb-4 animate-bounce" />
+        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Inicializando Base de Datos Maestra...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 text-left relative">
       <QRLabelModal 
@@ -197,8 +206,8 @@ export default function Equipos() {
       <div className="min-h-[400px]">
         {viewMode === "grid" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredEquipos.map((eq: Equipo) => (
-              <EquipoCardGrid key={eq.tag} equipo={eq} onShowLabel={setSelectedEqLabel} />
+            {filteredEquipos.map((eq: LocalActivo) => (
+              <EquipoCardGrid key={eq.uuid_sincro} equipo={eq} onShowLabel={setSelectedEqLabel} />
             ))}
           </div>
         )}
@@ -216,8 +225,8 @@ export default function Equipos() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 text-xs">
-                {filteredEquipos.map((eq: Equipo) => (
-                   <EquipoRowList key={eq.tag} equipo={eq} onShowLabel={setSelectedEqLabel} />
+                {filteredEquipos.map((eq: LocalActivo) => (
+                   <EquipoRowList key={eq.uuid_sincro} equipo={eq} onShowLabel={setSelectedEqLabel} />
                 ))}
               </tbody>
             </table>
@@ -228,7 +237,7 @@ export default function Equipos() {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
             {filteredEquipos.map(eq => (
               <div 
-                key={eq.tag} 
+                key={eq.uuid_sincro} 
                 onClick={() => setLocation(`/equipos/${eq.tag}`)}
                 className="aspect-square bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative"
               >

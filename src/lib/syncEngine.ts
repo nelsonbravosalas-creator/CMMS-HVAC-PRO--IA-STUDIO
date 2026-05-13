@@ -1,4 +1,5 @@
 import { db, SyncStatus } from './dbLocal';
+import { useCMMSStore } from '../store/useCMMSStore';
 
 export const processSyncQueue = async () => {
   if (!navigator.onLine) return;
@@ -10,6 +11,8 @@ export const processSyncQueue = async () => {
 
   for (const item of queue) {
     try {
+      console.log(`[SyncEngine] Sincronizando ${item.table}:${item.uuid_sincro} (${item.operation})`);
+      
       const response = await fetch(`/api/sync/${item.table}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -21,24 +24,47 @@ export const processSyncQueue = async () => {
 
       if (response.ok) {
         const result = await response.json();
-        if (result.success) {
-          // Si el servidor confirma, actualizamos el estado del registro original
+        if (result.success && result.results) {
           const table = db[item.table as keyof typeof db] as any;
           if (table) {
+            const serverResult = result.results[0]; // Since we send records: [item.data]
+            
             if (item.operation === 'delete') {
-              // Realmente eliminar si es un borrado confirmado por la nube
               await table.delete(item.uuid_sincro);
             } else {
-              await table.update(item.uuid_sincro, {
-                sync_status: 'synced' as SyncStatus
-              });
+              const status: SyncStatus = 'synced';
+              const updates: any = { sync_status: status };
+              
+              // Si el servidor asignó un ID oficial (Folio), lo guardamos localmente
+              if (serverResult.folio_oficial || serverResult.id) {
+                const officialId = serverResult.folio_oficial || serverResult.id;
+                // Para Activos el ID es 'tag', para otros es 'id'
+                if (item.table === 'activos') updates.tag = officialId;
+                else updates.id = officialId;
+              }
+
+              await table.update(item.uuid_sincro, updates);
+              
+              // Notificar al Store para que el icono de nube cambie y se vea el ID real
+              const store = useCMMSStore.getState();
+              store.setSyncStatus(item.table, item.uuid_sincro, status);
+              
+              // Si cambió el ID, necesitamos actualizar el objeto completo en el store
+              const updatedRecord = await table.get(item.uuid_sincro);
+              if (updatedRecord) {
+                const updateAction = `update${item.table.charAt(0).toUpperCase()}${item.table.slice(1, -1)}` as any;
+                const singleUpdate = (store as any)[updateAction];
+                if (typeof singleUpdate === 'function') {
+                  singleUpdate(updatedRecord);
+                }
+              }
             }
           }
           // Eliminar de la cola
           await db.sync_queue.delete(item.id!);
+          console.log(`[SyncEngine] OK: ${item.table}:${item.uuid_sincro}`);
         } else {
            console.error(`[SyncEngine] Fallo en registro ${item.uuid_sincro}:`, result.error);
-           // Podríamos implementar un sistema de reintentos con contador aquí
         }
       }
     } catch (error) {

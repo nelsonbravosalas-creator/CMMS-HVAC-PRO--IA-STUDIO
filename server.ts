@@ -234,6 +234,15 @@ async function startServer() {
                folio_oficial = `ACT-${nextNum.toString().padStart(4, '0')}`;
                record.tag = folio_oficial;
             }
+          } else if (table === 'mantenimientos') {
+            const rows = await sql`SELECT id FROM mantenimientos WHERE id LIKE 'MANT-%' ORDER BY id DESC LIMIT 1`;
+            let nextNum = 1;
+            if (rows.length > 0) {
+              const matches = rows[0].id.match(/MANT-(\d+)/);
+              if (matches) nextNum = parseInt(matches[1], 10) + 1;
+            }
+            folio_oficial = `MANT-${nextNum.toString().padStart(4, '0')}`;
+            record.id = folio_oficial;
           }
         }
         
