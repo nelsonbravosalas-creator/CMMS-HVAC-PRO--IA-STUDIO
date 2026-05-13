@@ -22,17 +22,17 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
-  // NUEVO FLUJO DE EQUIPOS SEGUN INSTRUCCIONES DEL ARQUITECTO
+  // NUEVO FLUJO DE ACTIVOS SEGUN INSTRUCCIONES DEL ARQUITECTO
   app.get("/api/equipos", async (req, res) => {
     try {
       const sql = getSql();
       const tag = req.query.tag;
       if (tag) {
-        const rows = await sql`SELECT * FROM equipos WHERE tag = ${tag}`;
+        const rows = await sql`SELECT * FROM activos WHERE tag = ${tag}`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: "Equipo no encontrado" });
         return res.json({ success: true, data: rows[0] });
       } else {
-        const rows = await sql`SELECT * FROM equipos`;
+        const rows = await sql`SELECT * FROM activos`;
         return res.json({ success: true, data: rows });
       }
     } catch (error: any) {
@@ -52,15 +52,14 @@ async function startServer() {
         const ts = new Date().toISOString();
         const nuevoMantenimiento = { ...mantenimiento, fecha: ts };
         
-        const rows = await sql`SELECT notas FROM equipos WHERE tag = ${tag}`;
+        const rows = await sql`SELECT notas FROM activos WHERE tag = ${tag}`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: "Equipo no encontrado" });
         
-        // As a fallback since we dropped mantenimiento_history JSON, let's append it as notes or just update ultimo_mantenimiento
         const currentNotas = rows[0].notas || '';
         const updatedNotas = `${currentNotas}\n- Mantenimiento: ${JSON.stringify(nuevoMantenimiento)}`;
 
         await sql`
-          UPDATE equipos 
+          UPDATE activos 
           SET ultimo_mantenimiento = ${ts}, notas = ${updatedNotas}
           WHERE tag = ${tag}
         `;
@@ -69,7 +68,7 @@ async function startServer() {
         const { nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas } = req.body;
         
         const resData = await sql`
-          INSERT INTO equipos (tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas)
+          INSERT INTO activos (tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas)
           VALUES (${tag}, ${nombre}, ${tipo || ''}, ${marca || ''}, ${modelo || ''}, ${serie || ''}, ${ubicacion || ''}, ${area || ''}, ${capacidad || ''}, ${voltaje || ''}, ${corriente || ''}, ${refrigerante || ''}, ${fecha_instalacion || ''}, ${vida_util || 0}, ${estado || 'operativo'}, ${ultimo_mantenimiento || null}, ${proximo_mantenimiento || null}, ${horas_operacion || 0}, ${tecnicos ? JSON.stringify(tecnicos) : null}, ${notas || ''})
           ON CONFLICT (tag) DO UPDATE SET
             nombre = EXCLUDED.nombre,
@@ -105,7 +104,7 @@ async function startServer() {
     try {
       const sql = getSql();
       const tag = req.query.tag;
-      await sql`DELETE FROM equipos WHERE tag = ${tag}`;
+      await sql`DELETE FROM activos WHERE tag = ${tag}`;
       res.json({ success: true, message: "Registro borrado exitosamente." });
     } catch (error: any) {
       console.error(error);
@@ -333,7 +332,9 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`\nâœ… CMMS HVAC PRO Server is READY`);
+    console.log(`ðŸš€ Running on http://localhost:${PORT}`);
+    console.log(`ðŸ›¡ï¸ Vite middleware active in development mode\n`);
   });
 }
 
