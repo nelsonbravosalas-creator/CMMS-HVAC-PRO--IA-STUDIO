@@ -27,9 +27,9 @@ import { BulkUploadModal } from "../components/modals/BulkUploadModal";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { QRLabelModal } from "../components/modals/QRLabelModal";
 import { useAuth } from "../context/AuthContext";
-
-import { db } from "../lib/dbLocal";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useCMMSStore } from "../store/useCMMSStore";
+import { useAssets } from "../hooks/useAssets";
+import { LocalActivo } from "../lib/dbLocal";
 
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
@@ -47,6 +47,10 @@ export default function Equipos() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedEqLabel, setSelectedEqLabel] = useState<any | null>(null);
+  
+  const activos = useCMMSStore(state => state.activos);
+  const loading = useCMMSStore(state => state.isLoading);
+
   const [filters, setFilters] = useState<FilterState>(() => {
     const saved = localStorage.getItem("equipos_filters");
     return saved ? JSON.parse(saved) : { search: "", tipo: "", estado: "", area: "", almacen: "" };
@@ -54,47 +58,16 @@ export default function Equipos() {
 
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const [sortField, setSortField] = useState<keyof Equipo>("tag");
+  const [sortField, setSortField] = useState<keyof LocalActivo>("tag");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [, setLocation] = useLocation();
-
-  // OFF-FIRST: Read from Dexie
-  const localEquipos = useLiveQuery(() => db.activos.toArray()) || [];
-  const loading = !localEquipos && localEquipos.length === 0;
 
   useEffect(() => {
     localStorage.setItem("equipos_filters", JSON.stringify(filters));
   }, [filters]);
 
-  // Sync initial data from API to Dexie once
-  useEffect(() => {
-    const syncInitial = async () => {
-      try {
-        const response = await fetch('/api/activos');
-        const json = await response.json();
-        if (json.success) {
-          // Put all in Dexie if they don't exist or update if newer
-          for (const eq of json.data) {
-            const existing = await db.activos.where('tag').equals(eq.tag).first();
-            if (!existing || (eq.modificado_en || 0) > (existing.modificado_en || 0)) {
-               await db.activos.put({
-                 ...eq,
-                 uuid_sincro: eq.uuid_sincro || eq.tag, // ensure unique key
-                 sync_status: 'synced',
-                 modificado_en: eq.modificado_en || Date.now()
-               });
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Could not fetch assets from cloud, using local storage", e);
-      }
-    };
-    syncInitial();
-  }, []);
-
   const filteredEquipos = useMemo(() => {
-    return localEquipos.filter(eq => {
+    return activos.filter(eq => {
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;
@@ -105,13 +78,13 @@ export default function Equipos() {
 
       return matchSearch && matchTipo && matchEstado && matchArea && matchAlmacen;
     }).sort((a, b) => {
-      const valA = a[sortField] || "";
-      const valB = b[sortField] || "";
+      const valA = (a[sortField] || "").toString();
+      const valB = (b[sortField] || "").toString();
       if (valA < valB) return sortOrder === "asc" ? -1 : 1;
       if (valA > valB) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
-  }, [filters, sortField, sortOrder]);
+  }, [activos, filters, sortField, sortOrder]);
 
   return (
     <div className="flex flex-col gap-6 text-left relative">
@@ -203,8 +176,8 @@ export default function Equipos() {
            <div className="flex items-center gap-3">
               <select 
                 className="text-[9px] font-black uppercase text-slate-500 outline-none pr-6 bg-transparent"
-                value={sortField}
-                onChange={(e) => setSortField(e.target.value as any)}
+                value={String(sortField)}
+                onChange={(e) => setSortField(e.target.value as keyof LocalActivo)}
               >
                 <option value="tag">Ordenar por TAG</option>
                 <option value="nombre">Ordenar por Nombre</option>

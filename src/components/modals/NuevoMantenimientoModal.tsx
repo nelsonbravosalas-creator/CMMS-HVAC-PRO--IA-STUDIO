@@ -3,12 +3,16 @@ import {
   X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User
 } from 'lucide-react';
 
+import { useMantenimientos } from '../../hooks/useMantenimientos';
+
 interface NuevoMantenimientoModalProps {
   onClose: () => void;
   duplicateId?: string;
+  equipoTag?: string;
 }
 
-export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps & { equipoTag?: string }> = ({ onClose, duplicateId, equipoTag }) => {
+export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = ({ onClose, duplicateId, equipoTag: initialTag }) => {
+  const { createMantenimiento } = useMantenimientos();
   const [hasChanges, setHasChanges] = useState(false);
   const [frecuencia, setFrecuencia] = useState("Mensual");
   const [fechaActual, setFechaActual] = useState(new Date().toISOString().split('T')[0]);
@@ -16,6 +20,13 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps & { 
   const [tipoServicio, setTipoServicio] = useState("Preventivo");
   const [estadoFinal, setEstadoFinal] = useState("Realizado");
   const [descripcion, setDescripcion] = useState("");
+  const [equipoTag, setEquipoTag] = useState(initialTag || "");
+  const [tecnico, setTecnico] = useState("Nelson Bravo");
+  const [duracion, setDuracion] = useState("60");
+  const [costoMateriales, setCostoMateriales] = useState("0");
+  const [hallazgos, setHallazgos] = useState("");
+  const [recomendaciones, setRecomendaciones] = useState("");
+  const [repuestos, setRepuestos] = useState("");
 
   React.useEffect(() => {
     if(!fechaActual) return;
@@ -54,39 +65,29 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps & { 
      e.preventDefault();
      setIsSaving(true);
 
-     const formData = {
-        frecuencia,
-        fechaActual,
-        proximaMantencion,
-        tipoServicio,
-        estadoFinal,
-        descripcion,
-        idRegistro: `MANT-${Date.now()}`,
-     };
-
      if (!equipoTag) {
         setIsSaving(false);
-        alert("Error: Faltab TAG de Equipo.");
+        alert("Error: Falta TAG de Equipo.");
         return;
      }
 
      try {
-        const response = await fetch(`/api/equipos?tag=${equipoTag}&action=mantenimiento`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mantenimiento: formData })
+        await createMantenimiento({
+          id: `MANT-${Date.now()}`,
+          equipo_tag: equipoTag,
+          tipo: tipoServicio,
+          estado: estadoFinal,
+          fecha: fechaActual,
+          tecnico: tecnico,
+          hallazgos: hallazgos,
+          acciones: descripcion, // Map descripcion to acciones
+          repuestos: repuestos
         });
         
-        if (!response.ok) throw new Error("Fallo la respuesta del servidor");
-
-        console.log("Mantenimiento sincronizado con la nube a través de Neon");
-        alert("Registro de mantenimiento completado exitosamente y sincronizado en = Neon.");
-        setHasChanges(false);
         onClose();
      } catch (error) {
-        console.error("Error sincronizando mantenimiento", error);
-        alert("Guardado localmente. Falló la sincronización con la nube.");
-        onClose();
+        console.error("Error guardando mantenimiento", error);
+        alert("Error al guardar el registro.");
      } finally {
         setIsSaving(false);
      }
@@ -125,46 +126,75 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps & { 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Equipo Destino (TAG)</label>
-                <input type="text" placeholder="EJ: 21-STK.AC.001" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10" />
+                <input 
+                  type="text" 
+                  placeholder="EJ: 21-STK.AC.001" 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10" 
+                  value={equipoTag}
+                  onChange={(e) => setEquipoTag(e.target.value)}
+                />
              </div>
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Tipo Servicio</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none">
-                  <option>Preventivo</option>
-                  <option>Correctivo</option>
-                  <option>Emergencia</option>
+                <select 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none"
+                  value={tipoServicio}
+                  onChange={(e) => setTipoServicio(e.target.value)}
+                >
+                  <option value="Preventivo">Preventivo</option>
+                  <option value="Correctivo">Correctivo</option>
+                  <option value="Emergencia">Emergencia</option>
                 </select>
              </div>
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Estado Final</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none">
-                  <option>Realizado</option>
-                  <option>Pendiente</option>
-                  <option>Observado</option>
+                <select 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none"
+                  value={estadoFinal}
+                  onChange={(e) => setEstadoFinal(e.target.value)}
+                >
+                  <option value="Realizado">Realizado</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Observado">Observado</option>
                 </select>
              </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
              <Field label="Fecha" type="date" value={fechaActual} onChange={(e) => setFechaActual(e.target.value)} icon={<Calendar className="w-3 h-3" />} />
-             <Field label="Técnico" type="text" defaultValue="Nelson Bravo" icon={<User className="w-3 h-3" />} />
-             <Field label="Duración (Min)" type="number" defaultValue="60" icon={<Clock className="w-3 h-3" />} />
-             <Field label="Costo Materiales" type="number" defaultValue="0" icon={<DollarSign className="w-3 h-3" />} />
+             <Field label="Técnico" type="text" value={tecnico} onChange={(e) => setTecnico(e.target.value)} icon={<User className="w-3 h-3" />} />
+             <Field label="Duración (Min)" type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} icon={<Clock className="w-3 h-3" />} />
+             <Field label="Costo Materiales" type="number" value={costoMateriales} onChange={(e) => setCostoMateriales(e.target.value)} icon={<DollarSign className="w-3 h-3" />} />
           </div>
 
           <div className="space-y-6">
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Descripción de trabajos realizados</label>
-                <textarea rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none" />
+                <textarea 
+                  rows={3} 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none" 
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                />
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">Hallazgos Críticos</label>
-                   <textarea rows={2} className="w-full px-4 py-3 bg-red-50/30 border border-red-100 rounded-2xl text-xs font-bold outline-none resize-none" />
+                   <textarea 
+                    rows={2} 
+                    className="w-full px-4 py-3 bg-red-50/30 border border-red-100 rounded-2xl text-xs font-bold outline-none resize-none" 
+                    value={hallazgos}
+                    onChange={(e) => setHallazgos(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">Acciones Recomendadas</label>
-                   <textarea rows={2} className="w-full px-4 py-3 bg-blue-50/30 border border-blue-100 rounded-2xl text-xs font-bold outline-none resize-none" />
+                   <textarea 
+                    rows={2} 
+                    className="w-full px-4 py-3 bg-blue-50/30 border border-blue-100 rounded-2xl text-xs font-bold outline-none resize-none" 
+                    value={recomendaciones}
+                    onChange={(e) => setRecomendaciones(e.target.value)}
+                  />
                 </div>
              </div>
           </div>
@@ -189,7 +219,13 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps & { 
              </div>
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Repuestos Utilizados</label>
-                <input type="text" placeholder="Filtro 20x20, Refrigerante..." className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10" />
+                <input 
+                  type="text" 
+                  placeholder="Filtro 20x20, Refrigerante..." 
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10" 
+                  value={repuestos}
+                  onChange={(e) => setRepuestos(e.target.value)}
+                />
              </div>
           </div>
 

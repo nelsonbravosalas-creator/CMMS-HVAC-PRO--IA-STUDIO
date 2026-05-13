@@ -1,56 +1,59 @@
-import { db, LocalBase } from './dbLocal';
+import { db, SyncStatus } from './dbLocal';
 
-export const syncData = async () => {
+export const processSyncQueue = async () => {
   if (!navigator.onLine) return;
 
-  const tables = ['activos', 'tickets', 'mantenimientos', 'clientes', 'usuarios'] as const;
+  const queue = await db.sync_queue.orderBy('id').toArray();
+  if (queue.length === 0) return;
 
-  for (const tableName of tables) {
-    const table = db[tableName];
-    // @ts-ignore
-    const pending = await table.where('sync_status').startsWith('pending').toArray();
+  console.log(`[SyncEngine] Procesando cola de sincronización (${queue.length} items)...`);
 
-    if (pending.length > 0) {
-      console.log(`Sincronizando ${pending.length} registros de ${tableName}...`);
-      try {
-        const response = await fetch(`/api/sync/${tableName}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ records: pending })
-        });
+  for (const item of queue) {
+    try {
+      const response = await fetch(`/api/sync/${item.table}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          records: [item.data],
+          operation: item.operation 
+        })
+      });
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.results) {
-            // result.results is an array of { uuid_sincro, id_oficial }
-            for (const res of result.results) {
-              const localRecord = await table.where('uuid_sincro').equals(res.uuid_sincro).first();
-              if (localRecord) {
-                // If it's a ticket, maintaining the primary key might be complex if it's the ID.
-                // We use uuid_sincro as the main offline key. The UI uses 'id' or 'tag' as folio.
-                const updates: any = { sync_status: 'synced' };
-                if (res.folio_oficial) {
-                  updates.id = res.folio_oficial; 
-                  if (tableName === 'activos') updates.tag = res.folio_oficial;
-                }
-                // @ts-ignore
-                await table.where('uuid_sincro').equals(res.uuid_sincro).modify(updates);
-              }
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // Si el servidor confirma, actualizamos el estado del registro original
+          const table = db[item.table as keyof typeof db] as any;
+          if (table) {
+            if (item.operation === 'delete') {
+              // Realmente eliminar si es un borrado confirmado por la nube
+              await table.delete(item.uuid_sincro);
+            } else {
+              await table.update(item.uuid_sincro, {
+                sync_status: 'synced' as SyncStatus
+              });
             }
-            console.log(`${tableName} sincronizado correctamente.`);
           }
+          // Eliminar de la cola
+          await db.sync_queue.delete(item.id!);
+        } else {
+           console.error(`[SyncEngine] Fallo en registro ${item.uuid_sincro}:`, result.error);
+           // Podríamos implementar un sistema de reintentos con contador aquí
         }
-      } catch (error) {
-        console.error(`Error sincronizando ${tableName}:`, error);
       }
+    } catch (error) {
+      console.error(`[SyncEngine] Error de red procesando item ${item.id}:`, error);
+      break; // Detener procesamiento si hay error de red
     }
   }
 };
 
+export const syncData = processSyncQueue;
+
 export const initSyncEngine = () => {
-  window.addEventListener('online', syncData);
-  // Intentar sincro cada 30 segundos si hay red
-  setInterval(syncData, 30000);
+  window.addEventListener('online', processSyncQueue);
+  // Intentar sincro cada 20 segundos
+  setInterval(processSyncQueue, 20000);
   // Sincro inicial
-  syncData();
+  processSyncQueue();
 };

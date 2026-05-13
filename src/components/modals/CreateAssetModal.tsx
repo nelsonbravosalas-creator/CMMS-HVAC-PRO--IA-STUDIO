@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LoadingIndicator from '../LoadingIndicator';
 import * as htmlToImage from 'html-to-image';
-import { db } from '../../lib/dbLocal';
-import { syncData } from '../../lib/syncEngine';
+import { useAssets } from '../../hooks/useAssets';
+
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
 } from 'lucide-react';
@@ -14,6 +14,7 @@ interface CreateAssetModalProps {
 }
 
 export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) => {
+  const { createAsset } = useAssets();
   const [tagData, setTagData] = useState({
     almacen: '21-STK',
     tipo: 'AC',
@@ -139,47 +140,28 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     e.preventDefault();
     setIsSaving(true);
 
-    const assetData = {
-      uuid_sincro: crypto.randomUUID(),
-      tag: fullTag,
-      nombre: tagData.nombreEquipo,
-      tipo: tagData.tipo,
-      marca: tagData.marca,
-      modelo: tagData.modelo,
-      serie: tagData.serie,
-      ubicacion: tagData.almacen,
-      area: tagData.almacen,
-      capacidad: potencia.toString(),
-      voltaje: voltaje.toString(),
-      corriente: corriente.toString(),
-      refrigerante: '',
-      fecha_instalacion: new Date().toISOString(),
-      vida_util: 10,
-      estado: "operativo" as const,
-      ultimo_mantenimiento: '',
-      proximo_mantenimiento: '',
-      horas_operacion: 0,
-      tecnicos: [],
-      notas: '',
-      sync_status: 'pending_insert' as const,
-      modificado_en: Date.now()
-    };
-
     try {
-      // 1. Guardado Local INMEDIATO (Dexie)
-      await db.activos.put(assetData);
+      await createAsset({
+        tag: fullTag,
+        nombre: tagData.nombreEquipo,
+        tipo: tagData.tipo,
+        marca: tagData.marca,
+        modelo: tagData.modelo,
+        serie: tagData.serie,
+        ubicacion: tagData.almacen,
+        area: tagData.almacen,
+        capacidad: potencia.toString(),
+        voltaje: voltaje.toString(),
+        corriente: corriente.toString(),
+        fecha_instalacion: new Date().toISOString(),
+        vida_util: 10,
+        estado: "operativo"
+      });
       
-      // 2. Feedback visual instantáneo
-      console.log("Guardado localmente en Dexie");
-      
-      // 3. Intentar Sincronización en Background
-      syncData(); 
-      
-      // 4. Cerrar modal al instante
       onClose();
     } catch (error) {
-      console.error("Error guardando localmente:", error);
-      alert("Error crítico al guardar en la base local.");
+      console.error("Error guardando activo:", error);
+      alert("Error al guardar el equipo.");
     } finally {
       setIsSaving(false);
     }

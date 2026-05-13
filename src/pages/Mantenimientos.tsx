@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   X
 } from "lucide-react";
-import { MANTENIMIENTOS_MOCK, Mantenimiento } from "../data/mantenimientos";
+import { useCMMSStore } from "../store/useCMMSStore";
+import { useMantenimientos } from "../hooks/useMantenimientos";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { MaintenanceCalendar } from "../components/modals/MaintenanceCalendar";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
@@ -26,15 +27,18 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Mantenimientos() {
   const { permisos } = useAuth();
+  const mantenimientos = useCMMSStore(state => state.mantenimientos);
+  const loading = useCMMSStore(state => state.isLoading);
+  const { createMantenimiento, deleteMantenimiento } = useMantenimientos();
+  
   const [showModal, setShowModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [filter, setFilter] = useState("");
-  const [mats, setMats] = useState<Mantenimiento[]>(MANTENIMIENTOS_MOCK);
 
   if (!permisos?.ver_mantenimientos) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = mats.filter(m => 
-    m.tag.toLowerCase().includes(filter.toLowerCase()) || 
+  const filtered = mantenimientos.filter(m => 
+    m.equipo_tag.toLowerCase().includes(filter.toLowerCase()) || 
     m.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
     m.id.toLowerCase().includes(filter.toLowerCase())
   );
@@ -113,7 +117,7 @@ export default function Mantenimientos() {
                   <div className="text-xs font-black text-slate-900">{m.id}</div>
                   <div className="text-[10px] font-bold text-slate-400">{m.fecha}</div>
                 </td>
-                <td className="px-6 py-4 font-bold text-blue-600 text-xs">{m.tag}</td>
+                <td className="px-6 py-4 font-bold text-blue-600 text-xs">{m.equipo_tag}</td>
                 <td className="px-6 py-4">
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{m.tipo}</span>
                 </td>
@@ -131,7 +135,12 @@ export default function Mantenimientos() {
                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
                       <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><Edit3 className="w-3.5 h-3.5" /></button>
-                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button 
+                        onClick={() => deleteMantenimiento(m.uuid_sincro)}
+                        className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                    </div>
                 </td>
               </tr>

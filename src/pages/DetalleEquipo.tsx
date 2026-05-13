@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   ArrowLeft, 
   Settings2, 
@@ -43,67 +43,43 @@ import {
   Line
 } from "recharts";
 
+import { useCMMSStore } from "../store/useCMMSStore";
+import { useAssets } from "../hooks/useAssets";
+
 type Tab = "info" | "historial" | "historico" | "documentos";
 
 export default function DetalleEquipo() {
   const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
   const tag = params ? params.tag : undefined;
   
-  const [equipo, setEquipo] = useState<any>(undefined);
-  const [loading, setLoading] = useState(true);
+  const activos = useCMMSStore(state => state.activos);
+  const loading = useCMMSStore(state => state.isLoading);
+  const equipo = useMemo(() => activos.find(a => a.tag === tag), [activos, tag]);
+
+  const { editAsset } = useAssets();
+  
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [isEditing, setIsEditing] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [showMantenimientoForm, setShowMantenimientoForm] = useState(false);
+  const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    if (!tag) { setLoading(false); return; }
-    
-    setLoading(true);
+    if (equipo) setFormData(equipo);
+  }, [equipo]);
 
-    // PASO 1: Cargar inmediatamente desde Dexie local (offline-first)
-    db.activos.where('tag').equals(tag).first().then(localData => {
-      if (localData) {
-        setEquipo(localData);
-        setLoading(false);
-      }
-      
-      // PASO 2: Actualizar en background desde la API
-      fetch(`/api/activos?tag=${tag}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.data) {
-            const eqData = data.data;
-            if (typeof eqData.tecnicos === 'string') {
-              try { eqData.tecnicos = JSON.parse(eqData.tecnicos); } catch(e) {}
-            }
-            setEquipo(eqData);
-            // Actualizar Dexie con datos frescos de la nube
-            db.activos.put({
-              ...eqData,
-              uuid_sincro: eqData.uuid_sincro || eqData.tag,
-              sync_status: 'synced',
-              modificado_en: eqData.modificado_en || Date.now()
-            });
-          } else if (!localData) {
-            // Sin datos locales ni en la nube: fallback a datos mock
-            const fallback = EQUIPOS_DATA.find(e => e.tag === tag);
-            if (fallback) setEquipo(fallback);
-          }
-          setLoading(false);
-        })
-        .catch(() => {
-          if (!localData) {
-            const fallback = EQUIPOS_DATA.find(e => e.tag === tag);
-            if (fallback) setEquipo(fallback);
-            setLoading(false);
-          }
-        });
-    });
-  }, [tag]);
+  const handleSave = async () => {
+    if (!equipo) return;
+    try {
+      await editAsset(equipo.uuid_sincro, formData);
+      setIsEditing(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-500 font-medium">Cargando datos del equipo desde Neon DB...</div>;
+    return <div className="p-8 text-center text-slate-500 font-medium">Cargando datos del equipo...</div>;
   }
 
   if (!equipo) {
@@ -144,15 +120,20 @@ export default function DetalleEquipo() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-           <button onClick={() => setIsEditing(!isEditing)} className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isEditing ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+           <button 
+             onClick={() => isEditing ? handleSave() : setIsEditing(true)} 
+             className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isEditing ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+           >
               <Plus className="w-4 h-4" /> {isEditing ? 'Guardar Cambios' : 'Editar Ficha'}
            </button>
-           <button className="p-2.5 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-all">
-              <Share2 className="w-4 h-4" />
-           </button>
-           <button className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition-all">
-              <Trash2 className="w-4 h-4" />
-           </button>
+           {isEditing && (
+             <button 
+               onClick={() => setIsEditing(false)} 
+               className="px-4 py-2.5 bg-red-100 text-red-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-200 transition-all font-black"
+             >
+               Cancelar
+             </button>
+           )}
         </div>
       </div>
 
@@ -198,26 +179,26 @@ export default function DetalleEquipo() {
                          <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Especificaciones Maestras</h3>
                       </div>
                       <div className="space-y-4">
-                         <ParamRow label="Nombre del Activo" value={equipo.nombre} editable={isEditing} />
-                         <ParamRow label="Tipo de Equipo" value={equipo.tipo} editable={isEditing} />
-                         <ParamRow label="Marca / Fabr." value={equipo.marca} editable={isEditing} />
-                         <ParamRow label="Modelo / Serie" value={`${equipo.modelo} / ${equipo.serie || 'N/A'}`} editable={isEditing} />
-                         <ParamRow label="Capacidad (BTU)" value={`${equipo.capacidad}`} editable={isEditing} />
-                         <ParamRow label="Refrigerante" value={equipo.refrigerante} editable={isEditing} />
+                         <ParamRow label="Nombre del Activo" value={formData.nombre} field="nombre" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Tipo de Equipo" value={formData.tipo} field="tipo" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Marca / Fabr." value={formData.marca} field="marca" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Modelo / Serie" value={`${formData.modelo} / ${formData.serie || 'N/A'}`} field="modelo" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Capacidad (BTU)" value={`${formData.capacidad}`} field="capacidad" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Refrigerante" value={formData.refrigerante} field="refrigerante" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                       </div>
                    </div>
-
+ 
                    <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6">
                       <div className="flex items-center gap-3 pb-4 border-b border-slate-50">
                          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Layout className="w-4 h-4" /></div>
                          <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Ubicación y Vida Útil</h3>
                       </div>
                       <div className="space-y-4">
-                         <ParamRow label="Área / Departamento" value={equipo.area} editable={isEditing} />
-                         <ParamRow label="Ubicación Física" value={equipo.ubicacion} editable={isEditing} />
-                         <ParamRow label="Vida Útil (Años)" value={`${equipo.vida_util} años`} editable={isEditing} />
-                         <ParamRow label="Voltaje / Corriente" value={`${equipo.voltaje}V / ${equipo.corriente}A`} editable={isEditing} />
-                         <ParamRow label="Fecha Instalación" value={equipo.fecha_instalacion || 'S/I'} editable={isEditing} />
+                         <ParamRow label="Área / Departamento" value={formData.area} field="area" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Ubicación Física" value={formData.ubicacion} field="ubicacion" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Vida Útil (Años)" value={`${formData.vida_util}`} field="vida_util" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Voltaje / Corriente" value={`${formData.voltaje}V / ${formData.corriente}A`} field="voltaje" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Fecha Instalación" value={formData.fecha_instalacion || 'S/I'} field="fecha_instalacion" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                       </div>
                    </div>
                 </div>
@@ -424,18 +405,19 @@ export default function DetalleEquipo() {
   );
 }
 
-function ParamRow({ label, value, editable }: { label: string, value: string, editable?: boolean }) {
+function ParamRow({ label, value, field, onChange, editable }: { label: string, value: string, field: string, onChange: (f: string, v: string) => void, editable?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 group">
+    <div className="flex flex-col gap-1 group text-left">
        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{label}</span>
        {editable ? (
          <input 
            type="text" 
-           defaultValue={value}
-           className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+           value={value || ''}
+           onChange={(e) => onChange(field, e.target.value)}
+           className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none w-full"
          />
        ) : (
-         <p className="text-sm font-black text-slate-700 tracking-tight uppercase group-hover:text-slate-900 transition-colors uppercase">{value}</p>
+         <p className="text-sm font-black text-slate-700 tracking-tight uppercase group-hover:text-slate-900 transition-colors uppercase">{value || 'S/I'}</p>
        )}
     </div>
   );

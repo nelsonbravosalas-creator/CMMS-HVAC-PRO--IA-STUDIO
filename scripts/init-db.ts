@@ -160,9 +160,9 @@ async function initializeDB() {
     await sql`
       CREATE TABLE IF NOT EXISTS informes (
         id TEXT PRIMARY KEY,
-        data JSONB,
         uuid_sincro TEXT UNIQUE,
-        modificado_en BIGINT
+        modificado_en BIGINT,
+        data JSONB
       );
     `;
 
@@ -170,9 +170,9 @@ async function initializeDB() {
     await sql`
       CREATE TABLE IF NOT EXISTS eventos (
         id TEXT PRIMARY KEY,
-        data JSONB,
         uuid_sincro TEXT UNIQUE,
-        modificado_en BIGINT
+        modificado_en BIGINT,
+        data JSONB
       );
     `;
 

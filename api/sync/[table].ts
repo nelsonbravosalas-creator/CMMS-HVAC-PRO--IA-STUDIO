@@ -8,12 +8,35 @@ export default async function handler(req: any, res: any) {
   const table = req.query.table as string;
   if (!VALID_TABLES.includes(table)) return res.status(400).json({ error: `Tabla inválida: ${table}` });
 
-  const { records } = req.body;
+  const { records, operation } = req.body;
   if (!Array.isArray(records)) return res.status(400).json({ error: 'records debe ser array' });
 
   try {
     const sql = getDb();
     const results = [];
+
+    if (operation === 'delete') {
+      for (const record of records) {
+        try {
+          if (table === 'activos') {
+             await sql`DELETE FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`;
+          } else {
+             // For others using mapping
+             if (table === 'tickets') await sql`DELETE FROM tickets WHERE uuid_sincro = ${record.uuid_sincro}`;
+             else if (table === 'mantenimientos') await sql`DELETE FROM mantenimientos WHERE uuid_sincro = ${record.uuid_sincro}`;
+             else if (table === 'clientes') await sql`DELETE FROM clientes WHERE uuid_sincro = ${record.uuid_sincro}`;
+             else if (table === 'usuarios') await sql`DELETE FROM usuarios WHERE uuid_sincro = ${record.uuid_sincro}`;
+             else if (table === 'sucursales') await sql`DELETE FROM sucursales WHERE uuid_sincro = ${record.uuid_sincro}`;
+             else if (table === 'informes') await sql`DELETE FROM informes WHERE uuid_sincro = ${record.uuid_sincro}`;
+             else if (table === 'eventos') await sql`DELETE FROM eventos WHERE uuid_sincro = ${record.uuid_sincro}`;
+          }
+          results.push({ uuid_sincro: record.uuid_sincro, success: true });
+        } catch (e: any) {
+          results.push({ uuid_sincro: record.uuid_sincro, success: false, error: e.message });
+        }
+      }
+      return res.json({ success: true, results });
+    }
 
     for (const record of records) {
       let folio_oficial = record.id;

@@ -23,55 +23,23 @@ import {
 import { TicketForm } from "../components/modals/TicketForm";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../lib/dbLocal";
-
-const SyncIndicator: React.FC<{ status: string }> = ({ status }) => {
-  if (status === 'synced') return <Cloud className="w-4 h-4 text-emerald-500" />;
-  return <Cloud className="w-4 h-4 text-amber-500 animate-pulse" />;
-};
+import { useCMMSStore } from "../store/useCMMSStore";
+import { useTickets } from "../hooks/useTickets";
 
 export default function Tickets() {
   const { permisos } = useAuth();
-  const rawTickets = useLiveQuery(() => db.tickets.toArray()) || [];
+  const tickets = useCMMSStore(state => state.tickets);
+  const loading = useCMMSStore(state => state.isLoading);
+  const { updateTicket } = useTickets();
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");
 
-  useEffect(() => {
-    const syncInitial = async () => {
-      try {
-        const response = await fetch('/api/tickets');
-        const json = await response.json();
-        if (json.success) {
-          for (const t of json.data) {
-            let record = t.data ? t.data : {};
-            if (typeof record === 'string') record = JSON.parse(record);
-            
-            const existing = await db.tickets.where('id').equals(t.id).first();
-            if (!existing || (record.modificado_en || 0) > (existing.modificado_en || 0)) {
-               await db.tickets.put({
-                 ...record,
-                 id: t.id,
-                 uuid_sincro: record.uuid_sincro || record.id || t.id,
-                 sync_status: 'synced',
-                 modificado_en: record.modificado_en || Date.now()
-               });
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Could not fetch tickets from cloud, using local storage", e);
-      }
-    };
-    syncInitial();
-  }, []);
-
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = useMemo(() => rawTickets.filter(t => 
+  const filtered = useMemo(() => tickets.filter(t => 
     t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
     t.equipo_tag.toLowerCase().includes(filter.toLowerCase())
-  ), [rawTickets, filter]);
+  ), [tickets, filter]);
 
   const exportToCSV = () => {
     const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Fecha", "Creador", "Asignado", "Sync"];
@@ -179,7 +147,13 @@ export default function Tickets() {
   );
 }
 
+const SyncIndicator: React.FC<{ status: string }> = ({ status }) => {
+  if (status === 'synced') return <Cloud className="w-4 h-4 text-emerald-500" />;
+  return <Cloud className="w-4 h-4 text-amber-500 animate-pulse" />;
+};
+
 const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
+  const { updateTicket } = useTickets();
   const priorities: Record<string, string> = {
     Alta: "bg-orange-100 text-orange-600",
     Critica: "bg-red-100 text-red-600",
@@ -225,17 +199,26 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
 
        <div className="flex items-center gap-2">
           {ticket.estado === 'abierto' && (
-            <button className="flex-1 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sincro, { estado: 'en_proceso' })}
+              className="flex-1 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all font-black"
+            >
                <Play className="w-3.5 h-3.5 fill-current" /> Iniciar
             </button>
           )}
           {(ticket.estado === 'abierto' || ticket.estado === 'en_proceso') && (
-            <button className="flex-1 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all">
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sincro, { estado: 'resuelto' })}
+              className="flex-1 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all font-black"
+            >
                <Check className="w-3.5 h-3.5" /> Resolver
             </button>
           )}
           {ticket.estado === 'resuelto' && (
-            <button className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl">
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sincro, { estado: 'cerrado' })}
+              className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl font-black"
+            >
                Cerrar Ticket
             </button>
           )}

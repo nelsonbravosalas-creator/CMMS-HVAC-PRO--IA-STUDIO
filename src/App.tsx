@@ -34,6 +34,9 @@ import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
 import { CLIENTS } from "./data/clientes";
+import { initSyncEngine } from "./lib/syncEngine";
+import { useCMMSStore } from "./store/useCMMSStore";
+import { SyncIndicator } from "./components/SyncIndicator";
 
 /**
  * Componente funcional App.
@@ -67,6 +70,26 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [hasClientSelected, setHasClientSelected] = useState<boolean>(false);
   const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    // 1. Hidratar datos locales (IndexedDB -> Zustand)
+    useCMMSStore.getState().hydrate();
+    
+    // 2. Iniciar motor de sincronización
+    initSyncEngine();
+
+    // 3. Listener de estado de red
+    const handleStatusChange = () => {
+      useCMMSStore.getState().setOnline(navigator.onLine);
+    };
+    window.addEventListener('online', handleStatusChange);
+    window.addEventListener('offline', handleStatusChange);
+
+    return () => {
+      window.removeEventListener('online', handleStatusChange);
+      window.removeEventListener('offline', handleStatusChange);
+    };
+  }, []);
 
   useEffect(() => {
     const auth = localStorage.getItem("is_authenticated") === "true";
@@ -109,50 +132,49 @@ function App() {
     }
   }, [location, setLocation]);
 
-  // Auth pages (no layout)
-  if (!isAuthenticated && location === "/login") {
-    return <Login />;
-  }
-
-  // Tenant selector (no layout)
-  if (isAuthenticated && !hasClientSelected && CLIENTS.length > 0) {
-    return <ClientSelector />;
-  }
-
   return (
     <AuthProvider>
-      <Layout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/scanner" component={ScannerQR} />
-        <Route path="/equipos" component={Equipos} />
-        <Route path="/equipos/:tag" component={DetalleEquipo} />
-        <Route path="/EQUIPOS/:tag" component={DetalleEquipo} />
-        <Route path="/mapa" component={Mapa} />
-        <Route path="/mantenimientos" component={Mantenimientos} />
-        <Route path="/ordenes-servicio" component={OrdenesServicio} />
-        <Route path="/ordenes-servicio/:id" component={EditorOrdenServicio} />
-        <Route path="/planificacion" component={Planificacion} />
-        <Route path="/informes" component={InformesHVAC} />
-        <Route path="/informes/:id" component={EditorInforme} />
-        <Route path="/tickets" component={Tickets} />
-        <Route path="/reportes" component={Reportes} />
-        <Route path="/eficiencia" component={EFIEnergia} />
-        <Route path="/administracion" component={Administracion} />
-        <Route path="/consola" component={Consola} />
-        <Route path="/configuracion" component={Configuracion} />
-        
-        {/* Simple fallbacks */}
-        <Route path="/client-selector" component={ClientSelector} />
-        <Route path="/login" component={Login} />
+      {(!isAuthenticated && location === "/login") ? (
+        <Login />
+      ) : (isAuthenticated && !hasClientSelected && CLIENTS.length > 0) ? (
+        <ClientSelector />
+      ) : (
+        <>
+          <Layout>
+            <Switch>
+              <Route path="/" component={Dashboard} />
+              <Route path="/scanner" component={ScannerQR} />
+              <Route path="/equipos" component={Equipos} />
+              <Route path="/equipos/:tag" component={DetalleEquipo} />
+              <Route path="/EQUIPOS/:tag" component={DetalleEquipo} />
+              <Route path="/mapa" component={Mapa} />
+              <Route path="/mantenimientos" component={Mantenimientos} />
+              <Route path="/ordenes-servicio" component={OrdenesServicio} />
+              <Route path="/ordenes-servicio/:id" component={EditorOrdenServicio} />
+              <Route path="/planificacion" component={Planificacion} />
+              <Route path="/informes" component={InformesHVAC} />
+              <Route path="/informes/:id" component={EditorInforme} />
+              <Route path="/tickets" component={Tickets} />
+              <Route path="/reportes" component={Reportes} />
+              <Route path="/eficiencia" component={EFIEnergia} />
+              <Route path="/administracion" component={Administracion} />
+              <Route path="/consola" component={Consola} />
+              <Route path="/configuracion" component={Configuracion} />
+              
+              {/* Simple fallbacks */}
+              <Route path="/client-selector" component={ClientSelector} />
+              <Route path="/login" component={Login} />
 
-        <Route>
-          <div className="flex items-center justify-center flex-1 h-full min-h-[400px]">
-            <p className="text-slate-500 font-medium italic text-left">Módulo no encontrado o en construcción.</p>
-          </div>
-        </Route>
-      </Switch>
-    </Layout>
+              <Route>
+                <div className="flex items-center justify-center flex-1 h-full min-h-[400px]">
+                  <p className="text-slate-500 font-medium italic text-left">Módulo no encontrado o en construcción.</p>
+                </div>
+              </Route>
+            </Switch>
+          </Layout>
+          <SyncIndicator />
+        </>
+      )}
     </AuthProvider>
   );
 }

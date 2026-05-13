@@ -47,9 +47,10 @@ export interface LocalTicket extends LocalBase {
 export interface LocalMantenimiento extends LocalBase {
   id: string;
   equipo_tag: string;
-  tecnico_id: string;
+  tecnico: string;
   tipo: string;
   fecha: string;
+  estado: string;
   hallazgos: string;
   acciones: string;
   repuestos: string;
@@ -73,21 +74,67 @@ export interface LocalUsuario extends LocalBase {
   activo: boolean;
 }
 
+export interface LocalSucursal extends LocalBase {
+  id: string;
+  nombre: string;
+  cliente_id: string;
+  direccion: string;
+  ciudad: string;
+  region: string;
+}
+
+export interface LocalInforme extends LocalBase {
+  id: string;
+  data: any;
+}
+
+export interface LocalEvento extends LocalBase {
+  id: string;
+  data: any;
+}
+
+export interface SyncOperation {
+  id?: number;
+  table: string;
+  uuid_sincro: string;
+  operation: 'insert' | 'update' | 'delete';
+  data: any;
+  timestamp: number;
+}
+
+export interface AuditLog {
+  id?: string;
+  action: string;
+  userId: string;
+  details: string;
+  timestamp: number;
+}
+
 export class CMMSDatabase extends Dexie {
   activos!: Table<LocalActivo>;
   tickets!: Table<LocalTicket>;
   mantenimientos!: Table<LocalMantenimiento>;
   clientes!: Table<LocalCliente>;
   usuarios!: Table<LocalUsuario>;
+  sucursales!: Table<LocalSucursal>;
+  informes!: Table<LocalInforme>;
+  eventos!: Table<LocalEvento>;
+  sync_queue!: Table<SyncOperation>;
+  audit_logs!: Table<AuditLog>;
 
   constructor() {
-    super('CMMS_LocalDB');
-    this.version(1).stores({
-      activos: 'uuid_sincro, tag, sync_status, modificado_en',
-      tickets: 'uuid_sincro, id, sync_status, modificado_en',
-      mantenimientos: 'uuid_sincro, id, sync_status, modificado_en',
+    super('CMMS_LocalDB_v2');
+    this.version(2).stores({
+      activos: 'uuid_sincro, tag, cliente_id, sucursal_id, sync_status, modificado_en',
+      tickets: 'uuid_sincro, id, equipo_tag, cliente_id, sync_status, modificado_en',
+      mantenimientos: 'uuid_sincro, id, equipo_tag, sync_status, modificado_en',
       clientes: 'uuid_sincro, id, sync_status, modificado_en',
-      usuarios: 'uuid_sincro, id, sync_status, modificado_en'
+      usuarios: 'uuid_sincro, id, sync_status, modificado_en',
+      sucursales: 'uuid_sincro, id, cliente_id, sync_status, modificado_en',
+      informes: 'uuid_sincro, id, sync_status, modificado_en',
+      eventos: 'uuid_sincro, id, sync_status, modificado_en',
+      sync_queue: '++id, table, uuid_sincro, operation, timestamp',
+      audit_logs: 'id, action, userId, timestamp'
     });
   }
 }

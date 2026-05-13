@@ -5,8 +5,7 @@ import {
 import { AssetSearchModal } from './AssetSearchModal';
 import { EQUIPOS_DATA } from '../../data/equipos';
 import { ALMACEN_LABELS } from '../../data/sucursales';
-import { db } from '../../lib/dbLocal';
-import { useSync } from '../../hooks/useSync';
+import { useTickets } from '../../hooks/useTickets';
 
 interface TicketFormProps {
   onClose: () => void;
@@ -14,11 +13,18 @@ interface TicketFormProps {
 }
 
 export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: initialTag }) => {
+  const { createTicket } = useTickets();
   const [showAssetSearch, setShowAssetSearch] = useState(false);
   const [tag, setTag] = useState(initialTag || "");
   const [equipoDesc, setEquipoDesc] = useState("");
   const [cliente, setCliente] = useState("");
   const [sucursal, setSucursal] = useState("");
+  
+  // Form fields
+  const [titulo, setTitulo] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [prioridad, setPrioridad] = useState("Media");
+  const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
   
   // Search Modal States
   const [searchQuery, setSearchQuery] = useState("");
@@ -43,46 +49,30 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     setShowAssetSearch(false);
   };
 
-  const { syncData } = useSync();
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     
-    // 1. Generate temp ID
-    const uuidLocal = crypto.randomUUID();
-    const tempFolio = `TEMP-${uuidLocal.substring(0, 8).toUpperCase()}`;
-
-    // 2. Prepare payload
-    const ticketData = {
-      uuid_sincro: uuidLocal,
-      modificado_en: Date.now(),
-      sync_status: 'pending_insert' as const,
-      id: tempFolio, // Local temporary ID (Folio Provisional)
-      titulo: 'FALLA REPORTADA (AUTOMATICO)', // we would use form values here
-      descripcion: equipoDesc,
-      prioridad: 'Media',
-      estado: 'abierto',
-      equipo_tag: tag,
-      cliente_id: cliente,
-      creado_por: 'Actual User',
-      asignado_a: 'Nelson Bravo (Tech Lead)',
-      fecha_creacion: new Date().toISOString(),
-    };
-
     try {
-      // 3. Save to Dexie via immediate async insert
-      await db.tickets.put(ticketData);
+      await createTicket({
+        titulo: titulo || `FALLA REPORTADA EN ${tag}`,
+        descripcion: descripcion || equipoDesc,
+        prioridad: prioridad,
+        estado: 'abierto',
+        equipo_tag: tag,
+        cliente_id: cliente,
+        creado_por: 'Actual User',
+        asignado_a: asignadoA,
+        fecha_creacion: new Date().toISOString(),
+      });
       
-      // 4. Trigger Sync
-      syncData(); // don't await, it's background
-
-      setIsSaving(false);
-      alert(`Ticket guardado localmente.\nFolio: ${tempFolio}`);
       onClose();
     } catch (e) {
-      console.error("Local save error:", e);
+      console.error("Ticket save error:", e);
+      alert("Error al guardar el ticket.");
+    } finally {
       setIsSaving(false);
     }
   };
@@ -173,17 +163,27 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Título del Ticket</label>
-              <input type="text" placeholder="EJ: FALLA COMPRESOR SALA B" className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+              <input 
+                type="text" 
+                placeholder="EJ: FALLA COMPRESOR SALA B" 
+                className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" 
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Prioridad</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500">
-                  <option>Baja</option>
-                  <option>Media</option>
-                  <option>Alta</option>
-                  <option>CRÍTICA</option>
+                <select 
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+                  value={prioridad}
+                  onChange={(e) => setPrioridad(e.target.value)}
+                >
+                  <option value="Baja">Baja</option>
+                  <option value="Media">Media</option>
+                  <option value="Alta">Alta</option>
+                  <option value="CRÍTICA">CRÍTICA</option>
                 </select>
               </div>
               <div className="space-y-1">
@@ -199,15 +199,25 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Descripción del Problema</label>
-              <textarea rows={3} placeholder="Detalle el problema observado..." className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500" />
+              <textarea 
+                rows={3} 
+                placeholder="Detalle el problema observado..." 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500" 
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+              />
             </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Asignar Personal</label>
-              <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500">
-                <option>Nelson Bravo (Tech Lead)</option>
-                <option>Gonzalo Bravo (Senior Tech)</option>
-                <option>Disponible para cualquiera</option>
+              <select 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+                value={asignadoA}
+                onChange={(e) => setAsignadoA(e.target.value)}
+              >
+                <option value="Nelson Bravo (Tech Lead)">Nelson Bravo (Tech Lead)</option>
+                <option value="Gonzalo Bravo (Senior Tech)">Gonzalo Bravo (Senior Tech)</option>
+                <option value="Disponible para cualquiera">Disponible para cualquiera</option>
               </select>
             </div>
 

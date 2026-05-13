@@ -30,7 +30,7 @@ import {
   Label
 } from "recharts";
 import { Link } from "wouter";
-import { EQUIPOS_DATA } from "../data/equipos";
+import { useCMMSStore } from "../store/useCMMSStore";
 import { ALMACEN_LABELS } from "../data/sucursales";
 
 const DATA_MONTHLY = [
@@ -47,20 +47,11 @@ const DATA_POWER = [
   { name: 'Iquique', power: 150 },
 ];
 
-const DATA_STATUS = [
-  { name: 'Operativo', value: 85, color: '#10b981' },
-  { name: 'Falla', value: 5, color: '#ef4444' },
-  { name: 'Preventivo', value: 10, color: '#f59e0b' },
-];
-
-/**
- * Vista de Panel de Control (Dashboard).
- * Provee una visión holística de la salud operativa de los activos HVAC.
- * 
- * @module pages/Dashboard
- */
-
 export default function Dashboard() {
+  const activos = useCMMSStore(state => state.activos);
+  const tickets = useCMMSStore(state => state.tickets);
+  const loading = useCMMSStore(state => state.isLoading);
+
   /** Estado para filtrar por sucursal / almacén */
   const [almacen, setAlmacen] = useState("");
   /** Estado para filtrar por estado técnico (falla, mantenimiento, operativo) */
@@ -68,15 +59,14 @@ export default function Dashboard() {
 
   /**
    * Memoización de equipos filtrados.
-   * Optimiza el rendimiento evitando re-filtros en re-renders innecesarios.
    */
   const filteredEquipos = useMemo(() => {
-    return EQUIPOS_DATA.filter(eq => {
+    return activos.filter(eq => {
       const matchAlmacen = almacen ? eq.tag.startsWith(almacen) : true;
       const matchEstado = estado ? eq.estado === estado : true;
       return matchAlmacen && matchEstado;
     });
-  }, [almacen, estado]);
+  }, [activos, almacen, estado]);
 
   const kpis = useMemo(() => {
     const total = filteredEquipos.length;
@@ -92,9 +82,9 @@ export default function Dashboard() {
       mantv,
       operativo,
       disponibilidad: `${disponibilidad}%`,
-      tickets: fallas * 2 // Mocked relation
+      tickets: tickets.filter(t => t.estado === 'abierto' || t.estado === 'en_proceso').length
     };
-  }, [filteredEquipos]);
+  }, [filteredEquipos, tickets]);
 
   const dataStatus = useMemo(() => {
     const fallas = filteredEquipos.filter(e => e.estado === 'falla').length;
