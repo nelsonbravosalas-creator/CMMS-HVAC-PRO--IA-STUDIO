@@ -3,16 +3,40 @@ import { getDb } from '../_db';
 const VALID_TABLES = ['activos', 'tickets', 'mantenimientos', 'clientes', 'usuarios', 'sucursales', 'informes', 'eventos'];
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   const table = req.query.table as string;
   if (!VALID_TABLES.includes(table)) return res.status(400).json({ error: `Tabla inválida: ${table}` });
 
-  const { records, operation } = req.body;
-  if (!Array.isArray(records)) return res.status(400).json({ error: 'records debe ser array' });
+  if (req.method === 'GET') {
+    try {
+      const sql = getDb();
+      const since = req.query.since ? parseInt(req.query.since as string, 10) : 0;
+      
+      let rows;
+      if (table === 'activos') {
+        rows = await sql`SELECT * FROM activos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+      } else {
+        // For others using mapping to avoid variable table name in query
+        if (table === 'tickets') rows = await sql`SELECT * FROM tickets WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+        else if (table === 'mantenimientos') rows = await sql`SELECT * FROM mantenimientos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+        else if (table === 'clientes') rows = await sql`SELECT * FROM clientes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+        else if (table === 'usuarios') rows = await sql`SELECT * FROM usuarios WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+        else if (table === 'sucursales') rows = await sql`SELECT * FROM sucursales WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+        else if (table === 'informes') rows = await sql`SELECT * FROM informes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+        else if (table === 'eventos') rows = await sql`SELECT * FROM eventos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+      }
+      
+      return res.json({ success: true, data: rows });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  }
 
-  try {
-    const sql = getDb();
+  if (req.method === 'POST') {
+    const { records, operation } = req.body;
+    if (!Array.isArray(records)) return res.status(400).json({ error: 'records debe ser array' });
+
+    try {
+      const sql = getDb();
     const results = [];
 
     if (operation === 'delete') {
@@ -155,8 +179,11 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    return res.json({ success: true, results });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+      return res.json({ success: true, results });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
   }
+
+  return res.status(405).json({ error: 'Method not allowed' });
 }

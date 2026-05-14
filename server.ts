@@ -15,11 +15,12 @@ const getSql = () => {
 async function ensureTables() {
   const sql = getSql();
   try {
-    console.log("ðŸ“¦ Initializing Database Schema...");
+    console.log("ðŸ“¦ Initializing Database Schema (Sync with Scripts)...");
     
     await sql`
       CREATE TABLE IF NOT EXISTS activos (
-        tag TEXT PRIMARY KEY,
+        uuid_sincro TEXT PRIMARY KEY,
+        tag TEXT UNIQUE,
         nombre TEXT NOT NULL,
         tipo TEXT,
         marca TEXT,
@@ -39,25 +40,96 @@ async function ensureTables() {
         horas_operacion INTEGER DEFAULT 0,
         tecnicos JSONB,
         notas TEXT,
-        uuid_sincro TEXT UNIQUE,
-        modificado_en BIGINT
+        cliente_id TEXT,
+        sucursal_id TEXT,
+        modificado_en BIGINT,
+        creado_en BIGINT
       )
     `;
 
-    const genericTables = ['usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
+    await sql`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        uuid_sincro TEXT PRIMARY KEY,
+        id TEXT UNIQUE,
+        nombre TEXT,
+        correo TEXT UNIQUE,
+        perfil TEXT,
+        pin TEXT,
+        activo BOOLEAN DEFAULT true,
+        data JSONB,
+        modificado_en BIGINT,
+        creado_en BIGINT
+      )
+    `;
+
+    const genericTables = ['mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
     for (const table of genericTables) {
-      // Usamos any para permitir nombres de tabla dinámicos en la inicialización (seguro ya que son strings estáticos)
       await (sql as any)(`
         CREATE TABLE IF NOT EXISTS ${table} (
-          id TEXT PRIMARY KEY,
+          uuid_sincro TEXT PRIMARY KEY,
+          id TEXT,
           data JSONB NOT NULL,
-          uuid_sincro TEXT UNIQUE,
-          modificado_en BIGINT
+          modificado_en BIGINT,
+          creado_en BIGINT
         )
       `);
     }
 
-    console.log("âœ… Database Schema is OK");
+    // Verificación de columnas para migraciones automáticas
+    const allTables = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
+    for (const table of allTables) {
+      console.log(`- Verificando integridad de tabla: ${table}...`);
+      
+      // 1. Asegurar columnas básicas
+      const columns = [
+        { name: 'uuid_sincro', type: 'TEXT' },
+        { name: 'modificado_en', type: 'BIGINT' },
+        { name: 'creado_en', type: 'BIGINT' }
+      ];
+
+      for (const col of columns) {
+        try {
+          await (sql as any)(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+        } catch (e: any) {
+          if (!e.message.includes('already exists')) {
+            console.warn(`    âš ï¸  No se pudo aÃ±adir ${col.name} a ${table}: ${e.message}`);
+          }
+        }
+      }
+
+      // 2. Poblar uuid_sincro si estÃ¡ vacÃo (activos usa tag, otros usan id)
+      try {
+        if (table === 'activos') {
+          await (sql as any)(`UPDATE activos SET uuid_sincro = tag WHERE uuid_sincro IS NULL AND tag IS NOT NULL`);
+        } else {
+          // Primero intentamos con 'id'
+          try {
+            await (sql as any)(`UPDATE ${table} SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`);
+          } catch (idErr) {
+            // Si no hay 'id', tal vez ya tiene uuid_sincro o no hay nada que poblar
+          }
+        }
+      } catch (e: any) {
+        console.warn(`    âš ï¸  No se pudo poblar uuid_sincro en ${table}: ${e.message}`);
+      }
+
+      // 3. Crear Ã­ndice de sincronizaciÃ³n
+      try {
+        await (sql as any)(`CREATE INDEX IF NOT EXISTS idx_${table}_mod_en ON ${table} (modificado_en)`);
+      } catch (idxErr) { /* Ignorar */ }
+
+      // 4. Asegurar PK en uuid_sincro si es posible (solo si no hay otra)
+      try {
+        await (sql as any)(`ALTER TABLE ${table} ADD PRIMARY KEY (uuid_sincro)`);
+      } catch (pkErr) {
+        // Si ya hay una PK, intentamos al menos asegurar que uuid_sincro sea UNIQUE
+        try {
+          await (sql as any)(`ALTER TABLE ${table} ADD CONSTRAINT uniq_${table}_uuid UNIQUE (uuid_sincro)`);
+        } catch (uErr) { /* Ignorar si ya es unique */ }
+      }
+    }
+
+    console.log("âœ… Database Schema integrity check completed");
   } catch (error) {
     console.error("â Œ Error initializing database:", error);
   }
@@ -73,6 +145,39 @@ async function startServer() {
   // API ROUTES //
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  const ALLOWED_TABLES = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
+
+  app.get(["/api/:table", "/api/sync/:table"], async (req, res) => {
+    const table = req.params.table;
+    if (!ALLOWED_TABLES.includes(table)) return res.status(400).json({ error: "Invalid table" });
+    try {
+      const sql = getSql();
+      // Usar Number para evitar problemas con BigInt si el valor es pequeño o null
+      const since = req.query.since ? Number(req.query.since) : 0;
+      let rows;
+      
+      if (table === 'activos') {
+        rows = await sql`SELECT * FROM activos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+      } else {
+        // Generic tables
+        switch (table) {
+          case 'usuarios': rows = await sql`SELECT * FROM usuarios WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          case 'mantenimientos': rows = await sql`SELECT * FROM mantenimientos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          case 'tickets': rows = await sql`SELECT * FROM tickets WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          case 'informes': rows = await sql`SELECT * FROM informes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          case 'eventos': rows = await sql`SELECT * FROM eventos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          case 'clientes': rows = await sql`SELECT * FROM clientes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          case 'sucursales': rows = await sql`SELECT * FROM sucursales WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          default: rows = [];
+        }
+      }
+      res.json({ success: true, data: rows });
+    } catch (error: any) {
+      console.error(`Error en GET /api/${table}:`, error);
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   // NUEVO FLUJO DE ACTIVOS SEGUN INSTRUCCIONES DEL ARQUITECTO
@@ -165,82 +270,11 @@ async function startServer() {
     }
   });
 
-  const ALLOWED_TABLES = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
-
-  app.get("/api/:table", async (req, res) => {
-    const table = req.params.table;
-    try {
-      const sql = getSql();
-      let rows;
-      switch (table) {
-        case 'activos': rows = await sql`SELECT * FROM activos LIMIT 1000`; break;
-        case 'usuarios': rows = await sql`SELECT * FROM usuarios LIMIT 1000`; break;
-        case 'mantenimientos': rows = await sql`SELECT * FROM mantenimientos LIMIT 1000`; break;
-        case 'tickets': rows = await sql`SELECT * FROM tickets LIMIT 1000`; break;
-        case 'informes': rows = await sql`SELECT * FROM informes LIMIT 1000`; break;
-        case 'eventos': rows = await sql`SELECT * FROM eventos LIMIT 1000`; break;
-        case 'clientes': rows = await sql`SELECT * FROM clientes LIMIT 1000`; break;
-        case 'sucursales': rows = await sql`SELECT * FROM sucursales LIMIT 1000`; break;
-        default: return res.status(400).json({ error: "Invalid table" });
-      }
-      res.json({ success: true, data: rows });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
+  // Generic POST for one-off operations (sync endpoint preferred)
   app.post("/api/:table", async (req, res) => {
     const table = req.params.table;
     if (!ALLOWED_TABLES.includes(table)) return res.status(400).json({ error: "Invalid table" });
-    try {
-      const sql = getSql();
-      const body = req.body;
-      const id = body.id || body.tag || Date.now().toString(); // Ensure some generic ID
-      
-      // Update data field. We treat 'id' as primary key usually, or 'tag' for activos.
-      // We will perform a simple generic insert updating data JSONB, but if it has specific columns, we could do more.
-      // The easiest generic upsert is passing the object as JSONB if our tables are designed that way.
-      // Let's explicitly support complete inserts for activos.
-      if (table === 'activos') {
-        const d = body;
-        await sql`
-          INSERT INTO activos (
-            id, tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
-            voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
-            ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas, data
-          ) VALUES (
-            ${d.id || d.tag}, ${d.tag}, ${d.nombre}, ${d.tipo}, ${d.marca || ''}, ${d.modelo || ''}, 
-            ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
-            ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
-            ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || ''}, 
-            ${d.proximo_mantenimiento || ''}, ${d.horas_operacion || 0}, ${d.notas || ''}, ${JSON.stringify(d)}
-          ) ON CONFLICT (id) DO UPDATE SET
-            nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
-            serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
-            voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
-            fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
-            ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
-            horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas, data = EXCLUDED.data
-        `;
-      } else {
-        const j = JSON.stringify(body);
-        switch (table) {
-          case 'usuarios': await sql`INSERT INTO usuarios (id, data) VALUES (${id}, ${j}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`; break;
-          case 'mantenimientos': await sql`INSERT INTO mantenimientos (id, data) VALUES (${id}, ${j}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`; break;
-          case 'tickets': await sql`INSERT INTO tickets (id, data) VALUES (${id}, ${j}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`; break;
-          case 'informes': await sql`INSERT INTO informes (id, data) VALUES (${id}, ${j}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`; break;
-          case 'eventos': await sql`INSERT INTO eventos (id, data) VALUES (${id}, ${j}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`; break;
-          case 'clientes': await sql`INSERT INTO clientes (id, data) VALUES (${id}, ${j}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`; break;
-          case 'sucursales': await sql`INSERT INTO sucursales (id, data) VALUES (${id}, ${j}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`; break;
-        }
-      }
-
-      res.json({ success: true, data: body });
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ success: false, error: error.message });
-    }
+    res.status(501).json({ error: "Use /api/sync/:table for write operations" });
   });
 
   app.post("/api/sync/:table", async (req, res) => {

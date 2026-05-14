@@ -1,5 +1,6 @@
 import { db, SyncStatus } from '../db/database';
 import { useSyncStore } from '../store/useSyncStore';
+import { useAppStore } from '../store/useAppStore';
 import { logger } from '../lib/logger';
 import { syncQueue } from './syncQueue';
 import { networkMonitor } from './networkMonitor';
@@ -12,18 +13,29 @@ class SyncEngine {
 
   init() {
     networkMonitor.init();
-    window.addEventListener('network-reconnected', () => this.triggerSync());
+    window.addEventListener('network-reconnected', () => this.fullSync());
     
     // Start background sync loop
     this.syncTimer = setInterval(() => {
-      this.triggerSync();
+      this.fullSync();
     }, 15000); // Check every 15 seconds
     
-    this.triggerSync();
+    this.fullSync();
   }
 
-  async triggerSync() {
+  async fullSync() {
     if (this.processing || !networkMonitor.isOnline()) return;
+    this.processing = true;
+    try {
+      await this.triggerPush();
+      await this.triggerPull();
+    } finally {
+      this.processing = false;
+    }
+  }
+
+  async triggerPush() {
+    if (!networkMonitor.isOnline()) return;
     
     const store = useSyncStore.getState();
     const pendingItems = await syncQueue.peekAll();
@@ -31,24 +43,94 @@ class SyncEngine {
     
     if (pendingItems.length === 0) return;
     
-    this.processing = true;
     store.setSyncing(true);
-    logger.info('SyncEngine', `Starting processing ${pendingItems.length} items.`);
+    logger.info('SyncEngine', `Starting push for ${pendingItems.length} items.`);
 
     try {
-      // Process 1 item at a time sequentially to avoid race conditions
       for (const item of pendingItems) {
-        if (!networkMonitor.isOnline()) {
-          logger.warn('SyncEngine', 'Network lost during sync. Aborting pass.');
-          break;
-        }
+        if (!networkMonitor.isOnline()) break;
         await this.processItem(item);
       }
     } finally {
-      this.processing = false;
       store.setSyncing(false);
       store.setPendingCount(await db.sync_queue.count());
     }
+  }
+
+  async triggerPull() {
+    if (!networkMonitor.isOnline()) return;
+    
+    const tables = ['activos', 'tickets', 'mantenimientos', 'clientes', 'usuarios', 'sucursales', 'informes', 'eventos'];
+    logger.info('SyncEngine', 'Starting pull for all tables.');
+
+    for (const tableName of tables) {
+      try {
+        const table = db[tableName as keyof typeof db] as any;
+        if (!table) continue;
+
+        const lastRecord = await table.orderBy('modificado_en').reverse().first();
+        const since = lastRecord ? lastRecord.modificado_en : 0;
+
+        const response = await fetch(`/api/sync/${tableName}?since=${since}`);
+        if (response.ok) {
+          const { data } = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            for (const remoteRecord of data) {
+              const remoteUuid = remoteRecord.uuid_sincro;
+              
+              if (!remoteUuid || typeof remoteUuid !== 'string') {
+                logger.warn('SyncEngine', `Remote record in ${tableName} missing valid uuid_sincro, skipping.`, remoteRecord);
+                continue;
+              }
+
+              const local = await table.get(remoteUuid);
+              
+              if (!local || (remoteRecord.modificado_en || 0) > (local.modificado_en || 0)) {
+                let mergedRecord = remoteRecord;
+                // If it came from a generic table (id, data, modificado_en)
+                if (tableName !== 'activos' && remoteRecord.data) {
+                  try {
+                    const parsed = typeof remoteRecord.data === 'string' ? JSON.parse(remoteRecord.data) : remoteRecord.data;
+                    mergedRecord = { 
+                      ...parsed, 
+                      uuid_sincro: remoteUuid, 
+                      modificado_en: remoteRecord.modificado_en || Date.now()
+                    };
+                  } catch (e) {
+                    logger.error('SyncEngine', `Failed to parse data for ${tableName}:${remoteUuid}`, e);
+                    continue;
+                  }
+                }
+
+                await table.put({
+                  ...mergedRecord,
+                  sync_status: 'synced',
+                  last_synced_at: Date.now()
+                });
+              }
+            }
+            logger.info('SyncEngine', `Pulled ${data.length} records for ${tableName}`);
+          }
+        } else {
+          const errData = await response.json().catch(() => ({ error: response.statusText }));
+          logger.error('SyncEngine', `Pull failed for ${tableName}: ${response.status} ${errData.error || ''}`);
+        }
+      } catch (error: any) {
+        if (error?.message === 'Failed to fetch') {
+          logger.warn('SyncEngine', `Pull failed for ${tableName} (Network/Server unavailable)`);
+        } else {
+          logger.error('SyncEngine', `Pull failed for ${tableName}`, error);
+        }
+      }
+    }
+    
+    // Refresh local store with newly pulled data
+    await useAppStore.getState().hydrate();
+  }
+
+  // Renamed triggerSync to fullSync above
+  async triggerSync() {
+    return this.fullSync();
   }
 
   private async processItem(item: any) {
