@@ -12,6 +12,8 @@ const getSql = () => {
 };
 
 // DATABASE INITIALIZATION //
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 async function ensureTables() {
   const sql = getSql();
   try {
@@ -119,6 +121,40 @@ async function startServer() {
   // API ROUTES //
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  app.post("/api/ocr", async (req, res) => {
+    try {
+      const imageBase64 = req.body.imageBase64 || req.body.image;
+      const mimeType = req.body.mimeType;
+      if (!imageBase64) return res.status(400).json({ error: 'imageBase64 requerido' });
+      
+      const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = ai.getGenerativeModel({ model: 'gemini-3.1-flash' });
+      
+      const prompt = "Extrae de esta placa HVAC o similares: Marca, Modelo, N Serie, Refrigerante, Voltaje, Amperaje Nominal y Capacidad. REGLA: Si la capacidad esta en kW convierte: 1kW=3412 BTU. Si en Toneladas: 1TR=12000 BTU. Devuelve SOLO un objeto JSON con estas keys: {'marca':'','modelo':'','n_serie':'','refrigerante':'','capacidad_btu':'','voltaje':'','amperaje':''}";
+      
+      const result = await model.generateContent({
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { data: imageBase64, mimeType: mimeType || 'image/jpeg' } }
+          ]
+        }]
+      });
+
+      const text = result.response.text();
+      const jsonMatch = text.match(/\{[\s\S]*?\}/);
+      if (jsonMatch) {
+         res.json({ success: true, data: JSON.parse(jsonMatch[0]) });
+      } else {
+         res.json({ success: false, data: {} });
+      }
+    } catch (error: any) {
+      console.error("OCR API error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   const ALLOWED_TABLES = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
@@ -265,7 +301,17 @@ async function startServer() {
       for (const record of records) {
         if (operation === 'delete') {
           switch (table) {
-            case 'activos': await sql`DELETE FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'activos': 
+              const aTagRows = await sql`SELECT tag FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`;
+              if (aTagRows.length > 0) {
+                 const t = aTagRows[0].tag;
+                 // Delete related items (assuming their JSONB stores 'tag' or 'maquinaTag')
+                 await sql`DELETE FROM tickets WHERE data->>'tag' = ${t}`;
+                 await sql`DELETE FROM mantenimientos WHERE data->>'tag' = ${t}`;
+                 await sql`DELETE FROM informes WHERE data->>'tag' = ${t} OR data->'machineData'->>'tag' = ${t}`;
+              }
+              await sql`DELETE FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`; 
+              break;
             case 'tickets': await sql`DELETE FROM tickets WHERE uuid_sincro = ${record.uuid_sincro}`; break;
             case 'mantenimientos': await sql`DELETE FROM mantenimientos WHERE uuid_sincro = ${record.uuid_sincro}`; break;
             case 'usuarios': await sql`DELETE FROM usuarios WHERE uuid_sincro = ${record.uuid_sincro}`; break;
@@ -333,6 +379,12 @@ async function startServer() {
         
         if (table === 'activos' || table === 'equipos') {
           const d = record;
+
+          // Check for tag change to cascade
+          const oldTagRows = await sql`SELECT tag FROM activos WHERE uuid_sincro = ${d.uuid_sincro}`;
+          let oldTag = null;
+          if (oldTagRows.length > 0) oldTag = oldTagRows[0].tag;
+
           await sql`
             INSERT INTO activos (
               tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
@@ -357,6 +409,13 @@ async function startServer() {
               modificado_en = EXCLUDED.modificado_en
               WHERE EXCLUDED.modificado_en > activos.modificado_en;
           `;
+
+          if (oldTag && oldTag !== d.tag) {
+             // Cascade update JSON tag fields
+             await sql`UPDATE tickets SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
+             await sql`UPDATE mantenimientos SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
+             await sql`UPDATE informes SET data = jsonb_set(data, '{machineData,tag}', to_jsonb(${d.tag}::text)) WHERE data->'machineData'->>'tag' = ${oldTag};`;
+          }
         } else {
           // Generic handler for other tables using JSONB storage
           const id = (table === 'tickets' || table === 'mantenimientos' || table === 'informes') ? record.id : record.uuid_sincro;

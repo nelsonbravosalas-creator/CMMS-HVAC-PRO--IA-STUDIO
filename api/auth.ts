@@ -1,4 +1,5 @@
 import { getDb } from './_db';
+import { signToken } from './_auth';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -16,7 +17,10 @@ export default async function handler(req: any, res: any) {
 
     const user = rows[0];
     const { pin: _, ...safeUser } = user;
-    return res.json({ success: true, user: safeUser });
+    
+    const token = signToken({ id: safeUser.id, perfil: safeUser.perfil });
+
+    return res.json({ success: true, user: safeUser, token });
   } catch (error: any) {
     return res.status(503).json({ success: false, error: 'Servicio no disponible', offline: true });
   }

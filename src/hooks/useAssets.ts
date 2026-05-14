@@ -64,7 +64,8 @@ export const useAssets = () => {
     activos,
     createAsset: createMutation.mutateAsync,
     editAsset: (uuid: string, data: Partial<LocalActivo>) => editMutation.mutateAsync({ uuid, data }),
-    removeAsset: removeMutation.mutateAsync
+    removeAsset: removeMutation.mutateAsync,
+    syncNow: () => syncEngine.triggerSync()
   };
 };
 

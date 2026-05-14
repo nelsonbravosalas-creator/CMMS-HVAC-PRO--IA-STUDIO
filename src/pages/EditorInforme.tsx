@@ -627,10 +627,13 @@ export default function EditorInforme() {
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
     
-    const newFolio = `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    // Si ya existe un folio (edicion), lo usamos, si no, uno nuevo
+    const currentFolio = generalData.folio || `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const reportData = {
-      generalData: { ...generalData, folio: newFolio },
+      id: currentFolio,
+      uuid_sincro: id || currentFolio, // UUID para db
+      generalData: { ...generalData, folio: currentFolio },
       machineData,
       circuits,
       checklist,
@@ -644,16 +647,38 @@ export default function EditorInforme() {
     // 1. Guardado Local (Feedback Inmediato)
     localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
     
-    // 2. Ejecución diferida para la Nube
-    setTimeout(() => {
-      setGeneralData(prev => ({ ...prev, folio: newFolio }));
-      setStatus('firmado');
-      setIsSyncing(false);
-      
-      // Clear draft storage for this report as it's now synced
-      localStorage.removeItem(DRAFT_KEY);
-      alert(`Informe Sincronizado Exitosamente. Folio Asignado: ${newFolio}`);
-    }, 0);
+    // 2. Ejecutar Sincronización Remota
+    try {
+      const res = await fetch('/api/sync/informes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uuid_sincro: reportData.uuid_sincro,
+          id: reportData.id,
+          data: reportData,
+          modificado_en: Date.now()
+        })
+      });
+
+      if (!res.ok) {
+        console.warn("Fallo en sincronización, operará offline y se sincronizará luego");
+      } else {
+        reportData.statusSincronizacion = "sincronizado";
+        localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
+      }
+    } catch (e) {
+      console.warn("Offline: Se intentará sincronizar más tarde", e);
+    }
+    
+    setGeneralData(prev => ({ ...prev, folio: currentFolio }));
+    setStatus('firmado');
+    setIsSyncing(false);
+    
+    // Clear draft storage for this report as it's now saved
+    localStorage.removeItem(DRAFT_KEY);
+    alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}`);
   };
 
   const [showAssetConfig, setShowAssetConfig] = useState(false);
@@ -795,16 +820,10 @@ export default function EditorInforme() {
     setGaleria(prev => [...prev, { src, desc: '' }]);
   };
 
-  // Handle Gemini AI
+  // Handle OCR
   const handleGeminiOCR = async (file: File) => {
-    if (!process.env.GEMINI_API_KEY) {
-      alert("API Key no configurada");
-      return;
-    }
     setLoadingAI(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve) => {
         reader.onload = () => resolve((reader.result as string).split(',')[1]);
@@ -812,34 +831,26 @@ export default function EditorInforme() {
       });
       const base64Data = await base64Promise;
 
-      const prompt = "Extrae de esta placa HVAC: Marca, Modelo, N Serie, Refrigerante, Voltaje, Amperaje Nominal y Capacidad. REGLA: Si la capacidad esta en kW convierte: 1kW=3412 BTU. Si en Toneladas: 1TR=12000 BTU. Devuelve SOLO un objeto JSON con estas keys: {'marca':'','modelo':'','n_serie':'','refrigerante':'','capacidad_btu':'','voltaje':'','amperaje':''}";
-
-      const imgPart = {
-        inlineData: {
-          data: base64Data,
-          mimeType: file.type
-        }
-      };
-
-      const result = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: { parts: [imgPart, { text: prompt }] }
+      const res = await fetch("/api/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type })
       });
       
-      const text = result.text || "";
-      const jsonMatch = text.match(/\{[\s\S]*?\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        setMachineData(prev => ({
-          ...prev,
-          marca: data.marca || prev.marca,
-          modelo: data.modelo || prev.modelo,
-          serie: data.n_serie || prev.serie,
-          refrigerante: data.refrigerante || prev.refrigerante,
-          capacidad: data.capacidad_btu || prev.capacidad,
-          voltaje: data.voltaje || prev.voltaje
-        }));
-      }
+      const responseData = await res.json();
+      if (!res.ok) throw new Error(responseData.error || "Error en OCR API");
+      
+      const data = responseData.data || {};
+      
+      setMachineData(prev => ({
+        ...prev,
+        marca: data.marca || prev.marca,
+        modelo: data.modelo || prev.modelo,
+        serie: data.serie || data.n_serie || prev.serie,
+        refrigerante: data.refrigerante || prev.refrigerante,
+        capacidad: data.capacidad_btu || prev.capacidad,
+        voltaje: data.voltaje || prev.voltaje
+      }));
     } catch (err) {
       console.error(err);
       alert("Error al procesar con IA");

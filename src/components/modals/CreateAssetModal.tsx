@@ -141,6 +141,17 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     setIsSaving(true);
 
     try {
+      // 1. Verify on Server if the tag exists
+      const res = await fetch(`/api/equipos?tag=${encodeURIComponent(fullTag)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          alert("Alerta: El Tag ya se encuentra registrado en el servidor. Por favor, cambia el tipo de equipo o intenta de nuevo para ajustar el correlativo automáticamente desde el servidor.");
+          setIsSaving(false);
+          return;
+        }
+      }
+
       await createAsset({
         tag: fullTag,
         nombre: tagData.nombreEquipo,

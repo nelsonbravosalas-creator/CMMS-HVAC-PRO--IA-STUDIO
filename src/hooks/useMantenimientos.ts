@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import { mantenimientosRepo } from '../repositories/MantenimientosRepository';
 import { LocalMantenimiento } from '../db/database';
+import { syncEngine } from '../sync/syncEngine';
 
 export const useMantenimientos = () => {
   const addMantToStore = useAppStore(state => state.addMantenimiento);
@@ -17,6 +18,7 @@ export const useMantenimientos = () => {
 
     const savedMant = await mantenimientosRepo.save(newMant);
     addMantToStore(savedMant);
+    syncEngine.triggerSync();
     return savedMant;
   };
 
@@ -31,17 +33,20 @@ export const useMantenimientos = () => {
 
     const savedMant = await mantenimientosRepo.save(updated);
     updateMantInStore(savedMant);
+    syncEngine.triggerSync();
     return savedMant;
   };
 
   const deleteMantenimiento = async (uuid: string) => {
     await mantenimientosRepo.delete(uuid);
     deleteMantFromStore(uuid);
+    syncEngine.triggerSync();
   };
 
   return {
     createMantenimiento,
     updateMantenimiento,
-    deleteMantenimiento
+    deleteMantenimiento,
+    syncNow: () => syncEngine.triggerSync()
   };
 };

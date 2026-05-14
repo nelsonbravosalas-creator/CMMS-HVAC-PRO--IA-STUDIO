@@ -1,7 +1,11 @@
 import { getDb } from './_db';
+import { requireRole } from './_auth';
 
 export default async function handler(req: any, res: any) {
   try {
+    const user = requireRole(['Administrador', 'Técnico_Líder', 'Ingeniero_Confiabilidad'])(req, res);
+    if (!user) return; // Ya se envió el error 401/403
+
     const sql = getDb();
     const { method, query, body } = req;
     const tag = query.tag || body?.tag;
