@@ -15,123 +15,97 @@ const getSql = () => {
 async function ensureTables() {
   const sql = getSql();
   try {
-    console.log("ðŸ“¦ Initializing Database Schema (Sync with Scripts)...");
+    console.log("📦 Initializing Database Schema (Sync with Scripts)...");
     
-    await sql`
-      CREATE TABLE IF NOT EXISTS activos (
-        uuid_sincro TEXT PRIMARY KEY,
-        tag TEXT UNIQUE,
-        nombre TEXT NOT NULL,
-        tipo TEXT,
-        marca TEXT,
-        modelo TEXT,
-        serie TEXT,
-        ubicacion TEXT,
-        area TEXT,
-        capacidad TEXT,
-        voltaje TEXT,
-        corriente TEXT,
-        refrigerante TEXT,
-        fecha_instalacion TEXT,
-        vida_util INTEGER DEFAULT 10,
-        estado TEXT DEFAULT 'operativo',
-        ultimo_mantenimiento TEXT,
-        proximo_mantenimiento TEXT,
-        horas_operacion INTEGER DEFAULT 0,
-        tecnicos JSONB,
-        notas TEXT,
-        cliente_id TEXT,
-        sucursal_id TEXT,
-        modificado_en BIGINT,
-        creado_en BIGINT
-      )
-    `;
+    // 1. Create tables one by one with tagged templates
+    await sql`CREATE TABLE IF NOT EXISTS activos (
+      uuid_sincro TEXT PRIMARY KEY, tag TEXT UNIQUE, nombre TEXT NOT NULL, tipo TEXT, marca TEXT, modelo TEXT, serie TEXT, 
+      ubicacion TEXT, area TEXT, capacidad TEXT, voltaje TEXT, corriente TEXT, refrigerante TEXT, fecha_instalacion TEXT, 
+      vida_util INTEGER DEFAULT 10, estado TEXT DEFAULT 'operativo', ultimo_mantenimiento TEXT, proximo_mantenimiento TEXT, 
+      horas_operacion INTEGER DEFAULT 0, tecnicos JSONB, notas TEXT, cliente_id TEXT, sucursal_id TEXT, 
+      modificado_en BIGINT, creado_en BIGINT
+    )`;
 
-    await sql`
-      CREATE TABLE IF NOT EXISTS usuarios (
-        uuid_sincro TEXT PRIMARY KEY,
-        id TEXT UNIQUE,
-        nombre TEXT,
-        correo TEXT UNIQUE,
-        perfil TEXT,
-        pin TEXT,
-        activo BOOLEAN DEFAULT true,
-        data JSONB,
-        modificado_en BIGINT,
-        creado_en BIGINT
-      )
-    `;
+    await sql`CREATE TABLE IF NOT EXISTS usuarios (
+      uuid_sincro TEXT PRIMARY KEY, id TEXT UNIQUE, nombre TEXT, correo TEXT UNIQUE, perfil TEXT, pin TEXT, 
+      activo BOOLEAN DEFAULT true, data JSONB, modificado_en BIGINT, creado_en BIGINT
+    )`;
 
-    const genericTables = ['mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
-    for (const table of genericTables) {
-      await (sql as any)(`
-        CREATE TABLE IF NOT EXISTS ${table} (
-          uuid_sincro TEXT PRIMARY KEY,
-          id TEXT,
-          data JSONB NOT NULL,
-          modificado_en BIGINT,
-          creado_en BIGINT
-        )
-      `);
-    }
+    await sql`CREATE TABLE IF NOT EXISTS mantenimientos (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS tickets (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS informes (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS eventos (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS clientes (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS sucursales (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
 
-    // Verificación de columnas para migraciones automáticas
-    const allTables = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
-    for (const table of allTables) {
-      console.log(`- Verificando integridad de tabla: ${table}...`);
-      
-      // 1. Asegurar columnas básicas
-      const columns = [
-        { name: 'uuid_sincro', type: 'TEXT' },
-        { name: 'modificado_en', type: 'BIGINT' },
-        { name: 'creado_en', type: 'BIGINT' }
-      ];
+    // 2. Migration for existing tables - ensure columns exist
+    const columnMigrations = [
+      { table: 'activos', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'activos', col: 'modificado_en', type: 'BIGINT' },
+      { table: 'activos', col: 'creado_en', type: 'BIGINT' },
+      { table: 'usuarios', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'usuarios', col: 'modificado_en', type: 'BIGINT' },
+      { table: 'usuarios', col: 'creado_en', type: 'BIGINT' },
+      { table: 'mantenimientos', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'mantenimientos', col: 'modificado_en', type: 'BIGINT' },
+      { table: 'tickets', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'tickets', col: 'modificado_en', type: 'BIGINT' },
+      { table: 'informes', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'informes', col: 'modificado_en', type: 'BIGINT' },
+      { table: 'eventos', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'eventos', col: 'modificado_en', type: 'BIGINT' },
+      { table: 'clientes', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'clientes', col: 'modificado_en', type: 'BIGINT' },
+      { table: 'sucursales', col: 'uuid_sincro', type: 'TEXT' },
+      { table: 'sucursales', col: 'modificado_en', type: 'BIGINT' }
+    ];
 
-      for (const col of columns) {
-        try {
-          await (sql as any)(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-        } catch (e: any) {
-          if (!e.message.includes('already exists')) {
-            console.warn(`    âš ï¸  No se pudo aÃ±adir ${col.name} a ${table}: ${e.message}`);
-          }
-        }
-      }
-
-      // 2. Poblar uuid_sincro si estÃ¡ vacÃo (activos usa tag, otros usan id)
+    for (const m of columnMigrations) {
       try {
-        if (table === 'activos') {
-          await (sql as any)(`UPDATE activos SET uuid_sincro = tag WHERE uuid_sincro IS NULL AND tag IS NOT NULL`);
-        } else {
-          // Primero intentamos con 'id'
-          try {
-            await (sql as any)(`UPDATE ${table} SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`);
-          } catch (idErr) {
-            // Si no hay 'id', tal vez ya tiene uuid_sincro o no hay nada que poblar
-          }
+        // We use a safe way to add columns one by one
+        if (m.table === 'activos') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        } else if (m.table === 'usuarios') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        } else if (m.table === 'mantenimientos') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE mantenimientos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE mantenimientos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        } else if (m.table === 'tickets') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        } else if (m.table === 'informes') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE informes ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE informes ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        } else if (m.table === 'eventos') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        } else if (m.table === 'clientes') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        } else if (m.table === 'sucursales') {
+          if (m.col === 'uuid_sincro') await sql`ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
+          if (m.col === 'modificado_en') await sql`ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
         }
       } catch (e: any) {
-        console.warn(`    âš ï¸  No se pudo poblar uuid_sincro en ${table}: ${e.message}`);
-      }
-
-      // 3. Crear Ã­ndice de sincronizaciÃ³n
-      try {
-        await (sql as any)(`CREATE INDEX IF NOT EXISTS idx_${table}_mod_en ON ${table} (modificado_en)`);
-      } catch (idxErr) { /* Ignorar */ }
-
-      // 4. Asegurar PK en uuid_sincro si es posible (solo si no hay otra)
-      try {
-        await (sql as any)(`ALTER TABLE ${table} ADD PRIMARY KEY (uuid_sincro)`);
-      } catch (pkErr) {
-        // Si ya hay una PK, intentamos al menos asegurar que uuid_sincro sea UNIQUE
-        try {
-          await (sql as any)(`ALTER TABLE ${table} ADD CONSTRAINT uniq_${table}_uuid UNIQUE (uuid_sincro)`);
-        } catch (uErr) { /* Ignorar si ya es unique */ }
+        // Ignore "already exists"
       }
     }
 
-    console.log("âœ… Database Schema integrity check completed");
+    // 3. Populate uuid_sincro if empty
+    try { await sql`UPDATE activos SET uuid_sincro = tag WHERE uuid_sincro IS NULL AND tag IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE usuarios SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE mantenimientos SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE tickets SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE informes SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE eventos SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE clientes SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE sucursales SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+
+    console.log("✅ Database Schema integrity check completed");
   } catch (error) {
-    console.error("â Œ Error initializing database:", error);
+    console.error("❌ Error initializing database:", error);
   }
 }
 
@@ -297,6 +271,8 @@ async function startServer() {
             case 'usuarios': await sql`DELETE FROM usuarios WHERE uuid_sincro = ${record.uuid_sincro}`; break;
             case 'informes': await sql`DELETE FROM informes WHERE uuid_sincro = ${record.uuid_sincro}`; break;
             case 'clientes': await sql`DELETE FROM clientes WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'sucursales': await sql`DELETE FROM sucursales WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'eventos': await sql`DELETE FROM eventos WHERE uuid_sincro = ${record.uuid_sincro}`; break;
           }
           results.push({ uuid_sincro: record.uuid_sincro, deleted: true });
           continue;
@@ -343,6 +319,15 @@ async function startServer() {
             }
             folio_oficial = `MANT-${nextNum.toString().padStart(4, '0')}`;
             record.id = folio_oficial;
+          } else if (table === 'informes') {
+             const rows = await sql`SELECT id FROM informes WHERE id LIKE 'INF-%' ORDER BY id DESC LIMIT 1`;
+            let nextNum = 1;
+            if (rows.length > 0) {
+              const matches = rows[0].id.match(/INF-(\d+)/);
+              if (matches) nextNum = parseInt(matches[1], 10) + 1;
+            }
+            folio_oficial = `INF-${nextNum.toString().padStart(4, '0')}`;
+            record.id = folio_oficial;
           }
         }
         
@@ -374,41 +359,19 @@ async function startServer() {
           `;
         } else {
           // Generic handler for other tables using JSONB storage
-          const id = table === 'tickets' ? record.id : record.uuid_sincro;
+          const id = (table === 'tickets' || table === 'mantenimientos' || table === 'informes') ? record.id : record.uuid_sincro;
           const data = JSON.stringify(record);
           const uuid_sincro = record.uuid_sincro;
           const modificado_en = record.modificado_en;
 
-          if (table === 'tickets') {
-            await sql`
-              INSERT INTO tickets (id, data, uuid_sincro, modificado_en) 
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
-              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > tickets.modificado_en
-            `;
-          } else if (table === 'mantenimientos') {
-            await sql`
-              INSERT INTO mantenimientos (id, data, uuid_sincro, modificado_en) 
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
-              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > mantenimientos.modificado_en
-            `;
-          } else if (table === 'clientes') {
-            await sql`
-              INSERT INTO clientes (id, data, uuid_sincro, modificado_en) 
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
-              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > clientes.modificado_en
-            `;
-          } else if (table === 'usuarios') {
-             await sql`
-              INSERT INTO usuarios (id, data, uuid_sincro, modificado_en) 
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
-              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > usuarios.modificado_en
-            `;
-          } else if (table === 'informes') {
-             await sql`
-              INSERT INTO informes (id, data, uuid_sincro, modificado_en) 
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) 
-              ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > informes.modificado_en
-            `;
+          switch (table) {
+            case 'tickets': await sql`INSERT INTO tickets (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > tickets.modificado_en`; break;
+            case 'mantenimientos': await sql`INSERT INTO mantenimientos (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > mantenimientos.modificado_en`; break;
+            case 'clientes': await sql`INSERT INTO clientes (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > clientes.modificado_en`; break;
+            case 'usuarios': await sql`INSERT INTO usuarios (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > usuarios.modificado_en`; break;
+            case 'informes': await sql`INSERT INTO informes (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > informes.modificado_en`; break;
+            case 'sucursales': await sql`INSERT INTO sucursales (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > sucursales.modificado_en`; break;
+            case 'eventos': await sql`INSERT INTO eventos (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > eventos.modificado_en`; break;
           }
         }
         
