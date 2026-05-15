@@ -31,7 +31,7 @@ import {
 } from "recharts";
 import { Link } from "wouter";
 import { useAppStore } from "../store/useAppStore";
-import { ALMACEN_LABELS } from "../data/sucursales";
+import { ALMACEN_LABELS } from "../data/branches";
 
 const DATA_MONTHLY = [
   { name: 'Ene', cost: 4200, activity: 120 },
@@ -48,8 +48,8 @@ const DATA_POWER = [
 ];
 
 export default function Dashboard() {
-  const activos = useAppStore(state => state.activos);
-  const tickets = useAppStore(state => state.tickets);
+  const assets = useAppStore(state => state.assets);
+  const work_orders = useAppStore(state => state.work_orders);
   const loading = useAppStore(state => state.isLoading);
 
   /** Estado para filtrar por sucursal / almacén */
@@ -61,12 +61,12 @@ export default function Dashboard() {
    * Memoización de equipos filtrados.
    */
   const filteredEquipos = useMemo(() => {
-    return activos.filter(eq => {
+    return assets.filter(eq => {
       const matchAlmacen = almacen ? eq.tag.startsWith(almacen) : true;
       const matchEstado = estado ? eq.estado === estado : true;
       return matchAlmacen && matchEstado;
     });
-  }, [activos, almacen, estado]);
+  }, [assets, almacen, estado]);
 
   const kpis = useMemo(() => {
     const total = filteredEquipos.length;
@@ -82,9 +82,9 @@ export default function Dashboard() {
       mantv,
       operativo,
       disponibilidad: `${disponibilidad}%`,
-      tickets: tickets.filter(t => t.estado === 'abierto' || t.estado === 'en_proceso').length
+      work_orders: work_orders.filter(t => t.estado === 'abierto' || t.estado === 'en_proceso').length
     };
-  }, [filteredEquipos, tickets]);
+  }, [filteredEquipos, work_orders]);
 
   const dataStatus = useMemo(() => {
     const fallas = filteredEquipos.filter(e => e.estado === 'falla').length;
@@ -145,7 +145,7 @@ export default function Dashboard() {
         <KPICard label="Disponibilidad" value={kpis.disponibilidad} trend="+0.4%" icon={Activity} color="text-emerald-500" />
         <KPICard label="MTBF" value="420h" trend="-12h" icon={Clock} color="text-blue-500" />
         <KPICard label="MTTR" value="4.2h" trend="-0.8h" icon={Wrench} color="text-amber-500" />
-        <KPICard label="Tickets Activos" value={kpis.tickets.toString().padStart(2, '0')} icon={Ticket} color="text-red-500" alert={kpis.tickets > 0} />
+        <KPICard label="Tickets Activos" value={kpis.work_orders.toString().padStart(2, '0')} icon={Ticket} color="text-red-500" alert={kpis.work_orders > 0} />
         <KPICard label="Equipos en Falla" value={kpis.fallas.toString().padStart(2, '0')} icon={AlertTriangle} color="text-rose-500" alert={kpis.fallas > 0} />
         <KPICard label="Mantv. Pendientes" value={kpis.mantv.toString().padStart(2, '0')} icon={CheckCircle2} color="text-slate-500" />
       </div>

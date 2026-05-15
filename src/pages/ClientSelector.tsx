@@ -1,7 +1,7 @@
 import { Building, LogOut, ChevronRight, Check } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
-import { CLIENTS } from "../data/clientes";
+import { CLIENTS } from "../data/clients";
 
 export default function ClientSelector() {
   const [, setLocation] = useLocation();

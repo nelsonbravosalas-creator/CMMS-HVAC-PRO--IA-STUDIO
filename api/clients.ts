@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT * FROM clientes ORDER BY nombre ASC`;
+      const rows = await sql`SELECT * FROM clients ORDER BY nombre ASC`;
       return res.json({ success: true, data: rows });
     }
 
@@ -15,14 +15,14 @@ export default async function handler(req: any, res: any) {
       const id = d.id || `C-${Date.now()}`;
       const now = Date.now();
       await sql`
-        INSERT INTO clientes (id, nombre, empresa, rut, email, telefono, direccion, plan, activo, uuid_sincro, modificado_en, data)
+        INSERT INTO clients (id, nombre, empresa, rut, email, telefono, direccion, plan, activo, uuid_sync, updated_at, data)
         VALUES (${id}, ${d.nombre||''}, ${d.empresa||d.nombre||''}, ${d.rut||''},
           ${d.email||''}, ${d.telefono||''}, ${d.direccion||''}, ${d.plan||'basico'},
-          ${d.activo !== false}, ${d.uuid_sincro||id}, ${d.modificado_en||now}, ${JSON.stringify(d)})
+          ${d.activo !== false}, ${d.uuid_sync||id}, ${d.updated_at||now}, ${JSON.stringify(d)})
         ON CONFLICT (id) DO UPDATE SET
           nombre = EXCLUDED.nombre, empresa = EXCLUDED.empresa, email = EXCLUDED.email,
-          telefono = EXCLUDED.telefono, modificado_en = EXCLUDED.modificado_en, data = EXCLUDED.data
-        WHERE EXCLUDED.modificado_en > clientes.modificado_en OR clientes.modificado_en IS NULL
+          telefono = EXCLUDED.telefono, updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
+        WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL
       `;
       return res.json({ success: true, data: { id } });
     }

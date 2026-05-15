@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT * FROM tickets ORDER BY fecha_creacion DESC LIMIT 500`;
+      const rows = await sql`SELECT * FROM work_orders ORDER BY fecha_creacion DESC LIMIT 500`;
       return res.json({ success: true, data: rows });
     }
 
@@ -15,21 +15,21 @@ export default async function handler(req: any, res: any) {
       const id = d.id || `TK-${Date.now()}`;
       const now = Date.now();
       await sql`
-        INSERT INTO tickets (id, titulo, descripcion, prioridad, estado,
+        INSERT INTO work_orders (id, titulo, descripcion, prioridad, estado,
           equipo_tag, cliente_id, creado_por, asignado_a, fecha_creacion,
-          uuid_sincro, modificado_en, data)
+          uuid_sync, updated_at, data)
         VALUES (
           ${id}, ${d.titulo || ''}, ${d.descripcion || ''}, ${d.prioridad || 'media'},
           ${d.estado || 'abierto'}, ${d.equipo_tag || ''}, ${d.cliente_id || ''},
           ${d.creado_por || ''}, ${d.asignado_a || ''}, ${d.fecha_creacion || new Date().toISOString()},
-          ${d.uuid_sincro || id}, ${d.modificado_en || now}, ${JSON.stringify(d)}
+          ${d.uuid_sync || id}, ${d.updated_at || now}, ${JSON.stringify(d)}
         )
         ON CONFLICT (id) DO UPDATE SET
           titulo = EXCLUDED.titulo, descripcion = EXCLUDED.descripcion,
           prioridad = EXCLUDED.prioridad, estado = EXCLUDED.estado,
           asignado_a = EXCLUDED.asignado_a, fecha_cierre = EXCLUDED.fecha_cierre,
-          modificado_en = EXCLUDED.modificado_en, data = EXCLUDED.data
-        WHERE EXCLUDED.modificado_en > tickets.modificado_en OR tickets.modificado_en IS NULL
+          updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
+        WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL
       `;
       return res.json({ success: true, data: { id } });
     }
@@ -37,7 +37,7 @@ export default async function handler(req: any, res: any) {
     if (method === 'DELETE') {
       const id = req.query.id;
       if (!id) return res.status(400).json({ error: 'Falta id' });
-      await sql`DELETE FROM tickets WHERE id = ${id}`;
+      await sql`DELETE FROM work_orders WHERE id = ${id}`;
       return res.json({ success: true });
     }
 

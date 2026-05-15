@@ -12,10 +12,10 @@ export default async function handler(req: any, res: any) {
     if (method === 'GET') {
       const tag = query.tag;
       if (tag) {
-        const rows = await sql`SELECT * FROM mantenimientos WHERE equipo_tag = ${tag} ORDER BY fecha DESC`;
+        const rows = await sql`SELECT * FROM preventive_maintenance WHERE equipo_tag = ${tag} ORDER BY fecha DESC`;
         return res.json({ success: true, data: rows });
       }
-      const rows = await sql`SELECT * FROM mantenimientos ORDER BY fecha DESC LIMIT 500`;
+      const rows = await sql`SELECT * FROM preventive_maintenance ORDER BY fecha DESC LIMIT 500`;
       return res.json({ success: true, data: rows });
     }
 
@@ -24,18 +24,18 @@ export default async function handler(req: any, res: any) {
       const id = d.id || `MNT-${Date.now()}`;
       const now = Date.now();
       await sql`
-        INSERT INTO mantenimientos (id, equipo_tag, tecnico_id, tipo, fecha,
-          hallazgos, acciones, repuestos, uuid_sincro, modificado_en, data)
+        INSERT INTO preventive_maintenance (id, equipo_tag, tecnico_id, tipo, fecha,
+          hallazgos, acciones, repuestos, uuid_sync, updated_at, data)
         VALUES (
           ${id}, ${d.equipo_tag || ''}, ${d.tecnico_id || ''}, ${d.tipo || ''},
           ${d.fecha || new Date().toISOString()}, ${d.hallazgos || ''}, ${d.acciones || ''},
-          ${d.repuestos || ''}, ${d.uuid_sincro || id}, ${d.modificado_en || now}, ${JSON.stringify(d)}
+          ${d.repuestos || ''}, ${d.uuid_sync || id}, ${d.updated_at || now}, ${JSON.stringify(d)}
         )
         ON CONFLICT (id) DO UPDATE SET
           hallazgos = EXCLUDED.hallazgos, acciones = EXCLUDED.acciones,
-          repuestos = EXCLUDED.repuestos, modificado_en = EXCLUDED.modificado_en,
+          repuestos = EXCLUDED.repuestos, updated_at = EXCLUDED.updated_at,
           data = EXCLUDED.data
-        WHERE EXCLUDED.modificado_en > mantenimientos.modificado_en OR mantenimientos.modificado_en IS NULL
+        WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL
       `;
       return res.json({ success: true, data: { id } });
     }

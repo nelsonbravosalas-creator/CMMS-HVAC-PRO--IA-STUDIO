@@ -3,7 +3,7 @@ import { LocalUsuario } from '../db/database';
 
 export class UserRepository extends BaseRepository<LocalUsuario> {
   constructor() {
-    super('usuarios');
+    super('users');
   }
   
   async getByEmail(email: string): Promise<LocalUsuario | undefined> {

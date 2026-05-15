@@ -22,7 +22,7 @@ interface QRLabelModalProps {
 }
 
 /**
- * QRLabelModal - Componente para previsualizar, imprimir y exportar etiquetas de activos.
+ * QRLabelModal - Componente para previsualizar, imprimir y exportar etiquetas de assets.
  * Utiliza html2canvas para la generación de imágenes de alta fidelidad y 
  * estilos de impresión optimizados para etiquetas de 10x5cm.
  */

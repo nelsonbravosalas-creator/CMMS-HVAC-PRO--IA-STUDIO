@@ -20,15 +20,15 @@ export abstract class BaseRepository<T extends LocalBase> {
     const now = Date.now();
     const record = {
       ...data,
-      uuid_sincro: data.uuid_sincro || crypto.randomUUID(),
-      modificado_en: now,
+      uuid_sync: data.uuid_sync || crypto.randomUUID(),
+      updated_at: now,
       version: 1,
       retry_count: 0,
       sync_status: 'pending_insert' as SyncStatus
     } as unknown as T;
 
     await this.table.put(record);
-    await this.enqueueSync(record.uuid_sincro, 'insert', record);
+    await this.enqueueSync(record.uuid_sync, 'insert', record);
     return record;
   }
 
@@ -40,7 +40,7 @@ export abstract class BaseRepository<T extends LocalBase> {
     const record = {
       ...existing,
       ...data,
-      modificado_en: now,
+      updated_at: now,
       version: existing.version + 1,
       retry_count: 0,
       sync_status: 'pending_update' as SyncStatus
@@ -51,10 +51,10 @@ export abstract class BaseRepository<T extends LocalBase> {
     return record;
   }
 
-  async enqueueSync(uuid_sincro: string, operation: 'insert' | 'update' | 'delete', data: any) {
+  async enqueueSync(uuid_sync: string, operation: 'insert' | 'update' | 'delete', data: any) {
     await db.sync_queue.add({
       table: this.table.name,
-      uuid_sincro,
+      uuid_sync,
       operation,
       data,
       timestamp: Date.now()
@@ -66,9 +66,9 @@ export abstract class BaseRepository<T extends LocalBase> {
   }
 
   async save(data: T): Promise<T> {
-    const existing = await this.getById(data.uuid_sincro);
+    const existing = await this.getById(data.uuid_sync);
     if (existing) {
-      return this.update(data.uuid_sincro, data);
+      return this.update(data.uuid_sync, data);
     } else {
       return this.create(data);
     }
@@ -81,12 +81,12 @@ export abstract class BaseRepository<T extends LocalBase> {
     const now = Date.now();
     await this.table.update(uuid, {
       sync_status: 'pending_delete' as SyncStatus,
-      modificado_en: now,
+      updated_at: now,
       deleted_at: now,
       retry_count: 0
     } as any);
 
-    await this.enqueueSync(uuid, 'delete', { uuid_sincro: uuid, deleted_at: now });
+    await this.enqueueSync(uuid, 'delete', { uuid_sync: uuid, deleted_at: now });
   }
 
   async list(limit: number = 100, offset: number = 0): Promise<T[]> {
@@ -131,7 +131,7 @@ export abstract class BaseRepository<T extends LocalBase> {
       ...existing,
       ...serverData,
       sync_status: 'synced' as SyncStatus,
-      modificado_en: Date.now(),
+      updated_at: Date.now(),
       version: serverData.version || existing.version,
       retry_count: 0
     };

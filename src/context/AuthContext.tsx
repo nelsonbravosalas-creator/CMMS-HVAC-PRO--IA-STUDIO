@@ -7,7 +7,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL } from '../types';
-import { USUARIOS_MOCK } from '../data/usuarios';
+import { USUARIOS_MOCK } from '../data/users';
 
 /**
  * Definición del contrato del contexto de autenticación.

@@ -62,7 +62,7 @@ export default function Consola() {
                <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                <input 
                  type="text" 
-                 placeholder="Buscar eventos..." 
+                 placeholder="Buscar events..." 
                  className="w-full pl-12 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-2xl text-xs font-bold text-blue-400 placeholder:text-slate-600 outline-none focus:ring-1 focus:ring-blue-500/30 transition-all uppercase"
                  value={filter}
                  onChange={(e) => setFilter(e.target.value)}

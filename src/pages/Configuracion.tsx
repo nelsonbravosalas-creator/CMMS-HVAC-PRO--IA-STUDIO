@@ -140,7 +140,7 @@ export default function Configuracion() {
                            </button>
                         ))}
                      </div>
-                     <p className="text-[9px] font-medium text-slate-400 mt-2 italic">Afecta visualmente a costos de mantenimiento e informes.</p>
+                     <p className="text-[9px] font-medium text-slate-400 mt-2 italic">Afecta visualmente a costos de mantenimiento e reports.</p>
                   </div>
                </div>
             </SectionBox>

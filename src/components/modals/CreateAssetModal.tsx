@@ -6,8 +6,8 @@ import { useAssets } from '../../hooks/useAssets';
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
 } from 'lucide-react';
-import { EQUIPOS_DATA } from '../../data/equipos';
-import { SUCURSALES } from '../../data/sucursales';
+import { EQUIPOS_DATA } from '../../data/assets';
+import { SUCURSALES } from '../../data/branches';
 
 interface CreateAssetModalProps {
   onClose: () => void;

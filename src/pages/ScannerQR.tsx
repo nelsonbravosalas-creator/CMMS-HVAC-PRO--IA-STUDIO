@@ -23,8 +23,8 @@ import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
 import * as htmlToImage from 'html-to-image';
-import { EQUIPOS_DATA } from "../data/equipos";
-import { SUCURSALES } from "../data/sucursales";
+import { EQUIPOS_DATA } from "../data/assets";
+import { SUCURSALES } from "../data/branches";
 import { useEffect } from "react";
 import { Scanner } from '@yudiel/react-qr-scanner';
 
@@ -40,7 +40,7 @@ import { Scanner } from '@yudiel/react-qr-scanner';
  * - Impresión: Aplica una hoja de estilos CSS específica (@media print) para formato 100mm x 50mm.
  * - Validación de TAG: Genera identificadores únicos siguiendo el esquema Almacen.Tipo.Correlativo.
  * 
- * @returns {JSX.Element} Interfaz de captura y generación de activos.
+ * @returns {JSX.Element} Interfaz de captura y generación de assets.
  */
 /**
  * =========================================================================
@@ -163,7 +163,7 @@ export default function ScannerQR() {
       setLastResult(tagValue);
       
       // BÚSQUEDA EN BASE DE DATOS:
-      fetch(`/api/activos?tag=${tagValue}`)
+      fetch(`/api/assets?tag=${tagValue}`)
         .then(r => r.json())
         .then(data => {
            if (data.success && data.data) {
@@ -221,7 +221,7 @@ export default function ScannerQR() {
       correlativo: tagData.correlativo,
       ubicacion: tagData.almacen,
       estado: "OPERATIVO",
-      statusSincronizacion: "pendiente",
+      sync_status: "pendiente",
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
@@ -231,7 +231,7 @@ export default function ScannerQR() {
     // 2. Ejecución diferida para la Nube
     setTimeout(async () => {
       try {
-        const response = await fetch('/api/activos', {
+        const response = await fetch('/api/assets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

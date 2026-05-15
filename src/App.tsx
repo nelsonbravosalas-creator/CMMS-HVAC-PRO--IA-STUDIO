@@ -33,7 +33,7 @@ import Login from "./pages/Login";
 import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
-import { CLIENTS } from "./data/clientes";
+import { CLIENTS } from "./data/clients";
 import { syncEngine } from "./sync/syncEngine";
 import { useAppStore } from "./store/useAppStore";
 import { useSyncStore } from "./store/useSyncStore";

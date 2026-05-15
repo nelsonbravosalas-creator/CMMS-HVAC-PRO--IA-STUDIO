@@ -116,7 +116,7 @@ export const SyncInspectorPanel = () => {
                           <span className="text-[8px] font-bold text-slate-500">{new Date(item.timestamp).toLocaleTimeString()}</span>
                         </div>
                         <div className="text-[9px] font-mono text-slate-400 truncate">
-                          UUID: {item.uuid_sincro}
+                          UUID: {item.uuid_sync}
                         </div>
                       </div>
                     ))

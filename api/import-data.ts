@@ -1,11 +1,11 @@
 import { neon } from '@neondatabase/serverless';
-import { EQUIPOS_DATA } from '../src/data/equipos.js';
-import { USUARIOS_MOCK, CLIENTES_MOCK } from '../src/data/usuarios.js';
-import { MANTENIMIENTOS_MOCK } from '../src/data/mantenimientos.js';
-import { TICKETS_MOCK } from '../src/data/tickets.js';
-import { INFORMES_MOCK } from '../src/data/informes.js';
-import { EVENTOS_MOCK } from '../src/data/eventos.js';
-import { SUCURSALES } from '../src/data/sucursales.js';
+import { EQUIPOS_DATA } from '../src/data/assets.js';
+import { USUARIOS_MOCK, CLIENTES_MOCK } from '../src/data/users.js';
+import { MANTENIMIENTOS_MOCK } from '../src/data/preventive_maintenance.js';
+import { TICKETS_MOCK } from '../src/data/work_orders.js';
+import { INFORMES_MOCK } from '../src/data/reports.js';
+import { EVENTOS_MOCK } from '../src/data/events.js';
+import { SUCURSALES } from '../src/data/branches.js';
 
 export default async function handler(req, res) {
   const defaultUrl = 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
       const sql = neon(connectionString);
       let resultados = {};
 
-      const tableActivosCount = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'activos'`;
+      const tableActivosCount = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'assets'`;
       if (tableActivosCount[0].count === '0' || tableActivosCount[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS activos (
@@ -73,12 +73,12 @@ export default async function handler(req, res) {
         }
       }
 
-      const checkActivos = await sql`SELECT count(*) FROM activos`;
+      const checkActivos = await sql`SELECT count(*) FROM assets`;
       if (checkActivos[0].count === '0' || checkActivos[0].count === 0 || req.query.force === 'true') {
         let count = 0;
         for (const equipo of EQUIPOS_DATA) {
           await sql`
-            INSERT INTO activos (
+            INSERT INTO assets (
               id, tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
               voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
               ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas, data
@@ -129,12 +129,12 @@ export default async function handler(req, res) {
           `;
           count++;
         }
-        resultados['activos'] = count;
+        resultados['assets'] = count;
       } else {
-        resultados['activos'] = `Skip (already has ${checkActivos[0].count} recs)`;
+        resultados['assets'] = `Skip (already has ${checkActivos[0].count} recs)`;
       }
 
-      const createTableUsuarios = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'usuarios'`;
+      const createTableUsuarios = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'users'`;
       if (createTableUsuarios[0].count === '0' || createTableUsuarios[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS usuarios (
@@ -149,16 +149,16 @@ export default async function handler(req, res) {
         let count = 0;
         for (const usuario of USUARIOS_MOCK) {
           await sql`
-            INSERT INTO usuarios (id, nombre, correo, perfil, activo, data)
+            INSERT INTO users (id, nombre, correo, perfil, activo, data)
             VALUES (${usuario.id}, ${usuario.nombre}, ${usuario.correo}, ${usuario.perfil}, ${usuario.activo}, ${JSON.stringify(usuario)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;
         }
-        resultados['usuarios'] = count;
+        resultados['users'] = count;
       }
 
-      const createTableMante = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'mantenimientos'`;
+      const createTableMante = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'preventive_maintenance'`;
       if (createTableMante[0].count === '0' || createTableMante[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS mantenimientos (
@@ -173,16 +173,16 @@ export default async function handler(req, res) {
         let count = 0;
         for (const m of MANTENIMIENTOS_MOCK) {
           await sql`
-            INSERT INTO mantenimientos (id, tag, tipo, fecha, estado, data)
+            INSERT INTO preventive_maintenance (id, tag, tipo, fecha, estado, data)
             VALUES (${m.id}, ${m.tag}, ${m.tipo}, ${m.fecha}, ${m.estado}, ${JSON.stringify(m)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;
         }
-        resultados['mantenimientos'] = count;
+        resultados['preventive_maintenance'] = count;
       }
 
-      const createTableTickets = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'tickets'`;
+      const createTableTickets = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'work_orders'`;
       if (createTableTickets[0].count === '0' || createTableTickets[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS tickets (
@@ -197,16 +197,16 @@ export default async function handler(req, res) {
         let count = 0;
         for (const t of TICKETS_MOCK) {
           await sql`
-            INSERT INTO tickets (id, tag, titulo, estado, prioridad, data)
+            INSERT INTO work_orders (id, tag, titulo, estado, prioridad, data)
             VALUES (${t.id}, ${t.tag}, ${t.titulo}, ${t.estado}, ${t.prioridad}, ${JSON.stringify(t)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;
         }
-        resultados['tickets'] = count;
+        resultados['work_orders'] = count;
       }
 
-      const createTableInformes = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'informes'`;
+      const createTableInformes = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'reports'`;
       if (createTableInformes[0].count === '0' || createTableInformes[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS informes (
@@ -220,16 +220,16 @@ export default async function handler(req, res) {
         let count = 0;
         for (const t of INFORMES_MOCK) {
           await sql`
-            INSERT INTO informes (id, tag, fecha, estado, data)
+            INSERT INTO reports (id, tag, fecha, estado, data)
             VALUES (${t.id}, ${t.tag}, ${t.fecha}, ${t.estado}, ${JSON.stringify(t)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;
         }
-        resultados['informes'] = count;
+        resultados['reports'] = count;
       }
 
-      const createTableEventos = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'eventos'`;
+      const createTableEventos = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'events'`;
       if (createTableEventos[0].count === '0' || createTableEventos[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS eventos (
@@ -243,16 +243,16 @@ export default async function handler(req, res) {
         let count = 0;
         for (const t of EVENTOS_MOCK) {
           await sql`
-            INSERT INTO eventos (id, tipo, nivel, timestamp, data)
+            INSERT INTO events (id, tipo, nivel, timestamp, data)
             VALUES (${t.id}, ${t.tipo}, ${t.nivel}, ${t.timestamp}, ${JSON.stringify(t)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;
         }
-        resultados['eventos'] = count;
+        resultados['events'] = count;
       }
 
-      const createTableClientes = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'clientes'`;
+      const createTableClientes = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'clients'`;
       if (createTableClientes[0].count === '0' || createTableClientes[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS clientes (
@@ -266,16 +266,16 @@ export default async function handler(req, res) {
         let count = 0;
         for (const t of CLIENTES_MOCK) {
           await sql`
-            INSERT INTO clientes (id, nombre, rut, plan, data)
+            INSERT INTO clients (id, nombre, rut, plan, data)
             VALUES (${t.id}, ${t.nombre}, ${t.rut}, ${t.plan}, ${JSON.stringify(t)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;
         }
-        resultados['clientes'] = count;
+        resultados['clients'] = count;
       }
 
-      const createTableSucursales = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'sucursales'`;
+      const createTableSucursales = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'branches'`;
       if (createTableSucursales[0].count === '0' || createTableSucursales[0].count === 0) {
         await sql`
           CREATE TABLE IF NOT EXISTS sucursales (
@@ -287,13 +287,13 @@ export default async function handler(req, res) {
         let count = 0;
         for (const s of SUCURSALES) {
           await sql`
-            INSERT INTO sucursales (id, nombre, data)
+            INSERT INTO branches (id, nombre, data)
             VALUES (${s.id}, ${s.nombre}, ${JSON.stringify(s)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;
         }
-        resultados['sucursales'] = count;
+        resultados['branches'] = count;
       }
 
       return res.status(200).json({ success: true, message: "Importación finalizada.", resultados });

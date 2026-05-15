@@ -1,12 +1,12 @@
 import { useAppStore } from '../store/useAppStore';
-import { activosRepo } from '../repositories/ActivosRepository';
+import { assetsRepo } from '../repositories/AssetRepository';
 import { LocalActivo } from '../db/database';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSyncStore } from '../store/useSyncStore';
 import { syncEngine } from '../sync/syncEngine';
 
 export const useAssets = () => {
-  const { activos, addActivo, updateActivo, deleteActivo } = useAppStore();
+  const { assets, addActivo, updateActivo, deleteActivo } = useAppStore();
   const queryClient = useQueryClient();
 
   // Background sync from remote (reads latest version)
@@ -20,7 +20,7 @@ export const useAssets = () => {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<LocalActivo>) => {
-      const savedAsset = await activosRepo.save({
+      const savedAsset = await assetsRepo.save({
         ...data,
       } as LocalActivo);
       return savedAsset;
@@ -28,7 +28,7 @@ export const useAssets = () => {
     onMutate: async (newAsset) => {
       // Optimistic local update via Zustand
       // We wait for DB save above, so optimistic update can be immediate or after save.
-      // We do it after save to have the uuid_sincro natively
+      // We do it after save to have the uuid_sync natively
     },
     onSuccess: (savedAsset) => {
       addActivo(savedAsset);
@@ -39,7 +39,7 @@ export const useAssets = () => {
 
   const editMutation = useMutation({
     mutationFn: async ({ uuid, data }: { uuid: string, data: Partial<LocalActivo> }) => {
-      return await activosRepo.update(uuid, data);
+      return await assetsRepo.update(uuid, data);
     },
     onSuccess: (updatedAsset) => {
       updateActivo(updatedAsset);
@@ -50,7 +50,7 @@ export const useAssets = () => {
 
   const removeMutation = useMutation({
     mutationFn: async (uuid: string) => {
-      await activosRepo.delete(uuid);
+      await assetsRepo.delete(uuid);
       return uuid;
     },
     onSuccess: (uuid) => {
@@ -61,7 +61,7 @@ export const useAssets = () => {
   });
 
   return {
-    activos,
+    assets,
     createAsset: createMutation.mutateAsync,
     editAsset: (uuid: string, data: Partial<LocalActivo>) => editMutation.mutateAsync({ uuid, data }),
     removeAsset: removeMutation.mutateAsync,

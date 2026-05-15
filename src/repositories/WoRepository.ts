@@ -3,7 +3,7 @@ import { LocalTicket } from '../db/database';
 
 export class TicketsRepository extends BaseRepository<LocalTicket> {
   constructor() {
-    super('tickets');
+    super('work_orders');
   }
 
   async getByAsset(assetTag: string): Promise<LocalTicket[]> {

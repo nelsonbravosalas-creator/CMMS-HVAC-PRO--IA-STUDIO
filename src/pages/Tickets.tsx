@@ -29,7 +29,7 @@ import { StatusIndicator } from "../components/StatusIndicator";
 
 export default function Tickets() {
   const { permisos } = useAuth();
-  const tickets = useAppStore(state => state.tickets);
+  const work_orders = useAppStore(state => state.work_orders);
   const loading = useAppStore(state => state.isLoading);
   const { updateTicket } = useTickets();
   const [showModal, setShowModal] = useState(false);
@@ -37,13 +37,13 @@ export default function Tickets() {
 
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = useMemo(() => tickets.filter(t => 
+  const filtered = useMemo(() => work_orders.filter(t => 
     t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
     t.equipo_tag.toLowerCase().includes(filter.toLowerCase()) ||
     t.id.toLowerCase().includes(filter.toLowerCase())
-  ), [tickets, filter]);
+  ), [work_orders, filter]);
 
-  if (loading && tickets.length === 0) {
+  if (loading && work_orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-20 animate-pulse">
         <Clock className="w-12 h-12 text-slate-200 mb-4 animate-spin-slow" />
@@ -148,7 +148,7 @@ export default function Tickets() {
           </div>
         ) : (
           filtered.map(t => (
-            <TicketCard key={t.uuid_sincro} ticket={t} />
+            <TicketCard key={t.uuid_sync} ticket={t} />
           ))
         )}
       </div>
@@ -206,7 +206,7 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
        <div className="flex items-center gap-2">
           {ticket.estado === 'abierto' && (
             <button 
-              onClick={() => updateTicket(ticket.uuid_sincro, { estado: 'en_proceso' })}
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'en_proceso' })}
               className="flex-1 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all font-black"
             >
                <Play className="w-3.5 h-3.5 fill-current" /> Iniciar
@@ -214,7 +214,7 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
           )}
           {(ticket.estado === 'abierto' || ticket.estado === 'en_proceso') && (
             <button 
-              onClick={() => updateTicket(ticket.uuid_sincro, { estado: 'resuelto' })}
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'resuelto' })}
               className="flex-1 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all font-black"
             >
                <Check className="w-3.5 h-3.5" /> Resolver
@@ -222,7 +222,7 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
           )}
           {ticket.estado === 'resuelto' && (
             <button 
-              onClick={() => updateTicket(ticket.uuid_sincro, { estado: 'cerrado' })}
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'cerrado' })}
               className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl font-black"
             >
                Cerrar Ticket

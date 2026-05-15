@@ -27,7 +27,7 @@ import {
   Wrench
 } from "lucide-react";
 import { Link, useRoute } from "wouter";
-import { EQUIPOS_DATA, Equipo } from "../data/equipos";
+import { EQUIPOS_DATA, Equipo } from "../data/assets";
 import { TicketForm } from "../components/modals/TicketForm";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { db } from "../db/database";
@@ -52,16 +52,16 @@ export default function DetalleEquipo() {
   const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
   const tag = params ? params.tag : undefined;
   
-  const activos = useAppStore(state => state.activos);
+  const assets = useAppStore(state => state.assets);
   const loading = useAppStore(state => state.isLoading);
-  const equipo = useMemo(() => activos.find(a => a.tag === tag), [activos, tag]);
+  const equipo = useMemo(() => assets.find(a => a.tag === tag), [assets, tag]);
 
   const { editAsset } = useAssets();
   
-  const mantenimientos = useAppStore(state => state.mantenimientos);
+  const preventive_maintenance = useAppStore(state => state.preventive_maintenance);
   const historialMantenimiento = useMemo(() => 
-    mantenimientos.filter(m => m.equipo_tag === tag),
-    [mantenimientos, tag]
+    preventive_maintenance.filter(m => m.equipo_tag === tag),
+    [preventive_maintenance, tag]
   );
   
   const [activeTab, setActiveTab] = useState<Tab>("info");
@@ -77,7 +77,7 @@ export default function DetalleEquipo() {
   const handleSave = async () => {
     if (!equipo) return;
     try {
-      await editAsset(equipo.uuid_sincro, formData);
+      await editAsset(equipo.uuid_sync, formData);
       setIsEditing(false);
     } catch (e) {
       console.error(e);
@@ -253,7 +253,7 @@ export default function DetalleEquipo() {
                      <div className="p-20 text-center text-slate-400 italic text-xs font-bold uppercase">No hay registros de mantenimiento para este equipo</div>
                    ) : (
                      historialMantenimiento.map(m => (
-                       <div key={m.uuid_sincro} className="p-6 hover:bg-slate-50 transition-colors group">
+                       <div key={m.uuid_sync} className="p-6 hover:bg-slate-50 transition-colors group">
                           <div className="flex justify-between items-start mb-4">
                              <div className="flex items-center gap-3">
                                 <div className="p-2.5 bg-slate-100 text-slate-500 rounded-xl"><RefreshCw className="w-4 h-4" /></div>

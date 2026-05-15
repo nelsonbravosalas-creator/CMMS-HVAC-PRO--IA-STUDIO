@@ -19,91 +19,104 @@ async function ensureTables() {
   try {
     console.log("📦 Initializing Database Schema (Sync with Scripts)...");
     
+    // Rename old tables to new standard names.
+    const renameTables = async () => {
+      try { await sql`ALTER TABLE IF EXISTS activos RENAME TO assets`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS usuarios RENAME TO users`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS mantenimientos RENAME TO preventive_maintenance`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS tickets RENAME TO work_orders`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS informes RENAME TO reports`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS eventos RENAME TO events`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS clientes RENAME TO clients`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS sucursales RENAME TO branches`; } catch (e) {}
+    }
+    await renameTables();
+
     // 1. Create tables one by one with tagged templates
-    await sql`CREATE TABLE IF NOT EXISTS activos (
-      uuid_sincro TEXT PRIMARY KEY, tag TEXT UNIQUE, nombre TEXT NOT NULL, tipo TEXT, marca TEXT, modelo TEXT, serie TEXT, 
+    await sql`CREATE TABLE IF NOT EXISTS assets (
+      uuid_sync TEXT PRIMARY KEY, tag TEXT UNIQUE, nombre TEXT NOT NULL, tipo TEXT, marca TEXT, modelo TEXT, serie TEXT, 
       ubicacion TEXT, area TEXT, capacidad TEXT, voltaje TEXT, corriente TEXT, refrigerante TEXT, fecha_instalacion TEXT, 
       vida_util INTEGER DEFAULT 10, estado TEXT DEFAULT 'operativo', ultimo_mantenimiento TEXT, proximo_mantenimiento TEXT, 
       horas_operacion INTEGER DEFAULT 0, tecnicos JSONB, notas TEXT, cliente_id TEXT, sucursal_id TEXT, 
-      modificado_en BIGINT, creado_en BIGINT
+      updated_at BIGINT, created_at BIGINT
     )`;
 
-    await sql`CREATE TABLE IF NOT EXISTS usuarios (
-      uuid_sincro TEXT PRIMARY KEY, id TEXT UNIQUE, nombre TEXT, correo TEXT UNIQUE, perfil TEXT, pin TEXT, 
-      activo BOOLEAN DEFAULT true, data JSONB, modificado_en BIGINT, creado_en BIGINT
+    await sql`CREATE TABLE IF NOT EXISTS users (
+      uuid_sync TEXT PRIMARY KEY, id TEXT UNIQUE, nombre TEXT, correo TEXT UNIQUE, perfil TEXT, pin TEXT, 
+      activo BOOLEAN DEFAULT true, data JSONB, updated_at BIGINT, created_at BIGINT
     )`;
 
-    await sql`CREATE TABLE IF NOT EXISTS mantenimientos (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS tickets (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS informes (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS eventos (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS clientes (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS sucursales (uuid_sincro TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, modificado_en BIGINT, creado_en BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS preventive_maintenance (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS work_orders (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS reports (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS events (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS clients (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS branches (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT)`;
 
     // 2. Migration for existing tables - ensure columns exist
     const columnMigrations = [
-      { table: 'activos', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'activos', col: 'modificado_en', type: 'BIGINT' },
-      { table: 'activos', col: 'creado_en', type: 'BIGINT' },
-      { table: 'usuarios', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'usuarios', col: 'modificado_en', type: 'BIGINT' },
-      { table: 'usuarios', col: 'creado_en', type: 'BIGINT' },
-      { table: 'mantenimientos', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'mantenimientos', col: 'modificado_en', type: 'BIGINT' },
-      { table: 'tickets', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'tickets', col: 'modificado_en', type: 'BIGINT' },
-      { table: 'informes', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'informes', col: 'modificado_en', type: 'BIGINT' },
-      { table: 'eventos', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'eventos', col: 'modificado_en', type: 'BIGINT' },
-      { table: 'clientes', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'clientes', col: 'modificado_en', type: 'BIGINT' },
-      { table: 'sucursales', col: 'uuid_sincro', type: 'TEXT' },
-      { table: 'sucursales', col: 'modificado_en', type: 'BIGINT' }
+      { table: 'assets', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'assets', col: 'updated_at', type: 'BIGINT' },
+      { table: 'assets', col: 'created_at', type: 'BIGINT' },
+      { table: 'users', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'users', col: 'updated_at', type: 'BIGINT' },
+      { table: 'users', col: 'created_at', type: 'BIGINT' },
+      { table: 'preventive_maintenance', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'preventive_maintenance', col: 'updated_at', type: 'BIGINT' },
+      { table: 'work_orders', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'work_orders', col: 'updated_at', type: 'BIGINT' },
+      { table: 'reports', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'reports', col: 'updated_at', type: 'BIGINT' },
+      { table: 'events', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'events', col: 'updated_at', type: 'BIGINT' },
+      { table: 'clients', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'clients', col: 'updated_at', type: 'BIGINT' },
+      { table: 'branches', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'branches', col: 'updated_at', type: 'BIGINT' }
     ];
 
     for (const m of columnMigrations) {
       try {
         // We use a safe way to add columns one by one
-        if (m.table === 'activos') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
-        } else if (m.table === 'usuarios') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
-        } else if (m.table === 'mantenimientos') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE mantenimientos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE mantenimientos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
-        } else if (m.table === 'tickets') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
-        } else if (m.table === 'informes') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE informes ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE informes ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
-        } else if (m.table === 'eventos') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE eventos ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
-        } else if (m.table === 'clientes') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
-        } else if (m.table === 'sucursales') {
-          if (m.col === 'uuid_sincro') await sql`ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS uuid_sincro TEXT`;
-          if (m.col === 'modificado_en') await sql`ALTER TABLE sucursales ADD COLUMN IF NOT EXISTS modificado_en BIGINT`;
+        if (m.table === 'assets') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        } else if (m.table === 'users') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        } else if (m.table === 'preventive_maintenance') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        } else if (m.table === 'work_orders') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        } else if (m.table === 'reports') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        } else if (m.table === 'events') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        } else if (m.table === 'clients') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        } else if (m.table === 'branches') {
+          if (m.col === 'uuid_sync') await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          if (m.col === 'updated_at') await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
         }
       } catch (e: any) {
         // Ignore "already exists"
       }
     }
 
-    // 3. Populate uuid_sincro if empty
-    try { await sql`UPDATE activos SET uuid_sincro = tag WHERE uuid_sincro IS NULL AND tag IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE usuarios SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE mantenimientos SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE tickets SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE informes SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE eventos SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE clientes SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE sucursales SET uuid_sincro = id WHERE uuid_sincro IS NULL AND id IS NOT NULL`; } catch(e){}
+    // 3. Populate uuid_sync if empty
+    try { await sql`UPDATE assets SET uuid_sync = tag WHERE uuid_sync IS NULL AND tag IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE users SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE preventive_maintenance SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE work_orders SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE reports SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE events SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE clients SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE branches SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
 
     console.log("✅ Database Schema integrity check completed");
   } catch (error) {
@@ -157,7 +170,7 @@ async function startServer() {
     }
   });
 
-  const ALLOWED_TABLES = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
+  const ALLOWED_TABLES = ['assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'];
 
   app.get(["/api/:table", "/api/sync/:table"], async (req, res) => {
     const table = req.params.table;
@@ -168,18 +181,18 @@ async function startServer() {
       const since = req.query.since ? Number(req.query.since) : 0;
       let rows;
       
-      if (table === 'activos') {
-        rows = await sql`SELECT * FROM activos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+      if (table === 'assets') {
+        rows = await sql`SELECT * FROM assets WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
       } else {
         // Generic tables
         switch (table) {
-          case 'usuarios': rows = await sql`SELECT * FROM usuarios WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
-          case 'mantenimientos': rows = await sql`SELECT * FROM mantenimientos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
-          case 'tickets': rows = await sql`SELECT * FROM tickets WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
-          case 'informes': rows = await sql`SELECT * FROM informes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
-          case 'eventos': rows = await sql`SELECT * FROM eventos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
-          case 'clientes': rows = await sql`SELECT * FROM clientes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
-          case 'sucursales': rows = await sql`SELECT * FROM sucursales WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`; break;
+          case 'users': rows = await sql`SELECT * FROM users WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+          case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+          case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+          case 'reports': rows = await sql`SELECT * FROM reports WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+          case 'events': rows = await sql`SELECT * FROM events WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+          case 'clients': rows = await sql`SELECT * FROM clients WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+          case 'branches': rows = await sql`SELECT * FROM branches WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
           default: rows = [];
         }
       }
@@ -196,11 +209,11 @@ async function startServer() {
       const sql = getSql();
       const tag = req.query.tag;
       if (tag) {
-        const rows = await sql`SELECT * FROM activos WHERE tag = ${tag}`;
+        const rows = await sql`SELECT * FROM assets WHERE tag = ${tag}`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: "Equipo no encontrado" });
         return res.json({ success: true, data: rows[0] });
       } else {
-        const rows = await sql`SELECT * FROM activos`;
+        const rows = await sql`SELECT * FROM assets`;
         return res.json({ success: true, data: rows });
       }
     } catch (error: any) {
@@ -220,14 +233,14 @@ async function startServer() {
         const ts = new Date().toISOString();
         const nuevoMantenimiento = { ...mantenimiento, fecha: ts };
         
-        const rows = await sql`SELECT notas FROM activos WHERE tag = ${tag}`;
+        const rows = await sql`SELECT notas FROM assets WHERE tag = ${tag}`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: "Equipo no encontrado" });
         
         const currentNotas = rows[0].notas || '';
         const updatedNotas = `${currentNotas}\n- Mantenimiento: ${JSON.stringify(nuevoMantenimiento)}`;
 
         await sql`
-          UPDATE activos 
+          UPDATE assets 
           SET ultimo_mantenimiento = ${ts}, notas = ${updatedNotas}
           WHERE tag = ${tag}
         `;
@@ -236,7 +249,7 @@ async function startServer() {
         const { nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas } = req.body;
         
         const resData = await sql`
-          INSERT INTO activos (tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas)
+          INSERT INTO assets (tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas)
           VALUES (${tag}, ${nombre}, ${tipo || ''}, ${marca || ''}, ${modelo || ''}, ${serie || ''}, ${ubicacion || ''}, ${area || ''}, ${capacidad || ''}, ${voltaje || ''}, ${corriente || ''}, ${refrigerante || ''}, ${fecha_instalacion || ''}, ${vida_util || 0}, ${estado || 'operativo'}, ${ultimo_mantenimiento || null}, ${proximo_mantenimiento || null}, ${horas_operacion || 0}, ${tecnicos ? JSON.stringify(tecnicos) : null}, ${notas || ''})
           ON CONFLICT (tag) DO UPDATE SET
             nombre = EXCLUDED.nombre,
@@ -272,7 +285,7 @@ async function startServer() {
     try {
       const sql = getSql();
       const tag = req.query.tag;
-      await sql`DELETE FROM activos WHERE tag = ${tag}`;
+      await sql`DELETE FROM assets WHERE tag = ${tag}`;
       res.json({ success: true, message: "Registro borrado exitosamente." });
     } catch (error: any) {
       console.error(error);
@@ -301,40 +314,40 @@ async function startServer() {
       for (const record of records) {
         if (operation === 'delete') {
           switch (table) {
-            case 'activos': 
-              const aTagRows = await sql`SELECT tag FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`;
+            case 'assets': 
+              const aTagRows = await sql`SELECT tag FROM assets WHERE uuid_sync = ${record.uuid_sync}`;
               if (aTagRows.length > 0) {
                  const t = aTagRows[0].tag;
                  // Delete related items (assuming their JSONB stores 'tag' or 'maquinaTag')
-                 await sql`DELETE FROM tickets WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM mantenimientos WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM informes WHERE data->>'tag' = ${t} OR data->'machineData'->>'tag' = ${t}`;
+                 await sql`DELETE FROM work_orders WHERE data->>'tag' = ${t}`;
+                 await sql`DELETE FROM preventive_maintenance WHERE data->>'tag' = ${t}`;
+                 await sql`DELETE FROM reports WHERE data->>'tag' = ${t} OR data->'machineData'->>'tag' = ${t}`;
               }
-              await sql`DELETE FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`; 
+              await sql`DELETE FROM assets WHERE uuid_sync = ${record.uuid_sync}`; 
               break;
-            case 'tickets': await sql`DELETE FROM tickets WHERE uuid_sincro = ${record.uuid_sincro}`; break;
-            case 'mantenimientos': await sql`DELETE FROM mantenimientos WHERE uuid_sincro = ${record.uuid_sincro}`; break;
-            case 'usuarios': await sql`DELETE FROM usuarios WHERE uuid_sincro = ${record.uuid_sincro}`; break;
-            case 'informes': await sql`DELETE FROM informes WHERE uuid_sincro = ${record.uuid_sincro}`; break;
-            case 'clientes': await sql`DELETE FROM clientes WHERE uuid_sincro = ${record.uuid_sincro}`; break;
-            case 'sucursales': await sql`DELETE FROM sucursales WHERE uuid_sincro = ${record.uuid_sincro}`; break;
-            case 'eventos': await sql`DELETE FROM eventos WHERE uuid_sincro = ${record.uuid_sincro}`; break;
+            case 'work_orders': await sql`DELETE FROM work_orders WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'preventive_maintenance': await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'users': await sql`DELETE FROM users WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'reports': await sql`DELETE FROM reports WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'clients': await sql`DELETE FROM clients WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'branches': await sql`DELETE FROM branches WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'events': await sql`DELETE FROM events WHERE uuid_sync = ${record.uuid_sync}`; break;
           }
-          results.push({ uuid_sincro: record.uuid_sincro, deleted: true });
+          results.push({ uuid_sync: record.uuid_sync, deleted: true });
           continue;
         }
 
         let folio_oficial = record.id;
-        if (table === 'activos' || table === 'equipos') {
+        if (table === 'assets' || table === 'equipos') {
           folio_oficial = record.tag;
         }
 
         // Logic for backend FOlIO assignment (simulating a unique sequence per table)
         if (record.sync_status === 'pending_insert') {
-          if (table === 'tickets') {
+          if (table === 'work_orders') {
             // Find max id matching TK-xxxx
             const rows = await sql`
-              SELECT id FROM tickets WHERE id LIKE 'TK-%' ORDER BY id DESC LIMIT 1
+              SELECT id FROM work_orders WHERE id LIKE 'TK-%' ORDER BY id DESC LIMIT 1
             `;
             let nextNum = 1;
             if (rows.length > 0) {
@@ -344,10 +357,10 @@ async function startServer() {
             }
             folio_oficial = `TK-${nextNum.toString().padStart(4, '0')}`;
             record.id = folio_oficial;
-          } else if (table === 'activos' || table === 'equipos') {
+          } else if (table === 'assets' || table === 'equipos') {
             // If tag starts with TEMP, generate a new tag
             if (record.tag && record.tag.startsWith('TEMP')) {
-               const rows = await sql`SELECT tag FROM activos WHERE tag LIKE 'ACT-%' ORDER BY tag DESC LIMIT 1`;
+               const rows = await sql`SELECT tag FROM assets WHERE tag LIKE 'ACT-%' ORDER BY tag DESC LIMIT 1`;
                let nextNum = 1;
                if (rows.length > 0) {
                  const matches = rows[0].tag.match(/ACT-(\d+)/);
@@ -356,8 +369,8 @@ async function startServer() {
                folio_oficial = `ACT-${nextNum.toString().padStart(4, '0')}`;
                record.tag = folio_oficial;
             }
-          } else if (table === 'mantenimientos') {
-            const rows = await sql`SELECT id FROM mantenimientos WHERE id LIKE 'MANT-%' ORDER BY id DESC LIMIT 1`;
+          } else if (table === 'preventive_maintenance') {
+            const rows = await sql`SELECT id FROM preventive_maintenance WHERE id LIKE 'MANT-%' ORDER BY id DESC LIMIT 1`;
             let nextNum = 1;
             if (rows.length > 0) {
               const matches = rows[0].id.match(/MANT-(\d+)/);
@@ -365,8 +378,8 @@ async function startServer() {
             }
             folio_oficial = `MANT-${nextNum.toString().padStart(4, '0')}`;
             record.id = folio_oficial;
-          } else if (table === 'informes') {
-             const rows = await sql`SELECT id FROM informes WHERE id LIKE 'INF-%' ORDER BY id DESC LIMIT 1`;
+          } else if (table === 'reports') {
+             const rows = await sql`SELECT id FROM reports WHERE id LIKE 'INF-%' ORDER BY id DESC LIMIT 1`;
             let nextNum = 1;
             if (rows.length > 0) {
               const matches = rows[0].id.match(/INF-(\d+)/);
@@ -377,28 +390,28 @@ async function startServer() {
           }
         }
         
-        if (table === 'activos' || table === 'equipos') {
+        if (table === 'assets' || table === 'equipos') {
           const d = record;
 
           // Check for tag change to cascade
-          const oldTagRows = await sql`SELECT tag FROM activos WHERE uuid_sincro = ${d.uuid_sincro}`;
+          const oldTagRows = await sql`SELECT tag FROM assets WHERE uuid_sync = ${d.uuid_sync}`;
           let oldTag = null;
           if (oldTagRows.length > 0) oldTag = oldTagRows[0].tag;
 
           await sql`
-            INSERT INTO activos (
+            INSERT INTO assets (
               tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
               voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
               ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
-              uuid_sincro, modificado_en
+              uuid_sync, updated_at
             ) VALUES (
               ${d.tag}, ${d.nombre}, ${d.tipo}, ${d.marca || ''}, ${d.modelo || ''}, 
               ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
               ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
               ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || ''}, 
               ${d.proximo_mantenimiento || ''}, ${d.horas_operacion || 0}, ${d.notas || ''},
-              ${d.uuid_sincro}, ${d.modificado_en}
-            ) ON CONFLICT (uuid_sincro) DO UPDATE SET
+              ${d.uuid_sync}, ${d.updated_at}
+            ) ON CONFLICT (uuid_sync) DO UPDATE SET
               tag = EXCLUDED.tag,
               nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
               serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
@@ -406,36 +419,36 @@ async function startServer() {
               fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
               ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
               horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas,
-              modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > activos.modificado_en;
+              updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > assets.updated_at;
           `;
 
           if (oldTag && oldTag !== d.tag) {
              // Cascade update JSON tag fields
-             await sql`UPDATE tickets SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
-             await sql`UPDATE mantenimientos SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
-             await sql`UPDATE informes SET data = jsonb_set(data, '{machineData,tag}', to_jsonb(${d.tag}::text)) WHERE data->'machineData'->>'tag' = ${oldTag};`;
+             await sql`UPDATE work_orders SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
+             await sql`UPDATE preventive_maintenance SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
+             await sql`UPDATE reports SET data = jsonb_set(data, '{machineData,tag}', to_jsonb(${d.tag}::text)) WHERE data->'machineData'->>'tag' = ${oldTag};`;
           }
         } else {
           // Generic handler for other tables using JSONB storage
-          const id = (table === 'tickets' || table === 'mantenimientos' || table === 'informes') ? record.id : record.uuid_sincro;
+          const id = (table === 'work_orders' || table === 'preventive_maintenance' || table === 'reports') ? record.id : record.uuid_sync;
           const data = JSON.stringify(record);
-          const uuid_sincro = record.uuid_sincro;
-          const modificado_en = record.modificado_en;
+          const uuid_sync = record.uuid_sync;
+          const updated_at = record.updated_at;
 
           switch (table) {
-            case 'tickets': await sql`INSERT INTO tickets (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > tickets.modificado_en`; break;
-            case 'mantenimientos': await sql`INSERT INTO mantenimientos (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > mantenimientos.modificado_en`; break;
-            case 'clientes': await sql`INSERT INTO clientes (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > clientes.modificado_en`; break;
-            case 'usuarios': await sql`INSERT INTO usuarios (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > usuarios.modificado_en`; break;
-            case 'informes': await sql`INSERT INTO informes (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > informes.modificado_en`; break;
-            case 'sucursales': await sql`INSERT INTO sucursales (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > sucursales.modificado_en`; break;
-            case 'eventos': await sql`INSERT INTO eventos (id, data, uuid_sincro, modificado_en) VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en}) ON CONFLICT (uuid_sincro) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en WHERE EXCLUDED.modificado_en > eventos.modificado_en`; break;
+            case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at`; break;
+            case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at`; break;
+            case 'clients': await sql`INSERT INTO clients (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at`; break;
+            case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > users.updated_at`; break;
+            case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at`; break;
+            case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at`; break;
+            case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at`; break;
           }
         }
         
         results.push({
-          uuid_sincro: record.uuid_sincro,
+          uuid_sync: record.uuid_sync,
           folio_oficial
         });
       }

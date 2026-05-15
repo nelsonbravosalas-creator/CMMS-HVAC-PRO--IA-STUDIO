@@ -20,8 +20,8 @@ import {
   QrCode
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { EQUIPOS_DATA, Equipo } from "../data/equipos";
-import { ALMACEN_LABELS } from "../data/sucursales";
+import { EQUIPOS_DATA, Equipo } from "../data/assets";
+import { ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import { BulkUploadModal } from "../components/modals/BulkUploadModal";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
@@ -49,7 +49,7 @@ export default function Equipos() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedEqLabel, setSelectedEqLabel] = useState<any | null>(null);
   
-  const activos = useAppStore(state => state.activos);
+  const assets = useAppStore(state => state.assets);
   const loading = useAppStore(state => state.isLoading);
 
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -68,7 +68,7 @@ export default function Equipos() {
   }, [filters]);
 
   const filteredEquipos = useMemo(() => {
-    return activos.filter(eq => {
+    return assets.filter(eq => {
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;
@@ -85,9 +85,9 @@ export default function Equipos() {
       if (valA > valB) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
-  }, [activos, filters, sortField, sortOrder]);
+  }, [assets, filters, sortField, sortOrder]);
 
-  if (loading && activos.length === 0) {
+  if (loading && assets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-20 animate-pulse">
         <Box className="w-12 h-12 text-slate-200 mb-4 animate-bounce" />
@@ -208,7 +208,7 @@ export default function Equipos() {
         {viewMode === "grid" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredEquipos.map((eq: LocalActivo) => (
-              <EquipoCardGrid key={eq.uuid_sincro} equipo={eq} onShowLabel={setSelectedEqLabel} />
+              <EquipoCardGrid key={eq.uuid_sync} equipo={eq} onShowLabel={setSelectedEqLabel} />
             ))}
           </div>
         )}
@@ -227,7 +227,7 @@ export default function Equipos() {
               </thead>
               <tbody className="divide-y divide-slate-50 text-xs">
                 {filteredEquipos.map((eq: LocalActivo) => (
-                   <EquipoRowList key={eq.uuid_sincro} equipo={eq} onShowLabel={setSelectedEqLabel} />
+                   <EquipoRowList key={eq.uuid_sync} equipo={eq} onShowLabel={setSelectedEqLabel} />
                 ))}
               </tbody>
             </table>
@@ -238,7 +238,7 @@ export default function Equipos() {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
             {filteredEquipos.map(eq => (
               <div 
-                key={eq.uuid_sincro} 
+                key={eq.uuid_sync} 
                 onClick={() => setLocation(`/equipos/${eq.tag}`)}
                 className="aspect-square bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative"
               >

@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { ticketsRepo } from '../repositories/TicketsRepository';
+import { ticketsRepo } from '../repositories/WoRepository';
 import { LocalTicket } from '../db/database';
 
 export const useTickets = () => {
@@ -10,8 +10,8 @@ export const useTickets = () => {
   const createTicket = async (data: Partial<LocalTicket>) => {
     const newTicket: LocalTicket = {
       ...data,
-      uuid_sincro: crypto.randomUUID(),
-      modificado_en: Date.now(),
+      uuid_sync: crypto.randomUUID(),
+      updated_at: Date.now(),
       sync_status: 'pending_insert'
     } as LocalTicket;
 

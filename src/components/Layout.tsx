@@ -55,7 +55,7 @@ const NAV_ITEMS = [
   { href: "/scanner", icon: ScanLine, label: "Scanner QR" },
   { href: "/equipos", icon: Box, label: "Equipos" },
   { href: "/mapa", icon: MapPin, label: "Mapa" },
-  { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'mantenimientosPendientes', badgeColor: "bg-amber-500" },
+  { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
   { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio" },
   { href: "/informes", icon: FileText, label: "Informes HVAC", badgeKey: 'informesPendientesFirma', badgeColor: "bg-blue-500" },
@@ -158,7 +158,7 @@ export default function Layout({ children }: LayoutProps) {
    */
   const stats = {
     ticketsAbiertos: 4,
-    mantenimientosPendientes: 12,
+    preventive_maintenancePendientes: 12,
     informesPendientesFirma: 3,
     offlineOps: 2,
     equiposEnFalla: 1,
@@ -409,9 +409,9 @@ export default function Layout({ children }: LayoutProps) {
             <Link href="/mantenimientos">
               <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-colors relative ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`}>
                 <Wrench className="w-6 h-6" />
-                {stats.mantenimientosPendientes > 0 && (
+                {stats.preventive_maintenancePendientes > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-amber-500 text-[10px] text-white flex items-center justify-center rounded-full font-black border-2 border-slate-900">
-                    {stats.mantenimientosPendientes}
+                    {stats.preventive_maintenancePendientes}
                   </span>
                 )}
               </div>

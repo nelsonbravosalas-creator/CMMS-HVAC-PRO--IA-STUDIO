@@ -22,13 +22,13 @@ import {
   Briefcase,
   UserCircle
 } from "lucide-react";
-import { USUARIOS_MOCK, Usuario, CLIENTES_MOCK, Cliente } from "../data/usuarios";
+import { USUARIOS_MOCK, Usuario, CLIENTES_MOCK, Cliente } from "../data/users";
 import { ClientModal } from "../components/modals/ClientModal";
 
-type AdminTab = "usuarios" | "clientes";
+type AdminTab = "users" | "clients";
 
 export default function Administracion() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("usuarios");
+  const [activeTab, setActiveTab] = useState<AdminTab>("users");
   const [showUserModal, setShowUserModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const [filter, setFilter] = useState("");
@@ -38,24 +38,24 @@ export default function Administracion() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Administración de Accesos</h2>
-          <p className="text-slate-500 text-sm font-medium">Gestión de perfiles técnicos, administrativos y clientes.</p>
+          <p className="text-slate-500 text-sm font-medium">Gestión de perfiles técnicos, administrativos y clients.</p>
         </div>
         <div className="flex items-center gap-3">
           <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
             <RotateCcw className="w-4 h-4" /> Actualizar Lista
           </button>
           <button 
-            onClick={() => activeTab === 'usuarios' ? setShowUserModal(true) : setShowClientModal(true)}
+            onClick={() => activeTab === 'users' ? setShowUserModal(true) : setShowClientModal(true)}
             className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-slate-900/10"
           >
-            <Plus className="w-4 h-4" /> {activeTab === 'usuarios' ? 'Nuevo Usuario' : 'Nuevo Cliente'}
+            <Plus className="w-4 h-4" /> {activeTab === 'users' ? 'Nuevo Usuario' : 'Nuevo Cliente'}
           </button>
         </div>
       </div>
 
       <div className="flex items-center gap-6 border-b border-slate-200">
-         <button onClick={() => setActiveTab('usuarios')} className={`py-4 px-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'usuarios' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400'}`}>Usuarios y Perfiles</button>
-         <button onClick={() => setActiveTab('clientes')} className={`py-4 px-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'clientes' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400'}`}>Gestión de Clientes (PROGRAMADOR)</button>
+         <button onClick={() => setActiveTab('users')} className={`py-4 px-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'users' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400'}`}>Usuarios y Perfiles</button>
+         <button onClick={() => setActiveTab('clients')} className={`py-4 px-2 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === 'clients' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400'}`}>Gestión de Clientes (PROGRAMADOR)</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -75,7 +75,7 @@ export default function Administracion() {
          </div>
 
          <div className="lg:col-span-3">
-            {activeTab === 'usuarios' && (
+            {activeTab === 'users' && (
               <div className="bg-white rounded-[40px] border border-slate-200 overflow-hidden shadow-sm">
                  <div className="p-6 border-b border-slate-50 flex items-center gap-4">
                     <div className="flex-1 relative">
@@ -110,7 +110,7 @@ export default function Administracion() {
               </div>
             )}
 
-            {activeTab === 'clientes' && (
+            {activeTab === 'clients' && (
               <div className="space-y-4">
                  {CLIENTES_MOCK.map(c => (
                     <div key={c.id} className="bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl transition-all group">

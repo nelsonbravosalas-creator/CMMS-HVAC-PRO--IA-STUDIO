@@ -1,6 +1,6 @@
 import { getDb } from '../_db';
 
-const VALID_TABLES = ['activos', 'tickets', 'mantenimientos', 'clientes', 'usuarios', 'sucursales', 'informes', 'eventos'];
+const VALID_TABLES = ['assets', 'work_orders', 'preventive_maintenance', 'clients', 'users', 'branches', 'reports', 'events'];
 
 export default async function handler(req: any, res: any) {
   const table = req.query.table as string;
@@ -12,17 +12,17 @@ export default async function handler(req: any, res: any) {
       const since = req.query.since ? parseInt(req.query.since as string, 10) : 0;
       
       let rows;
-      if (table === 'activos') {
-        rows = await sql`SELECT * FROM activos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+      if (table === 'assets') {
+        rows = await sql`SELECT * FROM assets WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
       } else {
         // For others using mapping to avoid variable table name in query
-        if (table === 'tickets') rows = await sql`SELECT * FROM tickets WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
-        else if (table === 'mantenimientos') rows = await sql`SELECT * FROM mantenimientos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
-        else if (table === 'clientes') rows = await sql`SELECT * FROM clientes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
-        else if (table === 'usuarios') rows = await sql`SELECT * FROM usuarios WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
-        else if (table === 'sucursales') rows = await sql`SELECT * FROM sucursales WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
-        else if (table === 'informes') rows = await sql`SELECT * FROM informes WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
-        else if (table === 'eventos') rows = await sql`SELECT * FROM eventos WHERE modificado_en > ${since} OR modificado_en IS NULL ORDER BY modificado_en ASC LIMIT 1000`;
+        if (table === 'work_orders') rows = await sql`SELECT * FROM work_orders WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
+        else if (table === 'preventive_maintenance') rows = await sql`SELECT * FROM preventive_maintenance WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
+        else if (table === 'clients') rows = await sql`SELECT * FROM clients WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
+        else if (table === 'users') rows = await sql`SELECT * FROM users WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
+        else if (table === 'branches') rows = await sql`SELECT * FROM branches WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
+        else if (table === 'reports') rows = await sql`SELECT * FROM reports WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
+        else if (table === 'events') rows = await sql`SELECT * FROM events WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`;
       }
       
       return res.json({ success: true, data: rows });
@@ -42,21 +42,21 @@ export default async function handler(req: any, res: any) {
     if (operation === 'delete') {
       for (const record of records) {
         try {
-          if (table === 'activos') {
-             await sql`DELETE FROM activos WHERE uuid_sincro = ${record.uuid_sincro}`;
+          if (table === 'assets') {
+             await sql`DELETE FROM assets WHERE uuid_sync = ${record.uuid_sync}`;
           } else {
              // For others using mapping
-             if (table === 'tickets') await sql`DELETE FROM tickets WHERE uuid_sincro = ${record.uuid_sincro}`;
-             else if (table === 'mantenimientos') await sql`DELETE FROM mantenimientos WHERE uuid_sincro = ${record.uuid_sincro}`;
-             else if (table === 'clientes') await sql`DELETE FROM clientes WHERE uuid_sincro = ${record.uuid_sincro}`;
-             else if (table === 'usuarios') await sql`DELETE FROM usuarios WHERE uuid_sincro = ${record.uuid_sincro}`;
-             else if (table === 'sucursales') await sql`DELETE FROM sucursales WHERE uuid_sincro = ${record.uuid_sincro}`;
-             else if (table === 'informes') await sql`DELETE FROM informes WHERE uuid_sincro = ${record.uuid_sincro}`;
-             else if (table === 'eventos') await sql`DELETE FROM eventos WHERE uuid_sincro = ${record.uuid_sincro}`;
+             if (table === 'work_orders') await sql`DELETE FROM work_orders WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'preventive_maintenance') await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'clients') await sql`DELETE FROM clients WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'users') await sql`DELETE FROM users WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'branches') await sql`DELETE FROM branches WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'reports') await sql`DELETE FROM reports WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'events') await sql`DELETE FROM events WHERE uuid_sync = ${record.uuid_sync}`;
           }
-          results.push({ uuid_sincro: record.uuid_sincro, success: true });
+          results.push({ uuid_sync: record.uuid_sync, success: true });
         } catch (e: any) {
-          results.push({ uuid_sincro: record.uuid_sincro, success: false, error: e.message });
+          results.push({ uuid_sync: record.uuid_sync, success: false, error: e.message });
         }
       }
       return res.json({ success: true, results });
@@ -66,8 +66,8 @@ export default async function handler(req: any, res: any) {
       let folio_oficial = record.id;
 
       if (record.sync_status === 'pending_insert') {
-        if (table === 'tickets' && (!record.id || record.id.startsWith('TMP'))) {
-          const rows = await sql`SELECT id FROM tickets WHERE id LIKE 'TK-%' ORDER BY id DESC LIMIT 1`;
+        if (table === 'work_orders' && (!record.id || record.id.startsWith('TMP'))) {
+          const rows = await sql`SELECT id FROM work_orders WHERE id LIKE 'TK-%' ORDER BY id DESC LIMIT 1`;
           let nextNum = 1;
           if (rows.length > 0) {
             const match = rows[0].id.match(/TK-(\d+)/);
@@ -79,13 +79,13 @@ export default async function handler(req: any, res: any) {
       }
 
       try {
-        if (table === 'activos') {
+        if (table === 'assets') {
           const d = record;
           await sql`
-            INSERT INTO activos (tag, nombre, tipo, marca, modelo, serie, ubicacion, area,
+            INSERT INTO assets (tag, nombre, tipo, marca, modelo, serie, ubicacion, area,
               capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util,
               estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion,
-              tecnicos, notas, cliente_id, sucursal_id, uuid_sincro, modificado_en, creado_en)
+              tecnicos, notas, cliente_id, sucursal_id, uuid_sync, updated_at, created_at)
             VALUES (
               ${d.tag}, ${d.nombre||''}, ${d.tipo||''}, ${d.marca||''},
               ${d.modelo||''}, ${d.serie||''}, ${d.ubicacion||''}, ${d.area||''},
@@ -94,88 +94,88 @@ export default async function handler(req: any, res: any) {
               ${d.ultimo_mantenimiento||''}, ${d.proximo_mantenimiento||''},
               ${d.horas_operacion||0}, ${JSON.stringify(d.tecnicos||[])}, ${d.notas||''},
               ${d.cliente_id||''}, ${d.sucursal_id||''},
-              ${d.uuid_sincro||d.tag}, ${d.modificado_en||Date.now()}, ${Date.now()}
+              ${d.uuid_sync||d.tag}, ${d.updated_at||Date.now()}, ${Date.now()}
             )
-            ON CONFLICT (uuid_sincro) DO UPDATE SET
+            ON CONFLICT (uuid_sync) DO UPDATE SET
               tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo,
               marca = EXCLUDED.marca, modelo = EXCLUDED.modelo, serie = EXCLUDED.serie,
               ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, estado = EXCLUDED.estado,
               ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento,
               proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
               horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas,
-              modificado_en = EXCLUDED.modificado_en
-            WHERE EXCLUDED.modificado_en > activos.modificado_en OR activos.modificado_en IS NULL
+              updated_at = EXCLUDED.updated_at
+            WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL
           `;
           folio_oficial = d.tag;
         } else {
-          const id = record.id || record.uuid_sincro || `${table.toUpperCase()}-${Date.now()}`;
+          const id = record.id || record.uuid_sync || `${table.toUpperCase()}-${Date.now()}`;
           const data = JSON.stringify(record);
-          const { uuid_sincro, modificado_en } = record;
+          const { uuid_sync, updated_at } = record;
           
           // Mapping for other tables to avoid unsafe dynamic table names in Neon
-          if (table === 'tickets') {
+          if (table === 'work_orders') {
             await sql`
-              INSERT INTO tickets (id, data, uuid_sincro, modificado_en)
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en})
-              ON CONFLICT (uuid_sincro) DO UPDATE SET
-                id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > tickets.modificado_en OR tickets.modificado_en IS NULL
+              INSERT INTO work_orders (id, data, uuid_sync, updated_at)
+              VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at})
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL
             `;
-          } else if (table === 'mantenimientos') {
+          } else if (table === 'preventive_maintenance') {
             await sql`
-              INSERT INTO mantenimientos (id, data, uuid_sincro, modificado_en)
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en})
-              ON CONFLICT (uuid_sincro) DO UPDATE SET
-                id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > mantenimientos.modificado_en OR mantenimientos.modificado_en IS NULL
+              INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at)
+              VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at})
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL
             `;
-          } else if (table === 'clientes') {
+          } else if (table === 'clients') {
             await sql`
-              INSERT INTO clientes (id, data, uuid_sincro, modificado_en)
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en})
-              ON CONFLICT (uuid_sincro) DO UPDATE SET
-                id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > clientes.modificado_en OR clientes.modificado_en IS NULL
+              INSERT INTO clients (id, data, uuid_sync, updated_at)
+              VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at})
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL
             `;
-          } else if (table === 'usuarios') {
+          } else if (table === 'users') {
             await sql`
-              INSERT INTO usuarios (id, data, uuid_sincro, modificado_en)
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en})
-              ON CONFLICT (uuid_sincro) DO UPDATE SET
-                id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > usuarios.modificado_en OR usuarios.modificado_en IS NULL
+              INSERT INTO users (id, data, uuid_sync, updated_at)
+              VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at})
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL
             `;
-          } else if (table === 'sucursales') {
+          } else if (table === 'branches') {
             await sql`
-              INSERT INTO sucursales (id, data, uuid_sincro, modificado_en)
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en})
-              ON CONFLICT (uuid_sincro) DO UPDATE SET
-                id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > sucursales.modificado_en OR sucursales.modificado_en IS NULL
+              INSERT INTO branches (id, data, uuid_sync, updated_at)
+              VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at})
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL
             `;
-          } else if (table === 'informes') {
+          } else if (table === 'reports') {
             await sql`
-              INSERT INTO informes (id, data, uuid_sincro, modificado_en)
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en})
-              ON CONFLICT (uuid_sincro) DO UPDATE SET
-                id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > informes.modificado_en OR informes.modificado_en IS NULL
+              INSERT INTO reports (id, data, uuid_sync, updated_at)
+              VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at})
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL
             `;
-          } else if (table === 'eventos') {
+          } else if (table === 'events') {
             await sql`
-              INSERT INTO eventos (id, data, uuid_sincro, modificado_en)
-              VALUES (${id}, ${data}, ${uuid_sincro}, ${modificado_en})
-              ON CONFLICT (uuid_sincro) DO UPDATE SET
-                id = EXCLUDED.id, data = EXCLUDED.data, modificado_en = EXCLUDED.modificado_en
-              WHERE EXCLUDED.modificado_en > eventos.modificado_en OR eventos.modificado_en IS NULL
+              INSERT INTO events (id, data, uuid_sync, updated_at)
+              VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at})
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL
             `;
           }
           folio_oficial = id;
         }
 
-        results.push({ uuid_sincro: record.uuid_sincro, folio_oficial, success: true });
+        results.push({ uuid_sync: record.uuid_sync, folio_oficial, success: true });
       } catch (recordError: any) {
-        results.push({ uuid_sincro: record.uuid_sincro, success: false, error: recordError.message });
+        results.push({ uuid_sync: record.uuid_sync, success: false, error: recordError.message });
       }
     }
 

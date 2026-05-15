@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import { mantenimientosRepo } from '../repositories/MantenimientosRepository';
+import { mantenimientosRepo } from '../repositories/PmRepository';
 import { LocalMantenimiento } from '../db/database';
 import { syncEngine } from '../sync/syncEngine';
 
@@ -11,8 +11,8 @@ export const useMantenimientos = () => {
   const createMantenimiento = async (data: Partial<LocalMantenimiento>) => {
     const newMant: LocalMantenimiento = {
       ...data,
-      uuid_sincro: crypto.randomUUID(),
-      modificado_en: Date.now(),
+      uuid_sync: crypto.randomUUID(),
+      updated_at: Date.now(),
       sync_status: 'pending_insert'
     } as LocalMantenimiento;
 

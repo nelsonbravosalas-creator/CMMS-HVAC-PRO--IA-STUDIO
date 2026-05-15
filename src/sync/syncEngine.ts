@@ -60,7 +60,7 @@ class SyncEngine {
   async triggerPull() {
     if (!networkMonitor.isOnline()) return;
     
-    const tables = ['activos', 'tickets', 'mantenimientos', 'clientes', 'usuarios', 'sucursales', 'informes', 'eventos'];
+    const tables = ['assets', 'work_orders', 'preventive_maintenance', 'clients', 'users', 'branches', 'reports', 'events'];
     logger.info('SyncEngine', 'Starting pull for all tables.');
 
     for (const tableName of tables) {
@@ -68,33 +68,33 @@ class SyncEngine {
         const table = db[tableName as keyof typeof db] as any;
         if (!table) continue;
 
-        const lastRecord = await table.orderBy('modificado_en').reverse().first();
-        const since = lastRecord ? lastRecord.modificado_en : 0;
+        const lastRecord = await table.orderBy('updated_at').reverse().first();
+        const since = lastRecord ? lastRecord.updated_at : 0;
 
         const response = await fetch(`/api/sync/${tableName}?since=${since}`);
         if (response.ok) {
           const { data } = await response.json();
           if (Array.isArray(data) && data.length > 0) {
             for (const remoteRecord of data) {
-              const remoteUuid = remoteRecord.uuid_sincro;
+              const remoteUuid = remoteRecord.uuid_sync;
               
               if (!remoteUuid || typeof remoteUuid !== 'string') {
-                logger.warn('SyncEngine', `Remote record in ${tableName} missing valid uuid_sincro, skipping.`, remoteRecord);
+                logger.warn('SyncEngine', `Remote record in ${tableName} missing valid uuid_sync, skipping.`, remoteRecord);
                 continue;
               }
 
               const local = await table.get(remoteUuid);
               
-              if (!local || (remoteRecord.modificado_en || 0) > (local.modificado_en || 0)) {
+              if (!local || (remoteRecord.updated_at || 0) > (local.updated_at || 0)) {
                 let mergedRecord = remoteRecord;
-                // If it came from a generic table (id, data, modificado_en)
-                if (tableName !== 'activos' && remoteRecord.data) {
+                // If it came from a generic table (id, data, updated_at)
+                if (tableName !== 'assets' && remoteRecord.data) {
                   try {
                     const parsed = typeof remoteRecord.data === 'string' ? JSON.parse(remoteRecord.data) : remoteRecord.data;
                     mergedRecord = { 
                       ...parsed, 
-                      uuid_sincro: remoteUuid, 
-                      modificado_en: remoteRecord.modificado_en || Date.now()
+                      uuid_sync: remoteUuid, 
+                      updated_at: remoteRecord.updated_at || Date.now()
                     };
                   } catch (e) {
                     logger.error('SyncEngine', `Failed to parse data for ${tableName}:${remoteUuid}`, e);
@@ -167,7 +167,7 @@ class SyncEngine {
     const table = db[item.table as keyof typeof db] as any;
     if (table) {
       if (item.operation === 'delete') {
-        await table.delete(item.uuid_sincro);
+        await table.delete(item.uuid_sync);
       } else {
         const updates: any = { 
           sync_status: 'synced' as SyncStatus,
@@ -177,11 +177,11 @@ class SyncEngine {
         
         const officialId = serverResult?.results?.[0]?.folio_oficial || serverResult?.results?.[0]?.id;
         if (officialId) {
-          if (item.table === 'activos') updates.tag = officialId;
+          if (item.table === 'assets') updates.tag = officialId;
           else updates.id = officialId;
         }
 
-        await table.update(item.uuid_sincro, updates);
+        await table.update(item.uuid_sync, updates);
       }
     }
     await syncQueue.remove(item.id!);
@@ -194,31 +194,31 @@ class SyncEngine {
       timestamp: Date.now()
     });
     
-    logger.info('SyncEngine', `Successfully synced ${item.table}:${item.uuid_sincro}`);
+    logger.info('SyncEngine', `Successfully synced ${item.table}:${item.uuid_sync}`);
   }
 
   private async handleError(item: any, error: any) {
-    logger.error('SyncEngine', `Sync failed for ${item.table}:${item.uuid_sincro}`, error);
+    logger.error('SyncEngine', `Sync failed for ${item.table}:${item.uuid_sync}`, error);
     
     const table = db[item.table as keyof typeof db] as any;
     if (table) {
-      const record = await table.get(item.uuid_sincro);
+      const record = await table.get(item.uuid_sync);
       if (record) {
         const currentRetry = record.retry_count || 0;
         
         if (retryManager.shouldRetry(currentRetry, error)) {
           // Leave it in the queue, just update the table status and retry_count
-          await table.update(item.uuid_sincro, {
+          await table.update(item.uuid_sync, {
             sync_status: 'failed' as SyncStatus,
             retry_count: currentRetry + 1
           });
         } else {
           // Hard fail, remove from queue
-          await table.update(item.uuid_sincro, {
+          await table.update(item.uuid_sync, {
             sync_status: 'conflicted' as SyncStatus
           });
           await syncQueue.remove(item.id!);
-          logger.warn('SyncEngine', `Abandoned syncing ${item.table}:${item.uuid_sincro} after ${currentRetry} retries.`);
+          logger.warn('SyncEngine', `Abandoned syncing ${item.table}:${item.uuid_sync} after ${currentRetry} retries.`);
         }
       }
     }

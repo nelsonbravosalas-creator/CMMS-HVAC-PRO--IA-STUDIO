@@ -36,9 +36,9 @@ import {
 import { Link, useRoute, useLocation } from "wouter";
 import { AssetSearchModal } from "../components/modals/AssetSearchModal";
 import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatureModal";
-import { INFORMES_MOCK } from "../data/informes";
-import { EQUIPOS_DATA } from "../data/equipos";
-import { SUCURSALES, ALMACEN_LABELS } from "../data/sucursales";
+import { INFORMES_MOCK } from "../data/reports";
+import { EQUIPOS_DATA } from "../data/assets";
+import { SUCURSALES, ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -632,7 +632,7 @@ export default function EditorInforme() {
 
     const reportData = {
       id: currentFolio,
-      uuid_sincro: id || currentFolio, // UUID para db
+      uuid_sync: id || currentFolio, // UUID para db
       generalData: { ...generalData, folio: currentFolio },
       machineData,
       circuits,
@@ -640,7 +640,7 @@ export default function EditorInforme() {
       observaciones,
       galeria,
       status: 'firmado',
-      statusSincronizacion: "pendiente",
+      sync_status: "pendiente",
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
@@ -655,17 +655,17 @@ export default function EditorInforme() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          uuid_sincro: reportData.uuid_sincro,
+          uuid_sync: reportData.uuid_sync,
           id: reportData.id,
           data: reportData,
-          modificado_en: Date.now()
+          updated_at: Date.now()
         })
       });
 
       if (!res.ok) {
         console.warn("Fallo en sincronización, operará offline y se sincronizará luego");
       } else {
-        reportData.statusSincronizacion = "sincronizado";
+        reportData.sync_status = "sincronizado";
         localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
       }
     } catch (e) {

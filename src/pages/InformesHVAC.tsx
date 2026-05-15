@@ -15,7 +15,7 @@ import {
   MoreVertical
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { INFORMES_MOCK, InformeHVAC } from "../data/informes";
+import { INFORMES_MOCK, InformeHVAC } from "../data/reports";
 
 export default function InformesHVAC() {
   const [filter, setFilter] = useState("");

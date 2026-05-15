@@ -3,8 +3,8 @@ import Dexie, { Table } from 'dexie';
 export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pending_delete' | 'failed' | 'conflicted';
 
 export interface LocalBase {
-  uuid_sincro: string;
-  modificado_en: number;
+  uuid_sync: string;
+  updated_at: number;
   sync_status: SyncStatus;
   version: number;
   retry_count: number;
@@ -100,7 +100,7 @@ export interface LocalEvento extends LocalBase {
 export interface SyncOperation {
   id?: number;
   table: string;
-  uuid_sincro: string;
+  uuid_sync: string;
   operation: 'insert' | 'update' | 'delete';
   data: any;
   timestamp: number;
@@ -115,29 +115,29 @@ export interface AuditLog {
 }
 
 export class CMMSDatabase extends Dexie {
-  activos!: Table<LocalActivo>;
-  tickets!: Table<LocalTicket>;
-  mantenimientos!: Table<LocalMantenimiento>;
-  clientes!: Table<LocalCliente>;
-  usuarios!: Table<LocalUsuario>;
-  sucursales!: Table<LocalSucursal>;
-  informes!: Table<LocalInforme>;
-  eventos!: Table<LocalEvento>;
+  assets!: Table<LocalActivo>;
+  work_orders!: Table<LocalTicket>;
+  preventive_maintenance!: Table<LocalMantenimiento>;
+  clients!: Table<LocalCliente>;
+  users!: Table<LocalUsuario>;
+  branches!: Table<LocalSucursal>;
+  reports!: Table<LocalInforme>;
+  events!: Table<LocalEvento>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
 
   constructor() {
-    super('CMMS_LocalDB_v2');
-    this.version(2).stores({
-      activos: 'uuid_sincro, tag, cliente_id, sucursal_id, sync_status, modificado_en',
-      tickets: 'uuid_sincro, id, equipo_tag, cliente_id, sync_status, modificado_en',
-      mantenimientos: 'uuid_sincro, id, equipo_tag, sync_status, modificado_en',
-      clientes: 'uuid_sincro, id, sync_status, modificado_en',
-      usuarios: 'uuid_sincro, id, sync_status, modificado_en',
-      sucursales: 'uuid_sincro, id, cliente_id, sync_status, modificado_en',
-      informes: 'uuid_sincro, id, sync_status, modificado_en',
-      eventos: 'uuid_sincro, id, sync_status, modificado_en',
-      sync_queue: '++id, table, uuid_sincro, operation, timestamp',
+    super('CMMS_LocalDB_v4');
+    this.version(4).stores({
+      assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at',
+      work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at',
+      preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at',
+      clients: 'uuid_sync, id, sync_status, updated_at',
+      users: 'uuid_sync, id, sync_status, updated_at',
+      branches: 'uuid_sync, id, cliente_id, sync_status, updated_at',
+      reports: 'uuid_sync, id, sync_status, updated_at',
+      events: 'uuid_sync, id, sync_status, updated_at',
+      sync_queue: '++id, table, uuid_sync, operation, timestamp',
       audit_logs: 'id, action, userId, timestamp'
     });
   }

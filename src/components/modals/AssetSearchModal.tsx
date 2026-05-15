@@ -11,8 +11,8 @@ import {
   Users,
   History
 } from 'lucide-react';
-import { INFORMES_MOCK } from "../../data/informes";
-import { EQUIPOS_DATA } from "../../data/equipos";
+import { INFORMES_MOCK } from "../../data/reports";
+import { EQUIPOS_DATA } from "../../data/assets";
 
 interface AssetSearchModalProps {
   isOpen: boolean;
@@ -41,7 +41,7 @@ export function AssetSearchModal({
   clients, 
   results 
 }: AssetSearchModalProps) {
-  const [activeTab, setActiveTab] = useState<'activos' | 'informes' | 'qr'>('activos');
+  const [activeTab, setActiveTab] = useState<'assets' | 'reports' | 'qr'>('assets');
   const today = new Date().toLocaleDateString('es-CL');
   
   if (!isOpen) return null;
@@ -68,14 +68,14 @@ export function AssetSearchModal({
           {/* Navigation Tabs */}
           <div className="flex p-2 bg-slate-100/50 border-b border-slate-100">
             <button 
-              onClick={() => setActiveTab('activos')}
-              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'activos' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setActiveTab('assets')}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'assets' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Activos
             </button>
             <button 
-              onClick={() => setActiveTab('informes')}
-              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'informes' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setActiveTab('reports')}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'reports' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Informes
             </button>
@@ -91,7 +91,7 @@ export function AssetSearchModal({
           </div>
 
           <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1">
-             {activeTab === 'activos' && (
+             {activeTab === 'assets' && (
                <>
                  <form 
                    onSubmit={(e) => {
@@ -212,7 +212,7 @@ export function AssetSearchModal({
                </>
              )}
 
-             {activeTab === 'informes' && (
+             {activeTab === 'reports' && (
                <div className="space-y-6">
                  <div className="space-y-2">
                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Buscar Informes Recientes</label>

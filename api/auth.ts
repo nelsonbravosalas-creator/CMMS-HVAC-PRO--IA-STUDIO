@@ -9,7 +9,7 @@ export default async function handler(req: any, res: any) {
     const { pin } = req.body;
     if (!pin) return res.status(400).json({ success: false, error: 'PIN requerido' });
 
-    const rows = await sql`SELECT id, nombre, correo, perfil, activo, pin FROM usuarios WHERE pin = ${pin} AND activo = true LIMIT 1`;
+    const rows = await sql`SELECT id, nombre, correo, perfil, activo, pin FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
     
     if (rows.length === 0) {
       return res.status(401).json({ success: false, error: 'PIN inválido' });

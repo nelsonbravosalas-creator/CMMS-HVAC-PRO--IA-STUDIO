@@ -3,7 +3,7 @@ import { LocalSucursal } from '../db/database';
 
 export class BranchRepository extends BaseRepository<LocalSucursal> {
   constructor() {
-    super('sucursales');
+    super('branches');
   }
 
   async getByClient(clientId: string): Promise<LocalSucursal[]> {

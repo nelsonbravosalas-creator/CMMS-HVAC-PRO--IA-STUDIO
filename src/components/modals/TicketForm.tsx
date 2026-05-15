@@ -3,8 +3,8 @@ import {
   X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History
 } from 'lucide-react';
 import { AssetSearchModal } from './AssetSearchModal';
-import { EQUIPOS_DATA } from '../../data/equipos';
-import { ALMACEN_LABELS } from '../../data/sucursales';
+import { EQUIPOS_DATA } from '../../data/assets';
+import { ALMACEN_LABELS } from '../../data/branches';
 import { useTickets } from '../../hooks/useTickets';
 
 interface TicketFormProps {

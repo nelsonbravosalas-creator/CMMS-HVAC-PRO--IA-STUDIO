@@ -27,7 +27,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Mantenimientos() {
   const { permisos } = useAuth();
-  const mantenimientos = useAppStore(state => state.mantenimientos);
+  const preventive_maintenance = useAppStore(state => state.preventive_maintenance);
   const loading = useAppStore(state => state.isLoading);
   const { createMantenimiento, deleteMantenimiento } = useMantenimientos();
   
@@ -37,13 +37,13 @@ export default function Mantenimientos() {
 
   if (!permisos?.ver_mantenimientos) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = useMemo(() => mantenimientos.filter(m => 
+  const filtered = useMemo(() => preventive_maintenance.filter(m => 
     m.equipo_tag.toLowerCase().includes(filter.toLowerCase()) || 
     m.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
     m.id.toLowerCase().includes(filter.toLowerCase())
-  ), [mantenimientos, filter]);
+  ), [preventive_maintenance, filter]);
 
-  if (loading && mantenimientos.length === 0) {
+  if (loading && preventive_maintenance.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-20 animate-pulse">
         <Wrench className="w-12 h-12 text-slate-200 mb-4 animate-bounce" />
@@ -121,7 +121,7 @@ export default function Mantenimientos() {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filtered.map(m => (
-              <tr key={m.uuid_sincro} className="hover:bg-slate-50/50 transition-colors group">
+              <tr key={m.uuid_sync} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="text-xs font-black text-slate-900">{m.id}</div>
                   <div className="text-[10px] font-bold text-slate-400">{m.fecha}</div>
@@ -145,7 +145,7 @@ export default function Mantenimientos() {
                       <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
                       <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><Edit3 className="w-3.5 h-3.5" /></button>
                       <button 
-                        onClick={() => deleteMantenimiento(m.uuid_sincro)}
+                        onClick={() => deleteMantenimiento(m.uuid_sync)}
                         className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

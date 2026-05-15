@@ -2,11 +2,11 @@ import { create } from 'zustand';
 import { db, LocalActivo, LocalTicket, LocalMantenimiento, LocalUsuario, LocalCliente, SyncStatus } from '../db/database';
 
 interface CMMSState {
-  activos: LocalActivo[];
-  tickets: LocalTicket[];
-  mantenimientos: LocalMantenimiento[];
-  usuarios: LocalUsuario[];
-  clientes: LocalCliente[];
+  assets: LocalActivo[];
+  work_orders: LocalTicket[];
+  preventive_maintenance: LocalMantenimiento[];
+  users: LocalUsuario[];
+  clients: LocalCliente[];
   isLoading: boolean;
   isOnline: boolean;
 
@@ -40,11 +40,11 @@ interface CMMSState {
 import { logger } from '../lib/logger';
 
 export const useAppStore = create<CMMSState>((set) => ({
-  activos: [],
-  tickets: [],
-  mantenimientos: [],
-  usuarios: [],
-  clientes: [],
+  assets: [],
+  work_orders: [],
+  preventive_maintenance: [],
+  users: [],
+  clients: [],
   isLoading: true,
   isOnline: navigator.onLine,
 
@@ -52,26 +52,26 @@ export const useAppStore = create<CMMSState>((set) => ({
     set({ isLoading: true });
     logger.info('Store', 'Iniciando hidratación de datos...');
     try {
-      const [activos, tickets, mantenimientos, usuarios, clientes] = await Promise.all([
-        db.activos.where('sync_status').notEqual('pending_delete').toArray(),
-        db.tickets.where('sync_status').notEqual('pending_delete').toArray(),
-        db.mantenimientos.where('sync_status').notEqual('pending_delete').toArray(),
-        db.usuarios.where('sync_status').notEqual('pending_delete').toArray(),
-        db.clientes.where('sync_status').notEqual('pending_delete').toArray()
+      const [assets, work_orders, preventive_maintenance, users, clients] = await Promise.all([
+        db.assets.where('sync_status').notEqual('pending_delete').toArray(),
+        db.work_orders.where('sync_status').notEqual('pending_delete').toArray(),
+        db.preventive_maintenance.where('sync_status').notEqual('pending_delete').toArray(),
+        db.users.where('sync_status').notEqual('pending_delete').toArray(),
+        db.clients.where('sync_status').notEqual('pending_delete').toArray()
       ]);
       
       set({ 
-        activos: activos.sort((a,b) => b.modificado_en - a.modificado_en), 
-        tickets: tickets.sort((a,b) => b.modificado_en - a.modificado_en), 
-        mantenimientos: mantenimientos.sort((a,b) => b.modificado_en - a.modificado_en), 
-        usuarios, 
-        clientes, 
+        assets: assets.sort((a,b) => b.updated_at - a.updated_at), 
+        work_orders: work_orders.sort((a,b) => b.updated_at - a.updated_at), 
+        preventive_maintenance: preventive_maintenance.sort((a,b) => b.updated_at - a.updated_at), 
+        users, 
+        clients, 
         isLoading: false 
       });
 
       logger.info('Store', 'Hidratación completada con éxito', { 
-        activos: activos.length, 
-        tickets: tickets.length 
+        assets: assets.length, 
+        work_orders: work_orders.length 
       });
     } catch (error) {
       logger.error('Store', 'Error en hidratación', error);
@@ -87,69 +87,69 @@ export const useAppStore = create<CMMSState>((set) => ({
     
     return {
       [key]: (state[key] as any[]).map(item => 
-        item.uuid_sincro === uuid ? { ...item, sync_status: status } : item
+        item.uuid_sync === uuid ? { ...item, sync_status: status } : item
       )
     };
   }),
 
   // Domain Actions using functional updates to ensure consistency
   addActivo: (activo) => set((state) => ({ 
-    activos: [activo, ...state.activos] 
+    assets: [activo, ...state.assets] 
   })),
 
   updateActivo: (activo) => set((state) => ({
-    activos: state.activos.map(a => a.uuid_sincro === activo.uuid_sincro ? { ...a, ...activo } : a)
+    assets: state.assets.map(a => a.uuid_sync === activo.uuid_sync ? { ...a, ...activo } : a)
   })),
 
   deleteActivo: (uuid) => set((state) => ({
-    activos: state.activos.filter(a => a.uuid_sincro !== uuid)
+    assets: state.assets.filter(a => a.uuid_sync !== uuid)
   })),
 
   addTicket: (ticket) => set((state) => ({
-    tickets: [ticket, ...state.tickets]
+    work_orders: [ticket, ...state.work_orders]
   })),
 
   updateTicket: (ticket) => set((state) => ({
-    tickets: state.tickets.map(t => t.uuid_sincro === ticket.uuid_sincro ? { ...t, ...ticket } : t)
+    work_orders: state.work_orders.map(t => t.uuid_sync === ticket.uuid_sync ? { ...t, ...ticket } : t)
   })),
 
   deleteTicket: (uuid) => set((state) => ({
-    tickets: state.tickets.filter(t => t.uuid_sincro !== uuid)
+    work_orders: state.work_orders.filter(t => t.uuid_sync !== uuid)
   })),
 
   addMantenimiento: (mant) => set((state) => ({
-    mantenimientos: [mant, ...state.mantenimientos]
+    preventive_maintenance: [mant, ...state.preventive_maintenance]
   })),
 
   updateMantenimiento: (mant) => set((state) => ({
-    mantenimientos: state.mantenimientos.map(m => m.uuid_sincro === mant.uuid_sincro ? { ...m, ...mant } : m)
+    preventive_maintenance: state.preventive_maintenance.map(m => m.uuid_sync === mant.uuid_sync ? { ...m, ...mant } : m)
   })),
 
   deleteMantenimiento: (uuid) => set((state) => ({
-    mantenimientos: state.mantenimientos.filter(m => m.uuid_sincro !== uuid)
+    preventive_maintenance: state.preventive_maintenance.filter(m => m.uuid_sync !== uuid)
   })),
 
   addUsuario: (user) => set((state) => ({
-    usuarios: [user, ...state.usuarios]
+    users: [user, ...state.users]
   })),
 
   updateUsuario: (user) => set((state) => ({
-    usuarios: state.usuarios.map(u => u.uuid_sincro === user.uuid_sincro ? { ...u, ...user } : u)
+    users: state.users.map(u => u.uuid_sync === user.uuid_sync ? { ...u, ...user } : u)
   })),
 
   deleteUsuario: (uuid) => set((state) => ({
-    usuarios: state.usuarios.filter(u => u.uuid_sincro !== uuid)
+    users: state.users.filter(u => u.uuid_sync !== uuid)
   })),
 
   addCliente: (client) => set((state) => ({
-    clientes: [client, ...state.clientes]
+    clients: [client, ...state.clients]
   })),
 
   updateCliente: (client) => set((state) => ({
-    clientes: state.clientes.map(c => c.uuid_sincro === client.uuid_sincro ? { ...c, ...client } : c)
+    clients: state.clients.map(c => c.uuid_sync === client.uuid_sync ? { ...c, ...client } : c)
   })),
 
   deleteCliente: (uuid) => set((state) => ({
-    clientes: state.clientes.filter(c => c.uuid_sincro !== uuid)
+    clients: state.clients.filter(c => c.uuid_sync !== uuid)
   }))
 }));

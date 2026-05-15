@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT id, nombre, correo, perfil, activo, uuid_sincro, modificado_en FROM usuarios WHERE activo = true`;
+      const rows = await sql`SELECT id, nombre, correo, perfil, activo, uuid_sync, updated_at FROM users WHERE activo = true`;
       return res.json({ success: true, data: rows });
     }
 
@@ -15,13 +15,13 @@ export default async function handler(req: any, res: any) {
       const id = d.id || `U-${Date.now()}`;
       const now = Date.now();
       await sql`
-        INSERT INTO usuarios (id, nombre, correo, perfil, activo, pin, uuid_sincro, modificado_en, data)
+        INSERT INTO users (id, nombre, correo, perfil, activo, pin, uuid_sync, updated_at, data)
         VALUES (${id}, ${d.nombre || ''}, ${d.correo || ''}, ${d.perfil || 'tecnico'},
-          ${d.activo !== false}, ${d.pin || '0000'}, ${d.uuid_sincro || id}, ${d.modificado_en || now}, ${JSON.stringify(d)})
+          ${d.activo !== false}, ${d.pin || '0000'}, ${d.uuid_sync || id}, ${d.updated_at || now}, ${JSON.stringify(d)})
         ON CONFLICT (id) DO UPDATE SET
           nombre = EXCLUDED.nombre, correo = EXCLUDED.correo, perfil = EXCLUDED.perfil,
-          activo = EXCLUDED.activo, pin = EXCLUDED.pin, modificado_en = EXCLUDED.modificado_en, data = EXCLUDED.data
-        WHERE EXCLUDED.modificado_en > usuarios.modificado_en OR usuarios.modificado_en IS NULL
+          activo = EXCLUDED.activo, pin = EXCLUDED.pin, updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
+        WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL
       `;
       return res.json({ success: true, data: { id } });
     }

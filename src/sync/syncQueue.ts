@@ -5,7 +5,7 @@ export class SyncQueue {
   async enqueue(operation: SyncOperation) {
     // Avoid duplicate inserts for the same entity and operation type
     const existing = await db.sync_queue
-      .where({ uuid_sincro: operation.uuid_sincro, operation: operation.operation })
+      .where({ uuid_sync: operation.uuid_sync, operation: operation.operation })
       .first();
       
     if (existing) {

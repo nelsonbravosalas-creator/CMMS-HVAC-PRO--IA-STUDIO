@@ -118,7 +118,7 @@ export default function EditorOrdenServicio() {
       hallazgos,
       galeria,
       status: 'firmada',
-      statusSincronizacion: "pendiente",
+      sync_status: "pendiente",
       fechaSincronizacionLocal: new Date().toISOString()
     };
 

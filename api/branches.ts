@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT * FROM sucursales ORDER BY nombre ASC`;
+      const rows = await sql`SELECT * FROM branches ORDER BY nombre ASC`;
       return res.json({ success: true, data: rows });
     }
 
@@ -15,13 +15,13 @@ export default async function handler(req: any, res: any) {
       const id = d.id || `S-${Date.now()}`;
       const now = Date.now();
       await sql`
-        INSERT INTO sucursales (id, nombre, cliente_id, direccion, ciudad, region, uuid_sincro, modificado_en, data)
+        INSERT INTO branches (id, nombre, cliente_id, direccion, ciudad, region, uuid_sync, updated_at, data)
         VALUES (${id}, ${d.nombre||''}, ${d.cliente_id||''}, ${d.direccion||''},
-          ${d.ciudad||''}, ${d.region||''}, ${d.uuid_sincro||id}, ${d.modificado_en||now}, ${JSON.stringify(d)})
+          ${d.ciudad||''}, ${d.region||''}, ${d.uuid_sync||id}, ${d.updated_at||now}, ${JSON.stringify(d)})
         ON CONFLICT (id) DO UPDATE SET
           nombre = EXCLUDED.nombre, direccion = EXCLUDED.direccion, ciudad = EXCLUDED.ciudad,
-          region = EXCLUDED.region, modificado_en = EXCLUDED.modificado_en, data = EXCLUDED.data
-        WHERE EXCLUDED.modificado_en > sucursales.modificado_en OR sucursales.modificado_en IS NULL
+          region = EXCLUDED.region, updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
+        WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL
       `;
       return res.json({ success: true, data: { id } });
     }

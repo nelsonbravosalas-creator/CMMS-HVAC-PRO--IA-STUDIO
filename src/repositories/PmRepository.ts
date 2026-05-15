@@ -3,7 +3,7 @@ import { LocalMantenimiento } from '../db/database';
 
 export class MantenimientosRepository extends BaseRepository<LocalMantenimiento> {
   constructor() {
-    super('mantenimientos');
+    super('preventive_maintenance');
   }
 
   async getByAsset(assetTag: string): Promise<LocalMantenimiento[]> {
