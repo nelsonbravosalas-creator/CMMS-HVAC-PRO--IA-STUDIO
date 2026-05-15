@@ -141,15 +141,23 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     setIsSaving(true);
 
     try {
+      if (!fullTag || fullTag.trim() === '') {
+        throw new Error('El tag del equipo es obligatorio');
+      }
+
       // 1. Verify on Server if the tag exists
-      const res = await fetch(`/api/equipos?tag=${encodeURIComponent(fullTag)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.data) {
-          alert("Alerta: El Tag ya se encuentra registrado en el servidor. Por favor, cambia el tipo de equipo o intenta de nuevo para ajustar el correlativo automáticamente desde el servidor.");
-          setIsSaving(false);
-          return;
+      try {
+        const res = await fetch(`/api/equipos?tag=${encodeURIComponent(fullTag)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            alert("Alerta: El Tag ya se encuentra registrado en el servidor. Por favor, cambia el tipo de equipo o intenta de nuevo para ajustar el correlativo automáticamente desde el servidor.");
+            setIsSaving(false);
+            return;
+          }
         }
+      } catch (err) {
+         // ignore fetch error in offline mode
       }
 
       await createAsset({
@@ -166,13 +174,15 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         corriente: corriente.toString(),
         fecha_instalacion: new Date().toISOString(),
         vida_util: 10,
-        estado: "operativo"
+        estado: "operativo",
+        cliente_id: 'cliente_defecto',
+        sucursal_id: 'sucursal_defecto'
       });
       
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error guardando activo:", error);
-      alert("Error al guardar el equipo.");
+      alert(`No se pudo crear el equipo: ${error.message || error}`);
     } finally {
       setIsSaving(false);
     }

@@ -23,6 +23,10 @@ export default async function handler(req: any, res: any) {
     if (method === 'POST') {
       const d = body;
       if (!d.tag) return res.status(400).json({ error: 'Falta tag' });
+      
+      const cliente_id = d.cliente_id || 'cliente_defecto';
+      const sucursal_id = d.sucursal_id || 'sucursal_defecto';
+      
       const now = Date.now();
       await sql`
         INSERT INTO assets (tag, nombre, tipo, marca, modelo, serie, ubicacion, area,
@@ -36,7 +40,7 @@ export default async function handler(req: any, res: any) {
           ${d.fecha_instalacion || ''}, ${d.vida_util || 0}, ${d.estado || 'operativo'},
           ${d.ultimo_mantenimiento || ''}, ${d.proximo_mantenimiento || ''},
           ${d.horas_operacion || 0}, ${JSON.stringify(d.tecnicos || [])}, ${d.notas || ''},
-          ${d.cliente_id || ''}, ${d.sucursal_id || ''},
+          ${cliente_id}, ${sucursal_id},
           ${d.uuid_sync || d.tag}, ${d.updated_at || now}, ${now}
         )
         ON CONFLICT (tag) DO UPDATE SET
