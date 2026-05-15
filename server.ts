@@ -7,16 +7,16 @@ import path from "path";
 // Exigido por el usuario: utilizar exclusivamente DATABASE_URL
 // Esto lanzará un error si falla, lo cual es de esperar en entorno local si no hay .env (deben setearlo en Vercel o Settings)
 const getSql = () => {
-  const dbUrl = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres') ? process.env.DATABASE_URL : "postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
-  return neon(dbUrl);
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL no definida');
+  return neon(process.env.DATABASE_URL);
 };
 
 // DATABASE INITIALIZATION //
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 async function ensureTables() {
-  const sql = getSql();
   try {
+    const sql = getSql();
     console.log("📦 Initializing Database Schema (Sync with Scripts)...");
     
     // Rename old tables to new standard names.
@@ -78,30 +78,47 @@ async function ensureTables() {
     for (const m of columnMigrations) {
       try {
         // We use a safe way to add columns one by one
-        if (m.table === 'assets') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-        } else if (m.table === 'users') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-        } else if (m.table === 'preventive_maintenance') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-        } else if (m.table === 'work_orders') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-        } else if (m.table === 'reports') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-        } else if (m.table === 'events') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-        } else if (m.table === 'clients') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-        } else if (m.table === 'branches') {
-          if (m.col === 'uuid_sync') await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          if (m.col === 'updated_at') await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+        const t = m.table;
+        if (t === 'assets') {
+          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+        } else if (t === 'users') {
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+        } else if (t === 'preventive_maintenance') {
+          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+        } else if (t === 'work_orders') {
+          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+        } else if (t === 'reports') {
+          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+        } else if (t === 'events') {
+          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+        } else if (t === 'clients') {
+          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+        } else if (t === 'branches') {
+          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
         }
       } catch (e: any) {
         // Ignore "already exists"
@@ -298,6 +315,122 @@ async function startServer() {
     const table = req.params.table;
     if (!ALLOWED_TABLES.includes(table)) return res.status(400).json({ error: "Invalid table" });
     res.status(501).json({ error: "Use /api/sync/:table for write operations" });
+  });
+
+  // NEW GLOBAL SYNC ENDPOINT
+  app.post('/api/sync', async (req, res) => {
+    const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body;
+    try {
+      const sql = getSql();
+      const results = { inserts: [], updates: [], deletes: [] };
+      
+      // En entorno serverless neon() usamos llamadas en serie simulando la transacción
+      for (const ins of inserts) {
+        const { table, data, uuid_sync, updated_at } = ins;
+        if (table === 'assets' || table === 'equipos') {
+          const d = data;
+          await sql`
+            INSERT INTO assets (
+              tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
+              voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
+              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
+              uuid_sync, updated_at, created_at, cliente_id, sucursal_id
+            ) VALUES (
+              ${d.tag}, ${d.nombre}, ${d.tipo || ''}, ${d.marca || ''}, ${d.modelo || ''}, 
+              ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
+              ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
+              ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
+              ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
+              ${uuid_sync}, ${updated_at}, ${updated_at}, ${d.cliente_id || ''}, ${d.sucursal_id || ''}
+            ) ON CONFLICT (uuid_sync) DO UPDATE SET
+              tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
+              serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
+              voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
+              fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
+              ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
+              horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id,
+              updated_at = EXCLUDED.updated_at
+            WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL;
+          `;
+        } else {
+          // generic JSONB tables
+          const safeTable = ['users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'].includes(table) ? table : null;
+          if (safeTable) {
+            const id = data.id || uuid_sync;
+            const strData = JSON.stringify(data);
+            const queryText = `
+              INSERT INTO ${safeTable} (id, data, uuid_sync, updated_at, created_at)
+              VALUES ($1, $2, $3, $4, $5)
+              ON CONFLICT (uuid_sync) DO UPDATE SET
+                id = EXCLUDED.id,
+                data = EXCLUDED.data,
+                updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > ${safeTable}.updated_at OR ${safeTable}.updated_at IS NULL;
+            `;
+            await (sql as any).query(queryText, [id, strData, uuid_sync, updated_at, updated_at]);
+          }
+        }
+        results.inserts.push({ uuid_sync, folio_oficial: data.tag || data.id });
+      }
+
+      for (const upd of updates) {
+        const { table, data, uuid_sync, updated_at } = upd;
+        if (table === 'assets' || table === 'equipos') {
+           const d = data;
+           await sql`
+            UPDATE assets SET
+              tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
+              serie = ${d.serie || ''}, ubicacion = ${d.ubicacion || ''}, area = ${d.area || ''}, capacidad = ${d.capacidad || ''},
+              voltaje = ${d.voltaje || ''}, corriente = ${d.corriente || ''}, refrigerante = ${d.refrigerante || ''},
+              fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util || 0}, estado = ${d.estado || 'operativo'},
+              ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, proximo_mantenimiento = ${d.proximo_mantenimiento || null},
+              horas_operacion = ${d.horas_operacion || 0}, notas = ${d.notas || ''},
+              cliente_id = ${d.cliente_id || ''}, sucursal_id = ${d.sucursal_id || ''},
+              updated_at = ${updated_at}
+            WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL);
+          `;
+        } else {
+          const safeTable = ['users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'].includes(table) ? table : null;
+          if (safeTable) {
+             const id = data.id || uuid_sync;
+             const strData = JSON.stringify(data);
+             const query = `
+                UPDATE ${safeTable} 
+                SET id = $1, data = $2, updated_at = $3
+                WHERE uuid_sync = $4 AND (updated_at < $5 OR updated_at IS NULL);
+             `;
+             await (sql as any).query(query, [id, strData, updated_at, uuid_sync, updated_at]);
+          }
+        }
+        results.updates.push({ uuid_sync });
+      }
+
+      for (const del of deletes) {
+        const { table, uuid_sync } = del;
+        const safeTable = ['assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'].includes(table) ? table : null;
+        if (safeTable) {
+           await (sql as any).query(`DELETE FROM ${safeTable} WHERE uuid_sync = $1`, [uuid_sync]);
+           results.deletes.push({ uuid_sync });
+        }
+      }
+
+      // get server changes
+      const serverChanges: Record<string, any[]> = {};
+      for (const table of ALLOWED_TABLES) {
+         try {
+            const { rows } = await (sql as any).query(`SELECT * FROM ${table} WHERE updated_at > $1`, [lastSync]);
+            if (rows.length > 0) {
+               serverChanges[table] = rows;
+            }
+         } catch(e){}
+      }
+
+      console.log(`[SYNC] Sync applied: Inserts ${inserts.length}, Updates ${updates.length}, Deletes ${deletes.length}`);
+      res.json({ success: true, results, serverChanges });
+    } catch (error: any) {
+      console.error('[SYNC ERROR]:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   app.post("/api/sync/:table", async (req, res) => {

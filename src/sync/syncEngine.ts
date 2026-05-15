@@ -4,233 +4,135 @@ import { useAppStore } from '../store/useAppStore';
 import { logger } from '../lib/logger';
 import { syncQueue } from './syncQueue';
 import { networkMonitor } from './networkMonitor';
-import { latencyManager } from './latencyManager';
-import { retryManager } from './retryManager';
 
 class SyncEngine {
   private processing = false;
   private syncTimer: any = null;
+  private lastSync: number = 0;
 
   init() {
     networkMonitor.init();
     window.addEventListener('network-reconnected', () => this.fullSync());
     
-    // Start background sync loop
+    // Attempt full sync every 15s in background
     this.syncTimer = setInterval(() => {
       this.fullSync();
-    }, 15000); // Check every 15 seconds
+    }, 15000);
     
+    // Read last sync timestamp
+    const val = localStorage.getItem('last_sync_timestamp');
+    this.lastSync = val ? Number(val) : 0;
+
     this.fullSync();
   }
 
   async fullSync() {
     if (this.processing || !networkMonitor.isOnline()) return;
     this.processing = true;
+    const store = useSyncStore.getState();
+    store.setSyncing(true);
+
     try {
-      await this.triggerPush();
-      await this.triggerPull();
+      const pendingItems = await syncQueue.peekAll();
+      store.setPendingCount(pendingItems.length);
+
+      const inserts: any[] = [];
+      const updates: any[] = [];
+      const deletes: any[] = [];
+
+      for (const item of pendingItems) {
+        if (item.operation === 'insert') inserts.push(item);
+        else if (item.operation === 'update') updates.push(item);
+        else if (item.operation === 'delete') deletes.push(item);
+      }
+
+      logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
+
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inserts,
+          updates,
+          deletes,
+          lastSync: this.lastSync
+        })
+      });
+
+      if (!response.ok) {
+         throw new Error(`Sync Error: ${response.statusText}`);
+      }
+
+      const { success, results, serverChanges } = await response.json();
+
+      if (success) {
+         // Resolve processed queue items
+         for (const item of pendingItems) {
+           const table = db[item.table as keyof typeof db] as any;
+           if (table && item.operation !== 'delete') {
+              // mark as synced
+              await table.update(item.uuid_sync, {
+                sync_status: 'synced',
+                last_synced_at: Date.now(),
+                retry_count: 0
+              });
+           }
+           await syncQueue.remove(item.id!);
+         }
+
+         store.setPendingCount(await db.sync_queue.count());
+
+         // Handle incoming server changes
+         if (serverChanges) {
+           for (const [tableName, rows] of Object.entries(serverChanges)) {
+             const table = db[tableName as keyof typeof db] as any;
+             if (!table) continue;
+
+             for (const remoteRecord of rows as any[]) {
+               const remoteUuid = remoteRecord.uuid_sync;
+               if (!remoteUuid) continue;
+
+               const local = await table.get(remoteUuid);
+               if (!local || (remoteRecord.updated_at || 0) > (local.updated_at || 0)) {
+                  let mergedRecord = remoteRecord;
+                  if (tableName !== 'assets' && remoteRecord.data) {
+                    try {
+                      const parsed = typeof remoteRecord.data === 'string' ? JSON.parse(remoteRecord.data) : remoteRecord.data;
+                      mergedRecord = { 
+                        ...parsed, 
+                        uuid_sync: remoteUuid, 
+                        updated_at: remoteRecord.updated_at
+                      };
+                    } catch(e) {}
+                  }
+
+                  await table.put({
+                    ...mergedRecord,
+                    sync_status: 'synced',
+                    last_synced_at: Date.now()
+                  });
+               }
+             }
+           }
+         }
+
+         this.lastSync = Date.now();
+         localStorage.setItem('last_sync_timestamp', this.lastSync.toString());
+         
+         // Refresh views
+         await useAppStore.getState().hydrate();
+      }
+
+    } catch (e) {
+      logger.error('SyncEngine', 'Sync failed', e);
     } finally {
+      store.setSyncing(false);
       this.processing = false;
     }
   }
 
-  async triggerPush() {
-    if (!networkMonitor.isOnline()) return;
-    
-    const store = useSyncStore.getState();
-    const pendingItems = await syncQueue.peekAll();
-    store.setPendingCount(pendingItems.length);
-    
-    if (pendingItems.length === 0) return;
-    
-    store.setSyncing(true);
-    logger.info('SyncEngine', `Starting push for ${pendingItems.length} items.`);
-
-    try {
-      for (const item of pendingItems) {
-        if (!networkMonitor.isOnline()) break;
-        await this.processItem(item);
-      }
-    } finally {
-      store.setSyncing(false);
-      store.setPendingCount(await db.sync_queue.count());
-    }
-  }
-
-  async triggerPull() {
-    if (!networkMonitor.isOnline()) return;
-    
-    const tables = ['assets', 'work_orders', 'preventive_maintenance', 'clients', 'users', 'branches', 'reports', 'events'];
-    logger.info('SyncEngine', 'Starting pull for all tables.');
-
-    for (const tableName of tables) {
-      try {
-        const table = db[tableName as keyof typeof db] as any;
-        if (!table) continue;
-
-        const lastRecord = await table.orderBy('updated_at').reverse().first();
-        const since = lastRecord ? lastRecord.updated_at : 0;
-
-        const response = await fetch(`/api/sync/${tableName}?since=${since}`);
-        if (response.ok) {
-          const { data } = await response.json();
-          if (Array.isArray(data) && data.length > 0) {
-            for (const remoteRecord of data) {
-              const remoteUuid = remoteRecord.uuid_sync;
-              
-              if (!remoteUuid || typeof remoteUuid !== 'string') {
-                logger.warn('SyncEngine', `Remote record in ${tableName} missing valid uuid_sync, skipping.`, remoteRecord);
-                continue;
-              }
-
-              const local = await table.get(remoteUuid);
-              
-              if (!local || (remoteRecord.updated_at || 0) > (local.updated_at || 0)) {
-                let mergedRecord = remoteRecord;
-                // If it came from a generic table (id, data, updated_at)
-                if (tableName !== 'assets' && remoteRecord.data) {
-                  try {
-                    const parsed = typeof remoteRecord.data === 'string' ? JSON.parse(remoteRecord.data) : remoteRecord.data;
-                    mergedRecord = { 
-                      ...parsed, 
-                      uuid_sync: remoteUuid, 
-                      updated_at: remoteRecord.updated_at || Date.now()
-                    };
-                  } catch (e) {
-                    logger.error('SyncEngine', `Failed to parse data for ${tableName}:${remoteUuid}`, e);
-                    continue;
-                  }
-                }
-
-                await table.put({
-                  ...mergedRecord,
-                  sync_status: 'synced',
-                  last_synced_at: Date.now()
-                });
-              }
-            }
-            logger.info('SyncEngine', `Pulled ${data.length} records for ${tableName}`);
-          }
-        } else {
-          const errData = await response.json().catch(() => ({ error: response.statusText }));
-          logger.error('SyncEngine', `Pull failed for ${tableName}: ${response.status} ${errData.error || ''}`);
-        }
-      } catch (error: any) {
-        if (error?.message === 'Failed to fetch') {
-          logger.warn('SyncEngine', `Pull failed for ${tableName} (Network/Server unavailable)`);
-        } else {
-          logger.error('SyncEngine', `Pull failed for ${tableName}`, error);
-        }
-      }
-    }
-    
-    // Refresh local store with newly pulled data
-    await useAppStore.getState().hydrate();
-  }
-
-  // Renamed triggerSync to fullSync above
   async triggerSync() {
     return this.fullSync();
-  }
-
-  private async processItem(item: any) {
-    const startTime = Date.now();
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), latencyManager.getTimeoutForRequest());
-      
-      const response = await fetch(`/api/sync/${item.table}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          records: [item.data],
-          operation: item.operation 
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeout);
-      latencyManager.recordLatency(Date.now() - startTime);
-
-      if (response.ok) {
-        const result = await response.json();
-        await this.handleSuccess(item, result);
-      } else {
-        throw { status: response.status, message: response.statusText };
-      }
-    } catch (error: any) {
-      await this.handleError(item, error);
-    }
-  }
-
-  private async handleSuccess(item: any, serverResult: any) {
-    const table = db[item.table as keyof typeof db] as any;
-    if (table) {
-      if (item.operation === 'delete') {
-        await table.delete(item.uuid_sync);
-      } else {
-        const updates: any = { 
-          sync_status: 'synced' as SyncStatus,
-          last_synced_at: Date.now(),
-          retry_count: 0
-        };
-        
-        const officialId = serverResult?.results?.[0]?.folio_oficial || serverResult?.results?.[0]?.id;
-        if (officialId) {
-          if (item.table === 'assets') updates.tag = officialId;
-          else updates.id = officialId;
-        }
-
-        await table.update(item.uuid_sync, updates);
-      }
-    }
-    await syncQueue.remove(item.id!);
-    
-    useSyncStore.getState().addSyncResult({
-      id: crypto.randomUUID(),
-      table: item.table,
-      operation: item.operation,
-      status: 'success',
-      timestamp: Date.now()
-    });
-    
-    logger.info('SyncEngine', `Successfully synced ${item.table}:${item.uuid_sync}`);
-  }
-
-  private async handleError(item: any, error: any) {
-    logger.error('SyncEngine', `Sync failed for ${item.table}:${item.uuid_sync}`, error);
-    
-    const table = db[item.table as keyof typeof db] as any;
-    if (table) {
-      const record = await table.get(item.uuid_sync);
-      if (record) {
-        const currentRetry = record.retry_count || 0;
-        
-        if (retryManager.shouldRetry(currentRetry, error)) {
-          // Leave it in the queue, just update the table status and retry_count
-          await table.update(item.uuid_sync, {
-            sync_status: 'failed' as SyncStatus,
-            retry_count: currentRetry + 1
-          });
-        } else {
-          // Hard fail, remove from queue
-          await table.update(item.uuid_sync, {
-            sync_status: 'conflicted' as SyncStatus
-          });
-          await syncQueue.remove(item.id!);
-          logger.warn('SyncEngine', `Abandoned syncing ${item.table}:${item.uuid_sync} after ${currentRetry} retries.`);
-        }
-      }
-    }
-
-    useSyncStore.getState().addSyncResult({
-      id: crypto.randomUUID(),
-      table: item.table,
-      operation: item.operation,
-      status: 'error',
-      error: error.message || String(error),
-      timestamp: Date.now()
-    });
   }
 }
 

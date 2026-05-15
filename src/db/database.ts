@@ -33,6 +33,8 @@ export interface LocalActivo extends LocalBase {
   horas_operacion: number;
   tecnicos: string[];
   notas: string;
+  cliente_id?: string;
+  sucursal_id?: string;
 }
 
 export interface LocalTicket extends LocalBase {

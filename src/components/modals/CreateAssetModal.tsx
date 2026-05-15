@@ -161,7 +161,8 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       }
 
       await createAsset({
-        tag: fullTag,
+        uuid_sync: crypto.randomUUID(),
+        tag: fullTag || `EQUIPO-${Date.now()}`,
         nombre: tagData.nombreEquipo,
         tipo: tagData.tipo,
         marca: tagData.marca,
