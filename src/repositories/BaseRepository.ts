@@ -1,5 +1,6 @@
 import { db, CMMSDatabase, SyncStatus, LocalBase } from '../db/database';
 import { Table } from 'dexie';
+import { syncQueue } from '../sync/syncQueue';
 
 export abstract class BaseRepository<T extends LocalBase> {
   protected table: Table<T>;
@@ -52,7 +53,7 @@ export abstract class BaseRepository<T extends LocalBase> {
   }
 
   async enqueueSync(uuid_sync: string, operation: 'insert' | 'update' | 'delete', data: any) {
-    await db.sync_queue.add({
+    await syncQueue.enqueue({
       table: this.table.name,
       uuid_sync,
       operation,
