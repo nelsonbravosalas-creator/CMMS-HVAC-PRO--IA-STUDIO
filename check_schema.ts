@@ -1,6 +1,9 @@
 import { neon } from "@neondatabase/serverless";
 
-const dbUrl = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres') ? process.env.DATABASE_URL : "postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl || !dbUrl.startsWith('postgres')) {
+  throw new Error('DATABASE_URL debe estar configurada para revisar el esquema');
+}
 const sql = neon(dbUrl);
 
 async function check() {
