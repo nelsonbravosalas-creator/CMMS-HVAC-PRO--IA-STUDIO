@@ -1,6 +1,8 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { neon } from "@neondatabase/serverless";
+import { applySyncOperations } from "./api/_sync";
+import { getDatabaseHealth } from "./api/_schema";
 import path from "path";
 
 // Neon DB connection
@@ -318,115 +320,33 @@ async function startServer() {
   });
 
   // NEW GLOBAL SYNC ENDPOINT
-  app.post('/api/sync', async (req, res) => {
-    const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body;
+  app.get('/api/health/db', async (_req, res) => {
     try {
       const sql = getSql();
-      const results = { inserts: [], updates: [], deletes: [] };
-      
-      // En entorno serverless neon() usamos llamadas en serie simulando la transacción
-      for (const ins of inserts) {
-        const { table, data, uuid_sync, updated_at } = ins;
-        if (table === 'assets' || table === 'equipos') {
-          const d = data;
-          await sql`
-            INSERT INTO assets (
-              tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
-              voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
-              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
-              uuid_sync, updated_at, created_at, cliente_id, sucursal_id
-            ) VALUES (
-              ${d.tag}, ${d.nombre}, ${d.tipo || ''}, ${d.marca || ''}, ${d.modelo || ''}, 
-              ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
-              ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
-              ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
-              ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
-              ${uuid_sync}, ${updated_at}, ${updated_at}, ${d.cliente_id || ''}, ${d.sucursal_id || ''}
-            ) ON CONFLICT (uuid_sync) DO UPDATE SET
-              tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
-              serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
-              voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
-              fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
-              ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
-              horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id,
-              updated_at = EXCLUDED.updated_at
-            WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL;
-          `;
-        } else {
-          // generic JSONB tables
-          const safeTable = ['users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'].includes(table) ? table : null;
-          if (safeTable) {
-            const id = data.id || uuid_sync;
-            const strData = JSON.stringify(data);
-            const queryText = `
-              INSERT INTO ${safeTable} (id, data, uuid_sync, updated_at, created_at)
-              VALUES ($1, $2, $3, $4, $5)
-              ON CONFLICT (uuid_sync) DO UPDATE SET
-                id = EXCLUDED.id,
-                data = EXCLUDED.data,
-                updated_at = EXCLUDED.updated_at
-              WHERE EXCLUDED.updated_at > ${safeTable}.updated_at OR ${safeTable}.updated_at IS NULL;
-            `;
-            await (sql as any).query(queryText, [id, strData, uuid_sync, updated_at, updated_at]);
-          }
-        }
-        results.inserts.push({ uuid_sync, folio_oficial: data.tag || data.id });
-      }
+      const health = await getDatabaseHealth(sql);
+      res.json({ success: true, ...health });
+    } catch (error: any) {
+      res.status(503).json({ success: false, configured: Boolean(process.env.DATABASE_URL), connected: false, error: error.message });
+    }
+  });
 
-      for (const upd of updates) {
-        const { table, data, uuid_sync, updated_at } = upd;
-        if (table === 'assets' || table === 'equipos') {
-           const d = data;
-           await sql`
-            UPDATE assets SET
-              tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
-              serie = ${d.serie || ''}, ubicacion = ${d.ubicacion || ''}, area = ${d.area || ''}, capacidad = ${d.capacidad || ''},
-              voltaje = ${d.voltaje || ''}, corriente = ${d.corriente || ''}, refrigerante = ${d.refrigerante || ''},
-              fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util || 0}, estado = ${d.estado || 'operativo'},
-              ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, proximo_mantenimiento = ${d.proximo_mantenimiento || null},
-              horas_operacion = ${d.horas_operacion || 0}, notas = ${d.notas || ''},
-              cliente_id = ${d.cliente_id || ''}, sucursal_id = ${d.sucursal_id || ''},
-              updated_at = ${updated_at}
-            WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL);
-          `;
-        } else {
-          const safeTable = ['users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'].includes(table) ? table : null;
-          if (safeTable) {
-             const id = data.id || uuid_sync;
-             const strData = JSON.stringify(data);
-             const query = `
-                UPDATE ${safeTable} 
-                SET id = $1, data = $2, updated_at = $3
-                WHERE uuid_sync = $4 AND (updated_at < $5 OR updated_at IS NULL);
-             `;
-             await (sql as any).query(query, [id, strData, updated_at, uuid_sync, updated_at]);
-          }
-        }
-        results.updates.push({ uuid_sync });
-      }
+  app.post('/api/health/db', async (_req, res) => {
+    try {
+      const sql = getSql();
+      await ensureTables();
+      const health = await getDatabaseHealth(sql);
+      res.json({ success: true, migrated: true, ...health });
+    } catch (error: any) {
+      res.status(503).json({ success: false, configured: Boolean(process.env.DATABASE_URL), connected: false, error: error.message });
+    }
+  });
 
-      for (const del of deletes) {
-        const { table, uuid_sync } = del;
-        const safeTable = ['assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'].includes(table) ? table : null;
-        if (safeTable) {
-           await (sql as any).query(`DELETE FROM ${safeTable} WHERE uuid_sync = $1`, [uuid_sync]);
-           results.deletes.push({ uuid_sync });
-        }
-      }
-
-      // get server changes
-      const serverChanges: Record<string, any[]> = {};
-      for (const table of ALLOWED_TABLES) {
-         try {
-            const { rows } = await (sql as any).query(`SELECT * FROM ${table} WHERE updated_at > $1`, [lastSync]);
-            if (rows.length > 0) {
-               serverChanges[table] = rows;
-            }
-         } catch(e){}
-      }
-
-      console.log(`[SYNC] Sync applied: Inserts ${inserts.length}, Updates ${updates.length}, Deletes ${deletes.length}`);
-      res.json({ success: true, results, serverChanges });
+  app.post('/api/sync', async (req, res) => {
+    try {
+      const sql = getSql();
+      const payload = await applySyncOperations(sql, req.body);
+      const status = payload.success ? 200 : 207;
+      res.status(status).json(payload);
     } catch (error: any) {
       console.error('[SYNC ERROR]:', error);
       res.status(500).json({ success: false, error: error.message });
@@ -436,157 +356,20 @@ async function startServer() {
   app.post("/api/sync/:table", async (req, res) => {
     const table = req.params.table;
     const { records, operation } = req.body;
-    
+
     if (!ALLOWED_TABLES.includes(table) && table !== 'equipos') return res.status(400).json({ error: "Invalid table" });
     if (!Array.isArray(records)) return res.status(400).json({ error: "Records must be an array" });
 
     try {
       const sql = getSql();
-      const results = [];
-      
-      for (const record of records) {
-        if (operation === 'delete') {
-          switch (table) {
-            case 'assets': 
-              const aTagRows = await sql`SELECT tag FROM assets WHERE uuid_sync = ${record.uuid_sync}`;
-              if (aTagRows.length > 0) {
-                 const t = aTagRows[0].tag;
-                 // Delete related items (assuming their JSONB stores 'tag' or 'maquinaTag')
-                 await sql`DELETE FROM work_orders WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM preventive_maintenance WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM reports WHERE data->>'tag' = ${t} OR data->'machineData'->>'tag' = ${t}`;
-              }
-              await sql`DELETE FROM assets WHERE uuid_sync = ${record.uuid_sync}`; 
-              break;
-            case 'work_orders': await sql`DELETE FROM work_orders WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'preventive_maintenance': await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'users': await sql`DELETE FROM users WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'reports': await sql`DELETE FROM reports WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'clients': await sql`DELETE FROM clients WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'branches': await sql`DELETE FROM branches WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'events': await sql`DELETE FROM events WHERE uuid_sync = ${record.uuid_sync}`; break;
-          }
-          results.push({ uuid_sync: record.uuid_sync, deleted: true });
-          continue;
-        }
-
-        let folio_oficial = record.id;
-        if (table === 'assets' || table === 'equipos') {
-          folio_oficial = record.tag;
-        }
-
-        // Logic for backend FOlIO assignment (simulating a unique sequence per table)
-        if (record.sync_status === 'pending_insert') {
-          if (table === 'work_orders') {
-            // Find max id matching TK-xxxx
-            const rows = await sql`
-              SELECT id FROM work_orders WHERE id LIKE 'TK-%' ORDER BY id DESC LIMIT 1
-            `;
-            let nextNum = 1;
-            if (rows.length > 0) {
-              const lastId = rows[0].id;
-              const matches = lastId.match(/TK-(\d+)/);
-              if (matches) nextNum = parseInt(matches[1], 10) + 1;
-            }
-            folio_oficial = `TK-${nextNum.toString().padStart(4, '0')}`;
-            record.id = folio_oficial;
-          } else if (table === 'assets' || table === 'equipos') {
-            // If tag starts with TEMP, generate a new tag
-            if (record.tag && record.tag.startsWith('TEMP')) {
-               const rows = await sql`SELECT tag FROM assets WHERE tag LIKE 'ACT-%' ORDER BY tag DESC LIMIT 1`;
-               let nextNum = 1;
-               if (rows.length > 0) {
-                 const matches = rows[0].tag.match(/ACT-(\d+)/);
-                 if (matches) nextNum = parseInt(matches[1], 10) + 1;
-               }
-               folio_oficial = `ACT-${nextNum.toString().padStart(4, '0')}`;
-               record.tag = folio_oficial;
-            }
-          } else if (table === 'preventive_maintenance') {
-            const rows = await sql`SELECT id FROM preventive_maintenance WHERE id LIKE 'MANT-%' ORDER BY id DESC LIMIT 1`;
-            let nextNum = 1;
-            if (rows.length > 0) {
-              const matches = rows[0].id.match(/MANT-(\d+)/);
-              if (matches) nextNum = parseInt(matches[1], 10) + 1;
-            }
-            folio_oficial = `MANT-${nextNum.toString().padStart(4, '0')}`;
-            record.id = folio_oficial;
-          } else if (table === 'reports') {
-             const rows = await sql`SELECT id FROM reports WHERE id LIKE 'INF-%' ORDER BY id DESC LIMIT 1`;
-            let nextNum = 1;
-            if (rows.length > 0) {
-              const matches = rows[0].id.match(/INF-(\d+)/);
-              if (matches) nextNum = parseInt(matches[1], 10) + 1;
-            }
-            folio_oficial = `INF-${nextNum.toString().padStart(4, '0')}`;
-            record.id = folio_oficial;
-          }
-        }
-        
-        if (table === 'assets' || table === 'equipos') {
-          const d = record;
-
-          // Check for tag change to cascade
-          const oldTagRows = await sql`SELECT tag FROM assets WHERE uuid_sync = ${d.uuid_sync}`;
-          let oldTag = null;
-          if (oldTagRows.length > 0) oldTag = oldTagRows[0].tag;
-
-          await sql`
-            INSERT INTO assets (
-              tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
-              voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
-              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
-              uuid_sync, updated_at
-            ) VALUES (
-              ${d.tag}, ${d.nombre}, ${d.tipo}, ${d.marca || ''}, ${d.modelo || ''}, 
-              ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
-              ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
-              ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || ''}, 
-              ${d.proximo_mantenimiento || ''}, ${d.horas_operacion || 0}, ${d.notas || ''},
-              ${d.uuid_sync}, ${d.updated_at}
-            ) ON CONFLICT (uuid_sync) DO UPDATE SET
-              tag = EXCLUDED.tag,
-              nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
-              serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
-              voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
-              fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
-              ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
-              horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas,
-              updated_at = EXCLUDED.updated_at
-              WHERE EXCLUDED.updated_at > assets.updated_at;
-          `;
-
-          if (oldTag && oldTag !== d.tag) {
-             // Cascade update JSON tag fields
-             await sql`UPDATE work_orders SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
-             await sql`UPDATE preventive_maintenance SET data = jsonb_set(data, '{tag}', to_jsonb(${d.tag}::text)) WHERE data->>'tag' = ${oldTag};`;
-             await sql`UPDATE reports SET data = jsonb_set(data, '{machineData,tag}', to_jsonb(${d.tag}::text)) WHERE data->'machineData'->>'tag' = ${oldTag};`;
-          }
-        } else {
-          // Generic handler for other tables using JSONB storage
-          const id = (table === 'work_orders' || table === 'preventive_maintenance' || table === 'reports') ? record.id : record.uuid_sync;
-          const data = JSON.stringify(record);
-          const uuid_sync = record.uuid_sync;
-          const updated_at = record.updated_at;
-
-          switch (table) {
-            case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at`; break;
-            case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at`; break;
-            case 'clients': await sql`INSERT INTO clients (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at`; break;
-            case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > users.updated_at`; break;
-            case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at`; break;
-            case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at`; break;
-            case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at`; break;
-          }
-        }
-        
-        results.push({
-          uuid_sync: record.uuid_sync,
-          folio_oficial
-        });
-      }
-
-      res.json({ success: true, message: "Sync successful", results });
+      const opName = operation === 'delete' ? 'deletes' : operation === 'update' ? 'updates' : 'inserts';
+      const payload = await applySyncOperations(sql, {
+        inserts: opName === 'inserts' ? records.map((record: any) => ({ ...record, table, data: record, uuid_sync: record.uuid_sync, updated_at: record.updated_at })) : [],
+        updates: opName === 'updates' ? records.map((record: any) => ({ ...record, table, data: record, uuid_sync: record.uuid_sync, updated_at: record.updated_at })) : [],
+        deletes: opName === 'deletes' ? records.map((record: any) => ({ ...record, table, data: record, uuid_sync: record.uuid_sync, updated_at: record.updated_at || record.deleted_at })) : [],
+        lastSync: req.body.lastSync || 0
+      });
+      res.status(payload.success ? 200 : 207).json({ success: payload.success, message: "Sync successful", results: payload.results[opName], serverChanges: payload.serverChanges, serverTime: payload.serverTime });
     } catch (error: any) {
       console.error("Sync Error:", error);
       res.status(500).json({ success: false, error: error.message });
