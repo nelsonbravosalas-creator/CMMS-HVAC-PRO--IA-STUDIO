@@ -42,6 +42,11 @@ class SyncEngine {
       const deletes: any[] = [];
 
       for (const item of pendingItems) {
+        if (!item.uuid_sync || typeof item.uuid_sync !== 'string') {
+          if (item.id !== undefined) await syncQueue.remove(item.id);
+          continue;
+        }
+
         if (item.operation === 'insert') inserts.push(item);
         else if (item.operation === 'update') updates.push(item);
         else if (item.operation === 'delete') deletes.push(item);
@@ -70,6 +75,7 @@ class SyncEngine {
          // Resolve only queue items explicitly accepted by the server.
          const acceptedQueueIds = this.getAcceptedQueueIds(results);
          for (const item of pendingItems) {
+           if (!item.uuid_sync || typeof item.uuid_sync !== 'string') continue;
            const table = db[item.table as keyof typeof db] as any;
            const accepted = item.id !== undefined && acceptedQueueIds.has(item.id);
 
