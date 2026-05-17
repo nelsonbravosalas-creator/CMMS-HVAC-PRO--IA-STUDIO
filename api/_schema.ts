@@ -6,7 +6,8 @@ export const ALLOWED_TABLES = [
   'reports',
   'events',
   'clients',
-  'branches'
+  'branches',
+  'ordenes_servicio'
 ] as const;
 
 export type SyncTable = typeof ALLOWED_TABLES[number];
@@ -15,6 +16,7 @@ export const GENERIC_SYNC_TABLES = ALLOWED_TABLES.filter((table) => table !== 'a
 
 export function normalizeSyncTable(table: string): SyncTable | null {
   if (table === 'equipos') return 'assets';
+  if (table === 'informes') return 'reports';
   return (ALLOWED_TABLES as readonly string[]).includes(table) ? table as SyncTable : null;
 }
 
@@ -53,6 +55,8 @@ export async function ensureDatabaseSchema(sql: any) {
     notas TEXT,
     cliente_id TEXT,
     sucursal_id TEXT,
+    lat DOUBLE PRECISION,
+    lng DOUBLE PRECISION,
     updated_at BIGINT,
     created_at BIGINT,
     deleted_at BIGINT
@@ -133,6 +137,8 @@ async function addCommonColumns(sql: any) {
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS notas TEXT`;
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cliente_id TEXT`;
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS sucursal_id TEXT`;
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION`;
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION`;
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS created_at BIGINT`;
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;

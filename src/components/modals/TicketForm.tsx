@@ -3,7 +3,7 @@ import {
   X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History
 } from 'lucide-react';
 import { AssetSearchModal } from './AssetSearchModal';
-import { EQUIPOS_DATA } from '../../data/assets';
+import { useAppStore } from '../../store/useAppStore';
 import { ALMACEN_LABELS } from '../../data/branches';
 import { useTickets } from '../../hooks/useTickets';
 
@@ -14,6 +14,7 @@ interface TicketFormProps {
 
 export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: initialTag }) => {
   const { createTicket } = useTickets();
+  const assets = useAppStore(state => state.assets);
   const [showAssetSearch, setShowAssetSearch] = useState(false);
   const [tag, setTag] = useState(initialTag || "");
   const [equipoDesc, setEquipoDesc] = useState("");
@@ -32,7 +33,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
+  const filteredEquipos = assets.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
     const eqSucursal = eq.tag.split('.')[0];

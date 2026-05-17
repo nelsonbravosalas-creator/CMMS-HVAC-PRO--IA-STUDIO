@@ -35,6 +35,8 @@ export interface LocalActivo extends LocalBase {
   notas: string;
   cliente_id?: string;
   sucursal_id?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface LocalTicket extends LocalBase {
@@ -99,6 +101,11 @@ export interface LocalEvento extends LocalBase {
   data: any;
 }
 
+export interface LocalOrdenServicio extends LocalBase {
+  id: string;
+  data: any;
+}
+
 export interface SyncOperation {
   id?: number;
   table: string;
@@ -125,6 +132,7 @@ export class CMMSDatabase extends Dexie {
   branches!: Table<LocalSucursal>;
   reports!: Table<LocalInforme>;
   events!: Table<LocalEvento>;
+  ordenes_servicio!: Table<LocalOrdenServicio>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
 
@@ -139,6 +147,7 @@ export class CMMSDatabase extends Dexie {
       branches: 'uuid_sync, id, cliente_id, sync_status, updated_at',
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
+      ordenes_servicio: 'uuid_sync, id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, timestamp',
       audit_logs: 'id, action, userId, timestamp'
     });

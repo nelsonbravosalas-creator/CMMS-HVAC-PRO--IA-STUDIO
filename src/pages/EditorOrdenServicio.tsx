@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
+import { useServiceOrders } from "../hooks/useServiceOrders";
 
 const OS_DRAFT_KEY = "os_draft_v1";
 
@@ -25,6 +26,8 @@ export default function EditorOrdenServicio() {
   const [, setLocation] = useLocation();
   const id = params?.id;
   const isNew = id === "nuevo";
+  const { serviceOrders, saveDraft, finalizeServiceOrder } = useServiceOrders();
+  const localServiceOrder = serviceOrders.find(order => order.id === id || order.uuid_sync === id);
 
   const [activeSection, setActiveSection] = useState<Section>('general');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -65,30 +68,25 @@ export default function EditorOrdenServicio() {
 
   const [galeria, setGaleria] = useState<{src: string, desc: string}[]>([]);
 
-  // Load from local storage draft
   useEffect(() => {
-    if (isNew) {
-      const saved = localStorage.getItem(OS_DRAFT_KEY);
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          if (data.generalData) setGeneralData(data.generalData);
-          if (data.checklist) setChecklist(data.checklist);
-          if (data.hallazgos) setHallazgos(data.hallazgos);
-          if (data.galeria) setGaleria(data.galeria);
-          if (data.status) setStatus(data.status);
-        } catch (e) {
-          console.error("Error parsing OS draft", e);
-        }
-      }
+    const saved = localServiceOrder?.data || (isNew ? JSON.parse(localStorage.getItem(OS_DRAFT_KEY) || 'null') : null);
+    if (!saved) return;
+    try {
+      if (saved.generalData) setGeneralData(saved.generalData);
+      if (saved.checklist) setChecklist(saved.checklist);
+      if (saved.hallazgos) setHallazgos(saved.hallazgos);
+      if (saved.galeria) setGaleria(saved.galeria);
+      if (saved.status) setStatus(saved.status);
+    } catch (e) {
+      console.error("Error parsing OS draft", e);
     }
-  }, [isNew]);
+  }, [isNew, localServiceOrder]);
 
-  // Save to local storage auto
   useEffect(() => {
     if (isNew) {
       const draft = { generalData, checklist, hallazgos, galeria, status };
       localStorage.setItem(OS_DRAFT_KEY, JSON.stringify(draft));
+      saveDraft({ uuid_sync: `OS-DRAFT-${id || 'nuevo'}`, id: `OS-DRAFT-${id || 'nuevo'}`, data: draft } as any).catch(() => undefined);
     }
   }, [generalData, checklist, hallazgos, galeria, status, isNew]);
 
@@ -112,7 +110,9 @@ export default function EditorOrdenServicio() {
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
 
+    const orderId = id && id !== 'nuevo' ? id : `OS-${new Date().getFullYear()}-${Date.now()}`;
     const assetData = {
+      id: orderId,
       generalData,
       checklist,
       hallazgos,
@@ -122,17 +122,22 @@ export default function EditorOrdenServicio() {
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
-    // 1. Guardado Local (Feedback Inmediato)
-    localStorage.setItem(`registro_os_${id || 'nuevo'}`, JSON.stringify(assetData));
-
-    // 2. Ejecución diferida para la Nube
-    setTimeout(() => {
+    try {
+      await finalizeServiceOrder({
+        uuid_sync: localServiceOrder?.uuid_sync || orderId,
+        id: orderId,
+        data: assetData,
+        updated_at: Date.now()
+      } as any);
       setStatus('firmada');
-      setIsSyncing(false);
       localStorage.removeItem(OS_DRAFT_KEY);
-      alert("Orden de Servicio guardada y firmada exitosamente.");
+      alert("Orden de Servicio guardada localmente y encolada para sincronización.");
       setLocation("/ordenes-servicio");
-    }, 0);
+    } catch (error: any) {
+      alert(`No se pudo guardar la orden: ${error.message || error}`);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const menu: { id: Section, label: string, icon: any }[] = [
