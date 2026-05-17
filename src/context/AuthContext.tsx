@@ -7,7 +7,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL } from '../types';
-import { USUARIOS_MOCK } from '../data/users';
+import { db } from '../db/database';
 
 /**
  * Definición del contrato del contexto de autenticación.
@@ -31,23 +31,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(() => {
-    // Intentar recuperar sesión persistida
-    const savedPin = localStorage.getItem('auth_pin');
-    
-    if (savedPin) {
-      const foundUser = USUARIOS_MOCK.find(u => u.pin === savedPin && u.activo);
-      if (foundUser) {
-        return foundUser;
-      } else {
-        // If the pin is stale (e.g. mock data changed), remove it so they can re-login
-        // or we can fallback to the mock user 0 if is_authenticated is true.
-        localStorage.removeItem('auth_pin');
+    const savedUser = localStorage.getItem('auth_user');
+    if (savedUser && localStorage.getItem('is_authenticated') === 'true') {
+      try {
+        return JSON.parse(savedUser);
+      } catch {
+        localStorage.removeItem('auth_user');
       }
-    }
-    
-    // Si estamos en entorno de desarrollo local, o si se saltó el login
-    if (localStorage.getItem("is_authenticated") === "true") {
-       return USUARIOS_MOCK[0]; // Fallback
     }
     return null;
   });
@@ -79,12 +69,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('API no disponible, intentando login offline...');
     }
 
-    // 2. Fallback offline: buscar en USUARIOS_MOCK
-    const found = USUARIOS_MOCK.find(u => u.pin === pin && u.activo);
-    if (found) {
-      setUser(found as any);
+    // 2. Fallback offline: buscar usuarios ya sincronizados en IndexedDB.
+    const found = await db.users.where('pin').equals(pin).first();
+    if (found && found.activo) {
+      const offlineUser = {
+        id: found.id,
+        nombre: found.nombre,
+        correo: found.email,
+        perfil: found.rol as any,
+        activo: found.activo,
+        puedeEditarMantenimientos: true,
+        pin: found.pin
+      };
+      setUser(offlineUser);
       localStorage.setItem('auth_pin', pin);
-      localStorage.setItem('auth_user', JSON.stringify(found));
+      localStorage.setItem('auth_user', JSON.stringify(offlineUser));
       localStorage.setItem('is_authenticated', 'true');
       return true;
     }
@@ -96,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     localStorage.removeItem('auth_pin');
     localStorage.removeItem('is_authenticated');
+    localStorage.removeItem('auth_user');
     localStorage.removeItem('active_client');
   };
 

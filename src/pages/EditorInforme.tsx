@@ -36,8 +36,7 @@ import {
 import { Link, useRoute, useLocation } from "wouter";
 import { AssetSearchModal } from "../components/modals/AssetSearchModal";
 import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatureModal";
-import { INFORMES_MOCK } from "../data/reports";
-import { EQUIPOS_DATA } from "../data/assets";
+import { useReports } from "../hooks/useReports";
 import { SUCURSALES, ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
@@ -45,6 +44,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
+import { useAppStore } from "../store/useAppStore";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -89,7 +89,10 @@ export default function EditorInforme() {
   const [, setLocation] = useLocation();
   const id = params?.id;
   const isNew = id === "nuevo";
-  const informe = INFORMES_MOCK.find(i => i.id === id);
+  const { reports, saveDraft, finalizeReport } = useReports();
+  const localReport = reports.find(r => r.id === id || r.uuid_sync === id);
+  const informe = localReport?.data;
+  const assets = useAppStore(state => state.assets);
   
   const [activeSection, setActiveSection] = useState<Section | 'none'>('general');
   const [viewMode, setViewMode] = useState<'sidebar' | 'tabs' | 'accordion'>('sidebar');
@@ -584,12 +587,12 @@ export default function EditorInforme() {
   const [observaciones, setObservaciones] = useState("");
   const [galeria, setGaleria] = useState<{src: string, desc: string}[]>([]);
 
-  // Load Draft from LocalStorage
+  // Load Draft from Dexie first, then fallback to legacy LocalStorage.
   useEffect(() => {
-    const saved = localStorage.getItem(DRAFT_KEY);
+    const saved = localReport?.data || JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
     if (saved) {
       try {
-        const data = JSON.parse(saved);
+        const data = saved;
         setGeneralData(data.generalData);
         setMachineData(data.machineData);
         setCircuits(data.circuits);
@@ -605,23 +608,16 @@ export default function EditorInforme() {
       setGeneralData({ ...generalData, ...informe });
       setMachineData({ ...machineData, tag: informe.tag || '' });
     }
-  }, [id]);
+  }, [id, localReport]);
 
-  // Persist Changes to LocalStorage
+  // Persist draft locally in Dexie without enqueuing remote sync until finalization.
   useEffect(() => {
     if (status === 'firmado' || status === 'bloqueado') return;
-    
-    const draft = {
-      generalData,
-      machineData,
-      circuits,
-      checklist,
-      observaciones,
-      galeria,
-      status
-    };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, DRAFT_KEY]);
+
+    const draft = { generalData, machineData, circuits, checklist, observaciones, galeria, status };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); // legacy fallback for already-open sessions
+    saveDraft({ uuid_sync: `INF-DRAFT-${id || 'nuevo'}`, id: `INF-DRAFT-${id || 'nuevo'}`, data: draft } as any).catch(() => undefined);
+  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, DRAFT_KEY, id]);
   
   // Handle Finalize & Sync (Auto-numbering assignment)
   const handleSyncAndFinalize = async () => {
@@ -644,32 +640,20 @@ export default function EditorInforme() {
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
-    // 1. Guardado Local (Feedback Inmediato)
-    localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
-    
-    // 2. Ejecutar Sincronización Remota
     try {
-      const res = await fetch('/api/sync/informes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          uuid_sync: reportData.uuid_sync,
-          id: reportData.id,
-          data: reportData,
-          updated_at: Date.now()
-        })
-      });
-
-      if (!res.ok) {
-        console.warn("Fallo en sincronización, operará offline y se sincronizará luego");
-      } else {
-        reportData.sync_status = "sincronizado";
-        localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
-      }
+      await finalizeReport({
+        uuid_sync: reportData.uuid_sync,
+        id: reportData.id,
+        data: reportData,
+        updated_at: Date.now()
+      } as any);
+      reportData.sync_status = "encolado";
     } catch (e) {
-      console.warn("Offline: Se intentará sincronizar más tarde", e);
+      console.warn("No se pudo guardar en Dexie/syncQueue", e);
+      setStatus('borrador');
+      setIsSyncing(false);
+      alert("No se pudo guardar el informe localmente. Revisa IndexedDB/syncQueue.");
+      return;
     }
     
     setGeneralData(prev => ({ ...prev, folio: currentFolio }));
@@ -690,7 +674,7 @@ export default function EditorInforme() {
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
+  const filteredEquipos = assets.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
     const eqSucursal = eq.tag.split('.')[0];

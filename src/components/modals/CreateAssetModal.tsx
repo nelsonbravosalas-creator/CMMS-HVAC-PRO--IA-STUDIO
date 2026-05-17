@@ -6,8 +6,8 @@ import { useAssets } from '../../hooks/useAssets';
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
 } from 'lucide-react';
-import { EQUIPOS_DATA } from '../../data/assets';
 import { SUCURSALES } from '../../data/branches';
+import { useAppStore } from '../../store/useAppStore';
 
 interface CreateAssetModalProps {
   onClose: () => void;
@@ -15,6 +15,7 @@ interface CreateAssetModalProps {
 
 export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) => {
   const { createAsset } = useAssets();
+  const existingAssets = useAppStore(state => state.assets);
   const [tagData, setTagData] = useState({
     almacen: '21-STK',
     tipo: 'AC',
@@ -39,7 +40,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const tagRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const matches = EQUIPOS_DATA.filter(eq => {
+    const matches = existingAssets.filter(eq => {
       const parts = eq.tag.split('.');
       return parts[0] === tagData.almacen && parts[1] === tagData.tipo;
     });
@@ -52,7 +53,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     } else {
       setTagData(prev => ({ ...prev, correlativo: '001' }));
     }
-  }, [tagData.almacen, tagData.tipo]);
+  }, [tagData.almacen, tagData.tipo, existingAssets]);
 
   const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
   const qrUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}tag=${encodeURIComponent(fullTag)}`;
@@ -145,19 +146,11 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         throw new Error('El tag del equipo es obligatorio');
       }
 
-      // 1. Verify on Server if the tag exists
-      try {
-        const res = await fetch(`/api/equipos?tag=${encodeURIComponent(fullTag)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.data) {
-            alert("Alerta: El Tag ya se encuentra registrado en el servidor. Por favor, cambia el tipo de equipo o intenta de nuevo para ajustar el correlativo automáticamente desde el servidor.");
-            setIsSaving(false);
-            return;
-          }
-        }
-      } catch (err) {
-         // ignore fetch error in offline mode
+      const tagAlreadyExists = existingAssets.some(asset => asset.tag === fullTag);
+      if (tagAlreadyExists) {
+        alert("Alerta: El Tag ya se encuentra registrado localmente. Cambia el tipo de equipo o el correlativo antes de guardar.");
+        setIsSaving(false);
+        return;
       }
 
       await createAsset({

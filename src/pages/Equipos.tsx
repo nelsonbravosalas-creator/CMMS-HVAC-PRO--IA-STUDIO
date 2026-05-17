@@ -20,7 +20,6 @@ import {
   QrCode
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { EQUIPOS_DATA, Equipo } from "../data/assets";
 import { ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import { BulkUploadModal } from "../components/modals/BulkUploadModal";

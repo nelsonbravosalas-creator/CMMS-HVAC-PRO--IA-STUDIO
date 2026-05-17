@@ -3,9 +3,15 @@ import { SyncOperation } from '../db/database';
 
 export class SyncQueue {
   async enqueue(operation: SyncOperation) {
+    if (!operation.uuid_sync || typeof operation.uuid_sync !== 'string') {
+      throw new Error(`syncQueue requiere uuid_sync válido para ${operation.table}:${operation.operation}`);
+    }
+
     // Avoid duplicate inserts for the same entity and operation type
     const existing = await db.sync_queue
-      .where({ uuid_sync: operation.uuid_sync, operation: operation.operation })
+      .where('uuid_sync')
+      .equals(operation.uuid_sync)
+      .and((item) => item.operation === operation.operation)
       .first();
       
     if (existing) {

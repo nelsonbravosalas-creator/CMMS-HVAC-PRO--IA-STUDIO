@@ -35,6 +35,8 @@ export interface LocalActivo extends LocalBase {
   notas: string;
   cliente_id?: string;
   sucursal_id?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export interface LocalTicket extends LocalBase {
@@ -99,6 +101,11 @@ export interface LocalEvento extends LocalBase {
   data: any;
 }
 
+export interface LocalOrdenServicio extends LocalBase {
+  id: string;
+  data: any;
+}
+
 export interface SyncOperation {
   id?: number;
   table: string;
@@ -125,12 +132,14 @@ export class CMMSDatabase extends Dexie {
   branches!: Table<LocalSucursal>;
   reports!: Table<LocalInforme>;
   events!: Table<LocalEvento>;
+  ordenes_servicio!: Table<LocalOrdenServicio>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
 
   constructor() {
     super('CMMS_LocalDB_v4');
-    this.version(4).stores({
+
+    const version4Stores = {
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at',
       preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at',
@@ -141,7 +150,15 @@ export class CMMSDatabase extends Dexie {
       events: 'uuid_sync, id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, timestamp',
       audit_logs: 'id, action, userId, timestamp'
-    });
+    };
+
+    const version5Stores = {
+      ...version4Stores,
+      ordenes_servicio: 'uuid_sync, id, sync_status, updated_at'
+    };
+
+    this.version(4).stores(version4Stores);
+    this.version(5).stores(version5Stores);
   }
 }
 

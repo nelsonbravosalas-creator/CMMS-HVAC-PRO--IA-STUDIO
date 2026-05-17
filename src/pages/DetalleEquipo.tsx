@@ -27,7 +27,6 @@ import {
   Wrench
 } from "lucide-react";
 import { Link, useRoute } from "wouter";
-import { EQUIPOS_DATA, Equipo } from "../data/assets";
 import { TicketForm } from "../components/modals/TicketForm";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { db } from "../db/database";

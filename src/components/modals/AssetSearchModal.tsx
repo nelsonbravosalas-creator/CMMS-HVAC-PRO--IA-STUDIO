@@ -11,8 +11,7 @@ import {
   Users,
   History
 } from 'lucide-react';
-import { INFORMES_MOCK } from "../../data/reports";
-import { EQUIPOS_DATA } from "../../data/assets";
+import { useReports } from "../../hooks/useReports";
 
 interface AssetSearchModalProps {
   isOpen: boolean;
@@ -42,6 +41,7 @@ export function AssetSearchModal({
   results 
 }: AssetSearchModalProps) {
   const [activeTab, setActiveTab] = useState<'assets' | 'reports' | 'qr'>('assets');
+  const { reports } = useReports();
   const today = new Date().toLocaleDateString('es-CL');
   
   if (!isOpen) return null;
@@ -226,7 +226,9 @@ export function AssetSearchModal({
                    </div>
                  </div>
                  <div className="grid grid-cols-1 gap-4">
-                   {INFORMES_MOCK.slice(0, 5).map(inf => (
+                   {reports.slice(0, 5).map(report => {
+                    const inf = { id: report.id, ...(report.data || {}) };
+                    return (
                       <div key={inf.id} className="p-4 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-500 shadow-sm transition-transform hover:scale-105">
@@ -239,7 +241,8 @@ export function AssetSearchModal({
                         </div>
                         <button className="text-[9px] font-black text-blue-600 uppercase border-b border-blue-600 hover:text-blue-700 transition-colors">Ver</button>
                       </div>
-                   ))}
+                    );
+                   })}
                  </div>
                </div>
              )}
