@@ -160,14 +160,14 @@ async function upsertAsset(sql: any, operation: any, allowExistingOnly: boolean)
       tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad,
       voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado,
       ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas,
-      uuid_sync, updated_at, created_at, deleted_at, cliente_id, sucursal_id
+      uuid_sync, updated_at, created_at, deleted_at, cliente_id, sucursal_id, lat, lng
     ) VALUES (
       ${data.tag || operation.uuid_sync}, ${data.nombre || ''}, ${data.tipo || ''}, ${data.marca || ''}, ${data.modelo || ''},
       ${data.serie || ''}, ${data.ubicacion || ''}, ${data.area || ''}, ${data.capacidad || ''},
       ${data.voltaje || ''}, ${data.corriente || ''}, ${data.refrigerante || ''}, ${data.fecha_instalacion || ''},
       ${Number(data.vida_util || 0)}, ${data.estado || 'operativo'}, ${data.ultimo_mantenimiento || null},
       ${data.proximo_mantenimiento || null}, ${Number(data.horas_operacion || 0)}, ${JSON.stringify(data.tecnicos || [])}, ${data.notas || ''},
-      ${operation.uuid_sync}, ${updatedAt}, ${Number(data.created_at || updatedAt)}, ${data.deleted_at || null}, ${data.cliente_id || ''}, ${data.sucursal_id || ''}
+      ${operation.uuid_sync}, ${updatedAt}, ${Number(data.created_at || updatedAt)}, ${data.deleted_at || null}, ${data.cliente_id || ''}, ${data.sucursal_id || ''}, ${data.lat ?? null}, ${data.lng ?? null}
     ) ON CONFLICT (uuid_sync) DO UPDATE SET
       tag = EXCLUDED.tag,
       nombre = EXCLUDED.nombre,
@@ -191,6 +191,8 @@ async function upsertAsset(sql: any, operation: any, allowExistingOnly: boolean)
       notas = EXCLUDED.notas,
       cliente_id = EXCLUDED.cliente_id,
       sucursal_id = EXCLUDED.sucursal_id,
+      lat = EXCLUDED.lat,
+      lng = EXCLUDED.lng,
       deleted_at = EXCLUDED.deleted_at,
       updated_at = EXCLUDED.updated_at
     WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL

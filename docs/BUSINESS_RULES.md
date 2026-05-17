@@ -1,169 +1,59 @@
 # Reglas de negocio CMMS HVAC PRO
 
-> Versión: `2026.05-offline-first-v2`  
+> Versión: `2026.05-offline-first-v3`
 > Método estándar: `LOCAL_FIRST_SYNC_VERIFICATION`
 
-Este documento estandariza el método de operación de la aplicación CMMS HVAC PRO para que cualquier módulo, botón, formulario o workflow nuevo respete el modelo **offline-first** y la comunicación controlada entre **cliente local**, **Vercel** y **Neon PostgreSQL**.
+Este documento estandariza el método de operación de CMMS HVAC PRO. Todo módulo que cree, edite, elimine, cierre o finalice datos operativos debe trabajar **offline-first**: guardar primero en IndexedDB/Dexie, encolar en `sync_queue`, sincronizar por `/api/sync` en Vercel y converger hacia Neon PostgreSQL.
 
-## 1. Objetivo
-
-Garantizar que la aplicación pueda operar sin conexión, registrar trabajo en terreno y converger posteriormente con Neon sin pérdida de datos, duplicidad funcional ni escrituras directas desde el cliente a la base de datos.
-
-## 2. Alcance
-
-Aplica a:
-
-- Activos HVAC.
-- Órdenes de trabajo.
-- Mantenimiento preventivo.
-- Clientes.
-- Sucursales.
-- Usuarios.
-- Informes.
-- Eventos.
-- Nuevos módulos que se agreguen a futuro.
-
-## 3. Método estándar
-
-Todo flujo funcional debe seguir la secuencia:
-
-1. **Capturar intención**: identificar si la acción es crear, editar, eliminar, sincronizar o consultar.
-2. **Validar reglas de negocio**: campos requeridos, permisos, estado actual y consistencia del formulario.
-3. **Persistir local primero**: guardar en IndexedDB/Dexie con `uuid_sync`, `updated_at` y `sync_status`.
-4. **Encolar operación**: insertar o actualizar una entrada en `sync_queue` con `table`, `operation`, `data` y `uuid_sync`.
-5. **Enviar a Vercel**: ejecutar `POST /api/sync` cuando exista conexión o al presionar sincronizar.
-6. **Aplicar en Neon**: Vercel valida entorno, asegura schema y aplica operación idempotente.
-7. **Traer cambios remotos**: Vercel devuelve `serverChanges` por tabla y `serverTime`.
-8. **Reconciliar estado local**: aplicar cambios remotos, resolver tombstones y limpiar cola solo si la operación fue aceptada.
-9. **Auditar/notificar**: mostrar estado pendiente, sincronizado o fallido.
-
-## 4. Regla de oro offline-first
-
-Ningún botón o formulario sincronizable debe escribir directo a Neon desde el cliente.
-
-La ruta obligatoria es:
+## Regla de oro
 
 ```text
-UI → Repositorio local → IndexedDB → sync_queue → /api/sync en Vercel → Neon → serverChanges → IndexedDB/Zustand
+UI → Repositorio local → IndexedDB/Dexie → sync_queue → syncEngine → POST /api/sync → Vercel → Neon → serverChanges → IndexedDB/Zustand
 ```
 
-## 5. Recursos implicados
+Ningún botón sincronizable escribe directo a Neon desde el cliente. La única excepción son endpoints de soporte no CRUD, como OCR o autenticación.
 
-| Recurso | Responsabilidad |
-| --- | --- |
-| IndexedDB / Dexie | Persistencia local, lectura offline, cola de cambios. |
-| Zustand | Estado visible para la UI, hidratado desde repositorios locales. |
-| `syncQueue` | Dedupe y orden de operaciones pendientes. |
-| `syncEngine` | Push/pull, retry, reconciliación y actualización de `last_sync_timestamp`. |
-| Vercel Functions | Validación de entorno, schema, endpoints `/api/sync` y `/api/health/db`. |
-| Neon PostgreSQL | Persistencia central con `uuid_sync`, `updated_at`, `created_at`, `deleted_at`. |
+## Pantallas y tablas canónicas
 
-## 6. Flujo Vercel ⇄ Neon
-
-```text
-Cliente
-  ├─ lee/escribe IndexedDB
-  ├─ encola operación
-  └─ POST /api/sync
-        └─ Vercel
-            ├─ valida DATABASE_URL/JWT_SECRET
-            ├─ ensureDatabaseSchema()
-            ├─ applySyncOperations()
-            ├─ INSERT/UPDATE/tombstone en Neon
-            └─ retorna results + serverChanges + serverTime
-```
-
-## 7. Contrato de sincronización
-
-### Request
-
-```json
-{
-  "inserts": [],
-  "updates": [],
-  "deletes": [],
-  "lastSync": 0
-}
-```
-
-Cada operación debe incluir:
-
-- `table`
-- `uuid_sync`
-- `operation`
-- `data`
-- `updated_at`
-
-### Response
-
-```json
-{
-  "success": true,
-  "results": {
-    "inserts": [],
-    "updates": [],
-    "deletes": []
-  },
-  "serverChanges": {},
-  "serverTime": 0
-}
-```
-
-Solo resultados `applied` o `noop` permiten retirar una operación de `sync_queue`.
-
-## 8. Reglas por botón
-
-| Botón | Workflow estándar | Condición UI |
-| --- | --- | --- |
-| Crear | Validar → crear `uuid_sync` → guardar `pending_insert` → encolar `insert` → sync | Opera offline y muestra guardado local. |
-| Editar | Validar → actualizar `updated_at` → guardar `pending_update` → encolar `update` → sync | Opera offline; conflicto por mayor `updated_at`. |
-| Eliminar / Dar de baja | Confirmar → set `deleted_at` → guardar `pending_delete` → encolar `delete` → sync | Requiere confirmación y usa tombstone. |
-| Sincronizar | Leer cola → POST `/api/sync` → procesar resultados → aplicar cambios → guardar checkpoint | Deshabilitado mientras `syncing=true`. |
-| Ver | Leer store local/IndexedDB → mostrar estado sync | No depende de Neon en tiempo real. |
-
-## 9. Reglas por módulo
-
-| Módulo | Tabla | Identificador negocio | Campos mínimos |
+| Pantalla | Módulo | Tabla Neon | Regla aplicada |
 | --- | --- | --- | --- |
-| Activos HVAC | `assets` | `tag` | `tag`, `nombre`, `estado` |
-| Órdenes de trabajo | `work_orders` | `id` | `titulo`, `prioridad`, `estado`, `equipo_tag` |
-| Mantenimiento preventivo | `preventive_maintenance` | `id` | `equipo_tag`, `tecnico`, `tipo`, `fecha`, `estado` |
-| Clientes | `clients` | `id` | `nombre` |
-| Sucursales | `branches` | `id` | `nombre`, `cliente_id` |
-| Usuarios | `users` | `id` | `nombre`, `perfil`, `pin`, `activo` |
-| Informes | `reports` | `id` | `id`, `data` |
-| Eventos | `events` | `id` | `id`, `data` |
+| Equipos / Crear activo / Detalle equipo | Activos HVAC | `assets` | Crear/editar/borrar usa repositorio local, `sync_queue` y `/api/sync`. |
+| Mantenimientos | Preventivos/correctivos | `preventive_maintenance` | Crear/editar/borrar usa JSONB, tombstone `deleted_at` y confirmación para bajas. |
+| Tickets | Órdenes de trabajo | `work_orders` | Crear/cambiar estado/borrar dispara sincronización inmediata tras encolar. |
+| Informes HVAC | Informes técnicos | `reports` | Borrador local; al finalizar se encola en `reports` y se sincroniza por `syncEngine`. |
+| Órdenes de servicio | O.S. firmadas | `ordenes_servicio` | Borrador local; al finalizar se encola en `ordenes_servicio`. |
+| Administración usuarios | Usuarios | `users` | Alta/baja se hace por repositorio local y sync offline-first. |
+| Administración clientes | Clientes y sucursales | `clients`, `branches` | Alta de cliente y SUBs se guarda localmente y se encola. |
+| Mapa | Georreferencia activos | `assets` | Lee activos locales; `lat`/`lng` deben venir de `assets`. |
+| Planificación | Actividades | `events` | Debe leer/escribir eventos locales sincronizables. |
+| Reportes | Analítica | lectura de `assets`, `work_orders`, `preventive_maintenance`, `reports` | No usa mocks para KPI productivo. |
 
-## 10. Reglas de bajas
+## Workflow obligatorio por botón
 
-- No usar borrado físico en módulos sincronizados.
-- Usar `deleted_at` como tombstone.
-- La UI debe ocultar o marcar registros con tombstone según el contexto.
-- La cola local solo se limpia cuando Vercel responde `applied` o `noop`.
+1. Validar formulario, permiso y estado.
+2. Deshabilitar botón con `isSaving`/`isSyncing` para evitar doble clic.
+3. Crear o conservar `uuid_sync`.
+4. Persistir localmente en la tabla Dexie del módulo.
+5. Asignar `sync_status`: `pending_insert`, `pending_update` o `pending_delete`.
+6. Encolar operación en `sync_queue` con `table`, `operation`, `uuid_sync`, `data` y `timestamp`.
+7. Disparar `syncEngine.triggerSync()` si hay intención explícita del usuario.
+8. Vercel ejecuta `ensureDatabaseSchema()` y `applySyncOperations()`.
+9. Neon aplica upsert/tombstone idempotente.
+10. El cliente procesa `results`, limpia solo `applied`/`noop`, aplica `serverChanges` y guarda `serverTime`.
 
-## 11. Reglas de despliegue Vercel
+## Reglas de bajas
 
-Antes de redeploy:
+- No usar `DELETE` físico en módulos sincronizados.
+- Marcar `deleted_at` y `sync_status=pending_delete`.
+- Ocultar de UI operativa, salvo auditoría.
+- Pedir confirmación en botones destructivos.
 
-- Configurar `DATABASE_URL`.
-- Configurar `JWT_SECRET`.
-- Configurar `GEMINI_API_KEY` si se usa OCR/IA.
+## Checklist Vercel/Neon después del deploy
 
-Después del redeploy:
-
-1. Ejecutar `POST /api/health/db`.
-2. Validar `GET /api/health/db`.
-3. Verificar que `missingTables` esté vacío.
-4. Probar crear/editar/baja offline y sincronizar.
-
-## 12. Checklist para nuevos módulos
-
-- [ ] Declarar módulo en `MODULE_RULES`.
-- [ ] Definir campos requeridos.
-- [ ] Definir botones desde `BUTTON_WORKFLOW_RULES`.
-- [ ] Usar repositorio local para escritura.
-- [ ] Encolar operación con `syncQueue`.
-- [ ] Integrar con `/api/sync`.
-- [ ] Respetar `deleted_at` para bajas.
-- [ ] Mostrar `sync_status` en UI.
-- [ ] Documentar permisos en `ROLE_RULES`.
+1. Confirmar variables en Vercel: `DATABASE_URL`, `JWT_SECRET`, y `GEMINI_API_KEY` si se usa OCR/IA.
+2. Hacer redeploy del proyecto.
+3. Ejecutar `POST /api/health/db` para crear/migrar tablas.
+4. Ejecutar `GET /api/health/db` y verificar `missingTables: []`.
+5. Confirmar en Neon que existan: `assets`, `users`, `preventive_maintenance`, `work_orders`, `reports`, `events`, `clients`, `branches`, `ordenes_servicio`.
+6. Validar columnas nuevas en `assets`: `lat`, `lng`.
+7. Probar flujo offline: crear activo, ticket, mantenimiento, informe y orden de servicio; reconectar; verificar filas en Neon.

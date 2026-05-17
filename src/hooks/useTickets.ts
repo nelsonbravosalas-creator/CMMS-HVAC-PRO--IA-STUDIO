@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import { ticketsRepo } from '../repositories/WoRepository';
 import { LocalTicket } from '../db/database';
+import { syncEngine } from '../sync/syncEngine';
 
 export const useTickets = () => {
   const addTicketToStore = useAppStore(state => state.addTicket);
@@ -17,6 +18,7 @@ export const useTickets = () => {
 
     const savedTicket = await ticketsRepo.save(newTicket);
     addTicketToStore(savedTicket);
+    syncEngine.triggerSync();
     return savedTicket;
   };
 
@@ -31,12 +33,14 @@ export const useTickets = () => {
 
     const savedTicket = await ticketsRepo.save(updated);
     updateTicketInStore(savedTicket);
+    syncEngine.triggerSync();
     return savedTicket;
   };
 
   const deleteTicket = async (uuid: string) => {
     await ticketsRepo.delete(uuid);
     deleteTicketFromStore(uuid);
+    syncEngine.triggerSync();
   };
 
   return {

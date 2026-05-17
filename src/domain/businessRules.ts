@@ -6,7 +6,7 @@
  * permisos, campos obligatorios y comportamiento de sincronización tomando estas
  * reglas como contrato base antes de agregar UI o endpoints.
  */
-export const BUSINESS_RULES_VERSION = '2026.05-offline-first-v2';
+export const BUSINESS_RULES_VERSION = '2026.05-offline-first-v3';
 
 export const STANDARD_METHOD = {
   id: 'LOCAL_FIRST_SYNC_VERIFICATION',
@@ -55,7 +55,7 @@ export const INFRASTRUCTURE_RULES = {
   neon: {
     database: 'PostgreSQL Neon',
     requiredEnv: ['DATABASE_URL', 'JWT_SECRET'] as const,
-    canonicalTables: ['assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'] as const,
+    canonicalTables: ['assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches', 'ordenes_servicio'] as const,
     responsibility: 'Persistencia central, trazabilidad con uuid_sync/updated_at/deleted_at y consulta incremental.'
   }
 } as const;
@@ -254,6 +254,20 @@ export const MODULE_RULES = {
       delete: 'Anular evento',
       sync: 'Sincronizar eventos',
       view: 'Ver evento'
+    }
+  },
+  ordenes_servicio: {
+    label: 'Órdenes de servicio',
+    table: 'ordenes_servicio',
+    primaryIdentifier: 'uuid_sync',
+    businessIdentifier: 'id',
+    requiredFields: ['id', 'data'] as const,
+    buttons: {
+      create: 'Guardar y finalizar O.S.',
+      edit: 'Editar O.S.',
+      delete: 'Anular O.S.',
+      sync: 'Sincronizar O.S.',
+      view: 'Ver O.S.'
     }
   }
 } as const;
