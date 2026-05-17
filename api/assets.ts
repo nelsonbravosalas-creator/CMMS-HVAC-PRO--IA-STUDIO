@@ -12,11 +12,11 @@ export default async function handler(req: any, res: any) {
 
     if (method === 'GET') {
       if (tag) {
-        const rows = await sql`SELECT * FROM assets WHERE tag = ${tag}`;
+        const rows = await sql`SELECT * FROM assets WHERE tag = ${tag} AND deleted_at IS NULL`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
         return res.json({ success: true, data: rows[0] });
       }
-      const rows = await sql`SELECT * FROM assets ORDER BY tag ASC LIMIT 1000`;
+      const rows = await sql`SELECT * FROM assets WHERE deleted_at IS NULL ORDER BY tag ASC LIMIT 1000`;
       return res.json({ success: true, data: rows });
     }
 
@@ -32,7 +32,7 @@ export default async function handler(req: any, res: any) {
         INSERT INTO assets (tag, nombre, tipo, marca, modelo, serie, ubicacion, area,
           capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util,
           estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion,
-          tecnicos, notas, cliente_id, sucursal_id, uuid_sync, updated_at, created_at)
+          tecnicos, notas, cliente_id, sucursal_id, uuid_sync, updated_at, created_at, deleted_at)
         VALUES (
           ${d.tag}, ${d.nombre || ''}, ${d.tipo || ''}, ${d.marca || ''},
           ${d.modelo || ''}, ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''},
@@ -41,7 +41,7 @@ export default async function handler(req: any, res: any) {
           ${d.ultimo_mantenimiento || ''}, ${d.proximo_mantenimiento || ''},
           ${d.horas_operacion || 0}, ${JSON.stringify(d.tecnicos || [])}, ${d.notas || ''},
           ${cliente_id}, ${sucursal_id},
-          ${d.uuid_sync || d.tag}, ${d.updated_at || now}, ${now}
+          ${d.uuid_sync || d.tag}, ${d.updated_at || now}, ${now}, ${d.deleted_at || null}
         )
         ON CONFLICT (tag) DO UPDATE SET
           nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca,
@@ -53,7 +53,8 @@ export default async function handler(req: any, res: any) {
           proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
           horas_operacion = EXCLUDED.horas_operacion, tecnicos = EXCLUDED.tecnicos,
           notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id,
-          sucursal_id = EXCLUDED.sucursal_id, updated_at = EXCLUDED.updated_at
+          sucursal_id = EXCLUDED.sucursal_id, deleted_at = EXCLUDED.deleted_at,
+          updated_at = EXCLUDED.updated_at
         WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL
       `;
       return res.json({ success: true, data: { tag: d.tag } });
@@ -61,8 +62,15 @@ export default async function handler(req: any, res: any) {
 
     if (method === 'DELETE') {
       if (!tag) return res.status(400).json({ error: 'Falta tag' });
-      await sql`DELETE FROM assets WHERE tag = ${tag}`;
-      return res.json({ success: true });
+      const now = Date.now();
+      const rows = await sql`
+        UPDATE assets
+        SET estado = 'baja', deleted_at = ${now}, updated_at = ${now}
+        WHERE tag = ${tag}
+        RETURNING tag, uuid_sync, deleted_at, updated_at
+      `;
+      if (rows.length === 0) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
+      return res.json({ success: true, data: rows[0], softDeleted: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
