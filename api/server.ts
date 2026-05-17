@@ -11,8 +11,6 @@ const getSql = () => {
   return neon(process.env.DATABASE_URL);
 };
 
-const ALLOWED_TABLES = ['assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'];
-
 app.get('/api/health/db', async (_req, res) => {
   try {
     const sql = getSql();
