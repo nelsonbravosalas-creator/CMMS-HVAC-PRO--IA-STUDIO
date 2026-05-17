@@ -148,6 +148,7 @@ export class CMMSDatabase extends Dexie {
       branches: 'uuid_sync, id, cliente_id, sync_status, updated_at',
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
+      ordenes_servicio: 'uuid_sync, id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, timestamp',
       audit_logs: 'id, action, userId, timestamp'
     };
