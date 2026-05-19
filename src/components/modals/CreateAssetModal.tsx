@@ -153,19 +153,16 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         throw new Error('El tag del equipo es obligatorio');
       }
 
-      // 1. Verify on Server if the tag exists
+      // 1. Verify locally in Dexie if the tag exists
       try {
-        const res = await fetch(`/api/equipos?tag=${encodeURIComponent(fullTag)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.data) {
-            alert("Alerta: El Tag ya se encuentra registrado en el servidor. Por favor, cambia el tipo de equipo o intenta de nuevo para ajustar el correlativo automáticamente desde el servidor.");
-            setIsSaving(false);
-            return;
-          }
+        const existingAsset = await assetsRepo.getByTag(fullTag);
+        if (existingAsset) {
+          alert("Alerta: El Tag ya se encuentra registrado localmente. Por favor, selecciona otro.");
+          setIsSaving(false);
+          return;
         }
       } catch (err) {
-         // ignore fetch error in offline mode
+         // ignore error
       }
 
       await createAsset({

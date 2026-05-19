@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { SearchableSelect } from '../components/SearchableSelect';
 import { REFRIGERANTES_CHILE } from '../data/refrigerantes';
 import { useAppStore } from "../store/useAppStore";
+import { reportsRepo } from "../repositories/ReportRepository";
 import { 
   X,
   Save, 
@@ -670,37 +671,8 @@ export default function EditorInforme() {
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
-    // 1. Guardado Local (Feedback Inmediato)
-    localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
-    
-    // 2. Ejecutar Sincronización Remota
-    try {
-      const res = await fetch('/api/sync/informes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          records: [{
-            uuid_sync: reportData.uuid_sync,
-            id: reportData.id,
-            data: reportData,
-            updated_at: Date.now(),
-            sync_status: 'pending_insert'
-          }],
-          operation: 'upsert'
-        })
-      });
-
-      if (!res.ok) {
-        console.warn("Fallo en sincronización, operará offline y se sincronizará luego");
-      } else {
-        reportData.sync_status = "sincronizado";
-        localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
-      }
-    } catch (e) {
-      console.warn("Offline: Se intentará sincronizar más tarde", e);
-    }
+    // 1. Guardado Local y Encolado en Dexie
+    await reportsRepo.save(reportData as any);
     
     setGeneralData(prev => ({ ...prev, folio: currentFolio }));
     setStatus('firmado');

@@ -23,6 +23,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
 import * as htmlToImage from 'html-to-image';
+import { assetsRepo } from "../repositories/AssetRepository";
 import { EQUIPOS_DATA } from "../data/assets";
 import { SUCURSALES } from "../data/branches";
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -162,15 +163,14 @@ export default function ScannerQR() {
       // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
       setLastResult(tagValue);
       
-      // BÚSQUEDA EN BASE DE DATOS:
-      fetch(`/api/assets?tag=${tagValue}`)
-        .then(r => r.json())
-        .then(data => {
-           if (data.success && data.data) {
+      // BÚSQUEDA EN BASE DE DATOS LOCAL:
+      assetsRepo.getByTag(tagValue)
+        .then(asset => {
+           if (asset) {
              setEquipoEscaneado({
-               tag: data.data.tag,
-               nombre: data.data.nombre,
-               ubicacion: data.data.ubicacion || "Ubicación en BD"
+               tag: asset.tag,
+               nombre: asset.nombre,
+               ubicacion: asset.ubicacion || "Ubicación en BD"
              });
            } else {
              const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
@@ -182,7 +182,7 @@ export default function ScannerQR() {
            }
         })
         .catch(err => {
-           setEquipoEscaneado({ error: `Error de conexión con Neon DB.` });
+           setEquipoEscaneado({ error: `Error de búsqueda local.` });
         })
     }
   };
