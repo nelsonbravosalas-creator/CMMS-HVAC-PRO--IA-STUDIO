@@ -113,7 +113,7 @@ export default function Dashboard() {
             <select 
               value={almacen}
               onChange={(e) => setAlmacen(e.target.value)}
-              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 border-r border-slate-100"
+              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 border-r border-slate-100 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10"
             >
               <option value="">Todos los Almacenes</option>
               {Object.entries(ALMACEN_LABELS).map(([k, v]) => (
@@ -123,7 +123,7 @@ export default function Dashboard() {
             <select 
               value={estado}
               onChange={(e) => setEstado(e.target.value)}
-              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600"
+              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 dark:bg-slate-900 dark:text-slate-100"
             >
               <option value="">Cualquier Estado</option>
               <option value="falla">Falla Crítica</option>
@@ -142,7 +142,7 @@ export default function Dashboard() {
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KPICard label="Disponibilidad" value={kpis.disponibilidad} trend="+0.4%" icon={Activity} color="text-emerald-500" />
+        <KPICard label="Disponibilidad" value={kpis.disponibilidad} trend="+0.4%" icon={Activity} color="text-emerald-500" className="text-container-contrast" />
         <KPICard label="MTBF" value="420h" trend="-12h" icon={Clock} color="text-blue-500" />
         <KPICard label="MTTR" value="4.2h" trend="-0.8h" icon={Wrench} color="text-amber-500" />
         <KPICard label="Tickets Activos" value={kpis.work_orders.toString().padStart(2, '0')} icon={Ticket} color="text-red-500" alert={kpis.work_orders > 0} />
@@ -336,9 +336,9 @@ export default function Dashboard() {
   );
 }
 
-function KPICard({ label, value, trend, icon: Icon, color, alert }: any) {
+function KPICard({ label, value, trend, icon: Icon, color, alert, className = "" }: any) {
   return (
-    <div className={`p-4 bg-white rounded-2xl border shadow-sm flex flex-col gap-2 transition-all hover:shadow-md ${alert ? 'border-red-100 ring-4 ring-red-500/5 pulse-red' : 'border-slate-100'}`}>
+    <div className={`p-4 bg-white rounded-2xl border shadow-sm flex flex-col gap-2 transition-all hover:shadow-md ${alert ? 'border-red-100 ring-4 ring-red-500/5 pulse-red' : 'border-slate-100'} ${className}`}>
       <div className="flex justify-between items-start">
         <div className={`p-2 rounded-lg bg-slate-50 ${color}`}>
           <Icon className="w-4 h-4" />

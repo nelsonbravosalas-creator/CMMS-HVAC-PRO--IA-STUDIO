@@ -80,6 +80,31 @@
   --muted-foreground: 215.4 16.3% 46.9%;
 }
 
+/* 
+   THEME CUSTOMIZATIONS (User Feedback)
+*/
+
+.dark button:has(svg.lucide-x),
+.dark button:has(svg[class*="lucide-x"]) {
+  border-color: #39FF14 !important;
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.3) !important;
+  color: #39FF14 !important;
+}
+
+/* Regla de contraste: Contenedores de texto en colores opuestos */
+.dark .text-container-contrast {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.dark select,
+.dark .dropdown-dark {
+  background-color: #1a1f2e !important;
+  color: #f3f4f6 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
 @layer base {
   * {
     border-color: var(--cmms-border);
@@ -164,4 +189,40 @@
   color: var(--cmms-text-primary) !important;
   border-radius: var(--radius) !important;
   box-shadow: var(--shadow-lg) !important;
+}
+
+/* --- REGLAS DE UI SOLICITADAS POR EL USUARIO --- */
+
+/* 1. "en el modo oscuro, resalta los bordes de los botones de cerrar con un contorno verde electrico" */
+.dark button:has(svg.lucide-x) {
+  border: 1px solid #39FF14 !important;
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.5) !important;
+}
+
+/* 2. "Los fondos de los menues desplegables si esta en modo oscuro, hazlo oscuros." */
+.dark select,
+.dark [role="listbox"],
+.dark [role="menu"] {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #f8fafc !important; /* text-slate-50 */
+}
+
+.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* 3. "regla. el fondo de un contenedor de texto deben ser de colores opuesto. Negro -> Blanco" */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="number"],
+.dark textarea {
+  background-color: #ffffff !important;
+  color: #020617 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
 }

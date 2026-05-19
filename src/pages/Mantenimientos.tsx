@@ -145,7 +145,7 @@ export default function Mantenimientos() {
                       <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
                       <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><Edit3 className="w-3.5 h-3.5" /></button>
                       <button 
-                        onClick={() => confirm('¿Eliminar este mantenimiento? Se aplicará una baja lógica con deleted_at.') && deleteMantenimiento(m.uuid_sync)}
+                        onClick={() => deleteMantenimiento(m.uuid_sync)}
                         className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

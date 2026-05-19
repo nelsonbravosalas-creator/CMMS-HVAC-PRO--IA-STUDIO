@@ -3,9 +3,10 @@ import {
   X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History
 } from 'lucide-react';
 import { AssetSearchModal } from './AssetSearchModal';
-import { useAppStore } from '../../store/useAppStore';
+import { EQUIPOS_DATA } from '../../data/assets';
 import { ALMACEN_LABELS } from '../../data/branches';
 import { useTickets } from '../../hooks/useTickets';
+import { SearchableSelect } from '../SearchableSelect';
 
 interface TicketFormProps {
   onClose: () => void;
@@ -14,7 +15,6 @@ interface TicketFormProps {
 
 export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: initialTag }) => {
   const { createTicket } = useTickets();
-  const assets = useAppStore(state => state.assets);
   const [showAssetSearch, setShowAssetSearch] = useState(false);
   const [tag, setTag] = useState(initialTag || "");
   const [equipoDesc, setEquipoDesc] = useState("");
@@ -25,6 +25,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [prioridad, setPrioridad] = useState("Media");
+  const [tipoIncidencia, setTipoIncidencia] = useState("Falla Técnica");
   const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
   
   // Search Modal States
@@ -33,7 +34,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = assets.filter(eq => {
+  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
     const eqSucursal = eq.tag.split('.')[0];
@@ -174,27 +175,33 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-1 z-40">
                 <label className="text-[10px] font-black uppercase text-slate-400">Prioridad</label>
-                <select 
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+                <SearchableSelect
+                  options={[
+                    { value: 'Baja', label: 'Baja' },
+                    { value: 'Media', label: 'Media' },
+                    { value: 'Alta', label: 'Alta' },
+                    { value: 'CRÍTICA', label: 'CRÍTICA' },
+                  ]}
                   value={prioridad}
-                  onChange={(e) => setPrioridad(e.target.value)}
-                >
-                  <option value="Baja">Baja</option>
-                  <option value="Media">Media</option>
-                  <option value="Alta">Alta</option>
-                  <option value="CRÍTICA">CRÍTICA</option>
-                </select>
+                  onChange={setPrioridad}
+                  placeholder="Selecciona prioridad"
+                />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 z-30">
                 <label className="text-[10px] font-black uppercase text-slate-400">Tipo Incidencia</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500">
-                  <option>Falla Técnica</option>
-                  <option>Mejora Solicitada</option>
-                  <option>Consulta Preventiva</option>
-                  <option>Garantía</option>
-                </select>
+                <SearchableSelect
+                  options={[
+                    { value: 'Falla Técnica', label: 'Falla Técnica' },
+                    { value: 'Mejora Solicitada', label: 'Mejora Solicitada' },
+                    { value: 'Consulta Preventiva', label: 'Consulta Preventiva' },
+                    { value: 'Garantía', label: 'Garantía' },
+                  ]}
+                  value={tipoIncidencia}
+                  onChange={setTipoIncidencia}
+                  placeholder="Selecciona tipo"
+                />
               </div>
             </div>
 
@@ -209,17 +216,19 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 z-20">
               <label className="text-[10px] font-black uppercase text-slate-400">Asignar Personal</label>
-              <select 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+              <SearchableSelect
+                options={[
+                  { value: 'Nelson Bravo (Tech Lead)', label: 'Nelson Bravo (Tech Lead)' },
+                  { value: 'Gonzalo Bravo (Senior Tech)', label: 'Gonzalo Bravo (Senior Tech)' },
+                  { value: 'Disponible para cualquiera', label: 'Disponible para cualquiera' },
+                ]}
                 value={asignadoA}
-                onChange={(e) => setAsignadoA(e.target.value)}
-              >
-                <option value="Nelson Bravo (Tech Lead)">Nelson Bravo (Tech Lead)</option>
-                <option value="Gonzalo Bravo (Senior Tech)">Gonzalo Bravo (Senior Tech)</option>
-                <option value="Disponible para cualquiera">Disponible para cualquiera</option>
-              </select>
+                onChange={setAsignadoA}
+                placeholder="Selecciona personal"
+                icon={<User className="w-4 h-4 text-slate-400" />}
+              />
             </div>
 
             <div className="flex gap-4">

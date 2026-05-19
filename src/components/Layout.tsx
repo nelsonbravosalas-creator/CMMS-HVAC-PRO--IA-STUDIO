@@ -145,8 +145,8 @@ export default function Layout({ children }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Control del drawer de acciones secundarias (Mobile) */
   const [isMoreDrawerOpen, setIsMoreDrawerOpen] = useState(false);
-  /** Estado del tema visual (Persistente durante la sesión) */
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  /** Estado del tema visual (Inicia en modo claro por defecto) */
+  const [isDarkMode, setIsDarkMode] = useState(false);
   /** Visibilidad del banner de Progressive Web App */
   const [showPWABanner, setShowPWABanner] = useState(true);
   /** Posición de los controles móviles para ergonimía (Derecha/Izquierda) */
@@ -168,7 +168,7 @@ export default function Layout({ children }: LayoutProps) {
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   return (
-    <div className={`h-screen w-full flex overflow-hidden font-sans ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`h-screen w-full flex overflow-hidden font-sans ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* Sidebar - Desktop */}
       <aside className={`hidden lg:flex w-[260px] h-full flex-col border-r shadow-xl z-20 ${isDarkMode ? 'bg-slate-950 border-slate-900' : 'bg-white border-slate-200'}`}>
@@ -259,7 +259,7 @@ export default function Layout({ children }: LayoutProps) {
                 <button 
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
-                    isDarkMode ? 'bg-white/5 border-white/10 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600'
+                    isDarkMode ? 'bg-white/5 border-[#39FF14] shadow-[0_0_15px_rgba(57,255,20,0.3)] text-[#39FF14]' : 'bg-slate-100 border-slate-200 text-slate-600'
                   }`}
                 >
                   <X className="w-6 h-6" />
@@ -373,7 +373,12 @@ export default function Layout({ children }: LayoutProps) {
               <span>INSTALAR APP PARA ACCESO OFFLINE</span>
               <button className="ml-4 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/40 transition-colors">INSTALAR</button>
             </div>
-            <X className="w-3 h-3 cursor-pointer opacity-70 hover:opacity-100" onClick={() => setShowPWABanner(false)} />
+            <X 
+              className={`w-3 h-3 cursor-pointer opacity-70 hover:opacity-100 p-0.5 rounded-full border transition-all ${
+                isDarkMode ? 'border-[#39FF14] text-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.5)]' : 'border-transparent'
+              }`} 
+              onClick={() => setShowPWABanner(false)} 
+            />
           </div>
         )}
 

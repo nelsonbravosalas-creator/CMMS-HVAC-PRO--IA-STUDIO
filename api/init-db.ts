@@ -1,17 +1,33 @@
 import { neon } from '@neondatabase/serverless';
-import { ensureDatabaseSchema, getDatabaseHealth, getDatabaseUrl } from './_schema';
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST' && req.method !== 'GET') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
+export default async function handler(req, res) {
+  let dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return res.status(500).json({ success: false, error: "Missing DATABASE_URL" });
+  }
+  if (!dbUrl.startsWith('postgres')) {
+    dbUrl = 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
   }
 
-  try {
-    const sql = neon(getDatabaseUrl());
-    await ensureDatabaseSchema(sql);
-    const health = await getDatabaseHealth(sql);
-    return res.status(200).json({ success: true, message: 'Base de datos inicializada correctamente en Neon', ...health });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+  if (req.method === 'POST' || req.method === 'GET') {
+    try {
+      const sql = neon(dbUrl);
+      await sql`
+        CREATE TABLE IF NOT EXISTS activos (
+          id TEXT PRIMARY KEY,
+          tag_tecnico TEXT,
+          nombre TEXT,
+          tipo TEXT,
+          ubicacion TEXT,
+          estado TEXT,
+          ultima_revision TIMESTAMP
+        );
+      `;
+      return res.status(200).json({ success: true, message: "Base de datos inicializada correctamente en Neon" });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
   }
+
+  return res.status(405).json({ success: false, error: "Method not allowed" });
 }

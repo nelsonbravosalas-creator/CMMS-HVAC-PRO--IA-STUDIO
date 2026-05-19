@@ -19,14 +19,14 @@ import {
   X,
   Save
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
 import * as htmlToImage from 'html-to-image';
-import { useAppStore } from "../store/useAppStore";
+import { EQUIPOS_DATA } from "../data/assets";
 import { SUCURSALES } from "../data/branches";
-import { useEffect } from "react";
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { useAssets } from "../hooks/useAssets";
 
 /**
  * Componente ScannerQR.
@@ -53,7 +53,7 @@ import { Scanner } from '@yudiel/react-qr-scanner';
  * FLUJO DE DOCUMENTACIÓN:
  * 1. El usuario escanea un QR que apunta a la URL de Vercel (ej: .../scanner?tag=XXX).
  * 2. Al cargar, el useEffect lee el parámetro 'tag' de la URL.
- * 3. Se realiza un "llamado a la base de datos" (a IndexedDB/Zustand) para recuperar la ficha técnica.
+ * 3. Se realiza un "llamado a la base de datos" (actualmente a EQUIPOS_DATA) para recuperar la ficha técnica.
  * 
  * INTERACCIONES:
  * - data/equipos.ts: Provee la información del equipo tras el escaneo.
@@ -61,7 +61,6 @@ import { Scanner } from '@yudiel/react-qr-scanner';
  */
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
-  const assets = useAppStore(state => state.assets);
 
   /** Modos de la vista: scanner (captura) o generator (creación) */
   const [mode, setMode] = useState<"scanner" | "generator">("scanner");
@@ -85,8 +84,8 @@ export default function ScannerQR() {
       const tagParam = params.get("tag");
       if (tagParam) {
         setLastResult(tagParam);
-        // Hacemos el "llamado a la base de datos" local (assets locales sincronizados)
-        const equipo = assets.find(eq => eq.tag === tagParam);
+        // Hacemos el "llamado a la base de datos" local (EQUIPOS_DATA mock por ahora)
+        const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagParam);
         if (equipo) {
           setEquipoEscaneado(equipo);
         } else {
@@ -94,7 +93,7 @@ export default function ScannerQR() {
         }
       }
     }
-  }, [assets]);
+  }, []);
 
   /** Datos para pre-poblar el generador de etiquetas */
   const [tagData, setTagData] = useState({
@@ -174,7 +173,7 @@ export default function ScannerQR() {
                ubicacion: data.data.ubicacion || "Ubicación en BD"
              });
            } else {
-             const localFallback = assets.find(eq => eq.tag === tagValue);
+             const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
              if (localFallback) {
                setEquipoEscaneado(localFallback);
              } else {
@@ -211,53 +210,26 @@ export default function ScannerQR() {
     window.print();
   };
 
-  const handleRegister = () => {
+  const { createAsset } = useAssets();
+
+  const handleRegister = async () => {
     setIsExporting(true);
-
-    const assetData = {
-      tag: fullTag,
-      nombre: tagData.nombreEquipo,
-      almacen: tagData.almacen,
-      tipo: tagData.tipo,
-      correlativo: tagData.correlativo,
-      ubicacion: tagData.almacen,
-      estado: "OPERATIVO",
-      sync_status: "pendiente",
-      fechaSincronizacionLocal: new Date().toISOString()
-    };
-
-    // 1. Guardado Local (Feedback Inmediato)
-    localStorage.setItem(`registro_${fullTag}`, JSON.stringify(assetData));
-
-    // 2. Ejecución diferida para la Nube
-    setTimeout(async () => {
-      try {
-        const response = await fetch('/api/assets', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tag: fullTag,
-            nombre: tagData.nombreEquipo,
-            estado: "operativo",
-            tipo: tagData.tipo,
-            ubicacion: tagData.almacen,
-            tecnicos: []
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al guardar en la base de datos');
-        }
-
-        console.log("Sincronizado con Neon DB exitosamente");
-        alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
-      } catch (error) {
-        console.error("Error en la nube, se mantiene solo local:", error);
-        alert("El activo se guardó localmente. Se sincronizará cuando haya conexión.");
-      } finally {
-        setIsExporting(false);
-      }
-    }, 0);
+    try {
+      await createAsset({
+        tag: fullTag,
+        nombre: tagData.nombreEquipo,
+        tipo: tagData.tipo,
+        estado: "operativo",
+        ubicacion: tagData.almacen
+      });
+      console.log("Activo guardado localmente (Offline First)");
+      alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
+    } catch (error) {
+      console.error("Error al guardar activo", error);
+      alert("Hubo un error al guardar el activo.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (

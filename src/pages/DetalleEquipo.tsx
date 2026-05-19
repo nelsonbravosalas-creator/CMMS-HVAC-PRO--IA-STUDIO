@@ -27,6 +27,9 @@ import {
   Wrench
 } from "lucide-react";
 import { Link, useRoute } from "wouter";
+import { EQUIPOS_DATA, Equipo } from "../data/assets";
+import { SearchableSelect } from "../components/SearchableSelect";
+import { REFRIGERANTES_CHILE } from "../data/refrigerantes";
 import { TicketForm } from "../components/modals/TicketForm";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { db } from "../db/database";
@@ -189,7 +192,22 @@ export default function DetalleEquipo() {
                          <ParamRow label="Marca / Fabr." value={formData.marca} field="marca" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                          <ParamRow label="Modelo / Serie" value={`${formData.modelo} / ${formData.serie || 'N/A'}`} field="modelo" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                          <ParamRow label="Capacidad (BTU)" value={`${formData.capacidad}`} field="capacidad" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
-                         <ParamRow label="Refrigerante" value={formData.refrigerante} field="refrigerante" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         
+                         <div className="flex flex-col gap-1 group text-left">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Refrigerante</span>
+                            {isEditing ? (
+                               <SearchableSelect
+                                 options={REFRIGERANTES_CHILE}
+                                 value={formData.refrigerante || ''}
+                                 onChange={(val) => setFormData({...formData, refrigerante: val})}
+                                 placeholder="Buscar o crear..."
+                                 allowCreate={true}
+                                 disabled={false}
+                               />
+                            ) : (
+                               <p className="text-sm font-black text-slate-700 tracking-tight uppercase group-hover:text-slate-900 transition-colors">{formData.refrigerante || 'S/I'}</p>
+                            )}
+                         </div>
                       </div>
                    </div>
  

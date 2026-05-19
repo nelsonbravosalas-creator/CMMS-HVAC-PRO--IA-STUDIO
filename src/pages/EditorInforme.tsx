@@ -1,5 +1,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
+import { SearchableSelect } from '../components/SearchableSelect';
+import { REFRIGERANTES_CHILE } from '../data/refrigerantes';
+import { useAppStore } from "../store/useAppStore";
 import { 
   X,
   Save, 
@@ -36,7 +39,8 @@ import {
 import { Link, useRoute, useLocation } from "wouter";
 import { AssetSearchModal } from "../components/modals/AssetSearchModal";
 import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatureModal";
-import { useReports } from "../hooks/useReports";
+import { INFORMES_MOCK } from "../data/reports";
+import { EQUIPOS_DATA } from "../data/assets";
 import { SUCURSALES, ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
@@ -44,7 +48,6 @@ import LoadingIndicator from "../components/LoadingIndicator";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
-import { useAppStore } from "../store/useAppStore";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -89,10 +92,7 @@ export default function EditorInforme() {
   const [, setLocation] = useLocation();
   const id = params?.id;
   const isNew = id === "nuevo";
-  const { reports, saveDraft, finalizeReport } = useReports();
-  const localReport = reports.find(r => r.id === id || r.uuid_sync === id);
-  const informe = localReport?.data;
-  const assets = useAppStore(state => state.assets);
+  const informe = INFORMES_MOCK.find(i => i.id === id);
   
   const [activeSection, setActiveSection] = useState<Section | 'none'>('general');
   const [viewMode, setViewMode] = useState<'sidebar' | 'tabs' | 'accordion'>('sidebar');
@@ -101,6 +101,9 @@ export default function EditorInforme() {
   const [status, setStatus] = useState<'borrador' | 'firmado' | 'bloqueado' | 'offline_draft'>(informe?.estado as any || 'offline_draft');
   const [loadingAI, setLoadingAI] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const clients = useAppStore(state => state.clients);
+  const branches = useAppStore(state => state.branches);
 
   const DRAFT_KEY = id === "nuevo" ? "hvac_draft_new" : `hvac_draft_${id}`;
 
@@ -139,25 +142,38 @@ export default function EditorInforme() {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-1 md:col-span-2">
                    <label className="text-[10px] font-black uppercase text-slate-400">Cliente / Instalación</label>
-                   <input 
-                    type="text" 
-                    value={generalData.cliente} 
-                    readOnly={isReadOnly}
-                    onChange={(e) => setGeneralData({...generalData, cliente: e.target.value})}
-                    placeholder="Nombre de la empresa cliente"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
-                   />
+                   <SearchableSelect
+                      options={[
+                        { value: "", label: "Seleccione un cliente..." },
+                        ...clients.filter(c => !c.deleted_at).map(c => ({
+                          value: c.uuid_sync,
+                          label: c.nombre
+                        }))
+                      ]}
+                      value={generalData.cliente}
+                      onChange={val => setGeneralData({...generalData, cliente: val, sucursal: ''})}
+                      disabled={isReadOnly}
+                      placeholder="Seleccione un cliente..."
+                    />
                 </div>
                 <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">Sucursal / Proyecto</label>
-                   <input 
-                    type="text" 
-                    value={generalData.sucursal} 
-                    readOnly={isReadOnly}
-                    onChange={(e) => setGeneralData({...generalData, sucursal: e.target.value})}
-                    placeholder="Edificio, Planta, Sucursal..."
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
-                   />
+                   <SearchableSelect
+                      options={[
+                        { value: "", label: "Seleccione una sucursal..." },
+                        ...branches
+                          .filter(b => b.cliente_id === generalData.cliente && !b.deleted_at)
+                          .map(b => ({
+                            value: b.uuid_sync,
+                            label: b.nombre,
+                            subtitle: b.codigo
+                          }))
+                      ]}
+                      value={generalData.sucursal}
+                      onChange={val => setGeneralData({...generalData, sucursal: val})}
+                      disabled={isReadOnly || !generalData.cliente}
+                      placeholder="Seleccione una sucursal..."
+                    />
                 </div>
                 <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">Región</label>
@@ -261,9 +277,16 @@ export default function EditorInforme() {
                         )}
                      </div>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 z-50">
                      <label className="text-[10px] font-black uppercase text-slate-400">Refrigerante</label>
-                     <input type="text" value={machineData.refrigerante} readOnly={isReadOnly} onChange={(e) => setMachineData({...machineData, refrigerante: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+                     <SearchableSelect
+                       options={REFRIGERANTES_CHILE}
+                       value={machineData.refrigerante}
+                       onChange={(val) => setMachineData({...machineData, refrigerante: val})}
+                       placeholder="Buscar o crear..."
+                       disabled={isReadOnly}
+                       allowCreate={true}
+                     />
                   </div>
                </div>
              </div>
@@ -587,12 +610,12 @@ export default function EditorInforme() {
   const [observaciones, setObservaciones] = useState("");
   const [galeria, setGaleria] = useState<{src: string, desc: string}[]>([]);
 
-  // Load Draft from Dexie first, then fallback to legacy LocalStorage.
+  // Load Draft from LocalStorage
   useEffect(() => {
-    const saved = localReport?.data || JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+    const saved = localStorage.getItem(DRAFT_KEY);
     if (saved) {
       try {
-        const data = saved;
+        const data = JSON.parse(saved);
         setGeneralData(data.generalData);
         setMachineData(data.machineData);
         setCircuits(data.circuits);
@@ -608,16 +631,23 @@ export default function EditorInforme() {
       setGeneralData({ ...generalData, ...informe });
       setMachineData({ ...machineData, tag: informe.tag || '' });
     }
-  }, [id, localReport]);
+  }, [id]);
 
-  // Persist draft locally in Dexie without enqueuing remote sync until finalization.
+  // Persist Changes to LocalStorage
   useEffect(() => {
     if (status === 'firmado' || status === 'bloqueado') return;
-
-    const draft = { generalData, machineData, circuits, checklist, observaciones, galeria, status };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); // legacy fallback for already-open sessions
-    saveDraft({ uuid_sync: `INF-DRAFT-${id || 'nuevo'}`, id: `INF-DRAFT-${id || 'nuevo'}`, data: draft } as any).catch(() => undefined);
-  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, DRAFT_KEY, id]);
+    
+    const draft = {
+      generalData,
+      machineData,
+      circuits,
+      checklist,
+      observaciones,
+      galeria,
+      status
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, DRAFT_KEY]);
   
   // Handle Finalize & Sync (Auto-numbering assignment)
   const handleSyncAndFinalize = async () => {
@@ -640,20 +670,32 @@ export default function EditorInforme() {
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
+    // 1. Guardado Local (Feedback Inmediato)
+    localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
+    
+    // 2. Ejecutar Sincronización Remota
     try {
-      await finalizeReport({
-        uuid_sync: reportData.uuid_sync,
-        id: reportData.id,
-        data: reportData,
-        updated_at: Date.now()
-      } as any);
-      reportData.sync_status = "encolado";
+      const res = await fetch('/api/sync/informes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uuid_sync: reportData.uuid_sync,
+          id: reportData.id,
+          data: reportData,
+          updated_at: Date.now()
+        })
+      });
+
+      if (!res.ok) {
+        console.warn("Fallo en sincronización, operará offline y se sincronizará luego");
+      } else {
+        reportData.sync_status = "sincronizado";
+        localStorage.setItem(`registro_informe_${id || 'nuevo'}`, JSON.stringify(reportData));
+      }
     } catch (e) {
-      console.warn("No se pudo guardar en Dexie/syncQueue", e);
-      setStatus('borrador');
-      setIsSyncing(false);
-      alert("No se pudo guardar el informe localmente. Revisa IndexedDB/syncQueue.");
-      return;
+      console.warn("Offline: Se intentará sincronizar más tarde", e);
     }
     
     setGeneralData(prev => ({ ...prev, folio: currentFolio }));
@@ -674,7 +716,7 @@ export default function EditorInforme() {
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = assets.filter(eq => {
+  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
     const eqSucursal = eq.tag.split('.')[0];

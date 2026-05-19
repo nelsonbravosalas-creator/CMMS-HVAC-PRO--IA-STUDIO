@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { ExportFilterPresetsDropdown } from "../components/modals/ExportFilterPresetsDropdown";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
-import { useAppStore } from "../store/useAppStore";
 
 type ReportTab = "kpis" | "costos" | "equipos" | "actividad";
 
@@ -40,18 +39,8 @@ export default function Reportes() {
   const [activeTab, setActiveTab] = useState<ReportTab>("kpis");
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
-  const workOrders = useAppStore(state => state.work_orders);
-  const maintenance = useAppStore(state => state.preventive_maintenance);
-  const assets = useAppStore(state => state.assets);
 
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#6366f1'];
-  const mockData = [{ name: 'ACTUAL', work_orders: workOrders.length, preventive_maintenance: maintenance.length }];
-  const costDist = [
-    { name: 'Preventivos', value: maintenance.filter(m => m.tipo?.toLowerCase().includes('prevent')).length || maintenance.length },
-    { name: 'Tickets', value: workOrders.length },
-    { name: 'Activos en falla', value: assets.filter(a => a.estado === 'falla').length },
-    { name: 'Activos mantenimiento', value: assets.filter(a => a.estado === 'mantenimiento').length }
-  ];
 
   return (
     <div className="flex flex-col gap-8 text-left animate-in fade-in duration-500 pb-20">
@@ -248,3 +237,18 @@ function ExportSelect({ label, value }: { label: string, value: string }) {
     </div>
   );
 }
+
+const mockData = [
+  { name: 'ENE', tickets: 12, mantenimientos: 14 },
+  { name: 'FEB', tickets: 8, mantenimientos: 15 },
+  { name: 'MAR', tickets: 20, mantenimientos: 12 },
+  { name: 'ABR', tickets: 15, mantenimientos: 18 },
+  { name: 'MAY', tickets: 10, mantenimientos: 16 },
+];
+
+const costDist = [
+  { name: 'Preventivos', value: 45 },
+  { name: 'Repuestos', value: 30 },
+  { name: 'Urgencias', value: 15 },
+  { name: 'Otros', value: 10 },
+];

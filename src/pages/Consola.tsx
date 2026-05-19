@@ -16,6 +16,7 @@ import {
 import { logger } from "../lib/logger";
 import { useSyncStore } from "../store/useSyncStore";
 import { db } from "../db/database";
+import { xmlSyncService } from "../lib/xmlSync";
 
 export default function Consola() {
   const [logs, setLogs] = useState(logger.getLogs());
@@ -35,6 +36,14 @@ export default function Consola() {
     e.context.toLowerCase().includes(filter.toLowerCase())
   );
 
+  const handleExportXML = async () => {
+    try {
+      await xmlSyncService.exportToXML();
+    } catch (e) {
+      alert("Error exportando XML");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 text-left h-full pb-12 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -43,13 +52,13 @@ export default function Consola() {
           <p className="text-slate-500 text-sm font-medium">Auditoría en tiempo real de operaciones del sistema.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
+          <button onClick={() => setLogs([...logger.getLogs()])} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
             <RotateCcw className="w-4 h-4" /> Actualizar
           </button>
-          <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
-            <Download className="w-4 h-4" /> Exportar JSON
+          <button onClick={handleExportXML} className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
+            <Download className="w-4 h-4" /> Exportar XML
           </button>
-          <button className="bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-red-100 transition-all">
+          <button onClick={() => { logger.clear(); setLogs([]); }} className="bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-red-100 transition-all">
             <Trash2 className="w-4 h-4" /> Limpiar
           </button>
         </div>

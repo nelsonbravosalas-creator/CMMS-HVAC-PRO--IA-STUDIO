@@ -28,7 +28,6 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { ActivityEventModal } from '../components/modals/ActivityEventModal';
-import { useEvents } from '../hooks/useEvents';
 
 const locales = {
   'es': es,
@@ -65,6 +64,65 @@ interface Activity {
   details?: string;
 }
 
+const ACTIVITIES_MOCK: Activity[] = [
+  { 
+    id: '1', 
+    title: 'Mant. Preventivo Chiller #01', 
+    tech: 'Nelson Bravo', 
+    assistant: 'Luis Torres',
+    guests: ['jefe.mantenimiento@datacenter.cl'],
+    vehicle: 'Z-204 (Hilux)',
+    client: 'DataCenter Santiago', 
+    branch: 'Santiago Centro',
+    address: 'Av. Providencia 1234, Santiago',
+    details: 'Mantenimiento trimestral de acuerdo a pauta. Revisión de parámetros, limpieza de serpentines, verificación de presiones.',
+    tag: '21-STK.CH-01',
+    startTime: '09:00', 
+    duration: '180', 
+    status: 'ejecutada',
+    type: 'preventivo',
+    reportNum: 'INF-2024-88A',
+    ticketNum: 'TK-4512',
+    ticketStatus: 'cerrado'
+  },
+  { 
+    id: '2', 
+    title: 'Reparación Fuga Refrigerante', 
+    tech: 'Carlos Soto', 
+    assistant: 'Juan Maureira',
+    guests: ['admin@bmelavara.cl'],
+    vehicle: 'Z-105 (Partner)',
+    client: 'BME La Vara', 
+    branch: 'San Bernardo',
+    address: 'Las Industrias 500, San Bernardo',
+    details: 'Pérdida de refrigerante detectada. Buscar punto de fuga, soldar, presurizar con nitrógeno, vacío y recarga.',
+    tag: '21-STK.AC-14',
+    startTime: '10:30', 
+    duration: '120', 
+    status: 'pendiente',
+    type: 'correctivo',
+    ticketNum: 'TK-4601',
+    ticketStatus: 'abierto'
+  },
+  { 
+    id: '3', 
+    title: 'Inspección Rutinaria', 
+    tech: 'Andrés Pérez', 
+    assistant: 'Pedro Castillo',
+    vehicle: 'V-05 (D-Max)',
+    client: 'Iquique Port', 
+    branch: 'Terminal 1',
+    address: 'Puerto Iquique S/N, Iquique',
+    details: 'Verificación visual y estado general de los equipos split en terminal.',
+    tag: '11-STK.SPL-05',
+    startTime: '14:00', 
+    duration: '60', 
+    status: 'programada',
+    type: 'preventivo',
+    ticketNum: 'TK-4599',
+    ticketStatus: 'cerrado'
+  },
+];
 
 const STATUS_CONFIG: Record<ActivityStatus, { label: string; icon: any; color: string; bg: string }> = {
   programada: { label: 'Programada', icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -78,11 +136,9 @@ export default function Planificacion() {
   const [calendarView, setCalendarView] = useState<any>(Views.MONTH);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  const { events } = useEvents();
-  const activities = events.map(event => event.data as Activity);
 
-  // Generate calendar events from offline-first events table.
-  const calendarEvents = activities.map((act, index) => {
+  // Generate calendar events from mock data (placing them on current day for demo)
+  const calendarEvents = ACTIVITIES_MOCK.map((act, index) => {
     const today = new Date();
     const [hours, minutes] = act.startTime.split(':').map(Number);
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + index - 1, hours, minutes);
@@ -264,7 +320,7 @@ export default function Planificacion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {activities.map((act) => (
+                    {ACTIVITIES_MOCK.map((act) => (
                       <tr key={act.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                         <td className="p-4">
                           <div className="space-y-1">
@@ -373,7 +429,7 @@ export default function Planificacion() {
             </div>
             
             <div className="space-y-4">
-              {activities.map((act) => (
+              {ACTIVITIES_MOCK.map((act) => (
                 <div 
                   key={act.id} 
                   className="p-4 rounded-3xl bg-slate-50 border border-slate-100 hover:border-blue-200 hover:shadow-lg transition-all group cursor-pointer"

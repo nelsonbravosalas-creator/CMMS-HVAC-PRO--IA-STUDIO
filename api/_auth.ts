@@ -1,15 +1,9 @@
 import jwt from 'jsonwebtoken';
 
-function getSecretKey() {
-  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-    throw new Error('JWT_SECRET debe estar configurado en producción');
-  }
-  return 'cmms_dev_secret_only_for_local';
-}
+const SECRET_KEY = process.env.JWT_SECRET || 'cmms_secret_key_12345';
 
 export function signToken(payload: any) {
-  return jwt.sign(payload, getSecretKey(), { expiresIn: '7d' });
+  return jwt.sign(payload, SECRET_KEY, { expiresIn: '7d' });
 }
 
 export function verifyToken(req: any) {
@@ -17,7 +11,7 @@ export function verifyToken(req: any) {
     const authHeader = req.headers.authorization;
     if (!authHeader) return null;
     const token = authHeader.split(' ')[1];
-    return jwt.verify(token, getSecretKey());
+    return jwt.verify(token, SECRET_KEY);
   } catch (e) {
     return null;
   }

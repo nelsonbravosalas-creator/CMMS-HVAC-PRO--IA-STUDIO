@@ -35,8 +35,6 @@ export interface LocalActivo extends LocalBase {
   notas: string;
   cliente_id?: string;
   sucursal_id?: string;
-  lat?: number;
-  lng?: number;
 }
 
 export interface LocalTicket extends LocalBase {
@@ -85,6 +83,7 @@ export interface LocalUsuario extends LocalBase {
 export interface LocalSucursal extends LocalBase {
   id: string;
   nombre: string;
+  codigo?: string;
   cliente_id: string;
   direccion: string;
   ciudad: string;
@@ -101,9 +100,24 @@ export interface LocalEvento extends LocalBase {
   data: any;
 }
 
+export interface LocalCatalogAssetType extends LocalBase {
+  codigo: string;
+  descripcion: string;
+  activo: boolean;
+}
+
 export interface LocalOrdenServicio extends LocalBase {
   id: string;
+  estado: string;
+  draft_key: string;
   data: any;
+}
+
+export interface LocalSetting {
+  key: string;
+  value: string;
+  updated_at: number;
+  sync_status: SyncStatus;
 }
 
 export interface SyncOperation {
@@ -130,36 +144,48 @@ export class CMMSDatabase extends Dexie {
   clients!: Table<LocalCliente>;
   users!: Table<LocalUsuario>;
   branches!: Table<LocalSucursal>;
+  catalog_asset_types!: Table<LocalCatalogAssetType>;
+  ordenes_servicio!: Table<LocalOrdenServicio>;
+  settings!: Table<LocalSetting>;
   reports!: Table<LocalInforme>;
   events!: Table<LocalEvento>;
-  ordenes_servicio!: Table<LocalOrdenServicio>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
 
   constructor() {
-    super('CMMS_LocalDB_v4');
-
-    const version4Stores = {
+    super('CMMS_LocalDB_v6');
+    this.version(6).stores({
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at',
       preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at',
       clients: 'uuid_sync, id, sync_status, updated_at',
       users: 'uuid_sync, id, sync_status, updated_at',
-      branches: 'uuid_sync, id, cliente_id, sync_status, updated_at',
+      branches: 'uuid_sync, id, codigo, cliente_id, sync_status, updated_at',
+      catalog_asset_types: 'uuid_sync, codigo, sync_status, updated_at',
+      ordenes_servicio: 'uuid_sync, id, draft_key, sync_status, updated_at',
+      settings: 'key, sync_status, updated_at',
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
-      ordenes_servicio: 'uuid_sync, id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, timestamp',
-      audit_logs: 'id, action, userId, timestamp'
-    };
-
-    const version5Stores = {
-      ...version4Stores,
-      ordenes_servicio: 'uuid_sync, id, sync_status, updated_at'
-    };
-
-    this.version(4).stores(version4Stores);
-    this.version(5).stores(version5Stores);
+      audit_logs: '++id, action, userId, timestamp'
+    });
+    
+    this.on('populate', async () => {
+      const now = Date.now();
+      // Default branches
+      await this.branches.bulkAdd([
+        { uuid_sync: crypto.randomUUID(), id: 'SUB-default1', nombre: 'Bodega Central', codigo: '21-STK', cliente_id: 'default', direccion: 'Las Condes 123', ciudad: 'Santiago', region: 'RM', activo: true, updated_at: now, sync_status: 'synced' },
+      ]);
+      // Default asset types
+      await this.catalog_asset_types.bulkAdd([
+        { uuid_sync: crypto.randomUUID(), codigo: 'AC', descripcion: 'Aire acondicionado', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), codigo: 'VH', descripcion: 'Vehículo', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), codigo: 'GE', descripcion: 'Grupo electrógeno', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), codigo: 'EB', descripcion: 'Equipo de Bodega', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), codigo: 'GO', descripcion: 'Grúa horquilla', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), codigo: 'XX', descripcion: 'Otros Activos', activo: true, updated_at: now, sync_status: 'synced' },
+      ]);
+    });
   }
 }
 

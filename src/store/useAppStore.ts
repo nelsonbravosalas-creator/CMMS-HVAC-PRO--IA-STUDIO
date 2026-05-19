@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db, LocalActivo, LocalTicket, LocalMantenimiento, LocalUsuario, LocalCliente, LocalSucursal, LocalInforme, LocalEvento, LocalOrdenServicio, SyncStatus } from '../db/database';
+import { db, LocalActivo, LocalTicket, LocalMantenimiento, LocalUsuario, LocalCliente, LocalSucursal, SyncStatus } from '../db/database';
 
 interface CMMSState {
   assets: LocalActivo[];
@@ -8,9 +8,6 @@ interface CMMSState {
   users: LocalUsuario[];
   clients: LocalCliente[];
   branches: LocalSucursal[];
-  reports: LocalInforme[];
-  events: LocalEvento[];
-  ordenes_servicio: LocalOrdenServicio[];
   isLoading: boolean;
   isOnline: boolean;
 
@@ -39,22 +36,6 @@ interface CMMSState {
   addCliente: (client: LocalCliente) => void;
   updateCliente: (client: LocalCliente) => void;
   deleteCliente: (uuid: string) => void;
-
-  addBranch: (branch: LocalSucursal) => void;
-  updateBranch: (branch: LocalSucursal) => void;
-  deleteBranch: (uuid: string) => void;
-
-  addReport: (report: LocalInforme) => void;
-  updateReport: (report: LocalInforme) => void;
-  deleteReport: (uuid: string) => void;
-
-  addEvent: (event: LocalEvento) => void;
-  updateEvent: (event: LocalEvento) => void;
-  deleteEvent: (uuid: string) => void;
-
-  addServiceOrder: (order: LocalOrdenServicio) => void;
-  updateServiceOrder: (order: LocalOrdenServicio) => void;
-  deleteServiceOrder: (uuid: string) => void;
 }
 
 import { logger } from '../lib/logger';
@@ -66,9 +47,6 @@ export const useAppStore = create<CMMSState>((set) => ({
   users: [],
   clients: [],
   branches: [],
-  reports: [],
-  events: [],
-  ordenes_servicio: [],
   isLoading: true,
   isOnline: navigator.onLine,
 
@@ -76,16 +54,13 @@ export const useAppStore = create<CMMSState>((set) => ({
     set({ isLoading: true });
     logger.info('Store', 'Iniciando hidratación de datos...');
     try {
-      const [assets, work_orders, preventive_maintenance, users, clients, branches, reports, events, ordenes_servicio] = await Promise.all([
+      const [assets, work_orders, preventive_maintenance, users, clients, branches] = await Promise.all([
         db.assets.where('sync_status').notEqual('pending_delete').toArray(),
         db.work_orders.where('sync_status').notEqual('pending_delete').toArray(),
         db.preventive_maintenance.where('sync_status').notEqual('pending_delete').toArray(),
         db.users.where('sync_status').notEqual('pending_delete').toArray(),
         db.clients.where('sync_status').notEqual('pending_delete').toArray(),
-        db.branches.where('sync_status').notEqual('pending_delete').toArray(),
-        db.reports.where('sync_status').notEqual('pending_delete').toArray(),
-        db.events.where('sync_status').notEqual('pending_delete').toArray(),
-        db.ordenes_servicio.where('sync_status').notEqual('pending_delete').toArray()
+        db.branches.where('sync_status').notEqual('pending_delete').toArray()
       ]);
       
       set({ 
@@ -93,11 +68,8 @@ export const useAppStore = create<CMMSState>((set) => ({
         work_orders: work_orders.sort((a,b) => b.updated_at - a.updated_at), 
         preventive_maintenance: preventive_maintenance.sort((a,b) => b.updated_at - a.updated_at), 
         users, 
-        clients,
+        clients, 
         branches,
-        reports: reports.sort((a,b) => b.updated_at - a.updated_at),
-        events: events.sort((a,b) => b.updated_at - a.updated_at),
-        ordenes_servicio: ordenes_servicio.sort((a,b) => b.updated_at - a.updated_at),
         isLoading: false 
       });
 
@@ -183,21 +155,5 @@ export const useAppStore = create<CMMSState>((set) => ({
 
   deleteCliente: (uuid) => set((state) => ({
     clients: state.clients.filter(c => c.uuid_sync !== uuid)
-  })),
-
-  addBranch: (branch) => set((state) => ({ branches: [branch, ...state.branches] })),
-  updateBranch: (branch) => set((state) => ({ branches: state.branches.map(b => b.uuid_sync === branch.uuid_sync ? { ...b, ...branch } : b) })),
-  deleteBranch: (uuid) => set((state) => ({ branches: state.branches.filter(b => b.uuid_sync !== uuid) })),
-
-  addReport: (report) => set((state) => ({ reports: [report, ...state.reports] })),
-  updateReport: (report) => set((state) => ({ reports: state.reports.map(r => r.uuid_sync === report.uuid_sync ? { ...r, ...report } : r) })),
-  deleteReport: (uuid) => set((state) => ({ reports: state.reports.filter(r => r.uuid_sync !== uuid) })),
-
-  addEvent: (event) => set((state) => ({ events: [event, ...state.events] })),
-  updateEvent: (event) => set((state) => ({ events: state.events.map(e => e.uuid_sync === event.uuid_sync ? { ...e, ...event } : e) })),
-  deleteEvent: (uuid) => set((state) => ({ events: state.events.filter(e => e.uuid_sync !== uuid) })),
-
-  addServiceOrder: (order) => set((state) => ({ ordenes_servicio: [order, ...state.ordenes_servicio] })),
-  updateServiceOrder: (order) => set((state) => ({ ordenes_servicio: state.ordenes_servicio.map(o => o.uuid_sync === order.uuid_sync ? { ...o, ...order } : o) })),
-  deleteServiceOrder: (uuid) => set((state) => ({ ordenes_servicio: state.ordenes_servicio.filter(o => o.uuid_sync !== uuid) }))
+  }))
 }));

@@ -11,7 +11,10 @@ import {
   Users,
   History
 } from 'lucide-react';
-import { useReports } from "../../hooks/useReports";
+import { INFORMES_MOCK } from "../../data/reports";
+import { EQUIPOS_DATA } from "../../data/assets";
+import { SearchableSelect } from '../SearchableSelect';
+import { useAppStore } from '../../store/useAppStore';
 
 interface AssetSearchModalProps {
   isOpen: boolean;
@@ -41,8 +44,16 @@ export function AssetSearchModal({
   results 
 }: AssetSearchModalProps) {
   const [activeTab, setActiveTab] = useState<'assets' | 'reports' | 'qr'>('assets');
-  const { reports } = useReports();
   const today = new Date().toLocaleDateString('es-CL');
+  const storeClients = useAppStore(state => state.clients);
+  const storeBranches = useAppStore(state => state.branches);
+
+  // If sucursal needs to be constrained to selected cliente
+  const filteredBranches = sucursal && Object.keys(storeBranches || {}).length > 0 
+    ? storeBranches 
+    : storeBranches; 
+  // We can just use storeBranches for now, filtering by cliente if needed.
+  
   
   if (!isOpen) return null;
 
@@ -114,32 +125,41 @@ export function AssetSearchModal({
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Cliente</label>
-                       <div className="relative">
-                          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                          <input 
-                            type="text"
-                            value={cliente}
-                            onChange={(e) => setCliente(e.target.value)}
-                            placeholder="Nombre Cliente..."
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
-                          />
-                       </div>
+                       <SearchableSelect
+                         options={[
+                           { value: "", label: "Todos los Clientes" },
+                           ...Object.values(storeClients || {}).map((c: any) => ({
+                             value: c.nombre,
+                             label: c.nombre
+                           }))
+                         ]}
+                         value={cliente}
+                         onChange={(val) => {
+                           setCliente(val);
+                           setSucursal("");
+                         }}
+                         placeholder="Todos los Clientes"
+                         icon={<Users className="w-4 h-4" />}
+                       />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Sucursal</label>
-                       <div className="relative">
-                          <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                          <select 
-                            value={sucursal}
-                            onChange={(e) => setSucursal(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
-                          >
-                             <option value="">Todas las Sucursales</option>
-                             {Object.entries(clients).map(([k, v]: any) => (
-                               <option key={k} value={k}>{v}</option>
-                             ))}
-                          </select>
-                       </div>
+                       <SearchableSelect
+                         options={[
+                           { value: "", label: "Todas las Sucursales" },
+                           ...Object.values(storeBranches || {})
+                             .filter((b: any) => !cliente || (storeClients[b.cliente_id]?.nombre === cliente))
+                             .map((b: any) => ({
+                               value: b.nombre,
+                               label: b.nombre,
+                               subtitle: b.codigo
+                             }))
+                         ]}
+                         value={sucursal}
+                         onChange={(val) => setSucursal(val)}
+                         placeholder="Todas las Sucursales"
+                         icon={<Building2 className="w-4 h-4" />}
+                       />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Descripción del Equipo</label>
@@ -226,9 +246,7 @@ export function AssetSearchModal({
                    </div>
                  </div>
                  <div className="grid grid-cols-1 gap-4">
-                   {reports.slice(0, 5).map(report => {
-                    const inf = { id: report.id, ...(report.data || {}) };
-                    return (
+                   {INFORMES_MOCK.slice(0, 5).map(inf => (
                       <div key={inf.id} className="p-4 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-500 shadow-sm transition-transform hover:scale-105">
@@ -241,8 +259,7 @@ export function AssetSearchModal({
                         </div>
                         <button className="text-[9px] font-black text-blue-600 uppercase border-b border-blue-600 hover:text-blue-700 transition-colors">Ver</button>
                       </div>
-                    );
-                   })}
+                   ))}
                  </div>
                </div>
              )}

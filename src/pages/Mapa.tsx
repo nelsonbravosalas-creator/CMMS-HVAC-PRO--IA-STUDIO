@@ -29,11 +29,19 @@ import {
   Maximize2
 } from "lucide-react";
 
-import { useAppStore } from '../store/useAppStore';
+// --- Datos de Ejemplo ---
+const EQUIPOS_DATA = [
+  { tag: "21-STK.AC.001", nombre: "Unidad Aire Acondicionado Central", estado: "operativo", ubicacion: "Piso 2 - Ala Norte", lat: -33.4489, lng: -70.6483 },
+  { tag: "Planta-STK.AC.005", nombre: "Compresor de Aire Industrial", estado: "falla", ubicacion: "Subsuelo - Planta 1", lat: -33.4550, lng: -70.6550 },
+  { tag: "G-002", nombre: "Generador de Emergencia 500kVA", estado: "mantenimiento", ubicacion: "Exterior - Patio Trasero", lat: -33.4420, lng: -70.6300 },
+  { tag: "LIFT-01", nombre: "Ascensor Principal - Bloque A", estado: "operativo", ubicacion: "Hall Central", lat: -33.4460, lng: -70.6620 },
+  { tag: "FIRE-04", nombre: "Bomba contra Incendios", estado: "operativo", ubicacion: "Sala de Máquinas", lat: -33.4380, lng: -70.6500 },
+  { tag: "TRANS-01", nombre: "Transformador de Potencia T1", estado: "mantenimiento", ubicacion: "Subestación Norte", lat: -33.4600, lng: -70.6450 },
+  { tag: "HVAC-09", nombre: "Torre de Enfriamiento B", estado: "falla", ubicacion: "Azotea", lat: -33.4520, lng: -70.6700 },
+  { tag: "CHILL-02", nombre: "Chiller Agua Helada", estado: "operativo", ubicacion: "Planta Técnica", lat: -33.4400, lng: -70.6400 }
+];
 
 export default function App() {
-  const assets = useAppStore(state => state.assets);
-  const mappedAssets = assets.map((asset, index) => ({ ...asset, lat: asset.lat ?? -33.4489 + (index * 0.004), lng: asset.lng ?? -70.6483 - (index * 0.004) }));
   const [view, setView] = useState("map");
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [filter, setFilter] = useState("");
@@ -62,13 +70,13 @@ export default function App() {
   }, []);
 
   const stats = useMemo(() => ({
-    total: mappedAssets.length,
-    operativos: mappedAssets.filter(e => e.estado === 'operativo').length,
-    falla: mappedAssets.filter(e => e.estado === 'falla').length,
-    mantenimiento: mappedAssets.filter(e => e.estado === 'mantenimiento').length,
+    total: EQUIPOS_DATA.length,
+    operativos: EQUIPOS_DATA.filter(e => e.estado === 'operativo').length,
+    falla: EQUIPOS_DATA.filter(e => e.estado === 'falla').length,
+    mantenimiento: EQUIPOS_DATA.filter(e => e.estado === 'mantenimiento').length,
   }), []);
 
-  const filtered = mappedAssets.filter(eq => {
+  const filtered = EQUIPOS_DATA.filter(eq => {
     const matchSearch = eq.nombre.toLowerCase().includes(filter.toLowerCase()) || eq.tag.toLowerCase().includes(filter.toLowerCase());
     const matchStatus = selectedStatus ? eq.estado === selectedStatus : true;
     return matchSearch && matchStatus;

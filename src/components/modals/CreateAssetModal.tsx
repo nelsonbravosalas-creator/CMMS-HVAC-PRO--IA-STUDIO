@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import LoadingIndicator from '../LoadingIndicator';
+import { SearchableSelect } from '../SearchableSelect';
 import * as htmlToImage from 'html-to-image';
 import { useAssets } from '../../hooks/useAssets';
+import { CodificacionModal } from './CodificacionModal';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/database';
 
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
 } from 'lucide-react';
+import { EQUIPOS_DATA } from '../../data/assets';
 import { SUCURSALES } from '../../data/branches';
-import { useAppStore } from '../../store/useAppStore';
 
 interface CreateAssetModalProps {
   onClose: () => void;
@@ -15,7 +19,6 @@ interface CreateAssetModalProps {
 
 export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) => {
   const { createAsset } = useAssets();
-  const existingAssets = useAppStore(state => state.assets);
   const [tagData, setTagData] = useState({
     almacen: '21-STK',
     tipo: 'AC',
@@ -37,10 +40,14 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const potencia = (voltaje * corriente) / 1000;
   
   const [isExporting, setIsExporting] = useState(false);
+  const [isCodificacionModalOpen, setIsCodificacionModalOpen] = useState(false);
   const tagRef = useRef<HTMLDivElement>(null);
 
+  const localSucursales = useLiveQuery(() => db.branches.toArray()) || [];
+  const localCatalogAssetTypes = useLiveQuery(() => db.catalog_asset_types.toArray()) || [];
+
   useEffect(() => {
-    const matches = existingAssets.filter(eq => {
+    const matches = EQUIPOS_DATA.filter(eq => {
       const parts = eq.tag.split('.');
       return parts[0] === tagData.almacen && parts[1] === tagData.tipo;
     });
@@ -53,7 +60,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     } else {
       setTagData(prev => ({ ...prev, correlativo: '001' }));
     }
-  }, [tagData.almacen, tagData.tipo, existingAssets]);
+  }, [tagData.almacen, tagData.tipo]);
 
   const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
   const qrUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}tag=${encodeURIComponent(fullTag)}`;
@@ -146,11 +153,19 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         throw new Error('El tag del equipo es obligatorio');
       }
 
-      const tagAlreadyExists = existingAssets.some(asset => asset.tag === fullTag);
-      if (tagAlreadyExists) {
-        alert("Alerta: El Tag ya se encuentra registrado localmente. Cambia el tipo de equipo o el correlativo antes de guardar.");
-        setIsSaving(false);
-        return;
+      // 1. Verify on Server if the tag exists
+      try {
+        const res = await fetch(`/api/equipos?tag=${encodeURIComponent(fullTag)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data) {
+            alert("Alerta: El Tag ya se encuentra registrado en el servidor. Por favor, cambia el tipo de equipo o intenta de nuevo para ajustar el correlativo automáticamente desde el servidor.");
+            setIsSaving(false);
+            return;
+          }
+        }
+      } catch (err) {
+         // ignore fetch error in offline mode
       }
 
       await createAsset({
@@ -183,7 +198,8 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4 overflow-y-auto">
+    <>
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4 overflow-y-auto">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: 100mm 50mm; margin: 0; }
@@ -320,32 +336,29 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
           <form className="space-y-6 lg:space-y-8" onSubmit={handleSubmit}>
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-                <div className="space-y-1">
-                   <label className="text-[10px] font-black uppercase text-slate-400">Sucursal / Almacén</label>
-                   <select 
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                <div className="space-y-1 z-50">
+                   <div className="flex justify-between items-center">
+                     <label className="text-[10px] sm:text-xs font-black uppercase text-slate-400">Sucursal/Almacén/Proyecto/Edificio</label>
+                     <button type="button" onClick={() => setIsCodificacionModalOpen(true)} className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest">+ Crear Cód.</button>
+                   </div>
+                   <SearchableSelect
+                      options={localSucursales.map(s => ({ value: s.codigo || s.id, label: s.nombre }))}
                       value={tagData.almacen}
-                      onChange={(e) => setTagData({...tagData, almacen: e.target.value})}
-                   >
-                      {SUCURSALES.map(s => (
-                        <option key={s.id} value={s.id}>{s.nombre}</option>
-                      ))}
-                   </select>
+                      onChange={(val) => setTagData({...tagData, almacen: val})}
+                      placeholder="Seleccionar sucursal"
+                   />
                 </div>
-                <div className="space-y-1">
-                   <label className="text-[10px] font-black uppercase text-slate-400">Categoría de Equipo</label>
-                   <select 
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                <div className="space-y-1 z-40">
+                   <div className="flex justify-between items-center">
+                     <label className="text-[10px] font-black uppercase text-slate-400">Categoría de Equipo</label>
+                     <button type="button" onClick={() => setIsCodificacionModalOpen(true)} className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest">+ Crear Cód.</button>
+                   </div>
+                   <SearchableSelect
+                      options={localCatalogAssetTypes.map(c => ({ value: c.codigo, label: `${c.descripcion} (${c.codigo})` }))}
                       value={tagData.tipo}
-                      onChange={(e) => setTagData({...tagData, tipo: e.target.value})}
-                   >
-                      <option value="AC">Aire acondicionado (AC)</option>
-                      <option value="VH">Vehículo (VH)</option>
-                      <option value="GE">Grupo electrógeno (GE)</option>
-                      <option value="EB">Equipo de Bodega (EB)</option>
-                      <option value="GO">Grúa horquilla / Elevadora (GO)</option>
-                      <option value="XX">Otros Activos (XX)</option>
-                   </select>
+                      onChange={(val) => setTagData({...tagData, tipo: val})}
+                      placeholder="Seleccionar categoría"
+                   />
                 </div>
              </div>
 
@@ -449,5 +462,9 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         </div>
       </div>
     </div>
+    {isCodificacionModalOpen && (
+      <CodificacionModal onClose={() => setIsCodificacionModalOpen(false)} />
+    )}
+    </>
   );
 };

@@ -45,6 +45,7 @@ class Logger {
 
   getLogs() { return this.logs; }
   clearLogs() { this.logs = []; }
+  clear() { this.clearLogs(); }
 }
 
 export const logger = new Logger();
