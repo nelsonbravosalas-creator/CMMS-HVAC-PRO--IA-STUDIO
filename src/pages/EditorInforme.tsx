@@ -681,10 +681,14 @@ export default function EditorInforme() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          uuid_sync: reportData.uuid_sync,
-          id: reportData.id,
-          data: reportData,
-          updated_at: Date.now()
+          records: [{
+            uuid_sync: reportData.uuid_sync,
+            id: reportData.id,
+            data: reportData,
+            updated_at: Date.now(),
+            sync_status: 'pending_insert'
+          }],
+          operation: 'upsert'
         })
       });
 

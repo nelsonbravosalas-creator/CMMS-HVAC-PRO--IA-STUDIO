@@ -12,7 +12,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh]">
         <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
           <div>
             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Carga Masiva de Activos</h3>
@@ -21,7 +21,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-5 h-5" /></button>
         </div>
         
-        <div className="p-8 space-y-8">
+        <div className="p-8 space-y-8 overflow-y-auto flex-1 min-h-0">
           <div className="flex justify-between items-center bg-blue-50 border border-blue-100 p-4 rounded-2xl">
              <div className="flex items-center gap-4">
                 <FileSpreadsheet className="w-10 h-10 text-blue-600" />

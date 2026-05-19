@@ -94,7 +94,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
             <button onClick={onClose} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto">
+          <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
             {/* Asset Link Section */}
             <div className="bg-blue-50/30 p-6 rounded-[32px] border border-blue-100/50 space-y-4">
               <div className="flex justify-between items-center">

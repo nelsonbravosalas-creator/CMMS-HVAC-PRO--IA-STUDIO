@@ -396,14 +396,16 @@ export default function DetalleEquipo() {
            <div className="bg-white p-8 rounded-[40px] border border-slate-200 space-y-6">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Técnicos Asignados</h3>
               <div className="space-y-4">
-                 {equipo.tecnicos.map(t => (
+                 {equipo.tecnicos && equipo.tecnicos.length > 0 ? equipo.tecnicos.map(t => (
                    <div key={t} className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
-                         {t.split(' ').map(n => n[0]).join('')}
+                         {t ? t.split(' ').map(n => n[0]).join('') : ''}
                       </div>
                       <div className="text-xs font-black text-slate-900 uppercase tracking-tight">{t}</div>
                    </div>
-                 ))}
+                 )) : (
+                   <div className="text-xs text-slate-400 font-medium">Sin técnicos asignados</div>
+                 )}
                  <button className="w-full py-3 bg-slate-50 text-slate-400 hover:text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
                     Gestionar Técnicos
                  </button>

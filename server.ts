@@ -177,9 +177,12 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use((req, res, next) => {
-    console.log(`[REQ] ${req.method} ${req.url}`);
+    if (req.url.startsWith('/api')) {
+      console.log(`[REQ] ${req.method} ${req.url}`);
+    }
     next();
   });
 

@@ -62,13 +62,22 @@ class SyncEngine {
       if (!response.ok) {
          let errorDetail = response.statusText;
          try {
-           const body = await response.json();
-           if (body && body.error) errorDetail = body.error;
+           const text = await response.text();
+           if (text.trim().startsWith('<')) {
+               errorDetail = 'Server returned HTML (possible 502 Bad Gateway)';
+           } else {
+               const body = JSON.parse(text);
+               if (body && body.error) errorDetail = body.error;
+           }
          } catch(e) {}
          throw new Error(`Sync Error: ${errorDetail || 'Unknown Server Error'} (Status: ${response.status})`);
       }
 
-      const { success, results, serverChanges } = await response.json();
+      const responseText = await response.text();
+      if (responseText.trim().startsWith('<')) {
+         throw new Error(`Sync Error: Server returned HTML instead of JSON. Check the API URL or proxy settings.`);
+      }
+      const { success, results, serverChanges } = JSON.parse(responseText);
 
       if (success) {
          // Resolve processed queue items

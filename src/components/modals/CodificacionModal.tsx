@@ -70,8 +70,8 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
       
       await db.branches.add(newSucursal);
       
-      // Update store
-      await useAppStore.getState().syncWithDB();
+      // Update store if needed? No, Dexie hooks will auto reload UI
+      // await useAppStore.getState().syncWithDB();
       
       alert('Sucursal registrada correctamente');
       setSucursalCodigo('');
@@ -158,7 +158,7 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
              </button>
           </div>
 
-          <div className="p-6 sm:p-8 overflow-y-auto">
+          <div className="p-6 sm:p-8 overflow-y-auto flex-1">
             {tab === 'sucursal' && (
               <form onSubmit={handleSaveSucursal} className="space-y-6">
                  <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">

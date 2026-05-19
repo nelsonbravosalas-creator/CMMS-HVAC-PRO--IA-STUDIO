@@ -122,7 +122,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           <button onClick={handleClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X className="w-5 h-5" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto" onChange={() => setHasChanges(true)}>
+        <form onSubmit={handleSubmit} className="p-10 space-y-8 overflow-y-auto flex-1 min-h-0" onChange={() => setHasChanges(true)}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Equipo Destino (TAG)</label>

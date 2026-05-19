@@ -224,10 +224,10 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         }
       `}} />
 
-      <div className="bg-white w-full max-w-5xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 grid grid-cols-1 md:grid-cols-12 h-fit max-h-[95vh] my-auto">
+      <div className="bg-white w-full max-w-5xl rounded-3xl md:rounded-[40px] shadow-2xl overflow-y-auto overflow-x-hidden animate-in zoom-in-95 duration-200 flex flex-col md:grid md:grid-cols-12 max-h-[95vh] md:max-h-[95vh] my-auto">
         
         {/* Left Panel: TAG & QR Rendering */}
-        <div className="md:col-span-5 bg-slate-50 p-6 lg:p-8 flex flex-col items-center gap-6 lg:gap-8 border-r border-slate-200 no-print">
+        <div className="md:col-span-5 bg-slate-50 p-6 lg:p-8 flex flex-col items-center gap-6 lg:gap-8 border-b md:border-b-0 md:border-r border-slate-200 no-print">
            <div className="w-full space-y-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Previsualización de Etiqueta</h3>
               
@@ -463,7 +463,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       </div>
     </div>
     {isCodificacionModalOpen && (
-      <CodificacionModal onClose={() => setIsCodificacionModalOpen(false)} />
+      <CodificacionModal isOpen={isCodificacionModalOpen} onClose={() => setIsCodificacionModalOpen(false)} />
     )}
     </>
   );

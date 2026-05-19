@@ -6,8 +6,8 @@ export interface LocalBase {
   uuid_sync: string;
   updated_at: number;
   sync_status: SyncStatus;
-  version: number;
-  retry_count: number;
+  version?: number;
+  retry_count?: number;
   last_synced_at?: number;
   deleted_at?: number;
 }
@@ -88,6 +88,7 @@ export interface LocalSucursal extends LocalBase {
   direccion: string;
   ciudad: string;
   region: string;
+  activo?: boolean;
 }
 
 export interface LocalInforme extends LocalBase {
@@ -153,8 +154,8 @@ export class CMMSDatabase extends Dexie {
   audit_logs!: Table<AuditLog>;
 
   constructor() {
-    super('CMMS_LocalDB_v6');
-    this.version(6).stores({
+    super('CMMS_LocalDB_v7');
+    this.version(7).stores({
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at',
       preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at',

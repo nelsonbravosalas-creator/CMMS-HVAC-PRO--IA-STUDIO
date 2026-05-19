@@ -23,7 +23,7 @@ export const MaintenanceCalendar: React.FC<MaintenanceCalendarProps> = ({ onClos
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-6xl h-[85vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-white w-full max-w-6xl h-auto max-h-[95vh] rounded-[40px] shadow-2xl overflow-y-auto overflow-x-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-300">
         
         {/* Sidebar: Day Details */}
         <div className="md:w-80 bg-slate-50 border-r border-slate-100 flex flex-col">
@@ -32,7 +32,7 @@ export const MaintenanceCalendar: React.FC<MaintenanceCalendarProps> = ({ onClos
               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</p>
            </div>
            
-           <div className="p-6 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+           <div className="p-6 flex-1 overflow-y-auto min-h-0 space-y-4 custom-scrollbar">
               <div className="flex items-center justify-between italic mb-2">
                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividades</span>
                  <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded-full">2 Eventos</span>
@@ -63,7 +63,7 @@ export const MaintenanceCalendar: React.FC<MaintenanceCalendarProps> = ({ onClos
              <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-full transition-colors"><X className="w-6 h-6" /></button>
           </div>
 
-          <div className="p-8 flex-1">
+          <div className="p-4 md:p-8 flex-1 overflow-y-auto min-h-0">
              <div className="grid grid-cols-7 mb-4">
                 {["LUN", "MAR", "MIE", "JUE", "VIE", "SAB", "DOM"].map(d => (
                   <div key={d} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">{d}</div>

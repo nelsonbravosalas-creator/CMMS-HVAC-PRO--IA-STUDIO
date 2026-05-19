@@ -69,7 +69,7 @@ export function ClientModal({ isOpen, onClose }: ClientModalProps) {
              <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors absolute top-8 right-8"><X className="w-5 h-5" /></button>
           </div>
           
-          <div className="p-8 overflow-y-auto space-y-8 flex-1">
+          <div className="p-6 md:p-8 overflow-y-auto space-y-8 flex-1 min-h-0">
              <div className="space-y-6">
                  <h4 className="text-xs font-black uppercase text-indigo-600 tracking-widest border-b border-slate-100 pb-2">Información Principal</h4>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
