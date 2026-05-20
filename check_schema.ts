@@ -1,10 +1,9 @@
-import { neon } from "@neondatabase/serverless";
+import { getDb, closeDb } from "./api/_db";
+import * as dotenv from "dotenv";
 
-const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl || !dbUrl.startsWith('postgres')) {
-  throw new Error('DATABASE_URL debe estar configurada para revisar el esquema');
-}
-const sql = neon(dbUrl);
+dotenv.config({ path: ".env.local" });
+dotenv.config();
+const sql = getDb();
 
 async function check() {
   try {
@@ -17,6 +16,8 @@ async function check() {
     console.log("Schema info:", rows);
   } catch (e) {
     console.error("Error checking columns:", e.message);
+  } finally {
+    await closeDb();
   }
 }
 check();

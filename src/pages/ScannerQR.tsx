@@ -27,6 +27,7 @@ import { useAppStore } from "../store/useAppStore";
 import { SUCURSALES } from "../data/branches";
 import { useEffect } from "react";
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { useAssets } from "../hooks/useAssets";
 
 /**
  * Componente ScannerQR.
@@ -62,6 +63,7 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
   const assets = useAppStore(state => state.assets);
+  const { createAsset } = useAssets();
 
   /** Modos de la vista: scanner (captura) o generator (creación) */
   const [mode, setMode] = useState<"scanner" | "generator">("scanner");
@@ -163,28 +165,12 @@ export default function ScannerQR() {
       // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
       setLastResult(tagValue);
       
-      // BÚSQUEDA EN BASE DE DATOS:
-      fetch(`/api/assets?tag=${tagValue}`)
-        .then(r => r.json())
-        .then(data => {
-           if (data.success && data.data) {
-             setEquipoEscaneado({
-               tag: data.data.tag,
-               nombre: data.data.nombre,
-               ubicacion: data.data.ubicacion || "Ubicación en BD"
-             });
-           } else {
-             const localFallback = assets.find(eq => eq.tag === tagValue);
-             if (localFallback) {
-               setEquipoEscaneado(localFallback);
-             } else {
-               setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
-             }
-           }
-        })
-        .catch(err => {
-           setEquipoEscaneado({ error: `Error de conexión con Neon DB.` });
-        })
+      const localAsset = assets.find(eq => eq.tag === tagValue);
+      if (localAsset) {
+        setEquipoEscaneado(localAsset);
+      } else {
+        setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en datos locales sincronizados.` });
+      }
     }
   };
 
@@ -211,53 +197,44 @@ export default function ScannerQR() {
     window.print();
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setIsExporting(true);
 
     const assetData = {
+      uuid_sync: crypto.randomUUID(),
       tag: fullTag,
       nombre: tagData.nombreEquipo,
-      almacen: tagData.almacen,
       tipo: tagData.tipo,
-      correlativo: tagData.correlativo,
       ubicacion: tagData.almacen,
-      estado: "OPERATIVO",
-      sync_status: "pendiente",
-      fechaSincronizacionLocal: new Date().toISOString()
+      estado: "operativo" as const,
+      marca: '',
+      modelo: '',
+      serie: '',
+      area: '',
+      capacidad: '',
+      voltaje: '',
+      corriente: '',
+      refrigerante: '',
+      fecha_instalacion: '',
+      vida_util: 10,
+      ultimo_mantenimiento: '',
+      proximo_mantenimiento: '',
+      horas_operacion: 0,
+      tecnicos: [],
+      notas: `Registrado desde generador QR. Correlativo: ${tagData.correlativo}`,
+      cliente_id: '',
+      sucursal_id: ''
     };
 
-    // 1. Guardado Local (Feedback Inmediato)
-    localStorage.setItem(`registro_${fullTag}`, JSON.stringify(assetData));
-
-    // 2. Ejecución diferida para la Nube
-    setTimeout(async () => {
-      try {
-        const response = await fetch('/api/assets', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tag: fullTag,
-            nombre: tagData.nombreEquipo,
-            estado: "operativo",
-            tipo: tagData.tipo,
-            ubicacion: tagData.almacen,
-            tecnicos: []
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al guardar en la base de datos');
-        }
-
-        console.log("Sincronizado con Neon DB exitosamente");
-        alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
-      } catch (error) {
-        console.error("Error en la nube, se mantiene solo local:", error);
-        alert("El activo se guardó localmente. Se sincronizará cuando haya conexión.");
-      } finally {
-        setIsExporting(false);
-      }
-    }, 0);
+    try {
+      await createAsset(assetData);
+      alert(`Activo ${fullTag} registrado localmente. Se sincronizará automáticamente.`);
+    } catch (error) {
+      console.error("Error registrando activo desde QR:", error);
+      alert("No se pudo registrar el activo.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (

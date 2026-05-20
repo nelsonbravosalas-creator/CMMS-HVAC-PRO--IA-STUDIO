@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LoadingIndicator from '../LoadingIndicator';
 import * as htmlToImage from 'html-to-image';
 import { useAssets } from '../../hooks/useAssets';
+import { apiFetch } from '../../lib/apiFetch';
 
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
@@ -73,7 +74,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       });
       const base64Data = await base64Promise;
 
-      const response = await fetch('/api/ocr', {
+      const response = await apiFetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

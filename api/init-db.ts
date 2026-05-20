@@ -1,5 +1,6 @@
-import { neon } from '@neondatabase/serverless';
-import { ensureDatabaseSchema, getDatabaseHealth, getDatabaseUrl } from './_schema';
+import { getDb } from './_db';
+import { ensureDatabaseSchema, getDatabaseHealth } from './_schema';
+import { requireRole } from './_auth';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST' && req.method !== 'GET') {
@@ -7,10 +8,12 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const sql = neon(getDatabaseUrl());
+    const user = requireRole(['administrador', 'programador'])(req, res);
+    if (!user) return;
+    const sql = getDb();
     await ensureDatabaseSchema(sql);
     const health = await getDatabaseHealth(sql);
-    return res.status(200).json({ success: true, message: 'Base de datos inicializada correctamente en Neon', ...health });
+    return res.status(200).json({ success: true, message: 'Base de datos inicializada correctamente en PostgreSQL', ...health });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
   }

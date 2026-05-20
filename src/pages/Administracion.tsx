@@ -4,11 +4,14 @@ import { ClientModal } from "../components/modals/ClientModal";
 import { useAppStore } from "../store/useAppStore";
 import { userRepo } from "../repositories/UserRepository";
 import { syncEngine } from "../sync/syncEngine";
-import { LocalUsuario } from "../db/database";
+import { db, LocalUsuario } from "../db/database";
+import { useAuth } from "../context/AuthContext";
+import { apiFetch } from "../lib/apiFetch";
 
 type AdminTab = "users" | "clients";
 
 export default function Administracion() {
+  const { permisos } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>("users");
   const [showUserModal, setShowUserModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -35,22 +38,32 @@ export default function Administracion() {
       return;
     }
 
-    const saved = await userRepo.save({
-      uuid_sync: crypto.randomUUID(),
-      id: `USR-${Date.now()}`,
-      nombre,
-      email,
-      rol,
-      pin,
-      activo: true,
-      updated_at: Date.now(),
-      sync_status: 'pending_insert',
+    const response = await apiFetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, correo: email, rol, perfil: rol, pin, activo: true })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      alert(payload.error || 'No se pudo crear el usuario.');
+      return;
+    }
+    const saved = {
+      uuid_sync: payload.data.uuid_sync,
+      id: payload.data.id,
+      nombre: payload.data.nombre,
+      email: payload.data.correo,
+      rol: payload.data.perfil,
+      pin: '',
+      activo: payload.data.activo,
+      updated_at: payload.data.updated_at || Date.now(),
+      sync_status: 'synced',
       version: 1,
       retry_count: 0
-    } as LocalUsuario);
+    } as LocalUsuario;
+    await db.users.put(saved);
     addUsuario(saved);
     setShowUserModal(false);
-    syncEngine.triggerSync();
   };
 
   const handleDeleteUser = async (uuid: string) => {
@@ -59,6 +72,10 @@ export default function Administracion() {
     deleteUsuario(uuid);
     syncEngine.triggerSync();
   };
+
+  if (!permisos?.gestionar_usuarios) {
+    return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
+  }
 
   return (
     <div className="flex flex-col gap-8 text-left animate-in fade-in duration-500 pb-20">
@@ -163,7 +180,7 @@ export default function Administracion() {
               <select name="rol" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none">
                 <option value="visita">Visita</option><option value="tecnico">Técnico</option><option value="contratista">Contratista</option><option value="supervisor">Supervisor</option><option value="administrador">Administrador</option><option value="cliente">Cliente</option><option value="programador">Programador</option>
               </select>
-              <Input name="pin" label="PIN de Seguridad (4 dígitos)" type="password" maxLength={4} required />
+              <Input name="pin" label="PIN de Seguridad (4 a 8 dígitos)" type="password" maxLength={8} required />
               <button className="w-full py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-slate-900/20 active:scale-[0.98] transition-all">Crear Perfil Usuario</button>
             </form>
           </div>

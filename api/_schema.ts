@@ -10,6 +10,8 @@ export const ALLOWED_TABLES = [
   'ordenes_servicio'
 ] as const;
 
+export const SYSTEM_TABLES = ['system_logs'] as const;
+
 export type SyncTable = typeof ALLOWED_TABLES[number];
 
 export const GENERIC_SYNC_TABLES = ALLOWED_TABLES.filter((table) => table !== 'assets') as Exclude<SyncTable, 'assets'>[];
@@ -69,6 +71,7 @@ export async function ensureDatabaseSchema(sql: any) {
     correo TEXT UNIQUE,
     perfil TEXT,
     pin TEXT,
+    pin_hash TEXT,
     activo BOOLEAN DEFAULT true,
     data JSONB,
     updated_at BIGINT,
@@ -86,6 +89,19 @@ export async function ensureDatabaseSchema(sql: any) {
       deleted_at BIGINT
     )`);
   }
+
+  await sql`CREATE TABLE IF NOT EXISTS system_logs (
+    id TEXT PRIMARY KEY,
+    timestamp BIGINT NOT NULL,
+    level TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'backend',
+    context TEXT NOT NULL,
+    message TEXT NOT NULL,
+    data JSONB,
+    user_id TEXT,
+    path TEXT,
+    user_agent TEXT
+  )`;
 
   await addCommonColumns(sql);
   await addIndexes(sql);
@@ -149,6 +165,7 @@ async function addCommonColumns(sql: any) {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS correo TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS perfil TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS pin TEXT`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT true`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS data JSONB`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
@@ -174,6 +191,9 @@ async function addIndexes(sql: any) {
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_tag ON assets (tag)`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_uuid_sync ON users (uuid_sync)`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_id ON users (id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp ON system_logs (timestamp DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_system_logs_level ON system_logs (level)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_system_logs_context ON system_logs (context)`;
 }
 
 export async function getDatabaseHealth(sql: any) {
@@ -193,7 +213,7 @@ export async function getDatabaseHealth(sql: any) {
   `;
 
   const counts: Record<string, number | string> = {};
-  for (const table of ALLOWED_TABLES) {
+  for (const table of [...ALLOWED_TABLES, ...SYSTEM_TABLES]) {
     try {
       const countRows = await sql(`SELECT count(*)::int AS count FROM ${table}`);
       counts[table] = countRows[0]?.count ?? 0;
@@ -206,8 +226,8 @@ export async function getDatabaseHealth(sql: any) {
   return {
     configured: true,
     connected: true,
-    expectedTables: ALLOWED_TABLES,
-    missingTables: ALLOWED_TABLES.filter((table) => !existingTables.includes(table)),
+    expectedTables: [...ALLOWED_TABLES, ...SYSTEM_TABLES],
+    missingTables: [...ALLOWED_TABLES, ...SYSTEM_TABLES].filter((table) => !existingTables.includes(table)),
     existingTables,
     counts,
     columns: columnRows

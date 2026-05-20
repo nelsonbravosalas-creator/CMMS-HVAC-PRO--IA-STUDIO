@@ -158,8 +158,14 @@ export class CMMSDatabase extends Dexie {
       ordenes_servicio: 'uuid_sync, id, sync_status, updated_at'
     };
 
+    const version6Stores = {
+      ...version5Stores,
+      users: 'uuid_sync, id, pin, sync_status, updated_at'
+    };
+
     this.version(4).stores(version4Stores);
     this.version(5).stores(version5Stores);
+    this.version(6).stores(version6Stores);
   }
 }
 

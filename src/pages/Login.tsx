@@ -73,9 +73,9 @@ export default function Login() {
                   className={`w-full px-4 py-3 rounded-xl border outline-none transition-all focus:ring-2 focus:ring-blue-500/20 font-medium tracking-widest ${
                     isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500'
                   }`}
-                  placeholder="••••"
+                  placeholder="••••••••"
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                 />
                 <button
                   type="button"

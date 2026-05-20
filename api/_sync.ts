@@ -1,4 +1,5 @@
 import { ALLOWED_TABLES, normalizeSyncTable, type SyncTable } from './_schema';
+import { hashPin } from './_auth';
 
 type OperationName = 'insert' | 'update' | 'delete';
 type OperationResultStatus = 'applied' | 'noop' | 'error';
@@ -24,6 +25,8 @@ export interface SyncApplyResult {
   serverTime: number;
 }
 
+const SERVER_CHANGE_TABLES = ALLOWED_TABLES.filter((table) => table !== 'users');
+
 export async function applySyncOperations(sql: any, body: any): Promise<SyncApplyResult> {
   const { inserts = [], updates = [], deletes = [], lastSync = 0 } = body || {};
   const results = { inserts: [] as SyncOperationResult[], updates: [] as SyncOperationResult[], deletes: [] as SyncOperationResult[] };
@@ -41,7 +44,7 @@ export async function applySyncOperations(sql: any, body: any): Promise<SyncAppl
   }
 
   const serverChanges: Record<string, any[]> = {};
-  for (const table of ALLOWED_TABLES) {
+  for (const table of SERVER_CHANGE_TABLES) {
     const rows = await sql(`SELECT * FROM ${table} WHERE updated_at > $1 ORDER BY updated_at ASC LIMIT 1000`, [Number(lastSync) || 0]);
     if (rows.length > 0) serverChanges[table] = rows;
   }
@@ -116,8 +119,8 @@ async function applyDelete(sql: any, operation: any): Promise<SyncOperationResul
       `;
     } else if (table === 'users') {
       await sql`
-        INSERT INTO users (id, nombre, correo, perfil, pin, activo, data, uuid_sync, updated_at, created_at, deleted_at)
-        VALUES (${operation.data?.id || operation.uuid_sync}, ${operation.data?.nombre || ''}, ${operation.data?.correo || operation.data?.email || ''}, ${operation.data?.perfil || operation.data?.rol || 'Técnico'}, ${operation.data?.pin || ''}, false, ${JSON.stringify({ uuid_sync: operation.uuid_sync, deleted_at: timestamp })}, ${operation.uuid_sync}, ${timestamp}, ${timestamp}, ${timestamp})
+        INSERT INTO users (id, nombre, correo, perfil, pin, pin_hash, activo, data, uuid_sync, updated_at, created_at, deleted_at)
+        VALUES (${operation.data?.id || operation.uuid_sync}, ${operation.data?.nombre || ''}, ${operation.data?.correo || operation.data?.email || ''}, ${operation.data?.perfil || operation.data?.rol || 'tecnico'}, NULL, ${operation.data?.pin ? hashPin(operation.data.pin) : null}, false, ${JSON.stringify({ uuid_sync: operation.uuid_sync, deleted_at: timestamp })}, ${operation.uuid_sync}, ${timestamp}, ${timestamp}, ${timestamp})
         ON CONFLICT (uuid_sync) DO UPDATE SET
           activo = false,
           deleted_at = EXCLUDED.deleted_at,
@@ -203,18 +206,23 @@ async function upsertAsset(sql: any, operation: any, allowExistingOnly: boolean)
 async function upsertUser(sql: any, operation: any) {
   const data = operation.data || {};
   const updatedAt = Number(operation.updated_at || data.updated_at || Date.now());
+  const pinHash = data.pin_hash || (data.pin ? hashPin(data.pin) : null);
+  const safeData = { ...data };
+  delete safeData.pin;
+  delete safeData.pin_hash;
   await sql`
-    INSERT INTO users (id, nombre, correo, perfil, pin, activo, data, uuid_sync, updated_at, created_at, deleted_at)
+    INSERT INTO users (id, nombre, correo, perfil, pin, pin_hash, activo, data, uuid_sync, updated_at, created_at, deleted_at)
     VALUES (
       ${data.id || operation.uuid_sync}, ${data.nombre || ''}, ${data.correo || data.email || ''},
-      ${data.perfil || data.rol || 'Técnico'}, ${data.pin || ''}, ${data.activo !== false},
-      ${JSON.stringify(data)}, ${operation.uuid_sync}, ${updatedAt}, ${Number(data.created_at || updatedAt)}, ${data.deleted_at || null}
+      ${data.perfil || data.rol || 'tecnico'}, NULL, ${pinHash}, ${data.activo !== false},
+      ${JSON.stringify(safeData)}, ${operation.uuid_sync}, ${updatedAt}, ${Number(data.created_at || updatedAt)}, ${data.deleted_at || null}
     ) ON CONFLICT (uuid_sync) DO UPDATE SET
       id = EXCLUDED.id,
       nombre = EXCLUDED.nombre,
       correo = EXCLUDED.correo,
       perfil = EXCLUDED.perfil,
-      pin = EXCLUDED.pin,
+      pin = NULL,
+      pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash),
       activo = EXCLUDED.activo,
       data = EXCLUDED.data,
       deleted_at = EXCLUDED.deleted_at,

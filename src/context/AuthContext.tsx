@@ -7,7 +7,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL } from '../types';
-import { db } from '../db/database';
+import { apiFetch } from '../lib/apiFetch';
 
 /**
  * Definición del contrato del contexto de autenticación.
@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (pin: string): Promise<boolean> => {
     // 1. Intentar login contra API real
     try {
-      const response = await fetch('/api/auth', {
+      const response = await apiFetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin })
@@ -60,32 +60,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const json = await response.json();
       if (json.success && json.user) {
         setUser(json.user);
-        localStorage.setItem('auth_pin', pin);
+        if (json.token) {
+          sessionStorage.setItem('auth_token', json.token);
+          localStorage.removeItem('auth_token');
+        }
         localStorage.setItem('auth_user', JSON.stringify(json.user));
         localStorage.setItem('is_authenticated', 'true');
+        window.dispatchEvent(new Event('auth-token-updated'));
         return true;
       }
+
+      if (response.status < 500 && !json.offline) return false;
     } catch (networkError) {
       console.warn('API no disponible, intentando login offline...');
-    }
-
-    // 2. Fallback offline: buscar usuarios ya sincronizados en IndexedDB.
-    const found = await db.users.where('pin').equals(pin).first();
-    if (found && found.activo) {
-      const offlineUser = {
-        id: found.id,
-        nombre: found.nombre,
-        correo: found.email,
-        perfil: found.rol as any,
-        activo: found.activo,
-        puedeEditarMantenimientos: true,
-        pin: found.pin
-      };
-      setUser(offlineUser);
-      localStorage.setItem('auth_pin', pin);
-      localStorage.setItem('auth_user', JSON.stringify(offlineUser));
-      localStorage.setItem('is_authenticated', 'true');
-      return true;
     }
 
     return false;
@@ -93,10 +80,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('auth_pin');
+    sessionStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('auth_user');
     localStorage.removeItem('active_client');
+    localStorage.removeItem('pending_tag');
   };
 
   return (

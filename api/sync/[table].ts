@@ -1,18 +1,25 @@
 import { getDb } from '../_db';
 import { applySyncOperations } from '../_sync';
 import { ensureDatabaseSchema, normalizeSyncTable } from '../_schema';
+import { requireRole } from '../_auth';
 
 export default async function handler(req: any, res: any) {
   const table = normalizeSyncTable(req.query.table as string);
   if (!table) return res.status(400).json({ success: false, error: `Tabla inválida: ${req.query.table}` });
 
   try {
+    const user = requireRole(table === 'users'
+      ? ['administrador', 'programador']
+      : ['administrador', 'programador', 'supervisor', 'tecnico', 'contratista'])(req, res);
+    if (!user) return;
     const sql = getDb();
     await ensureDatabaseSchema(sql);
 
     if (req.method === 'GET') {
       const since = req.query.since ? parseInt(req.query.since as string, 10) : 0;
-      const rows = await (sql as any)(`SELECT * FROM ${table} WHERE updated_at > $1 OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`, [since]);
+      const rows = table === 'users'
+        ? await (sql as any)(`SELECT uuid_sync, id, nombre, correo, perfil, activo, updated_at, created_at, deleted_at FROM users WHERE updated_at > $1 OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`, [since])
+        : await (sql as any)(`SELECT * FROM ${table} WHERE updated_at > $1 OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`, [since]);
       return res.json({ success: true, data: rows });
     }
 

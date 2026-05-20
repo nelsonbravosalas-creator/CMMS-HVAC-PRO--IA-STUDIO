@@ -16,9 +16,11 @@ import {
 import { logger } from "../lib/logger";
 import { useSyncStore } from "../store/useSyncStore";
 import { db } from "../db/database";
+import { apiFetch } from "../lib/apiFetch";
 
 export default function Consola() {
   const [logs, setLogs] = useState(logger.getLogs());
+  const [remoteLogs, setRemoteLogs] = useState<any[]>([]);
   const [filter, setFilter] = useState("");
   const { pendingCount, isSyncing } = useSyncStore();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -26,11 +28,32 @@ export default function Consola() {
   useEffect(() => {
     const interval = setInterval(() => {
       setLogs([...logger.getLogs()]);
+      apiFetch('/api/logs?limit=200')
+        .then(r => r.json())
+        .then(json => {
+          if (json.success && Array.isArray(json.data)) setRemoteLogs(json.data);
+        })
+        .catch(() => undefined);
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const filtered = logs.filter(e => 
+  const mergedLogs = [
+    ...logs,
+    ...remoteLogs.map(e => ({
+      id: e.id,
+      timestamp: Number(e.timestamp),
+      level: e.level,
+      context: e.context,
+      message: e.message,
+      data: e.data,
+      source: e.source
+    }))
+  ]
+    .filter((entry, index, all) => all.findIndex(item => item.id && item.id === entry.id) === index || !entry.id)
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  const filtered = mergedLogs.filter(e => 
     e.message.toLowerCase().includes(filter.toLowerCase()) ||
     e.context.toLowerCase().includes(filter.toLowerCase())
   );
@@ -95,6 +118,7 @@ export default function Consola() {
                       {e.level}
                     </span>
                     <span className="text-emerald-500 shrink-0 w-24">[{e.context}]</span>
+                    <span className="text-purple-400 shrink-0 w-20">[{e.source || 'local'}]</span>
                     <span className="text-slate-300 flex-1">{e.message}</span>
                  </div>
                ))}
@@ -112,7 +136,7 @@ export default function Consola() {
             <div className="flex items-center gap-6">
                <FooterStat icon={<Database className="w-3.5 h-3.5" />} label="Pendiente" value={`${pendingCount} items`} />
                <FooterStat icon={<Cpu className="w-3.5 h-3.5" />} label="Syncing" value={isSyncing ? 'SÍ' : 'NO'} />
-               <FooterStat icon={<ShieldAlert className="w-3.5 h-3.5" />} label="Logs" value={`${logs.length}`} />
+               <FooterStat icon={<ShieldAlert className="w-3.5 h-3.5" />} label="Logs" value={`${mergedLogs.length}`} />
             </div>
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">
                Modo Inspección Activo • Root User

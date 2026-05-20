@@ -1,5 +1,6 @@
-import { neon } from '@neondatabase/serverless';
-import { ensureDatabaseSchema, getDatabaseHealth, getDatabaseUrl } from './_schema';
+import { getDb } from './_db';
+import { ensureDatabaseSchema, getDatabaseHealth } from './_schema';
+import { requireRole } from './_auth';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -7,7 +8,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const sql = neon(getDatabaseUrl());
+    if (req.method === 'POST') {
+      const user = requireRole(['administrador', 'programador'])(req, res);
+      if (!user) return;
+    }
+    const sql = getDb();
     if (req.method === 'POST' || req.query?.migrate === 'true') {
       await ensureDatabaseSchema(sql);
     }

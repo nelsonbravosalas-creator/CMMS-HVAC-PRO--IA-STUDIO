@@ -1,20 +1,20 @@
 import express from 'express';
-import { neon } from '@neondatabase/serverless';
 import { applySyncOperations } from './_sync';
 import { ensureDatabaseSchema, getDatabaseHealth } from './_schema';
+import { getDb } from './_db';
+import { requireRole } from './_auth';
 
 const app = express();
 app.use(express.json());
 
 const getSql = () => {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL no definida');
-  return neon(process.env.DATABASE_URL);
+  return getDb();
 };
-
-const ALLOWED_TABLES = ['assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches'];
 
 app.get('/api/health/db', async (_req, res) => {
   try {
+    const user = requireRole(['administrador', 'programador'])(_req, res);
+    if (!user) return;
     const sql = getSql();
     const health = await getDatabaseHealth(sql);
     res.json({ success: true, ...health });
@@ -25,6 +25,8 @@ app.get('/api/health/db', async (_req, res) => {
 
 app.post('/api/health/db', async (_req, res) => {
   try {
+    const user = requireRole(['administrador', 'programador'])(_req, res);
+    if (!user) return;
     const sql = getSql();
     await ensureDatabaseSchema(sql);
     const health = await getDatabaseHealth(sql);
@@ -36,6 +38,12 @@ app.post('/api/health/db', async (_req, res) => {
 
 app.post('/api/sync', async (req, res) => {
   try {
+    const buckets = [req.body?.inserts, req.body?.updates, req.body?.deletes];
+    const touchesUsers = buckets.some((bucket) => Array.isArray(bucket) && bucket.some((item: any) => item?.table === 'users'));
+    const user = requireRole(touchesUsers
+      ? ['administrador', 'programador']
+      : ['administrador', 'programador', 'supervisor', 'tecnico', 'contratista'])(req, res);
+    if (!user) return;
     const sql = getSql();
     await ensureDatabaseSchema(sql);
     const payload = await applySyncOperations(sql, req.body);

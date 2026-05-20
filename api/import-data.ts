@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import { getDb } from './_db';
 import { EQUIPOS_DATA } from '../src/data/assets.js';
 import { USUARIOS_MOCK, CLIENTES_MOCK } from '../src/data/users.js';
 import { MANTENIMIENTOS_MOCK } from '../src/data/preventive_maintenance.js';
@@ -7,7 +7,8 @@ import { INFORMES_MOCK } from '../src/data/reports.js';
 import { EVENTOS_MOCK } from '../src/data/events.js';
 import { SUCURSALES } from '../src/data/branches.js';
 import { applySyncOperations } from './_sync';
-import { ensureDatabaseSchema, getDatabaseUrl } from './_schema';
+import { ensureDatabaseSchema } from './_schema';
+import { requireRole } from './_auth';
 
 const seedSources = {
   assets: EQUIPOS_DATA.map((item: any) => ({ ...item, uuid_sync: item.uuid_sync || item.tag })),
@@ -26,7 +27,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const sql = neon(getDatabaseUrl());
+    const user = requireRole(['administrador', 'programador'])(req, res);
+    if (!user) return;
+    const sql = getDb();
     await ensureDatabaseSchema(sql);
     const force = req.query?.force === 'true';
     const resultados: Record<string, any> = {};
