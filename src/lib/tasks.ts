@@ -1,7 +1,7 @@
 import { getAccessToken } from './auth';
-import type { WorkOrder } from '../types';
+import type { LocalTicket } from '../db/database';
 
-export const syncTicketToGoogleTasks = async (ticket: WorkOrder) => {
+export const syncTicketToGoogleTasks = async (ticket: LocalTicket) => {
   const accessToken = await getAccessToken();
   if (!accessToken) {
     console.warn('No Google access token found, skipping task sync.');

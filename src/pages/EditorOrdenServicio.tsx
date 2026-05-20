@@ -172,7 +172,7 @@ export default function EditorOrdenServicio() {
       id: rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`,
       draft_key: OS_DRAFT_KEY,
       estado: 'firmada',
-      sync_status: 'pending' as const,
+      sync_status: 'pending_insert' as const,
       updated_at: Date.now(),
       created_at: Date.now(),
       data: dataPayload
@@ -184,22 +184,24 @@ export default function EditorOrdenServicio() {
         await db.sync_queue.add({
           table: 'ordenes_servicio',
           uuid_sync: uuid,
-          operation: 'INSERT',
+          operation: 'insert',
+          data: record,
           timestamp: Date.now()
         });
       } else {
         const existing = await db.ordenes_servicio.get(uuid);
-        await db.ordenes_servicio.put({ ...existing, ...record, created_at: existing?.created_at || Date.now() });
+        const updatedRecord = { ...existing, ...record, sync_status: 'pending_update' as const, created_at: existing?.created_at || Date.now() };
+        await db.ordenes_servicio.put(updatedRecord);
         await db.sync_queue.add({
           table: 'ordenes_servicio',
           uuid_sync: uuid,
-          operation: 'UPDATE',
+          operation: 'update',
+          data: updatedRecord,
           timestamp: Date.now()
         });
       }
 
-      // Triggers background sync to Neon
-      syncEngine.processQueue().catch(console.error);
+      syncEngine.triggerSync().catch(console.error);
 
       setStatus('firmada');
       localStorage.removeItem(OS_DRAFT_KEY);

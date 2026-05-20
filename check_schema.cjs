@@ -5233,7 +5233,10 @@ var export_escapeLiteral = ct.escapeLiteral;
 var export_types = ct.types;
 
 // check_schema.ts
-var dbUrl = process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith("postgres") ? process.env.DATABASE_URL : "postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+var dbUrl = process.env.DATABASE_URL;
+if (!dbUrl || !dbUrl.startsWith("postgres")) {
+  throw new Error("DATABASE_URL no configurada");
+}
 var sql = cs(dbUrl);
 async function check() {
   try {

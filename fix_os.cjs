@@ -1,6 +1,10 @@
 const { neon } = require('@neondatabase/serverless');
 
-const sql = neon(process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require');
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL no configurada');
+}
+
+const sql = neon(process.env.DATABASE_URL);
 
 async function run() {
   try {

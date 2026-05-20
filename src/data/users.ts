@@ -26,6 +26,15 @@ export const USUARIOS_MOCK: Usuario[] = [
     activo: true,
     puedeEditarMantenimientos: true,
     pin: '3210'
+  },
+  {
+    id: 'U3',
+    nombre: 'Admin Pruebas',
+    correo: 'a@a.cl',
+    perfil: 'administrador',
+    activo: true,
+    puedeEditarMantenimientos: true,
+    pin: '1234'
   }
 ];
 

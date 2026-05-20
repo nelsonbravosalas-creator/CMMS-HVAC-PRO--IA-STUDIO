@@ -31,10 +31,12 @@ import {
   AlertTriangle,
   Zap,
   Menu as MenuIcon,
+  LogOut,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "motion/react";
+import { useAuth } from "../context/AuthContext";
 
 /**
  * Propiedades del componente NavItem.
@@ -50,7 +52,25 @@ interface NavItemProps {
   isDarkMode?: boolean;
 }
 
-const NAV_ITEMS = [
+interface NavConfigItem {
+  href: string;
+  icon: any;
+  label: string;
+  badgeKey?: keyof typeof statsShape;
+  badgeColor?: string;
+  section?: string;
+  requiresUserManagement?: boolean;
+}
+
+const statsShape = {
+  ticketsAbiertos: 0,
+  preventive_maintenancePendientes: 0,
+  informesPendientesFirma: 0,
+  equiposTotal: 0,
+  ordenesServicioTotal: 0,
+};
+
+const NAV_ITEMS: NavConfigItem[] = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/scanner", icon: ScanLine, label: "Scanner QR" },
   { href: "/equipos", icon: Box, label: "Equipos", badgeKey: 'equiposTotal', badgeColor: "bg-purple-600" },
@@ -62,7 +82,7 @@ const NAV_ITEMS = [
   { href: "/tickets", icon: Ticket, label: "Tickets", badgeKey: 'ticketsAbiertos' },
   { href: "/reportes", icon: BarChart3, label: "Reportes" },
   { href: "/eficiencia", icon: Zap, label: "Eficiencia Energética" },
-  { href: "/administracion", icon: Users, label: "Administración", section: "Configuración" },
+  { href: "/administracion", icon: Users, label: "Administración", section: "Configuración", requiresUserManagement: true },
   { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración" },
   { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración" },
 ];
@@ -144,6 +164,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 
 export default function Layout({ children }: LayoutProps) {
+  const [, setLocation] = useLocation();
+  const { user, permisos, logout } = useAuth();
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Control del drawer de acciones secundarias (Mobile) */
@@ -191,6 +213,21 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
+  const handleLogout = () => {
+    logout();
+    setIsMobileMenuOpen(false);
+    setIsMoreDrawerOpen(false);
+    setLocation("/login");
+  };
+  const displayName = user?.nombre || "Usuario";
+  const displayRole = user?.perfil || "usuario";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "U";
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.requiresUserManagement || permisos?.gestionar_usuarios);
 
   return (
     <div className={`h-screen w-full flex overflow-hidden font-sans ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
@@ -205,9 +242,9 @@ export default function Layout({ children }: LayoutProps) {
         </div>
         
         <nav className="mt-4 flex-1 flex flex-col overflow-y-auto scrollbar-hide py-2">
-          {NAV_ITEMS.map((item, idx) => (
+          {visibleNavItems.map((item, idx) => (
             <div key={item.href}>
-              {item.section && (idx === 0 || NAV_ITEMS[idx-1].section !== item.section) && (
+              {item.section && (idx === 0 || visibleNavItems[idx-1].section !== item.section) && (
                 <div className={`mt-6 mb-2 px-6 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                   {item.section}
                 </div>
@@ -292,7 +329,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
 
               <nav className="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
-                {NAV_ITEMS.map((item) => (
+                {visibleNavItems.map((item) => (
                   <NavItem 
                     key={item.href}
                     isDarkMode={isDarkMode} 
@@ -377,15 +414,28 @@ export default function Layout({ children }: LayoutProps) {
             {/* Profile Badge */}
             <div className={`flex items-center gap-3 border-l pl-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
               <div className="hidden lg:flex flex-col items-end">
-                <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Nelson Bravo</span>
-                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-tight">Admin</span>
+                <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{displayName}</span>
+                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-tight">{displayRole}</span>
               </div>
               <div className="relative">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-blue-600/30 ring-2 ring-blue-600/20">
-                  NB
+                  {initials}
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-sm"></div>
               </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Cerrar sesión"
+                aria-label="Cerrar sesión"
+                className={`p-2 rounded border transition-colors ${
+                  isDarkMode
+                    ? 'border-slate-800 hover:bg-red-500/10 hover:border-red-500/40 text-slate-400 hover:text-red-400'
+                    : 'border-slate-200 hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-red-600'
+                }`}
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </header>
@@ -506,12 +556,14 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </Link>
 
-              <Link href="/administracion" onClick={() => setIsMoreDrawerOpen(false)}>
-                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
-                  <div className="w-12 h-12 bg-rose-600/20 rounded-2xl flex items-center justify-center text-rose-400"><Users className="w-6 h-6" /></div>
-                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Admin</span>
-                </div>
-              </Link>
+              {permisos?.gestionar_usuarios && (
+                <Link href="/administracion" onClick={() => setIsMoreDrawerOpen(false)}>
+                  <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                    <div className="w-12 h-12 bg-rose-600/20 rounded-2xl flex items-center justify-center text-rose-400"><Users className="w-6 h-6" /></div>
+                    <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Admin</span>
+                  </div>
+                </Link>
+              )}
             </div>
 
             <button 

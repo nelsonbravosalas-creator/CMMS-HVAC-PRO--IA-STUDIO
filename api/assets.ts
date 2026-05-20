@@ -3,7 +3,7 @@ import { requireRole } from './_auth';
 
 export default async function handler(req: any, res: any) {
   try {
-    const user = requireRole(['Administrador', 'Técnico_Líder', 'Ingeniero_Confiabilidad'])(req, res);
+    const user = requireRole(['administrador', 'programador', 'supervisor'])(req, res);
     if (!user) return; // Ya se envió el error 401/403
 
     const sql = getDb();
@@ -12,11 +12,11 @@ export default async function handler(req: any, res: any) {
 
     if (method === 'GET') {
       if (tag) {
-        const rows = await sql`SELECT * FROM assets WHERE tag = ${tag}`;
+        const rows = await sql`SELECT * FROM assets WHERE tag = ${tag} AND deleted_at IS NULL`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
         return res.json({ success: true, data: rows[0] });
       }
-      const rows = await sql`SELECT * FROM assets ORDER BY tag ASC LIMIT 1000`;
+      const rows = await sql`SELECT * FROM assets WHERE deleted_at IS NULL ORDER BY tag ASC LIMIT 1000`;
       return res.json({ success: true, data: rows });
     }
 
@@ -61,7 +61,8 @@ export default async function handler(req: any, res: any) {
 
     if (method === 'DELETE') {
       if (!tag) return res.status(400).json({ error: 'Falta tag' });
-      await sql`DELETE FROM assets WHERE tag = ${tag}`;
+      const now = Date.now();
+      await sql`UPDATE assets SET estado = 'baja', deleted_at = ${now}, updated_at = ${now} WHERE tag = ${tag}`;
       return res.json({ success: true });
     }
 
