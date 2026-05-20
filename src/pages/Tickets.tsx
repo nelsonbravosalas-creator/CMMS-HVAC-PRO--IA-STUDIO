@@ -18,13 +18,15 @@ import {
   Image as ImageIcon,
   MessageSquare,
   Download,
-  Cloud
+  Cloud,
+  CheckSquare
 } from "lucide-react";
 import { TicketForm } from "../components/modals/TicketForm";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
 import { useAppStore } from "../store/useAppStore";
 import { useTickets } from "../hooks/useTickets";
+import { useGoogleTasks } from "../hooks/useGoogleTasks";
 import { StatusIndicator } from "../components/StatusIndicator";
 
 export default function Tickets() {
@@ -32,6 +34,7 @@ export default function Tickets() {
   const work_orders = useAppStore(state => state.work_orders);
   const loading = useAppStore(state => state.isLoading);
   const { updateTicket } = useTickets();
+  const { syncTicketsToTasks, isSyncing } = useGoogleTasks();
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");
 
@@ -39,7 +42,7 @@ export default function Tickets() {
 
   const filtered = useMemo(() => work_orders.filter(t => 
     t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
-    t.equipo_tag.toLowerCase().includes(filter.toLowerCase()) ||
+    t.equipo_tag?.toLowerCase().includes(filter.toLowerCase()) ||
     t.id.toLowerCase().includes(filter.toLowerCase())
   ), [work_orders, filter]);
 
@@ -81,6 +84,15 @@ export default function Tickets() {
     link.click();
     document.body.removeChild(link);
   };
+  
+  const handleGoogleTasksSync = async () => {
+     try {
+        await syncTicketsToTasks(work_orders);
+        alert("✅ Tickets sincronizados con Google Tasks exitosamente.");
+     } catch (err: any) {
+        alert("❌ Hubo un error al sincronizar con Google Tasks: " + err.message);
+     }
+  };
 
   const statuses = [
     { id: 'abierto', label: 'Abiertos', color: 'bg-red-500', bg: 'bg-red-50' },
@@ -97,6 +109,14 @@ export default function Tickets() {
           <p className="text-slate-500 text-sm font-medium">Gestión de incidencias y solicitudes técnicas.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handleGoogleTasksSync}
+            disabled={isSyncing}
+            className={`bg-[#4285F4]/10 hover:bg-[#4285F4]/20 text-[#4285F4] px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all border border-[#4285F4]/20 ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isSyncing ? <Clock className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />} 
+            {isSyncing ? "Sincronizando..." : "Google Tasks"}
+          </button>
           <button 
             onClick={exportToCSV}
             className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"

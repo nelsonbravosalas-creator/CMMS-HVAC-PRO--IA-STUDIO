@@ -48,6 +48,7 @@ export interface LocalTicket extends LocalBase {
   creado_por: string;
   asignado_a: string;
   fecha_creacion: string;
+  ubicacionGeografica?: { lat: number, lng: number };
 }
 
 export interface LocalMantenimiento extends LocalBase {
@@ -60,15 +61,21 @@ export interface LocalMantenimiento extends LocalBase {
   hallazgos: string;
   acciones: string;
   repuestos: string;
+  ubicacionGeografica?: { lat: number, lng: number };
 }
 
 export interface LocalCliente extends LocalBase {
   id: string;
   nombre: string;
+  rut?: string;
   empresa: string;
   email: string;
   telefono: string;
   direccion: string;
+  contacto_nombre?: string;
+  contacto_cargo?: string;
+  region?: string;
+  activo?: boolean;
 }
 
 export interface LocalUsuario extends LocalBase {

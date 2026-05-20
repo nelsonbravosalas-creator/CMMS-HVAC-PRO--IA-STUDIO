@@ -37,6 +37,7 @@ import {
   Users,
   Maximize
 } from "lucide-react";
+import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { Link, useRoute, useLocation } from "wouter";
 import { AssetSearchModal } from "../components/modals/AssetSearchModal";
 import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatureModal";
@@ -102,6 +103,35 @@ export default function EditorInforme() {
   const [status, setStatus] = useState<'borrador' | 'firmado' | 'bloqueado' | 'offline_draft'>(informe?.estado as any || 'offline_draft');
   const [loadingAI, setLoadingAI] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+
+  const captureGPS = () => {
+    setGpsLoading(true);
+    setGpsError("");
+    if (!navigator.geolocation) {
+      setGpsError("Tu navegador no soporta geolocalización.");
+      setGpsLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUbicacionGeografica({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+        setGpsLoading(false);
+      },
+      (err) => {
+        console.error("GPS error", err);
+        setGpsError("No se pudo obtener la ubicación GPS.");
+        setGpsLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
 
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
@@ -226,6 +256,42 @@ export default function EditorInforme() {
                    </select>
                 </div>
              </div>
+
+             <div className="mt-6 flex flex-col gap-4">
+                {!isReadOnly && (
+                  <button 
+                    type="button" 
+                    onClick={captureGPS}
+                    disabled={gpsLoading}
+                    className="w-full py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-emerald-50 hover:text-emerald-600 transition-all group hover:border-emerald-100"
+                  >
+                     <MapPin className={`w-6 h-6 ${gpsLoading ? 'animate-pulse text-emerald-500' : (ubicacionGeografica ? 'text-emerald-500' : '')}`} />
+                     <span className="text-[9px] font-black uppercase">
+                       {gpsLoading ? 'Obteniendo GPS...' : (ubicacionGeografica ? 'Ubicación Capturada' : 'Marcar Ubicación GPS')}
+                     </span>
+                  </button>
+                )}
+                {gpsError && (
+                  <p className="text-xs text-rose-500 font-bold text-center">{gpsError}</p>
+                )}
+                {ubicacionGeografica && import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY && (
+                  <div className="w-full h-64 rounded-2xl overflow-hidden border border-slate-200 mt-2">
+                    <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY}>
+                      <Map 
+                        defaultZoom={15} 
+                        defaultCenter={ubicacionGeografica}
+                        mapId="informe_map_id"
+                        disableDefaultUI
+                      >
+                        <AdvancedMarker position={ubicacionGeografica}>
+                          <Pin background={'#10b981'} borderColor={'#047857'} glyphColor={'#047857'} />
+                        </AdvancedMarker>
+                      </Map>
+                    </APIProvider>
+                  </div>
+                )}
+             </div>
+
           </SectionBox>
         </div>
         );
@@ -660,7 +726,7 @@ export default function EditorInforme() {
     const reportData = {
       id: currentFolio,
       uuid_sync: id || currentFolio, // UUID para db
-      generalData: { ...generalData, folio: currentFolio },
+      generalData: { ...generalData, folio: currentFolio, ubicacionGeografica },
       machineData,
       circuits,
       checklist,

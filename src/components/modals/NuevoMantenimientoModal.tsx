@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User
+  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User, MapPin
 } from 'lucide-react';
+import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 
 import { useMantenimientos } from '../../hooks/useMantenimientos';
 
@@ -27,6 +28,35 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
   const [hallazgos, setHallazgos] = useState("");
   const [recomendaciones, setRecomendaciones] = useState("");
   const [repuestos, setRepuestos] = useState("");
+  
+  const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+
+  const captureGPS = () => {
+    setGpsLoading(true);
+    setGpsError("");
+    if (!navigator.geolocation) {
+      setGpsError("Tu navegador no soporta geolocalización.");
+      setGpsLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUbicacionGeografica({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+        setGpsLoading(false);
+      },
+      (err) => {
+        console.error("GPS error", err);
+        setGpsError("No se pudo obtener la ubicación GPS.");
+        setGpsLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
 
   React.useEffect(() => {
     if(!fechaActual) return;
@@ -80,8 +110,9 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           fecha: fechaActual,
           tecnico: tecnico,
           hallazgos: hallazgos,
-          acciones: descripcion, // Map descripcion to acciones
-          repuestos: repuestos
+          acciones: descripcion,
+          repuestos: repuestos,
+          ubicacionGeografica
         });
         
         onClose();
@@ -228,8 +259,42 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
                 />
              </div>
           </div>
+          
+          <div className="flex gap-4 mt-4">
+              <button 
+                type="button" 
+                onClick={captureGPS}
+                disabled={gpsLoading}
+                className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-emerald-50 hover:text-emerald-600 transition-all group hover:border-emerald-100"
+              >
+                 <MapPin className={`w-6 h-6 ${gpsLoading ? 'animate-pulse text-emerald-500' : (ubicacionGeografica ? 'text-emerald-500' : '')}`} />
+                 <span className="text-[9px] font-black uppercase">
+                   {gpsLoading ? 'Obteniendo GPS...' : (ubicacionGeografica ? 'Ubicación Capturada' : 'Capturar Ubicación')}
+                 </span>
+              </button>
+          </div>
+          {gpsError && (
+              <p className="text-xs text-rose-500 font-bold mt-2">{gpsError}</p>
+          )}
 
-          <div className="flex gap-4">
+          {ubicacionGeografica && import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY && (
+              <div className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 mt-4 mb-4">
+                <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY}>
+                  <Map 
+                    defaultZoom={15} 
+                    defaultCenter={ubicacionGeografica}
+                    mapId="mantenimiento_map_id"
+                    disableDefaultUI
+                  >
+                    <AdvancedMarker position={ubicacionGeografica}>
+                      <Pin background={'#ef4444'} borderColor={'#7f1d1d'} glyphColor={'#7f1d1d'} />
+                    </AdvancedMarker>
+                  </Map>
+                </APIProvider>
+              </div>
+          )}
+
+          <div className="flex gap-4 mt-6">
              <button type="submit" disabled={isSaving} className="flex-1 py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2 disabled:opacity-50">
                 {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
                 {isSaving ? "Guardando..." : "Finalizar y Guardar Registro"}

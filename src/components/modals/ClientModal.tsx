@@ -1,44 +1,176 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Building2 } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
 import { REGIONES_CHILE } from '../../data/regions';
+import { LocalCliente, LocalSucursal } from '../../db/database';
+import { ClientRepository } from '../../repositories/ClientRepository';
+import { BranchRepository } from '../../repositories/BranchRepository';
+import { syncEngine } from '../../sync/syncEngine';
+import { useAppStore } from '../../store/useAppStore';
 
 interface ClientModalProps {
   isOpen: boolean;
   onClose: () => void;
+  editingClient?: { client: LocalCliente, branches: LocalSucursal[] } | null;
 }
 
 interface SubLocation {
   id: string;
+  uuid_sync?: string;
   tipo: string;
   nombre: string;
   direccion: string;
   codigo: string;
 }
 
-export function ClientModal({ isOpen, onClose }: ClientModalProps) {
+export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps) {
   const [subs, setSubs] = useState<SubLocation[]>([]);
+  const [nombre, setNombre] = useState('');
+  const [rut, setRut] = useState('');
+  const [direccion, setDireccion] = useState('');
   const [region, setRegion] = useState("");
+  const [contactoNombre, setContactoNombre] = useState('');
+  const [contactoCargo, setContactoCargo] = useState('');
+  const [contactoEmail, setContactoEmail] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (editingClient && isOpen) {
+      setNombre(editingClient.client.nombre || '');
+      setRut(editingClient.client.rut || '');
+      setDireccion(editingClient.client.direccion || '');
+      setRegion(editingClient.client.region || '');
+      setContactoNombre(editingClient.client.contacto_nombre || '');
+      setContactoCargo(editingClient.client.contacto_cargo || '');
+      setContactoEmail(editingClient.client.email || '');
+
+      setSubs(editingClient.branches.map(b => ({
+        id: b.id,
+        uuid_sync: b.uuid_sync,
+        tipo: 'Tienda',
+        nombre: b.nombre,
+        direccion: b.descripcion || '',
+        codigo: b.codigo,
+      })));
+    } else {
+      setNombre('');
+      setRut('');
+      setDireccion('');
+      setRegion('');
+      setContactoNombre('');
+      setContactoCargo('');
+      setContactoEmail('');
+      setSubs([]);
+    }
+  }, [editingClient, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!nombre) {
+      alert("El nombre de la empresa es obligatorio");
+      return;
+    }
+
     setIsSaving(true);
-    
-    // Non blocking save
-    const clientData = {
-      subs,
-      fechaSincronizacionLocal: new Date().toISOString()
-    };
-    
-    localStorage.setItem(`cliente_${Date.now()}`, JSON.stringify(clientData));
-    
-    setTimeout(() => {
+    try {
+      const clientRepo = new ClientRepository();
+      const branchRepo = new BranchRepository();
+      let clientId = editingClient?.client.uuid_sync;
+
+      if (editingClient) {
+        // Update client
+        const updatedClient = {
+          ...editingClient.client,
+          nombre,
+          empresa: nombre,
+          rut,
+          direccion,
+          region,
+          contacto_nombre: contactoNombre,
+          contacto_cargo: contactoCargo,
+          email: contactoEmail,
+        };
+        await clientRepo.update(editingClient.client.uuid_sync, updatedClient);
+        
+        // Handle branches
+        const existingBranchMap = new Map(editingClient.branches.map(b => [b.uuid_sync, b]));
+        
+        for (const sub of subs) {
+          if (sub.uuid_sync && existingBranchMap.has(sub.uuid_sync)) {
+            // Update
+            const existing = existingBranchMap.get(sub.uuid_sync)!;
+            const updatedBranch = {
+              ...existing,
+              nombre: sub.nombre,
+              codigo: sub.codigo,
+              descripcion: sub.direccion
+            };
+            await branchRepo.update(sub.uuid_sync, updatedBranch);
+            existingBranchMap.delete(sub.uuid_sync); // Mark as processed
+          } else {
+            // Create new
+            const newBranchId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
+              id: newBranchId,
+              cliente_id: editingClient.client.uuid_sync,
+              codigo: sub.codigo,
+              nombre: sub.nombre,
+              descripcion: sub.direccion,
+              activo: true
+            };
+            await branchRepo.create(newBranch);
+          }
+        }
+
+        // Soft delete missing branches
+        for (const [uuid, branchToRemove] of Array.from(existingBranchMap.entries())) {
+          await branchRepo.softDelete(uuid);
+        }
+
+      } else {
+        // Create new client
+        const newClientId = `CLI-${Date.now()}`;
+        const newClient: Omit<LocalCliente, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
+          id: newClientId,
+          nombre,
+          empresa: nombre,
+          rut,
+          direccion,
+          region,
+          contacto_nombre: contactoNombre,
+          contacto_cargo: contactoCargo,
+          email: contactoEmail,
+          telefono: '',
+          activo: true
+        };
+        const createdClient = await clientRepo.create(newClient);
+        clientId = createdClient.uuid_sync;
+
+        // Create branches
+        for (const sub of subs) {
+          const newBranchId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
+            id: newBranchId,
+            cliente_id: clientId,
+            codigo: sub.codigo,
+            nombre: sub.nombre,
+            descripcion: sub.direccion,
+            activo: true
+          };
+          await branchRepo.create(newBranch);
+        }
+      }
+
+      await useAppStore.getState().hydrate();
+      syncEngine.triggerSync();
       setIsSaving(false);
-      alert('Cliente Registrado Correctamente');
       onClose();
-    }, 0);
+    } catch (err) {
+      console.error(err);
+      alert("Ocurrió un error al guardar");
+      setIsSaving(false);
+    }
   };
 
   const addSub = () => {
@@ -62,7 +194,7 @@ export function ClientModal({ isOpen, onClose }: ClientModalProps) {
                    <Building2 className="w-6 h-6" />
                 </div>
                 <div>
-                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Nuevo Cliente</h3>
+                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Alta de Cliente y Multi-Sucursales (SUBs)</p>
                 </div>
              </div>
@@ -74,16 +206,16 @@ export function ClientModal({ isOpen, onClose }: ClientModalProps) {
                  <h4 className="text-xs font-black uppercase text-indigo-600 tracking-widest border-b border-slate-100 pb-2">Información Principal</h4>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black uppercase text-slate-400">Nombre Empresa</label>
-                       <input type="text" placeholder="Ej. ACME Corp" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <label className="text-[10px] font-black uppercase text-slate-400">Nombre Empresa *</label>
+                       <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. ACME Corp" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">RUT Empresa</label>
-                       <input type="text" placeholder="77.123.456-7" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <input type="text" value={rut} onChange={e => setRut(e.target.value)} placeholder="77.123.456-7" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">Dirección Matriz</label>
-                       <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1 z-50">
                        <label className="text-[10px] font-black uppercase text-slate-400">Región</label>
@@ -102,15 +234,15 @@ export function ClientModal({ isOpen, onClose }: ClientModalProps) {
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">Persona de Contacto</label>
-                       <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <input type="text" value={contactoNombre} onChange={e => setContactoNombre(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">Cargo</label>
-                       <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <input type="text" value={contactoCargo} onChange={e => setContactoCargo(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">Correo de Contacto</label>
-                       <input type="email" placeholder="correo@empresa.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none lowercase" />
+                       <input type="email" value={contactoEmail} onChange={e => setContactoEmail(e.target.value)} placeholder="correo@empresa.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none lowercase" />
                     </div>
                  </div>
              </div>

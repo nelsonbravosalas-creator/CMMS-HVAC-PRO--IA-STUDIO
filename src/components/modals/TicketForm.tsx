@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History
+  X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History, MapPin
 } from 'lucide-react';
+import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { AssetSearchModal } from './AssetSearchModal';
 import { EQUIPOS_DATA } from '../../data/assets';
 import { ALMACEN_LABELS } from '../../data/branches';
@@ -27,6 +28,35 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [prioridad, setPrioridad] = useState("Media");
   const [tipoIncidencia, setTipoIncidencia] = useState("Falla Técnica");
   const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
+  
+  const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+
+  const captureGPS = () => {
+    setGpsLoading(true);
+    setGpsError("");
+    if (!navigator.geolocation) {
+      setGpsError("Tu navegador no soporta geolocalización.");
+      setGpsLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUbicacionGeografica({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+        setGpsLoading(false);
+      },
+      (err) => {
+        console.error("GPS error", err);
+        setGpsError("No se pudo obtener la ubicación GPS.");
+        setGpsLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
   
   // Search Modal States
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,6 +98,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
         creado_por: 'Actual User',
         asignado_a: asignadoA,
         fecha_creacion: new Date().toISOString(),
+        ubicacionGeografica,
       });
       
       onClose();
@@ -236,11 +267,39 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
                 <Camera className="w-6 h-6 group-hover:text-blue-500 transition-colors" />
                 <span className="text-[9px] font-black uppercase">Adjuntar Evidencia</span>
               </button>
-              <button type="button" className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-rose-50 hover:text-rose-600 transition-all group hover:border-rose-100">
-                 <Trash2 className="w-6 h-6" />
-                 <span className="text-[9px] font-black uppercase">Limpiar Fotos</span>
+              <button 
+                type="button" 
+                onClick={captureGPS}
+                disabled={gpsLoading}
+                className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-emerald-50 hover:text-emerald-600 transition-all group hover:border-emerald-100"
+              >
+                 <MapPin className={`w-6 h-6 ${gpsLoading ? 'animate-pulse text-emerald-500' : (ubicacionGeografica ? 'text-emerald-500' : '')}`} />
+                 <span className="text-[9px] font-black uppercase">
+                   {gpsLoading ? 'Obteniendo GPS...' : (ubicacionGeografica ? 'Ubicación Capturada' : 'Capturar Ubicación')}
+                 </span>
               </button>
             </div>
+            
+            {gpsError && (
+              <p className="text-xs text-rose-500 font-bold">{gpsError}</p>
+            )}
+
+            {ubicacionGeografica && import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY && (
+              <div className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 mt-2">
+                <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY}>
+                  <Map 
+                    defaultZoom={15} 
+                    defaultCenter={ubicacionGeografica}
+                    mapId="ticket_map_id"
+                    disableDefaultUI
+                  >
+                    <AdvancedMarker position={ubicacionGeografica}>
+                      <Pin background={'#ef4444'} borderColor={'#7f1d1d'} glyphColor={'#7f1d1d'} />
+                    </AdvancedMarker>
+                  </Map>
+                </APIProvider>
+              </div>
+            )}
 
             <button disabled={isSaving} type="submit" className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 mt-4 flex items-center justify-center gap-3 disabled:opacity-50">
               {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5" />}
