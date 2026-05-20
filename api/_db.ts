@@ -18,9 +18,12 @@ function getDatabaseUrl() {
 
 function getPool() {
   if (!pool) {
+    const connectionString = getDatabaseUrl();
+    const requiresSsl = connectionString.includes('sslmode=require') || connectionString.includes('.neon.tech');
     pool = new Pool({
-      connectionString: getDatabaseUrl(),
-      max: Number(process.env.POSTGRES_POOL_MAX || 10)
+      connectionString,
+      max: Number(process.env.POSTGRES_POOL_MAX || 10),
+      ssl: requiresSsl ? { rejectUnauthorized: false } : undefined
     });
   }
   return pool;
