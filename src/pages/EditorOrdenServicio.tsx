@@ -12,7 +12,8 @@ import {
   CheckSquare,
   AlertTriangle,
   ClipboardList,
-  MapPin
+  MapPin,
+  Search
 } from "lucide-react";
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import DictationTextarea from "../components/DictationTextarea";
