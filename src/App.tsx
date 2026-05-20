@@ -40,6 +40,7 @@ import { useSyncStore } from "./store/useSyncStore";
 import { SyncIndicator } from "./components/SyncIndicator";
 import { SyncInspectorPanel } from "./components/debug/SyncInspectorPanel";
 import { networkMonitor } from "./sync/networkMonitor";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 /**
  * Componente funcional App.
@@ -170,6 +171,7 @@ function App() {
           <SyncInspectorPanel />
         </>
       )}
+      <SpeedInsights />
     </AuthProvider>
   );
 }
