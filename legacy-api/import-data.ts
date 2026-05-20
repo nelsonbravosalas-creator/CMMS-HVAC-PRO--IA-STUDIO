@@ -1,4 +1,4 @@
-import { getDb } from './_db';
+import { getDb } from '../api/_db';
 import { EQUIPOS_DATA } from '../src/data/assets.js';
 import { CLIENTES_MOCK } from '../src/data/users.js';
 import { MANTENIMIENTOS_MOCK } from '../src/data/preventive_maintenance.js';
@@ -6,9 +6,9 @@ import { TICKETS_MOCK } from '../src/data/work_orders.js';
 import { INFORMES_MOCK } from '../src/data/reports.js';
 import { EVENTOS_MOCK } from '../src/data/events.js';
 import { SUCURSALES } from '../src/data/branches.js';
-import { applySyncOperations } from './_sync';
-import { ensureDatabaseSchema } from './_schema';
-import { requireRole } from './_auth';
+import { applySyncOperations } from '../api/_sync';
+import { ensureDatabaseSchema } from '../api/_schema';
+import { requireRole } from '../api/_auth';
 
 const seedSources = {
   assets: EQUIPOS_DATA.map((item: any) => ({ ...item, uuid_sync: item.uuid_sync || item.tag })),

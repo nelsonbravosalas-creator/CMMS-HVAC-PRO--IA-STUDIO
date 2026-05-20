@@ -1,6 +1,6 @@
-import { getDb } from './_db';
-import { ensureDatabaseSchema, getDatabaseHealth } from './_schema';
-import { requireRole } from './_auth';
+import { getDb } from '../api/_db';
+import { ensureDatabaseSchema, getDatabaseHealth } from '../api/_schema';
+import { requireRole } from '../api/_auth';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST' && req.method !== 'GET') {

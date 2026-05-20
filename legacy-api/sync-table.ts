@@ -1,7 +1,7 @@
-import { getDb } from '../_db';
-import { applySyncOperations } from '../_sync';
-import { ensureDatabaseSchema, normalizeSyncTable } from '../_schema';
-import { requireRole } from '../_auth';
+import { getDb } from '../api/_db';
+import { applySyncOperations } from '../api/_sync';
+import { ensureDatabaseSchema, normalizeSyncTable } from '../api/_schema';
+import { requireRole } from '../api/_auth';
 
 export default async function handler(req: any, res: any) {
   const table = normalizeSyncTable(req.query.table as string);
