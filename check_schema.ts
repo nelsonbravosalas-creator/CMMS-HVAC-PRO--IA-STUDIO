@@ -14,7 +14,7 @@ async function check() {
       ORDER BY table_name
     `;
     console.log("Schema info:", rows);
-  } catch (e) {
+  } catch (e: any) {
     console.error("Error checking columns:", e.message);
   } finally {
     await closeDb();
