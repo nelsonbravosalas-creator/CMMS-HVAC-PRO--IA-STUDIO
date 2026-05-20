@@ -66,27 +66,48 @@ async function ensureTables() {
       { table: 'assets', col: 'uuid_sync', type: 'TEXT' },
       { table: 'assets', col: 'updated_at', type: 'BIGINT' },
       { table: 'assets', col: 'created_at', type: 'BIGINT' },
+      { table: 'assets', col: 'cliente_id', type: 'TEXT' },
+      { table: 'assets', col: 'sucursal_id', type: 'TEXT' },
       { table: 'users', col: 'uuid_sync', type: 'TEXT' },
       { table: 'users', col: 'updated_at', type: 'BIGINT' },
       { table: 'users', col: 'created_at', type: 'BIGINT' },
+      { table: 'users', col: 'data', type: 'JSONB' },
       { table: 'preventive_maintenance', col: 'uuid_sync', type: 'TEXT' },
       { table: 'preventive_maintenance', col: 'updated_at', type: 'BIGINT' },
+      { table: 'preventive_maintenance', col: 'created_at', type: 'BIGINT' },
+      { table: 'preventive_maintenance', col: 'data', type: 'JSONB' },
       { table: 'work_orders', col: 'uuid_sync', type: 'TEXT' },
       { table: 'work_orders', col: 'updated_at', type: 'BIGINT' },
+      { table: 'work_orders', col: 'created_at', type: 'BIGINT' },
+      { table: 'work_orders', col: 'data', type: 'JSONB' },
       { table: 'reports', col: 'uuid_sync', type: 'TEXT' },
       { table: 'reports', col: 'updated_at', type: 'BIGINT' },
+      { table: 'reports', col: 'created_at', type: 'BIGINT' },
+      { table: 'reports', col: 'data', type: 'JSONB' },
       { table: 'events', col: 'uuid_sync', type: 'TEXT' },
       { table: 'events', col: 'updated_at', type: 'BIGINT' },
+      { table: 'events', col: 'created_at', type: 'BIGINT' },
+      { table: 'events', col: 'data', type: 'JSONB' },
       { table: 'clients', col: 'uuid_sync', type: 'TEXT' },
       { table: 'clients', col: 'updated_at', type: 'BIGINT' },
+      { table: 'clients', col: 'created_at', type: 'BIGINT' },
+      { table: 'clients', col: 'data', type: 'JSONB' },
       { table: 'branches', col: 'uuid_sync', type: 'TEXT' },
       { table: 'branches', col: 'updated_at', type: 'BIGINT' },
+      { table: 'branches', col: 'created_at', type: 'BIGINT' },
+      { table: 'branches', col: 'data', type: 'JSONB' },
       { table: 'catalog_asset_types', col: 'uuid_sync', type: 'TEXT' },
       { table: 'catalog_asset_types', col: 'updated_at', type: 'BIGINT' },
+      { table: 'catalog_asset_types', col: 'created_at', type: 'BIGINT' },
+      { table: 'catalog_asset_types', col: 'data', type: 'JSONB' },
       { table: 'settings', col: 'uuid_sync', type: 'TEXT' },
       { table: 'settings', col: 'updated_at', type: 'BIGINT' },
+      { table: 'settings', col: 'created_at', type: 'BIGINT' },
+      { table: 'settings', col: 'data', type: 'JSONB' },
       { table: 'ordenes_servicio', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'ordenes_servicio', col: 'updated_at', type: 'BIGINT' }
+      { table: 'ordenes_servicio', col: 'updated_at', type: 'BIGINT' },
+      { table: 'ordenes_servicio', col: 'created_at', type: 'BIGINT' },
+      { table: 'ordenes_servicio', col: 'data', type: 'JSONB' }
     ];
 
     for (const m of columnMigrations) {
@@ -98,45 +119,56 @@ async function ensureTables() {
           await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cliente_id TEXT`;
+          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS sucursal_id TEXT`;
         } else if (t === 'users') {
           await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'preventive_maintenance') {
           await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'work_orders') {
           await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'reports') {
           await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'events') {
           await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'clients') {
           await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'branches') {
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'catalog_asset_types') {
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS data JSONB`;
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
         } else if (t === 'settings') {
           await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;

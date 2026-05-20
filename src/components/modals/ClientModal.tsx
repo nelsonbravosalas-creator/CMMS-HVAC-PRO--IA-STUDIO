@@ -49,7 +49,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         uuid_sync: b.uuid_sync,
         tipo: 'Tienda',
         nombre: b.nombre,
-        direccion: b.descripcion || '',
+        direccion: b.direccion || '',
         codigo: b.codigo,
       })));
     } else {
@@ -132,7 +132,9 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
               cliente_id: editingClient.client.uuid_sync,
               codigo: sub.codigo,
               nombre: sub.nombre,
-              descripcion: sub.direccion,
+              direccion: sub.direccion,
+              ciudad: '',
+              region: '',
               activo: true
             };
             await branchRepo.create(newBranch);
@@ -148,7 +150,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
              alert(`No se puede eliminar la sucursal ${branchToRemove.nombre} porque tiene ${assetsCount} activo(s) asociado(s). Se marcará como inactiva.`);
              await branchRepo.update(uuid, { ...branchToRemove, activo: false });
           } else {
-             await branchRepo.softDelete(uuid);
+             await branchRepo.delete(uuid);
           }
         }
 
@@ -179,7 +181,9 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
             cliente_id: clientId!,
             codigo: sub.codigo,
             nombre: sub.nombre,
-            descripcion: sub.direccion,
+            direccion: sub.direccion,
+            ciudad: '',
+            region: '',
             activo: true
           };
           await branchRepo.create(newBranch);

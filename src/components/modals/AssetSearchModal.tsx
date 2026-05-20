@@ -17,19 +17,19 @@ import { SearchableSelect } from '../SearchableSelect';
 import { useAppStore } from '../../store/useAppStore';
 
 interface AssetSearchModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
-  onSelect: (eq: any) => void;
-  tag: string;
-  setTag: (val: string) => void;
-  cliente: string;
-  setCliente: (val: string) => void;
-  sucursal: string;
-  setSucursal: (val: string) => void;
-  descripcion: string;
-  setDescripcion: (val: string) => void;
-  clients: Record<string, string>;
-  results: any[];
+  onSelect?: (eq: any) => void;
+  tag?: string;
+  setTag?: (val: string) => void;
+  cliente?: string;
+  setCliente?: (val: string) => void;
+  sucursal?: string;
+  setSucursal?: (val: string) => void;
+  descripcion?: string;
+  setDescripcion?: (val: string) => void;
+  clients?: Record<string, string>;
+  results?: any[];
 }
 
 export function AssetSearchModal({ 
