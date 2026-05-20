@@ -78,6 +78,22 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       const branchRepo = new BranchRepository();
       let clientId = editingClient?.client.uuid_sync;
 
+      // VALIDATE GLOBAL UNIQUE BRANCH CODES BEFORE SAVING
+      const allBranches = await branchRepo.getAll();
+      for (const sub of subs) {
+        if (!sub.codigo) {
+           alert("El código de la sucursal (SUB) es obligatorio.");
+           setIsSaving(false);
+           return;
+        }
+        const duplicate = allBranches.find(b => b.codigo === sub.codigo && b.uuid_sync !== sub.uuid_sync && !b.deleted_at);
+        if (duplicate) {
+           alert(`El código de sucursal ${sub.codigo} ya está en uso. Los códigos deben ser únicos globalmente.`);
+           setIsSaving(false);
+           return;
+        }
+      }
+
       if (editingClient) {
         // Update client
         const updatedClient = {
@@ -125,7 +141,15 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
         // Soft delete missing branches
         for (const [uuid, branchToRemove] of Array.from(existingBranchMap.entries())) {
-          await branchRepo.softDelete(uuid);
+          // Rule: Do not delete if it has assets
+          const db = (await import('../../db/database')).db;
+          const assetsCount = await db.assets.where('sucursal_id').equals(uuid).filter(a => !a.deleted_at).count();
+          if (assetsCount > 0) {
+             alert(`No se puede eliminar la sucursal ${branchToRemove.nombre} porque tiene ${assetsCount} activo(s) asociado(s). Se marcará como inactiva.`);
+             await branchRepo.update(uuid, { ...branchToRemove, activo: false });
+          } else {
+             await branchRepo.softDelete(uuid);
+          }
         }
 
       } else {
@@ -152,7 +176,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           const newBranchId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
           const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
             id: newBranchId,
-            cliente_id: clientId,
+            cliente_id: clientId!,
             codigo: sub.codigo,
             nombre: sub.nombre,
             descripcion: sub.direccion,

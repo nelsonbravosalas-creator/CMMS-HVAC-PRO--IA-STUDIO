@@ -1,6 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import { ticketsRepo } from '../repositories/WoRepository';
 import { LocalTicket } from '../db/database';
+import { syncTicketToGoogleTasks } from '../lib/tasks';
 
 export const useTickets = () => {
   const addTicketToStore = useAppStore(state => state.addTicket);
@@ -17,6 +18,10 @@ export const useTickets = () => {
 
     const savedTicket = await ticketsRepo.save(newTicket);
     addTicketToStore(savedTicket);
+    
+    // Attempt Google Tasks Sync
+    syncTicketToGoogleTasks(savedTicket).catch(console.error);
+    
     return savedTicket;
   };
 
@@ -31,6 +36,10 @@ export const useTickets = () => {
 
     const savedTicket = await ticketsRepo.save(updated);
     updateTicketInStore(savedTicket);
+    
+    // Attempt Google Tasks Sync
+    syncTicketToGoogleTasks(savedTicket).catch(console.error);
+
     return savedTicket;
   };
 

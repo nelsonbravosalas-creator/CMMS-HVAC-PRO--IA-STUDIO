@@ -59,6 +59,7 @@ async function ensureTables() {
     await sql`CREATE TABLE IF NOT EXISTS catalog_asset_types (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS settings (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS ordenes_servicio (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS audit_logs (id TEXT PRIMARY KEY, action TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, user_id TEXT NOT NULL, payload JSONB, timestamp BIGINT NOT NULL)`;
 
     // 2. Migration for existing tables - ensure columns exist
     const columnMigrations = [
@@ -165,6 +166,30 @@ async function ensureTables() {
     try { await sql`UPDATE catalog_asset_types SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE settings SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE ordenes_servicio SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+
+    // 4. Ensure UNIQUE constraint for uuid_sync on all tables for ON CONFLICT
+    const tryUnique = async (query: any) => {
+        try { await query; } catch(e: any) { 
+           // Ignore if it's "already exists", but log if "could not create unique index"
+           if (!e.message.includes('already exists')) {
+               console.error('Unique constraint error:', e.message); 
+           }
+        }
+    };
+    // Sometimes a table was created before the constraint, or the unique index is not picked up by ON CONFLICT.
+    await tryUnique(sql`ALTER TABLE assets ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE users ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE preventive_maintenance ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE work_orders ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE reports ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE events ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE clients ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE branches ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE catalog_asset_types ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE settings ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE ordenes_servicio ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE audit_logs ADD UNIQUE (id)`);
+    await tryUnique(sql`ALTER TABLE assets ADD UNIQUE (tag)`);
 
     console.log("✅ Database Schema integrity check completed");
   } catch (error) {
