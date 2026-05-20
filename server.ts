@@ -447,7 +447,9 @@ function resolveTable(name: string): string | null {
         const table = resolveTable(rawTable);
         if (!table) continue;
 
-        const { data, uuid_sync, updated_at } = ins;
+        const data = ins.data || {};
+        const uuid_sync = ins.uuid_sync;
+        const updated_at = ins.updated_at || data.updated_at || ins.timestamp || Date.now();
         if (table === 'assets') {
           const d = data;
           await sql`
@@ -506,7 +508,9 @@ function resolveTable(name: string): string | null {
         const table = resolveTable(rawTable);
         if (!table) continue;
 
-        const { data, uuid_sync, updated_at } = upd;
+        const data = upd.data || {};
+        const uuid_sync = upd.uuid_sync;
+        const updated_at = upd.updated_at || data.updated_at || upd.timestamp || Date.now();
         if (table === 'assets') {
            const d = data;
            await sql`
