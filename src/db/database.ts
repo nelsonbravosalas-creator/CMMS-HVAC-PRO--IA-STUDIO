@@ -161,20 +161,20 @@ export class CMMSDatabase extends Dexie {
   audit_logs!: Table<AuditLog>;
 
   constructor() {
-    super('CMMS_LocalDB_v7');
-    this.version(7).stores({
-      assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at',
-      work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at',
-      preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at',
+    super('CMMS_LocalDB_v9');
+    this.version(9).stores({
+      assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at, estado',
+      work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
+      preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at, estado',
       clients: 'uuid_sync, id, sync_status, updated_at',
-      users: 'uuid_sync, id, sync_status, updated_at',
+      users: 'uuid_sync, id, email, sync_status, updated_at',
       branches: 'uuid_sync, id, codigo, cliente_id, sync_status, updated_at',
       catalog_asset_types: 'uuid_sync, codigo, sync_status, updated_at',
       ordenes_servicio: 'uuid_sync, id, draft_key, sync_status, updated_at',
       settings: 'key, sync_status, updated_at',
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
-      sync_queue: '++id, table, uuid_sync, operation, timestamp',
+      sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp',
       audit_logs: '++id, action, userId, timestamp'
     });
     

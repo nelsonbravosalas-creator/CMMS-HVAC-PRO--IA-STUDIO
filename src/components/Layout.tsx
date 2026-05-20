@@ -53,11 +53,11 @@ interface NavItemProps {
 const NAV_ITEMS = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/scanner", icon: ScanLine, label: "Scanner QR" },
-  { href: "/equipos", icon: Box, label: "Equipos" },
+  { href: "/equipos", icon: Box, label: "Equipos", badgeKey: 'equiposTotal', badgeColor: "bg-purple-600" },
   { href: "/mapa", icon: MapPin, label: "Mapa" },
   { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
-  { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio" },
+  { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio", badgeKey: 'ordenesServicioTotal', badgeColor: "bg-indigo-500" },
   { href: "/informes", icon: FileText, label: "Informes HVAC", badgeKey: 'informesPendientesFirma', badgeColor: "bg-blue-500" },
   { href: "/tickets", icon: Ticket, label: "Tickets", badgeKey: 'ticketsAbiertos' },
   { href: "/reportes", icon: BarChart3, label: "Reportes" },
@@ -140,6 +140,9 @@ interface LayoutProps {
  * @param {LayoutProps} props
  * @returns {JSX.Element} Estructura base con Header, Sidebar y Main Area.
  */
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/database';
+
 export default function Layout({ children }: LayoutProps) {
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -152,16 +155,38 @@ export default function Layout({ children }: LayoutProps) {
   /** Posición de los controles móviles para ergonimía (Derecha/Izquierda) */
   const [menuPosition, setMenuPosition] = useState<'left' | 'right'>('right');
 
+  // Real-time queries for badges
+  const ticketsAbiertos = useLiveQuery(() => 
+    db.work_orders.where('estado').anyOf('abierto', 'en_proceso').count()
+  ) ?? 0;
+
+  const mantenimientosPendientes = useLiveQuery(() => 
+    db.preventive_maintenance.where('estado').notEqual('ejecutado').count()
+  ) ?? 0;
+
+  const informesTotal = useLiveQuery(() => db.reports.count()) ?? 0;
+  
+  const equiposTotal = useLiveQuery(() => 
+    db.assets.filter(a => !a.deleted_at).count()
+  ) ?? 0;
+
+  const ordenesServicioTotal = useLiveQuery(() => db.ordenes_servicio.count()) ?? 0;
+
+  const equiposEnFalla = useLiveQuery(() => 
+    db.assets.where('estado').equals('falla').count()
+  ) ?? 0;
+
   /** 
    * Estadísticas y contadores de insignias (Badges).
-   * En producción, estos valores provienen de listeners reales de Firestore.
    */
   const stats = {
-    ticketsAbiertos: 4,
-    preventive_maintenancePendientes: 12,
-    informesPendientesFirma: 3,
-    offlineOps: 2,
-    equiposEnFalla: 1,
+    ticketsAbiertos: ticketsAbiertos,
+    preventive_maintenancePendientes: mantenimientosPendientes,
+    informesPendientesFirma: informesTotal, // Re-purposed to show total docs for informes
+    ordenesServicioTotal: ordenesServicioTotal,
+    equiposTotal: equiposTotal,
+    offlineOps: 0,
+    equiposEnFalla: equiposEnFalla,
     disponibilidadGlobal: "98.2%"
   };
 

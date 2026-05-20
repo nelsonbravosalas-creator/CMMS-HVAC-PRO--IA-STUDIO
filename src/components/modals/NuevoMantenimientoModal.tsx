@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User, MapPin
+  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User, Search, MapPin
 } from 'lucide-react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 
 import { useMantenimientos } from '../../hooks/useMantenimientos';
+import { AssetSearchModal } from './AssetSearchModal';
 
 interface NuevoMantenimientoModalProps {
   onClose: () => void;
@@ -32,6 +33,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
   const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
+  const [showAssetSearch, setShowAssetSearch] = useState(false);
 
   const captureGPS = () => {
     setGpsLoading(true);
@@ -157,13 +159,23 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Equipo Destino (TAG)</label>
-                <input 
-                  type="text" 
-                  placeholder="EJ: 21-STK.AC.001" 
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10" 
-                  value={equipoTag}
-                  onChange={(e) => setEquipoTag(e.target.value)}
-                />
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="EJ: 21-STK.AC.001" 
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10" 
+                    value={equipoTag}
+                    onChange={(e) => setEquipoTag(e.target.value)}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowAssetSearch(true)}
+                    className="p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                    title="Buscar Equipo"
+                  >
+                    <Search className="w-5 h-5" />
+                  </button>
+                </div>
              </div>
              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Tipo Servicio</label>
@@ -305,6 +317,16 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           </div>
         </form>
       </div>
+
+      {showAssetSearch && (
+        <AssetSearchModal 
+          onClose={() => setShowAssetSearch(false)}
+          onSelect={(asset) => {
+            setEquipoTag(asset.tag);
+            setShowAssetSearch(false);
+          }}
+        />
+      )}
     </div>
   );
 };

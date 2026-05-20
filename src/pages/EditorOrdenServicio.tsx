@@ -11,11 +11,14 @@ import {
   ChevronLeft,
   CheckSquare,
   AlertTriangle,
-  ClipboardList
+  ClipboardList,
+  MapPin
 } from "lucide-react";
+import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { SearchableSelect } from "../components/SearchableSelect";
+import { AssetSearchModal } from "../components/modals/AssetSearchModal";
 import { useAppStore } from "../store/useAppStore";
 
 type Section = 'general' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
@@ -36,6 +39,36 @@ export default function EditorOrdenServicio() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [status, setStatus] = useState<'borrador'|'firmada'|'enviada'>('borrador');
 
+  const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+  const [showAssetSearch, setShowAssetSearch] = useState(false);
+
+  const captureGPS = () => {
+    setGpsLoading(true);
+    setGpsError("");
+    if (!navigator.geolocation) {
+      setGpsError("Tu navegador no soporta geolocalización.");
+      setGpsLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUbicacionGeografica({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+        setGpsLoading(false);
+      },
+      (err) => {
+        console.error("GPS error", err);
+        setGpsError("No se pudo obtener la ubicación GPS.");
+        setGpsLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
   const canvasTecRef = useRef<HTMLCanvasElement>(null);
   const canvasCliRef = useRef<HTMLCanvasElement>(null);
 
@@ -47,6 +80,7 @@ export default function EditorOrdenServicio() {
     tecnico: "Nelson Bravo",
     nombreCliente: "",
     fecha: new Date().toISOString().split('T')[0],
+    equipoTag: "",
     descripcionEquipo: "",
     tipoServicio: "Preventivo",
   });
@@ -83,6 +117,7 @@ export default function EditorOrdenServicio() {
           if (data.hallazgos) setHallazgos(data.hallazgos);
           if (data.galeria) setGaleria(data.galeria);
           if (data.status) setStatus(data.status);
+          if (data.ubicacionGeografica) setUbicacionGeografica(data.ubicacionGeografica);
         } catch (e) {
           console.error("Error parsing OS draft", e);
         }
@@ -93,10 +128,10 @@ export default function EditorOrdenServicio() {
   // Save to local storage auto
   useEffect(() => {
     if (isNew) {
-      const draft = { generalData, checklist, hallazgos, galeria, status };
+      const draft = { generalData, checklist, hallazgos, galeria, status, ubicacionGeografica };
       localStorage.setItem(OS_DRAFT_KEY, JSON.stringify(draft));
     }
-  }, [generalData, checklist, hallazgos, galeria, status, isNew]);
+  }, [generalData, checklist, hallazgos, galeria, status, ubicacionGeografica, isNew]);
 
   useEffect(() => {
     if (activeSection === 'firma') {
@@ -123,6 +158,7 @@ export default function EditorOrdenServicio() {
       checklist,
       hallazgos,
       galeria,
+      ubicacionGeografica,
       status: 'firmada',
       sync_status: "pendiente",
       fechaSincronizacionLocal: new Date().toISOString()
@@ -228,6 +264,29 @@ export default function EditorOrdenServicio() {
                   <input type="date" value={generalData.fecha} onChange={e => handleGeneralChange('fecha', e.target.value)} disabled={isReadOnly} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mt-1 outline-none focus:ring-2 focus:ring-blue-500/20" />
                </div>
                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400">Equipo (TAG)</label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input 
+                      type="text" 
+                      value={generalData.equipoTag} 
+                      onChange={e => handleGeneralChange('equipoTag', e.target.value)} 
+                      disabled={isReadOnly} 
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
+                      placeholder="Ej. 21-STK.AC.001"
+                    />
+                    {!isReadOnly && (
+                      <button 
+                        type="button" 
+                        onClick={() => setShowAssetSearch(true)}
+                        className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
+                        title="Buscar Equipo"
+                      >
+                        <Search className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+               </div>
+               <div>
                   <label className="text-[10px] font-black uppercase text-slate-400">Descripción Equipo</label>
                   <input type="text" value={generalData.descripcionEquipo} onChange={e => handleGeneralChange('descripcionEquipo', e.target.value)} disabled={isReadOnly} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mt-1 outline-none focus:ring-2 focus:ring-blue-500/20" />
                </div>
@@ -242,6 +301,41 @@ export default function EditorOrdenServicio() {
                      <option value="Emergencia">Emergencia</option>
                   </select>
                </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-4">
+              {!isReadOnly && (
+                <button 
+                  type="button" 
+                  onClick={captureGPS}
+                  disabled={gpsLoading}
+                  className="w-full py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-emerald-50 hover:text-emerald-600 transition-all group hover:border-emerald-100"
+                >
+                    <MapPin className={`w-6 h-6 ${gpsLoading ? 'animate-pulse text-emerald-500' : (ubicacionGeografica ? 'text-emerald-500' : '')}`} />
+                    <span className="text-[9px] font-black uppercase">
+                      {gpsLoading ? 'Obteniendo GPS...' : (ubicacionGeografica ? 'Ubicación Capturada' : 'Marcar Ubicación GPS')}
+                    </span>
+                </button>
+              )}
+              {gpsError && (
+                <p className="text-xs text-rose-500 font-bold text-center">{gpsError}</p>
+              )}
+              {ubicacionGeografica && import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY && (
+                <div className="w-full h-64 rounded-2xl overflow-hidden border border-slate-200 mt-2">
+                  <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY}>
+                    <Map 
+                      defaultZoom={15} 
+                      defaultCenter={ubicacionGeografica}
+                      mapId="os_map_id"
+                      disableDefaultUI
+                    >
+                      <AdvancedMarker position={ubicacionGeografica}>
+                        <Pin background={'#10b981'} borderColor={'#047857'} glyphColor={'#047857'} />
+                      </AdvancedMarker>
+                    </Map>
+                  </APIProvider>
+                </div>
+              )}
             </div>
           </SectionBox>
         );
@@ -450,6 +544,17 @@ export default function EditorOrdenServicio() {
            {renderSection()}
         </div>
       </div>
+      
+      {showAssetSearch && (
+        <AssetSearchModal 
+          onClose={() => setShowAssetSearch(false)}
+          onSelect={(asset) => {
+            handleGeneralChange('equipoTag', asset.tag);
+            handleGeneralChange('descripcionEquipo', `${asset.tipo} ${asset.marca || ''} ${asset.modelo || ''}`);
+            setShowAssetSearch(false);
+          }}
+        />
+      )}
     </div>
   );
 }
