@@ -13,37 +13,31 @@ import {
   ScanLine
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-
-const ORDENES_MOCK = [
-  {
-    id: "OS-2024-001",
-    fecha: "2024-05-10",
-    tag: "CH-01",
-    equipoNombre: "Chiller YORK YVAA",
-    tipoServicio: "Preventivo",
-    tecnico: "Nelson Bravo",
-    estado: "enviado"
-  },
-  {
-    id: "OS-2024-002",
-    fecha: "2024-05-12",
-    tag: "UMA-02",
-    equipoNombre: "UMA Carrier 39M",
-    tipoServicio: "Correctivo",
-    tecnico: "Juan Pérez",
-    estado: "borrador"
-  }
-];
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "../db/database";
 
 export default function OrdenesServicio() {
   const [filter, setFilter] = useState("");
   const [, setLocation] = useLocation();
 
-  const filtered = ORDENES_MOCK.filter(os => 
-    os.tag.toLowerCase().includes(filter.toLowerCase()) ||
-    os.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
-    os.id.toLowerCase().includes(filter.toLowerCase())
-  );
+  const rawOrdenes = useLiveQuery(() => db.ordenes_servicio.toArray(), []) || [];
+
+  const filtered = rawOrdenes.filter(os => {
+    const data = os.data || {};
+    const tg = data.generalData?.equipoTag || "";
+    const tec = data.generalData?.tecnico || "";
+    return tg.toLowerCase().includes(filter.toLowerCase()) ||
+           tec.toLowerCase().includes(filter.toLowerCase()) ||
+           os.id.toLowerCase().includes(filter.toLowerCase());
+  }).map(os => ({
+    id: os.id,
+    fecha: os.data?.generalData?.fecha || new Date(os.created_at || Date.now()).toISOString().split('T')[0],
+    tag: os.data?.generalData?.equipoTag || "S/T",
+    equipoNombre: os.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
+    tipoServicio: os.data?.generalData?.tipoServicio || "Preventivo",
+    tecnico: os.data?.generalData?.tecnico || "No Asignado",
+    estado: os.estado || "borrador"
+  }));
 
   return (
     <div className="flex flex-col gap-6 text-left">

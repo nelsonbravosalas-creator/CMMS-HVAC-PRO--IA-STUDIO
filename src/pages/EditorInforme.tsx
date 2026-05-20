@@ -726,15 +726,17 @@ export default function EditorInforme() {
     const reportData = {
       id: currentFolio,
       uuid_sync: id || currentFolio, // UUID para db
-      generalData: { ...generalData, folio: currentFolio, ubicacionGeografica },
-      machineData,
-      circuits,
-      checklist,
-      observaciones,
-      galeria,
-      status: 'firmado',
-      sync_status: "pendiente",
-      fechaSincronizacionLocal: new Date().toISOString()
+      estado: 'firmado',
+      data: {
+        generalData: { ...generalData, folio: currentFolio, ubicacionGeografica },
+        machineData,
+        circuits,
+        checklist,
+        observaciones,
+        galeria,
+        status: 'firmado',
+        fechaSincronizacionLocal: new Date().toISOString()
+      }
     };
 
     // 1. Guardado Local y Encolado en Dexie

@@ -20,6 +20,8 @@ import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { AssetSearchModal } from "../components/modals/AssetSearchModal";
+import { db } from "../db/database";
+import { syncEngine } from "../sync/syncEngine";
 import { useAppStore } from "../store/useAppStore";
 
 type Section = 'general' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
@@ -154,28 +156,61 @@ export default function EditorOrdenServicio() {
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
 
-    const assetData = {
+    const dataPayload = {
       generalData,
       checklist,
       hallazgos,
       galeria,
       ubicacionGeografica,
       status: 'firmada',
-      sync_status: "pendiente",
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
-    // 1. Guardado Local (Feedback Inmediato)
-    localStorage.setItem(`registro_os_${uuid}`, JSON.stringify(assetData));
+    // 1. Guardado Local en Dexie
+    const record = {
+      uuid_sync: uuid,
+      id: rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`,
+      draft_key: OS_DRAFT_KEY,
+      estado: 'firmada',
+      sync_status: 'pending' as const,
+      updated_at: Date.now(),
+      created_at: Date.now(),
+      data: dataPayload
+    };
 
-    // 2. Ejecución diferida para la Nube
-    setTimeout(() => {
+    try {
+      if (isNew) {
+        await db.ordenes_servicio.put(record);
+        await db.sync_queue.add({
+          table: 'ordenes_servicio',
+          uuid_sync: uuid,
+          operation: 'INSERT',
+          timestamp: Date.now()
+        });
+      } else {
+        const existing = await db.ordenes_servicio.get(uuid);
+        await db.ordenes_servicio.put({ ...existing, ...record, created_at: existing?.created_at || Date.now() });
+        await db.sync_queue.add({
+          table: 'ordenes_servicio',
+          uuid_sync: uuid,
+          operation: 'UPDATE',
+          timestamp: Date.now()
+        });
+      }
+
+      // Triggers background sync to Neon
+      syncEngine.processQueue().catch(console.error);
+
       setStatus('firmada');
-      setIsSyncing(false);
       localStorage.removeItem(OS_DRAFT_KEY);
       alert("Orden de Servicio guardada y firmada exitosamente.");
       setLocation("/ordenes-servicio");
-    }, 0);
+    } catch (error) {
+      console.error("Error saving OS:", error);
+      alert("Hubo un error guardando localmente.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const menu: { id: Section, label: string, icon: any }[] = [

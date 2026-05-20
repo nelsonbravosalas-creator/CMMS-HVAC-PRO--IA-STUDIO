@@ -16,19 +16,34 @@ import {
   Download
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { INFORMES_MOCK, InformeHVAC } from "../data/reports";
 import { ReportBulkUploadModal } from "../components/modals/ReportBulkUploadModal";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "../db/database";
 
 export default function InformesHVAC() {
   const [filter, setFilter] = useState("");
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [, setLocation] = useLocation();
 
-  const filtered = INFORMES_MOCK.filter(inf => 
-    inf.tag.toLowerCase().includes(filter.toLowerCase()) ||
-    inf.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
-    inf.id.toLowerCase().includes(filter.toLowerCase())
-  );
+  const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
+
+  const filtered = rawReports.filter(inf => {
+    const data = inf.data || {};
+    const tg = data.generalData?.equipoTag || "";
+    const tec = data.generalData?.tecnico || "";
+    // filter logic
+    return tg.toLowerCase().includes(filter.toLowerCase()) ||
+           tec.toLowerCase().includes(filter.toLowerCase()) ||
+           inf.id.toLowerCase().includes(filter.toLowerCase());
+  }).map(inf => ({
+    id: inf.id,
+    fecha: inf.data?.generalData?.fecha || new Date(inf.created_at || Date.now()).toISOString().split('T')[0],
+    tag: inf.data?.generalData?.equipoTag || "S/T",
+    equipoNombre: inf.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
+    tipoServicio: inf.data?.generalData?.tipoMantenimiento || "Preventivo",
+    tecnico: inf.data?.generalData?.tecnico || "No Asignado",
+    estado: inf.estado || (inf.data?.status || "borrador")
+  }));
 
   return (
     <div className="flex flex-col gap-6 text-left">
@@ -57,10 +72,10 @@ export default function InformesHVAC() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatusSummary label="Borradores" count="4" color="slate" />
-        <StatusSummary label="Enviados" count="12" color="blue" />
-        <StatusSummary label="Firmados" count="86" color="emerald" />
-        <StatusSummary label="Bloqueados" count="3" color="amber" />
+        <StatusSummary label="Borradores" count={filtered.filter(i => i.estado === 'borrador').length.toString()} color="slate" />
+        <StatusSummary label="Enviados" count={filtered.filter(i => i.estado === 'enviado').length.toString()} color="blue" />
+        <StatusSummary label="Firmados" count={filtered.filter(i => i.estado === 'firmado').length.toString()} color="emerald" />
+        <StatusSummary label="Bloqueados" count={filtered.filter(i => i.estado === 'bloqueado').length.toString()} color="amber" />
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
