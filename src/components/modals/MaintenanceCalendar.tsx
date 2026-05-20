@@ -22,8 +22,8 @@ export const MaintenanceCalendar: React.FC<MaintenanceCalendarProps> = ({ onClos
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-6xl h-auto max-h-[95vh] rounded-[40px] shadow-2xl overflow-y-auto overflow-x-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-6xl h-[100dvh] sm:h-auto sm:max-h-[95vh] rounded-t-3xl sm:rounded-[40px] shadow-2xl overflow-y-auto overflow-x-hidden flex flex-col md:flex-row animate-in slide-in-from-bottom-full sm:fade-in sm:zoom-in-95 duration-300">
         
         {/* Sidebar: Day Details */}
         <div className="md:w-80 bg-slate-50 border-r border-slate-100 flex flex-col">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -28,6 +28,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { ActivityEventModal } from '../components/modals/ActivityEventModal';
+import { initAuth, googleSignIn, getAccessToken, logout } from '../lib/auth';
 
 const locales = {
   'es': es,
@@ -136,9 +137,82 @@ export default function Planificacion() {
   const [calendarView, setCalendarView] = useState<any>(Views.MONTH);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+
+
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setIsAuthenticated(true);
+        fetchGoogleCalendarEvents(token);
+      },
+      () => {
+        setIsAuthenticated(false);
+        setGoogleEvents([]);
+      }
+    );
+    return () => unsubscribe();
+  }, [currentDate]);
+
+  const handleLogin = async () => {
+    setIsLoggingIn(true);
+    try {
+      const result = await googleSignIn();
+      if (result) {
+        setIsAuthenticated(true);
+        fetchGoogleCalendarEvents(result.accessToken);
+      }
+    } catch (err) {
+      console.error('Login failed:', err);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+
+  const handleLogout = async () => {
+    await logout();
+    setIsAuthenticated(false);
+  };
+
+  const fetchGoogleCalendarEvents = async (token: string) => {
+    try {
+      // Fetch events for the current month view
+      const start = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1).toISOString();
+      const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0).toISOString();
+      
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${start}&timeMax=${end}&singleEvents=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.items) {
+        const events = data.items.map((item: any) => ({
+          id: item.id,
+          title: item.summary || 'Sin Título',
+          start: new Date(item.start.dateTime || item.start.date),
+          end: new Date(item.end.dateTime || item.end.date),
+          resource: {
+             ...ACTIVITIES_MOCK[0],
+             id: item.id,
+             title: item.summary || 'Sin Título',
+             status: 'programada',
+             tech: 'Google Calendar',
+             client: 'Externo',
+             branch: 'N/A'
+          }
+        }));
+        setGoogleEvents(events);
+      }
+    } catch (err) {
+      console.error("Error fetching google calendar events:", err);
+    }
+  };
 
   // Generate calendar events from mock data (placing them on current day for demo)
-  const calendarEvents = ACTIVITIES_MOCK.map((act, index) => {
+  const baseEvents = ACTIVITIES_MOCK.map((act, index) => {
     const today = new Date();
     const [hours, minutes] = act.startTime.split(':').map(Number);
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + index - 1, hours, minutes);
@@ -151,6 +225,8 @@ export default function Planificacion() {
       resource: act
     };
   });
+
+  const calendarEvents = [...baseEvents, ...googleEvents];
 
   const monthNames = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -221,18 +297,32 @@ export default function Planificacion() {
             <Plus className="w-4 h-4" />
             Nueva Actividad
           </button>
-          <button className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all">
-            <CalendarIcon className="w-4 h-4" />
-            Vincular G-Calendar
-          </button>
+          {!isAuthenticated ? (
+            <button 
+              onClick={handleLogin}
+              disabled={isLoggingIn}
+              className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all"
+            >
+              <CalendarIcon className="w-4 h-4" />
+              {isLoggingIn ? 'Vinculando...' : 'Vincular G-Calendar'}
+            </button>
+          ) : (
+            <button 
+              onClick={handleLogout}
+              className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Sincronizado (Cerrar)
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         {/* Left Column: Calendar View */}
         <div className="xl:col-span-3 space-y-6">
-          <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
-            <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden flex flex-col">
+            <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-4">
                 <h2 className="text-xl font-black text-slate-900 uppercase">
                   {view === 'calendar' ? 'Calendario Operativo' : 'Listado de Actividades'}
@@ -244,67 +334,69 @@ export default function Planificacion() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input type="text" placeholder="BUSCAR..." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/10 text-slate-900" />
                 </div>
-                <button className="p-3 text-slate-400 hover:bg-slate-50 rounded-xl transition-all border border-slate-100 group">
+                <button className="p-3 text-slate-400 hover:bg-slate-50 rounded-xl transition-all border border-slate-100 group shrink-0">
                   <Filter className="w-5 h-5 group-hover:text-blue-500" />
                 </button>
               </div>
             </div>
 
             {view === 'calendar' ? (
-              <div className="h-[700px] p-6 calendar-container">
-                <style>{`
-                  .rbc-calendar { font-family: 'Inter', sans-serif; }
-                  .rbc-btn-group button { 
-                    color: #94a3b8; 
-                    text-transform: uppercase;
-                    font-size: 10px;
-                    font-weight: 900;
-                    letter-spacing: 0.1em;
-                    border-color: rgba(255,255,255,0.1);
-                    padding: 8px 16px;
-                  }
-                  .rbc-btn-group button.rbc-active {
-                    background: #f1f5f9;
-                    color: #0f172a;
-                    border-color: #e2e8f0;
-                  }
-                  .rbc-toolbar-label { font-weight: 900; text-transform: uppercase; color: #f8fafc; font-size: 18px; }
-                  .rbc-header { padding: 12px 0; font-weight: 900; font-size: 12px; text-transform: uppercase; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1); }
-                  .rbc-day-bg { border-color: rgba(255,255,255,0.05); }
-                  .rbc-month-view, .rbc-time-view, .rbc-agenda-view { border-color: rgba(255,255,255,0.1); border-radius: 16px; overflow: hidden; background: rgba(0,0,0,0.2) }
-                  .rbc-month-row { border-color: rgba(255,255,255,0.05); }
-                  .rbc-off-range-bg { background: rgba(255,255,255,0.02); }
-                  .rbc-today { background: rgba(59, 130, 246, 0.05); }
-                  .rbc-event { background: transparent; padding: 2px; }
-                  .rbc-time-content { border-top: 1px solid rgba(255,255,255,0.1); }
-                  .rbc-timeslot-group { border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 40px; }
-                  .rbc-time-gutter .rbc-timeslot-group { color: #94a3b8; font-size: 10px; font-weight: bold; }
-                `}</style>
-                <Calendar
-                  localizer={localizer}
-                  events={calendarEvents}
-                  startAccessor="start"
-                  endAccessor="end"
-                  style={{ height: '100%' }}
-                  culture="es"
-                  view={calendarView}
-                  onView={setCalendarView}
-                  date={currentDate}
-                  onNavigate={setCurrentDate}
-                  components={{
-                    event: CustomEvent
-                  }}
-                  onSelectEvent={handleSelectEvent}
-                  messages={{
-                    next: "Sig",
-                    previous: "Ant",
-                    today: "Hoy",
-                    month: "Mes",
-                    week: "Semana",
-                    day: "Día",
-                    agenda: "Agenda",
-                  }}
-                />
+              <div className="h-[700px] p-6 calendar-container overflow-x-auto relative">
+                <div className="min-w-[800px] h-full">
+                  <style>{`
+                    .rbc-calendar { font-family: 'Inter', sans-serif; }
+                    .rbc-btn-group button { 
+                      color: #94a3b8; 
+                      text-transform: uppercase;
+                      font-size: 10px;
+                      font-weight: 900;
+                      letter-spacing: 0.1em;
+                      border-color: rgba(255,255,255,0.1);
+                      padding: 8px 16px;
+                    }
+                    .rbc-btn-group button.rbc-active {
+                      background: #f1f5f9;
+                      color: #0f172a;
+                      border-color: #e2e8f0;
+                    }
+                    .rbc-toolbar-label { font-weight: 900; text-transform: uppercase; color: #f8fafc; font-size: 18px; }
+                    .rbc-header { padding: 12px 0; font-weight: 900; font-size: 12px; text-transform: uppercase; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1); }
+                    .rbc-day-bg { border-color: rgba(255,255,255,0.05); }
+                    .rbc-month-view, .rbc-time-view, .rbc-agenda-view { border-color: rgba(255,255,255,0.1); border-radius: 16px; background: rgba(0,0,0,0.2) }
+                    .rbc-month-row { border-color: rgba(255,255,255,0.05); }
+                    .rbc-off-range-bg { background: rgba(255,255,255,0.02); }
+                    .rbc-today { background: rgba(59, 130, 246, 0.05); }
+                    .rbc-event { background: transparent; padding: 2px; }
+                    .rbc-time-content { border-top: 1px solid rgba(255,255,255,0.1); }
+                    .rbc-timeslot-group { border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 40px; }
+                    .rbc-time-gutter .rbc-timeslot-group { color: #94a3b8; font-size: 10px; font-weight: bold; }
+                  `}</style>
+                  <Calendar
+                    localizer={localizer}
+                    events={calendarEvents}
+                    startAccessor="start"
+                    endAccessor="end"
+                    style={{ height: '100%' }}
+                    culture="es"
+                    view={calendarView}
+                    onView={setCalendarView}
+                    date={currentDate}
+                    onNavigate={setCurrentDate}
+                    components={{
+                      event: CustomEvent
+                    }}
+                    onSelectEvent={handleSelectEvent}
+                    messages={{
+                      next: "Sig",
+                      previous: "Ant",
+                      today: "Hoy",
+                      month: "Mes",
+                      week: "Semana",
+                      day: "Día",
+                      agenda: "Agenda",
+                    }}
+                  />
+                </div>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -401,7 +493,8 @@ export default function Planificacion() {
         </div>
 
         {/* Right Column: Details & Tech Activity */}
-        <div className="space-y-8">
+        <div className="space-y-8 min-w-0">
+          
           {/* Status Summary */}
           <div className="bg-white rounded-[32px] border border-slate-100 p-6 shadow-xl shadow-slate-200/30 space-y-4">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">

@@ -442,8 +442,8 @@ export default function Layout({ children }: LayoutProps) {
       {isMoreDrawerOpen && (
         <>
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] lg:hidden" onClick={() => setIsMoreDrawerOpen(false)} />
-          <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 rounded-t-[40px] z-[70] p-8 pb-12 lg:hidden animate-in slide-in-from-bottom duration-500">
-            <div className="w-16 h-1.5 bg-slate-800 rounded-full mx-auto mb-8"></div>
+          <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 rounded-t-[40px] z-[70] p-8 pb-12 lg:hidden animate-in slide-in-from-bottom duration-500 max-h-[85vh] overflow-y-auto">
+            <div className="w-16 h-1.5 bg-slate-800 rounded-full mx-auto mb-8 shrink-0"></div>
             
             <div className="grid grid-cols-2 gap-4">
               <Link href="/informes" onClick={() => setIsMoreDrawerOpen(false)}>

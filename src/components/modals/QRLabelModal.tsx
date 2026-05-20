@@ -71,7 +71,7 @@ export function QRLabelModal({ isOpen, onClose, equipment }: QRLabelModalProps) 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-2xl overflow-y-auto">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/95 backdrop-blur-2xl overflow-y-auto">
           {/* Estilos específicos para impresión: Aísla el elemento #printable-tag */}
           <style dangerouslySetInnerHTML={{ __html: `
             @media print {

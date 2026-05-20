@@ -311,6 +311,11 @@ export default function ScannerQR() {
                                  handleScanSuccess(detectedCodes[0].rawValue);
                                }
                              }}
+                             onError={(error) => {
+                               console.error("Scanner Error:", error);
+                               alert("Error de cámara: " + (error as Error).message);
+                               setIsScannerActive(false);
+                             }}
                              components={{
                                torch: true,
                                zoom: true,

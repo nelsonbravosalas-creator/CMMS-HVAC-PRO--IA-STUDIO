@@ -8,7 +8,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
 
 import { 
-  X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft
+  X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft, ChevronDown
 } from 'lucide-react';
 import { EQUIPOS_DATA } from '../../data/assets';
 import { SUCURSALES } from '../../data/branches';
@@ -41,6 +41,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   
   const [isExporting, setIsExporting] = useState(false);
   const [isCodificacionModalOpen, setIsCodificacionModalOpen] = useState(false);
+  const [showTagPreview, setShowTagPreview] = useState(false);
   const tagRef = useRef<HTMLDivElement>(null);
 
   const localSucursales = useLiveQuery(() => db.branches.toArray()) || [];
@@ -155,7 +156,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
       // 1. Verify locally in Dexie if the tag exists
       try {
-        const existingAsset = await assetsRepo.getByTag(fullTag);
+        const existingAsset = await db.assets.where('tag').equals(fullTag).first();
         if (existingAsset) {
           alert("Alerta: El Tag ya se encuentra registrado localmente. Por favor, selecciona otro.");
           setIsSaving(false);
@@ -196,7 +197,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
   return (
     <>
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page { size: 100mm 50mm; margin: 0; }
@@ -221,19 +222,34 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         }
       `}} />
 
-      <div className="bg-white w-full max-w-5xl rounded-3xl md:rounded-[40px] shadow-2xl overflow-y-auto overflow-x-hidden animate-in zoom-in-95 duration-200 flex flex-col md:grid md:grid-cols-12 max-h-[95vh] md:max-h-[95vh] my-auto">
+      <div className="bg-white w-full max-w-5xl rounded-t-3xl sm:rounded-[40px] shadow-2xl overflow-y-auto overflow-x-hidden animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-200 flex flex-col md:grid md:grid-cols-12 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[95vh]">
         
         {/* Left Panel: TAG & QR Rendering */}
-        <div className="md:col-span-5 bg-slate-50 p-6 lg:p-8 flex flex-col items-center gap-6 lg:gap-8 border-b md:border-b-0 md:border-r border-slate-200 no-print">
-           <div className="w-full space-y-4">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Previsualización de Etiqueta</h3>
-              
-              {/* Etiqueta Visual Pro */}
-              <div 
-                id="preview-tag-box" 
-                ref={tagRef}
-                className="w-full aspect-[2/1] bg-white rounded-xl shadow-xl border border-slate-200 flex overflow-hidden min-h-[200px]"
-              >
+        <div className="md:col-span-5 bg-slate-50 p-6 lg:p-8 flex flex-col gap-6 lg:gap-8 border-b md:border-b-0 md:border-r border-slate-200 no-print relative">
+           <button 
+             onClick={() => setShowTagPreview(!showTagPreview)}
+             className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl hover:border-blue-500 transition-colors shadow-sm"
+           >
+             <div className="flex items-center gap-3">
+               <QrCode className="w-5 h-5 text-blue-500" />
+               <div className="text-left">
+                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Renderizado de Etiqueta</h3>
+                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Generar QR y Exportar</p>
+               </div>
+             </div>
+             <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showTagPreview ? 'rotate-180' : ''}`} />
+           </button>
+
+           {showTagPreview && (
+             <div className="flex flex-col items-center gap-6 lg:gap-8 animate-in fade-in slide-in-from-top-4 duration-300">
+               <div className="w-full space-y-4">
+                  
+                  {/* Etiqueta Visual Pro */}
+                  <div 
+                    id="preview-tag-box" 
+                    ref={tagRef}
+                    className="w-full aspect-[2/1] bg-white rounded-xl shadow-xl border border-slate-200 flex overflow-hidden min-h-[200px]"
+                  >
                   {/* Sección QR */}
                   <div className="w-[45%] flex flex-col items-center justify-center p-4 border-r border-slate-100 bg-white">
                       <div className="w-full max-w-[120px] aspect-square flex items-center justify-center">
@@ -300,6 +316,8 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
               </div>
               <p className="text-[8px] lg:text-[9px] font-medium text-slate-400 italic text-center px-2">La etiqueta cumple con el estándar de codificación NBYB CMMS.</p>
            </div>
+          </div>
+          )}
         </div>
 
         {/* Right Panel: Technical Form */}

@@ -24,7 +24,8 @@ import {
   Edit2,
   ScanLine,
   X,
-  Wrench
+  Wrench,
+  BarChart3
 } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { EQUIPOS_DATA, Equipo } from "../data/assets";
@@ -230,7 +231,7 @@ export default function DetalleEquipo() {
                 <div className="bg-white p-6 rounded-3xl border border-slate-200">
                    <div className="flex justify-between items-center mb-8">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><BarChart className="w-4 h-4" /></div>
+                        <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><BarChart3 className="w-4 h-4" /></div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Resumen de Costos e Incidencias (12 meses)</h3>
                       </div>
                       <div className="text-[10px] font-black text-emerald-600 uppercase">Ahorro Estimado: +12% vs Promedio</div>

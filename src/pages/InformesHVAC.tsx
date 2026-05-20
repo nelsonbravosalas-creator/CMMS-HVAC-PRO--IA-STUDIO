@@ -12,13 +12,16 @@ import {
   CheckCircle2,
   ScanLine,
   ChevronRight,
-  MoreVertical
+  MoreVertical,
+  Download
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { INFORMES_MOCK, InformeHVAC } from "../data/reports";
+import { ReportBulkUploadModal } from "../components/modals/ReportBulkUploadModal";
 
 export default function InformesHVAC() {
   const [filter, setFilter] = useState("");
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [, setLocation] = useLocation();
 
   const filtered = INFORMES_MOCK.filter(inf => 
@@ -35,6 +38,12 @@ export default function InformesHVAC() {
           <p className="text-slate-500 text-sm font-medium">Informes técnicos, protocolos de firma y entregables.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowBulkUpload(true)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+          >
+            <Download className="w-4 h-4" /> Carga Masiva
+          </button>
           <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
             <ScanLine className="w-4 h-4" /> Escanear QR
           </button>
@@ -124,6 +133,10 @@ export default function InformesHVAC() {
           </tbody>
         </table>
       </div>
+      
+      {showBulkUpload && (
+        <ReportBulkUploadModal onClose={() => setShowBulkUpload(false)} />
+      )}
     </div>
   );
 }
