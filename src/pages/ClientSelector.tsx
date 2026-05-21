@@ -23,13 +23,9 @@ export default function ClientSelector() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_token");
     localStorage.removeItem("is_authenticated");
-    localStorage.removeItem("auth_user");
     localStorage.removeItem("auth_pin");
     localStorage.removeItem("active_client");
-    localStorage.removeItem("pending_tag");
     window.location.href = "/login";
   };
 

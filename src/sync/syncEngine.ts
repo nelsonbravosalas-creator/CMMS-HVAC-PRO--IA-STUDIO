@@ -4,20 +4,15 @@ import { useAppStore } from '../store/useAppStore';
 import { logger } from '../lib/logger';
 import { syncQueue } from './syncQueue';
 import { networkMonitor } from './networkMonitor';
-import { apiFetch, getAuthToken } from '../lib/apiFetch';
 
 class SyncEngine {
   private processing = false;
   private syncTimer: any = null;
   private lastSync: number = 0;
-  private initialized = false;
 
   init() {
-    if (this.initialized) return;
-    this.initialized = true;
     networkMonitor.init();
     window.addEventListener('network-reconnected', () => this.fullSync());
-    window.addEventListener('auth-token-updated', () => this.fullSync());
     
     // Attempt full sync every 15s in background
     this.syncTimer = setInterval(() => {
@@ -33,7 +28,6 @@ class SyncEngine {
 
   async fullSync() {
     if (this.processing || !networkMonitor.isOnline()) return;
-    if (!getAuthToken()) return;
     this.processing = true;
     const store = useSyncStore.getState();
     store.setSyncing(true);
@@ -54,7 +48,7 @@ class SyncEngine {
 
       logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
 
-      const response = await apiFetch('/api/sync', {
+      const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

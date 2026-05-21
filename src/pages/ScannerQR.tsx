@@ -28,7 +28,6 @@ import { EQUIPOS_DATA } from "../data/assets";
 import { SUCURSALES } from "../data/branches";
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { useAssets } from "../hooks/useAssets";
-import { useAppStore } from "../store/useAppStore";
 
 /**
  * Componente ScannerQR.
@@ -63,8 +62,6 @@ import { useAppStore } from "../store/useAppStore";
  */
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
-  const assets = useAppStore(state => state.assets);
-  const { createAsset } = useAssets();
 
   /** Modos de la vista: scanner (captura) o generator (creación) */
   const [mode, setMode] = useState<"scanner" | "generator">("scanner");
@@ -166,12 +163,27 @@ export default function ScannerQR() {
       // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
       setLastResult(tagValue);
       
-      const localAsset = assets.find(eq => eq.tag === tagValue);
-      if (localAsset) {
-        setEquipoEscaneado(localAsset);
-      } else {
-        setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en datos locales sincronizados.` });
-      }
+      // BÚSQUEDA EN BASE DE DATOS LOCAL:
+      assetsRepo.getByTag(tagValue)
+        .then(asset => {
+           if (asset) {
+             setEquipoEscaneado({
+               tag: asset.tag,
+               nombre: asset.nombre,
+               ubicacion: asset.ubicacion || "Ubicación en BD"
+             });
+           } else {
+             const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
+             if (localFallback) {
+               setEquipoEscaneado(localFallback);
+             } else {
+               setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
+             }
+           }
+        })
+        .catch(err => {
+           setEquipoEscaneado({ error: `Error de búsqueda local.` });
+        })
     }
   };
 
@@ -198,41 +210,23 @@ export default function ScannerQR() {
     window.print();
   };
 
+  const { createAsset } = useAssets();
+
   const handleRegister = async () => {
     setIsExporting(true);
-
-    const assetData = {
-      uuid_sync: crypto.randomUUID(),
-      tag: fullTag,
-      nombre: tagData.nombreEquipo,
-      tipo: tagData.tipo,
-      ubicacion: tagData.almacen,
-      estado: "operativo" as const,
-      marca: '',
-      modelo: '',
-      serie: '',
-      area: '',
-      capacidad: '',
-      voltaje: '',
-      corriente: '',
-      refrigerante: '',
-      fecha_instalacion: '',
-      vida_util: 10,
-      ultimo_mantenimiento: '',
-      proximo_mantenimiento: '',
-      horas_operacion: 0,
-      tecnicos: [],
-      notas: `Registrado desde generador QR. Correlativo: ${tagData.correlativo}`,
-      cliente_id: '',
-      sucursal_id: ''
-    };
-
     try {
-      await createAsset(assetData);
-      alert(`Activo ${fullTag} registrado localmente. Se sincronizará automáticamente.`);
+      await createAsset({
+        tag: fullTag,
+        nombre: tagData.nombreEquipo,
+        tipo: tagData.tipo,
+        estado: "operativo",
+        ubicacion: tagData.almacen
+      });
+      console.log("Activo guardado localmente (Offline First)");
+      alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
     } catch (error) {
-      console.error("Error registrando activo desde QR:", error);
-      alert("No se pudo registrar el activo.");
+      console.error("Error al guardar activo", error);
+      alert("Hubo un error al guardar el activo.");
     } finally {
       setIsExporting(false);
     }

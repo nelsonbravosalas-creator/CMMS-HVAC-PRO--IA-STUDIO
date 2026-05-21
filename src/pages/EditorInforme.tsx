@@ -45,7 +45,6 @@ import { INFORMES_MOCK } from "../data/reports";
 import { EQUIPOS_DATA } from "../data/assets";
 import { SUCURSALES, ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
-import { apiFetch } from "../lib/apiFetch";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { jsPDF } from "jspdf";
@@ -902,7 +901,7 @@ export default function EditorInforme() {
       });
       const base64Data = await base64Promise;
 
-      const res = await apiFetch("/api/ocr", {
+      const res = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type })

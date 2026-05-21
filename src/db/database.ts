@@ -5,7 +5,6 @@ export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pendi
 export interface LocalBase {
   uuid_sync: string;
   updated_at: number;
-  created_at?: number;
   sync_status: SyncStatus;
   version?: number;
   retry_count?: number;
@@ -102,7 +101,6 @@ export interface LocalSucursal extends LocalBase {
 export interface LocalInforme extends LocalBase {
   id: string;
   data: any;
-  estado?: string;
 }
 
 export interface LocalEvento extends LocalBase {

@@ -3,7 +3,7 @@ import { requireRole } from './_auth';
 
 export default async function handler(req: any, res: any) {
   try {
-    const user = requireRole(['administrador', 'programador', 'supervisor', 'tecnico', 'contratista'])(req, res);
+    const user = requireRole(['Administrador', 'Técnico_Líder', 'Ingeniero_Confiabilidad', 'Técnico_Terreno'])(req, res);
     if (!user) return;
     
     const sql = getDb();
