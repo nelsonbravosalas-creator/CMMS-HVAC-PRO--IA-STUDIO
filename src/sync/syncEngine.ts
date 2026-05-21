@@ -80,17 +80,37 @@ class SyncEngine {
       const { success, results, serverChanges } = JSON.parse(responseText);
 
       if (success) {
+         // Gather all results
+         const resultList = [...(results.inserts || []), ...(results.updates || []), ...(results.deletes || [])];
+         const resultMap = new Map(resultList.map((r: any) => [r.uuid_sync, r]));
+
          // Resolve processed queue items
          for (const item of pendingItems) {
            const table = db[item.table as keyof typeof db] as any;
+           const result = resultMap.get(item.uuid_sync);
+           const itemSuccess = result ? result.success : true; // assume true if not explicitly failed
+
            if (table && item.operation !== 'delete') {
-              // mark as synced
-              await table.update(item.uuid_sync, {
-                sync_status: 'synced',
-                last_synced_at: Date.now(),
-                retry_count: 0
-              });
+              if (itemSuccess) {
+                // mark as synced
+                await table.update(item.uuid_sync, {
+                  sync_status: 'synced',
+                  last_synced_at: Date.now(),
+                  retry_count: 0
+                });
+              } else {
+                // mark as failed
+                logger.error('SyncEngine', `Row ${item.uuid_sync} failed: ${result.error}`);
+                await table.update(item.uuid_sync, {
+                  sync_status: 'failed',
+                  last_synced_at: Date.now()
+                });
+              }
            }
+           
+           // remove from queue regardless, to prevent blocking. User must fix and save again to re-queue.
+           // or we can increment retry_count... Let's remove it if it strictly failed Postgres validations
+           // or leave it if it's network error. Since backend returned gracefully with error, it's a validation/conflict error.
            await syncQueue.remove(item.id!);
          }
 

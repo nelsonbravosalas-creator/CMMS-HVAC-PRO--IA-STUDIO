@@ -32,7 +32,7 @@ import {
   Zap,
   Menu as MenuIcon,
 } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -140,6 +140,7 @@ interface LayoutProps {
  * @param {LayoutProps} props
  * @returns {JSX.Element} Estructura base con Header, Sidebar y Main Area.
  */
+import { syncEngine } from '../sync/syncEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 
@@ -151,7 +152,34 @@ export default function Layout({ children }: LayoutProps) {
   /** Estado del tema visual (Inicia en modo claro por defecto) */
   const [isDarkMode, setIsDarkMode] = useState(false);
   /** Visibilidad del banner de Progressive Web App */
-  const [showPWABanner, setShowPWABanner] = useState(true);
+  const [showPWABanner, setShowPWABanner] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Initial sync
+    syncEngine.triggerSync();
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowPWABanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+         console.log('User accepted the A2HS prompt');
+      }
+      setDeferredPrompt(null);
+      setShowPWABanner(false);
+    }
+  };
+
   /** Posición de los controles móviles para ergonimía (Derecha/Izquierda) */
   const [menuPosition, setMenuPosition] = useState<'left' | 'right'>('right');
 
@@ -396,7 +424,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-2">
               <Download className="w-3 h-3" />
               <span>INSTALAR APP PARA ACCESO OFFLINE</span>
-              <button className="ml-4 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/40 transition-colors">INSTALAR</button>
+              <button onClick={handleInstallClick} className="ml-4 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/40 transition-colors">INSTALAR</button>
             </div>
             <X 
               className={`w-3 h-3 cursor-pointer opacity-70 hover:opacity-100 p-0.5 rounded-full border transition-all ${

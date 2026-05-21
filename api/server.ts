@@ -437,8 +437,10 @@ function resolveTable(name: string): string | null {
 
   // NEW GLOBAL SYNC ENDPOINT
   app.post('/api/sync', async (req, res) => {
-    const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body;
     try {
+      console.log(`[SYNC INIT] Payload size: ${JSON.stringify(req.body).length} bytes`);
+      const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body;
+      console.log(`[SYNC OPS] Inserts: ${inserts.length}, Updates: ${updates.length}, Deletes: ${deletes.length}, LastSync: ${lastSync}`);
       const sql = getSql();
       const results = { inserts: [], updates: [], deletes: [] };
       
@@ -451,57 +453,62 @@ function resolveTable(name: string): string | null {
         const data = ins.data || {};
         const uuid_sync = ins.uuid_sync;
         const updated_at = ins.updated_at || data.updated_at || ins.timestamp || Date.now();
-        if (table === 'assets') {
-          const d = data;
-          await sql`
-            INSERT INTO assets (
-              tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
-              voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
-              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
-              uuid_sync, updated_at, created_at, cliente_id, sucursal_id
-            ) VALUES (
-              ${d.tag}, ${d.nombre}, ${d.tipo || ''}, ${d.marca || ''}, ${d.modelo || ''}, 
-              ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
-              ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
-              ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
-              ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
-              ${uuid_sync}, ${updated_at}, ${updated_at}, ${d.cliente_id || ''}, ${d.sucursal_id || ''}
-            ) ON CONFLICT (uuid_sync) DO UPDATE SET
-              tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
-              serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
-              voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
-              fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
-              ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
-              horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id,
-              updated_at = EXCLUDED.updated_at
-            WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL;
-          `;
-        } else {
-          // generic JSONB tables
-          const id = data.id || uuid_sync;
-          const strData = JSON.stringify(data);
-          
-          switch (table) {
-            case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL`; break;
-            case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL`; break;
-            case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
-            case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
-            case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
-            case 'clients': await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`; break;
-            case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`; break;
-            case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
-            case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
-            case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
-            case 'audit_logs':
-              await sql`
-                INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp) 
-                VALUES (${id}, ${data.action}, ${data.entity_type}, ${data.entity_id}, ${data.user_id}, ${strData}, ${data.timestamp}) 
-                ON CONFLICT (id) DO NOTHING
-              `;
-              break;
+        
+        try {
+          if (table === 'assets') {
+            const d = data;
+            await sql`
+              INSERT INTO assets (
+                tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
+                voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
+                ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
+                uuid_sync, updated_at, created_at, cliente_id, sucursal_id
+              ) VALUES (
+                ${d.tag}, ${d.nombre}, ${d.tipo || ''}, ${d.marca || ''}, ${d.modelo || ''}, 
+                ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
+                ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
+                ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
+                ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
+                ${uuid_sync}, ${updated_at}, ${updated_at}, ${d.cliente_id || null}, ${d.sucursal_id || null}
+              ) ON CONFLICT (uuid_sync) DO UPDATE SET
+                tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
+                serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
+                voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
+                fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
+                ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
+                horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id,
+                updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL;
+            `;
+          } else {
+            const id = data.id || uuid_sync;
+            const strData = JSON.stringify(data);
+            
+            switch (table) {
+              case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL`; break;
+              case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL`; break;
+              case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
+              case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
+              case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
+              case 'clients': await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`; break;
+              case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`; break;
+              case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
+              case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
+              case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
+              case 'audit_logs':
+                await sql`
+                  INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp) 
+                  VALUES (${id}, ${data.action}, ${data.entity_type}, ${data.entity_id}, ${data.user_id}, ${strData}, ${data.timestamp}) 
+                  ON CONFLICT (id) DO NOTHING
+                `;
+                break;
+            }
           }
+          results.inserts.push({ uuid_sync, folio_oficial: data.tag || data.id, success: true });
+        } catch(postgresError: any) {
+          console.error(`[SYNC POSTGRES ERROR] INSERT failed for table ${table}, uuid_sync: ${uuid_sync}. Error:`, postgresError.message);
+          results.inserts.push({ uuid_sync, error: postgresError.message, success: false });
         }
-        results.inserts.push({ uuid_sync, folio_oficial: data.tag || data.id });
       }
 
       for (const upd of updates) {
@@ -512,57 +519,68 @@ function resolveTable(name: string): string | null {
         const data = upd.data || {};
         const uuid_sync = upd.uuid_sync;
         const updated_at = upd.updated_at || data.updated_at || upd.timestamp || Date.now();
-        if (table === 'assets') {
-           const d = data;
-           await sql`
-            UPDATE assets SET
-              tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
-              serie = ${d.serie || ''}, ubicacion = ${d.ubicacion || ''}, area = ${d.area || ''}, capacidad = ${d.capacidad || ''},
-              voltaje = ${d.voltaje || ''}, corriente = ${d.corriente || ''}, refrigerante = ${d.refrigerante || ''},
-              fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util || 0}, estado = ${d.estado || 'operativo'},
-              ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, proximo_mantenimiento = ${d.proximo_mantenimiento || null},
-              horas_operacion = ${d.horas_operacion || 0}, notas = ${d.notas || ''},
-              cliente_id = ${d.cliente_id || ''}, sucursal_id = ${d.sucursal_id || ''},
-              updated_at = ${updated_at}
-            WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL);
-          `;
-        } else {
-          const id = data.id || uuid_sync;
-          const strData = JSON.stringify(data);
-          switch (table) {
-            case 'users': await sql`UPDATE users SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'clients': await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'branches': await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-            case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+        
+        try {
+          if (table === 'assets') {
+             const d = data;
+             await sql`
+              UPDATE assets SET
+                tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
+                serie = ${d.serie || ''}, ubicacion = ${d.ubicacion || ''}, area = ${d.area || ''}, capacidad = ${d.capacidad || ''},
+                voltaje = ${d.voltaje || ''}, corriente = ${d.corriente || ''}, refrigerante = ${d.refrigerante || ''},
+                fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util || 0}, estado = ${d.estado || 'operativo'},
+                ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, proximo_mantenimiento = ${d.proximo_mantenimiento || null},
+                horas_operacion = ${d.horas_operacion || 0}, notas = ${d.notas || ''},
+                cliente_id = ${d.cliente_id || null}, sucursal_id = ${d.sucursal_id || null},
+                updated_at = ${updated_at}
+              WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL);
+            `;
+          } else {
+            const id = data.id || uuid_sync;
+            const strData = JSON.stringify(data);
+            switch (table) {
+              case 'users': await sql`UPDATE users SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'clients': await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'branches': await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+            }
           }
+          results.updates.push({ uuid_sync, success: true });
+        } catch(postgresError: any) {
+          console.error(`[SYNC POSTGRES ERROR] UPDATE failed for table ${table}, uuid_sync: ${uuid_sync}. Error:`, postgresError.message);
+          results.updates.push({ uuid_sync, error: postgresError.message, success: false });
         }
-        results.updates.push({ uuid_sync });
       }
 
       for (const del of deletes) {
         const rawTable = del.table;
         const table = resolveTable(rawTable);
         if (table) {
-           switch (table) {
-             case 'assets': await sql`DELETE FROM assets WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'users': await sql`DELETE FROM users WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'preventive_maintenance': await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'work_orders': await sql`DELETE FROM work_orders WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'reports': await sql`DELETE FROM reports WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'events': await sql`DELETE FROM events WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'clients': await sql`DELETE FROM clients WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'branches': await sql`DELETE FROM branches WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'catalog_asset_types': await sql`DELETE FROM catalog_asset_types WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'settings': await sql`DELETE FROM settings WHERE uuid_sync = ${del.uuid_sync}`; break;
-             case 'ordenes_servicio': await sql`DELETE FROM ordenes_servicio WHERE uuid_sync = ${del.uuid_sync}`; break;
+           try {
+             switch (table) {
+               case 'assets': await sql`DELETE FROM assets WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'users': await sql`DELETE FROM users WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'preventive_maintenance': await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'work_orders': await sql`DELETE FROM work_orders WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'reports': await sql`DELETE FROM reports WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'events': await sql`DELETE FROM events WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'clients': await sql`DELETE FROM clients WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'branches': await sql`DELETE FROM branches WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'catalog_asset_types': await sql`DELETE FROM catalog_asset_types WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'settings': await sql`DELETE FROM settings WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'ordenes_servicio': await sql`DELETE FROM ordenes_servicio WHERE uuid_sync = ${del.uuid_sync}`; break;
+             }
+             results.deletes.push({ uuid_sync: del.uuid_sync, success: true });
+           } catch (postgresError: any) {
+             console.error(`[SYNC POSTGRES ERROR] DELETE failed for table ${table}, uuid_sync: ${del.uuid_sync}. Error:`, postgresError.message);
+             results.deletes.push({ uuid_sync: del.uuid_sync, error: postgresError.message, success: false });
            }
-           results.deletes.push({ uuid_sync: del.uuid_sync });
         }
       }
 
