@@ -470,6 +470,10 @@ export default function ScannerQR() {
                         </div>
                      </div>
                    </div>
+                   <div className="text-center mt-3 flex items-center justify-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                      <span className="text-[10px] font-medium text-slate-400/80 tracking-widest uppercase">DIMENSIÓN ÓPTIMA DE IMPRESIÓN: <strong className="text-white">100mm x 50mm</strong></span>
+                   </div>
                 </div>
 
                 <div className="w-full grid grid-cols-2 gap-6">
