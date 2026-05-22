@@ -23,7 +23,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [showAssetSearch, setShowAssetSearch] = useState(false);
   const [tag, setTag] = useState(initialTag || "");
   const [equipoDesc, setEquipoDesc] = useState("");
-  const [cliente, setCliente] = useState("");
+  const [cliente, setCliente] = useState(localStorage.getItem("active_client") || "");
   const [sucursal, setSucursal] = useState("");
   
   // Form fields
@@ -35,6 +35,20 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   
   const storeClients = useAppStore(state => state.clients);
   const storeBranches = useAppStore(state => state.branches);
+
+  const localAssets = useLiveQuery(() => db.assets.filter(a => !a.deleted_at).toArray()) || [];
+
+  React.useEffect(() => {
+    if (tag && localAssets.length > 0) {
+      const eq = localAssets.find(a => a.tag === tag);
+      if (eq) {
+        setEquipoDesc(eq.nombre || "");
+        setCliente(eq.cliente_id || "");
+        const branchObj = storeBranches && eq.sucursal_id ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+        setSucursal(branchObj ? branchObj.nombre : (eq.ubicacion || ""));
+      }
+    }
+  }, [tag, localAssets, storeBranches]);
   
   const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -71,12 +85,11 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const localAssets = useLiveQuery(() => db.assets.filter(a => !a.deleted_at).toArray()) || [];
-  
   const filteredEquipos = localAssets.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
-    const matchSucursal = searchSucursal ? eq.sucursal_id === searchSucursal || (storeBranches && storeBranches[eq.sucursal_id]?.nombre === searchSucursal) : true;
+    const branchObj = storeBranches ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+    const matchSucursal = searchSucursal ? eq.sucursal_id === searchSucursal || (branchObj && branchObj.nombre === searchSucursal) : true;
     return matchTag && matchDesc && matchSucursal;
   });
 
@@ -85,10 +98,12 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     setEquipoDesc(eq.nombre);
     
     // Attempt to resolve names from IDs
-    const clientName = (storeClients && eq.cliente_id && storeClients[eq.cliente_id]?.nombre) || eq.cliente_id;
+    const clientObj = storeClients && eq.cliente_id ? storeClients.find(c => c.uuid_sync === eq.cliente_id) : null;
+    const clientName = clientObj ? clientObj.nombre : eq.cliente_id;
     setCliente(eq.cliente_id); 
     
-    const branchName = (storeBranches && eq.sucursal_id && storeBranches[eq.sucursal_id]?.nombre) || eq.sucursal_id;
+    const branchObj = storeBranches && eq.sucursal_id ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+    const branchName = branchObj ? branchObj.nombre : eq.sucursal_id;
     setSucursal(branchName);
     
     setShowAssetSearch(false);

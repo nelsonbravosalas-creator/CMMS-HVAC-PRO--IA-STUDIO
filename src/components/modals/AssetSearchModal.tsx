@@ -128,15 +128,15 @@ export function AssetSearchModal({
                        <SearchableSelect
                          options={[
                            { value: "", label: "Todos los Clientes" },
-                           ...Object.values(storeClients || {}).map((c: any) => ({
+                           ...(storeClients || []).map((c: any) => ({
                              value: c.nombre,
                              label: c.nombre
                            }))
                          ]}
                          value={cliente}
                          onChange={(val) => {
-                           setCliente(val);
-                           setSucursal("");
+                           if (setCliente) setCliente(val);
+                           if (setSucursal) setSucursal("");
                          }}
                          placeholder="Todos los Clientes"
                          icon={<Users className="w-4 h-4" />}
@@ -147,8 +147,12 @@ export function AssetSearchModal({
                        <SearchableSelect
                          options={[
                            { value: "", label: "Todas las Sucursales" },
-                           ...Object.values(storeBranches || {})
-                             .filter((b: any) => !cliente || (storeClients[b.cliente_id]?.nombre === cliente))
+                           ...(storeBranches || [])
+                             .filter((b: any) => {
+                               if (!cliente) return true;
+                               const clientObj = storeClients.find(c => c.uuid_sync === b.cliente_id);
+                               return clientObj ? clientObj.nombre === cliente : false;
+                             })
                              .map((b: any) => ({
                                value: b.nombre,
                                label: b.nombre,
@@ -156,7 +160,7 @@ export function AssetSearchModal({
                              }))
                          ]}
                          value={sucursal}
-                         onChange={(val) => setSucursal(val)}
+                         onChange={(val) => { if (setSucursal) setSucursal(val); }}
                          placeholder="Todas las Sucursales"
                          icon={<Building2 className="w-4 h-4" />}
                        />

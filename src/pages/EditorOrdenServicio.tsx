@@ -13,13 +13,16 @@ import {
   AlertTriangle,
   ClipboardList,
   MapPin,
-  Search
+  Search,
+  Maximize,
+  CheckCircle2
 } from "lucide-react";
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { AssetSearchModal } from "../components/modals/AssetSearchModal";
+import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatureModal";
 import { db } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAppStore } from "../store/useAppStore";
@@ -41,6 +44,8 @@ export default function EditorOrdenServicio() {
   const [activeSection, setActiveSection] = useState<Section>('general');
   const [isSyncing, setIsSyncing] = useState(false);
   const [status, setStatus] = useState<'borrador'|'firmada'|'enviada'>('borrador');
+  const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
+  const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('tecnico');
 
   const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -517,67 +522,83 @@ export default function EditorOrdenServicio() {
       case 'firma':
         return (
           <div className="space-y-6">
-             <SectionBox title="Firmas del Documento">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   {/* Firma Técnico */}
-                   <div className="space-y-2">
-                      <div className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-t-xl border border-b-0 border-slate-200">
-                         <span className="text-xs font-black text-slate-900 uppercase">Técnico: {generalData.tecnico}</span>
-                         {!isReadOnly && (
-                           <button onClick={() => {
-                             const canvas = canvasTecRef.current;
-                             if(canvas) {
-                               const ctx = canvas.getContext('2d');
-                               ctx?.clearRect(0,0,canvas.width,canvas.height);
-                             }
-                           }} className="text-[10px] font-bold text-red-500 uppercase hover:underline">Limpiar</button>
-                         )}
-                      </div>
-                      <div className="bg-white border border-slate-200 rounded-b-xl overflow-hidden relative">
-                         {isReadOnly && <div className="absolute inset-0 bg-slate-50/50 z-10" />}
-                         <canvas ref={canvasTecRef} className="w-full h-48 cursor-crosshair touch-none" />
-                      </div>
-                   </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               <SectionBox title="Firma Técnica de Ejecución">
+                  <div className="space-y-4">
+                     <canvas ref={canvasTecRef} className="w-full h-48 bg-slate-50 border border-slate-200 rounded-3xl touch-none shadow-inner" />
+                     <div className="flex justify-between items-center mt-2">
+                        <div className="flex items-center gap-2">
+                           <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{generalData.tecnico}</span>
+                        </div>
+                        <div className="flex gap-2">
+                           {!isReadOnly && (
+                             <button className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1" onClick={() => {
+                                 setSignatureType('tecnico');
+                                 setShowFullscreenSignature(true);
+                             }}>
+                                <Maximize className="w-3 h-3" /> Pantalla Completa
+                             </button>
+                           )}
+                           {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
+                               const ctx = canvasTecRef.current?.getContext('2d');
+                               ctx?.clearRect(0, 0, canvasTecRef.current?.width || 0, canvasTecRef.current?.height || 0);
+                           }}>Borrar</button>}
+                        </div>
+                     </div>
+                  </div>
+               </SectionBox>
+               <SectionBox title="Conformidad del Cliente">
+                  <div className="space-y-4">
+                     <canvas ref={canvasCliRef} className={`w-full h-48 bg-slate-50 border border-slate-200 rounded-3xl touch-none shadow-inner ${isReadOnly ? 'opacity-40' : ''}`} />
+                    <div className="flex justify-between items-center mt-2">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Área de Firma Cliente</span>
+                       <div className="flex gap-2">
+                           {!isReadOnly && (
+                             <button className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1" onClick={() => {
+                                 setSignatureType('cliente');
+                                 setShowFullscreenSignature(true);
+                             }}>
+                                <Maximize className="w-3 h-3" /> Pantalla Completa
+                             </button>
+                           )}
+                           {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
+                               const ctx = canvasCliRef.current?.getContext('2d');
+                               ctx?.clearRect(0, 0, canvasCliRef.current?.width || 0, canvasCliRef.current?.height || 0);
+                           }}>Borrar</button>}
+                       </div>
+                    </div>
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400">Nombre de quien recibe</label>
+                        <input 
+                          type="text" 
+                          value={generalData.nombreCliente || ""}
+                          onChange={(e) => handleGeneralChange('nombreCliente', e.target.value)}
+                          disabled={isReadOnly}
+                          className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold uppercase transition-all outline-none ${isReadOnly ? 'opacity-60 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500'}`} 
+                        />
+                     </div>
+                  </div>
+               </SectionBox>
+            </div>
 
-                   {/* Firma Cliente */}
-                   <div className="space-y-2">
-                      <div className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-t-xl border border-b-0 border-slate-200">
-                         <span className="text-xs font-black text-slate-900 uppercase">Cliente: {generalData.nombreCliente || "Nombre Cliente"}</span>
-                         {!isReadOnly && (
-                           <button onClick={() => {
-                             const canvas = canvasCliRef.current;
-                             if(canvas) {
-                               const ctx = canvas.getContext('2d');
-                               ctx?.clearRect(0,0,canvas.width,canvas.height);
-                             }
-                           }} className="text-[10px] font-bold text-red-500 uppercase hover:underline">Limpiar</button>
-                         )}
-                      </div>
-                      <div className="bg-white border border-slate-200 rounded-b-xl overflow-hidden relative">
-                         {isReadOnly && <div className="absolute inset-0 bg-slate-50/50 z-10" />}
-                         <canvas ref={canvasCliRef} className="w-full h-48 cursor-crosshair touch-none" />
-                      </div>
-                   </div>
-                </div>
-             </SectionBox>
-
-             {!isReadOnly && (
-               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
-                  <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
-                  <h3 className="text-lg font-black text-slate-900 uppercase mb-2">Finalizar Orden de Servicio</h3>
-                  <p className="text-sm text-slate-500 mb-6 max-w-md">
-                     Al firmar y sincronizar esta orden, se generará el documento final y su estado pasará a Solo Lectura. No podrá ser modificado.
-                  </p>
-                  <button 
-                    onClick={handleSyncAndFinalize}
-                    disabled={isSyncing}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest flex items-center gap-3 transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50"
-                  >
-                    {isSyncing ? <LoadingIndicator size="sm" color="white" /> : <Save className="w-5 h-5" />}
-                    {isSyncing ? "Sincronizando..." : "Guardar y Finalizar O.S."}
-                  </button>
-               </div>
-             )}
+            {!isReadOnly && (
+              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center">
+                 <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
+                 <h3 className="text-lg font-black text-slate-900 uppercase mb-2">Finalizar Orden de Servicio</h3>
+                 <p className="text-sm text-slate-500 mb-6 max-w-md">
+                    Al firmar y sincronizar esta orden, se generará el documento final y su estado pasará a Solo Lectura. No podrá ser modificado.
+                 </p>
+                 <button 
+                   onClick={handleSyncAndFinalize}
+                   disabled={isSyncing}
+                   className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest flex items-center gap-3 transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                 >
+                   {isSyncing ? <LoadingIndicator size="sm" color="white" /> : <Save className="w-5 h-5" />}
+                   {isSyncing ? "Sincronizando..." : "Guardar y Finalizar O.S."}
+                 </button>
+              </div>
+            )}
           </div>
         );
     }
@@ -646,6 +667,24 @@ export default function EditorOrdenServicio() {
           }}
         />
       )}
+      <FullscreenSignatureModal
+          isOpen={showFullscreenSignature}
+          onClose={() => setShowFullscreenSignature(false)}
+          title={signatureType === 'tecnico' ? "Firma Técnico de Ejecución" : "Firma Cliente"}
+          onSave={(dataUrl) => {
+            const canvas = signatureType === 'tecnico' ? canvasTecRef.current : canvasCliRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            const img = new Image();
+            img.onload = () => {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.src = dataUrl;
+            setShowFullscreenSignature(false);
+          }}
+       />
     </div>
   );
 }
