@@ -28,6 +28,7 @@ import Tickets from "./pages/Tickets";
 import Reportes from "./pages/Reportes";
 import Administracion from "./pages/Administracion";
 import Clientes from "./pages/Clientes";
+import Biometria from "./pages/Biometria";
 import Consola from "./pages/Consola";
 import Configuracion from "./pages/Configuracion";
 import Login from "./pages/Login";
@@ -154,6 +155,7 @@ function App() {
               <Route path="/eficiencia" component={EFIEnergia} />
               <Route path="/administracion" component={Administracion} />
               <Route path="/clientes" component={Clientes} />
+              <Route path="/biometria" component={Biometria} />
               <Route path="/consola" component={Consola} />
               <Route path="/configuracion" component={Configuracion} />
               

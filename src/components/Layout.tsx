@@ -32,6 +32,7 @@ import {
   Zap,
   Menu as MenuIcon,
   Building2,
+  Fingerprint,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
@@ -65,6 +66,7 @@ const NAV_ITEMS = [
   { href: "/reportes", icon: BarChart3, label: "Reportes" },
   { href: "/eficiencia", icon: Zap, label: "Eficiencia Energética" },
   { href: "/administracion", icon: Users, label: "Administración", section: "Configuración" },
+  { href: "/biometria", icon: Fingerprint, label: "Acceso Biométrico", section: "Configuración" },
   { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración" },
   { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración" },
 ];
@@ -567,6 +569,13 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
                   <div className="w-12 h-12 bg-rose-600/20 rounded-2xl flex items-center justify-center text-rose-400"><Users className="w-6 h-6" /></div>
                   <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Admin</span>
+                </div>
+              </Link>
+
+              <Link href="/biometria" onClick={() => setIsMoreDrawerOpen(false)}>
+                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                  <div className="w-12 h-12 bg-teal-600/20 rounded-2xl flex items-center justify-center text-teal-400"><Fingerprint className="w-6 h-6" /></div>
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Biometría</span>
                 </div>
               </Link>
             </div>
