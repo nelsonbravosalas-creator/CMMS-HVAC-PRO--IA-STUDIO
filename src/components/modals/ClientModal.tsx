@@ -345,8 +345,8 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                              </select>
                           </div>
                           <div className="space-y-1">
-                             <label className="text-[9px] font-black uppercase text-slate-400">Codificador (4 Caracteres)</label>
-                             <input type="text" maxLength={4} placeholder="Ej. MATR" value={sub.codigo} onChange={e => updateSub(sub.id, 'codigo', e.target.value.toUpperCase())} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none tracking-widest select-all text-indigo-600" />
+                             <label className="text-[9px] font-black uppercase text-slate-400">Codificador (6 Caracteres)</label>
+                             <input type="text" maxLength={6} placeholder="Ej. 21-STK" value={sub.codigo} onChange={e => updateSub(sub.id, 'codigo', e.target.value.toUpperCase())} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none tracking-widest select-all text-indigo-600" />
                           </div>
                           <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Nombre de la Sucursal</label>
