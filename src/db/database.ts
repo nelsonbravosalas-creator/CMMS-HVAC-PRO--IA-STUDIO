@@ -87,6 +87,7 @@ export interface LocalUsuario extends LocalBase {
   rol: string;
   pin: string;
   activo: boolean;
+  cliente_id?: string;
 }
 
 export interface LocalSucursal extends LocalBase {

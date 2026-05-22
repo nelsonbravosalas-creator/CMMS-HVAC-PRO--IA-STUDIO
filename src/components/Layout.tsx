@@ -153,6 +153,12 @@ export default function Layout({ children }: LayoutProps) {
     return client ? client.nombre : null;
   }, [activeClientId]) || "Entorno General";
 
+  /** Fetch active clients list for responsive dropdown selection */
+  const activeClients = useLiveQuery(async () => {
+    const clients = await db.clients.toArray();
+    return clients.filter(c => c.activo !== false);
+  }) || [];
+
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Control del drawer de acciones secundarias (Mobile) */
@@ -398,16 +404,38 @@ export default function Layout({ children }: LayoutProps) {
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Client Selector (Desktop) */}
-            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800 hover:border-slate-500 hover:shadow-sm' : 'bg-white border-slate-300 text-slate-900 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm'
-            }`}
-            onClick={() => window.location.href = "/client-selector"}>
-              <Database className={`w-3.5 h-3.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <span className="tracking-widest uppercase truncate max-w-[200px]">
-                {activeClientName}
-              </span>
-              <ChevronDown className="w-3 h-3 opacity-50 text-slate-400" />
+            {/* Client Selector (Responsive Dropdown) */}
+            <div className={`relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+              isDarkMode 
+                ? 'bg-slate-900 border-slate-700 hover:border-slate-500 hover:bg-slate-800 text-slate-100 shadow-md' 
+                : 'bg-white border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-800 shadow-sm'
+            }`}>
+              <Database className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              <div className="relative flex items-center min-w-[100px] max-w-[150px] sm:max-w-[200px]">
+                <select
+                  aria-label="Seleccionar Cliente"
+                  id="client-dropdown-select"
+                  value={activeClientId || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      localStorage.setItem("active_client", val);
+                      window.location.reload();
+                    }
+                  }}
+                  className="w-full bg-transparent border-none pr-5 text-[10px] tracking-wider uppercase font-black cursor-pointer appearance-none focus:outline-none text-ellipsis overflow-hidden whitespace-nowrap"
+                >
+                  <option value="" disabled className={isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-white text-slate-500'}>
+                    No seleccionado
+                  </option>
+                  {activeClients.map((c) => (
+                    <option key={c.uuid_sync} value={c.uuid_sync} className={isDarkMode ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>
+                      {c.nombre || "Cliente Sin Nombre"}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-0 pointer-events-none opacity-60" />
+              </div>
             </div>
 
             {/* Profile Badge */}
