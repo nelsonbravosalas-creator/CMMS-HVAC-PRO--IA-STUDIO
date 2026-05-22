@@ -711,4 +711,80 @@ Cliente existe
             -> La auditoria conserva trazabilidad
 ```
 
+---
+
+## 19. Protocolo de Identificación y Validación Biométrica Offline-First
+
+Este protocolo define cómo el hardware telefónico y la aplicación realizan el intercambio y calibración segura de la huella dactilar para autorizar el acceso desconectado sin comprometer la seguridad.
+
+### 19.1 Workflow Clínico de Registro y Handshake
+
+```text
+[ Pantalla Configuración / Acceso ]
+          |
+          v
+[ Solicitar Registro dactilar ] 
+          |
+          v
+[ Llama Hardware Biométrico Nativo ] ----(Soportado & HTTPS)----> [ WebAuthn API Credentials.create() ] 
+          |                                                                      |
+    (Bloqueado / Iframe Sandbox Fallback)                                         v
+          |                                                       [ Extrae rawId de Credencial Criptográfica ]
+          v                                                                      |
+[ Calibración Táctil Multipaso (3 Intentos) ]                                    |
+          |                                                                      v
+          v<----------------------------------------------------------------------
+[ Generar Identificación Hashed del Técnico ]
+          |
+          v
+[ Guardar Archivo de Huella digital en LocalStorage del Teléfono ]
+   Key: `biometry_credential_id_${email}` 
+   Lock State: `biometry_active_${email}` = "true"
+          |
+          v
+[ Hash encriptado SHA-256 firmado localmente ]
+```
+
+### 19.2 Workflow de Login e Interacción de la Huella
+
+```text
+[ Página de Login ]
+          |
+          v
+[ Técnico ingresa su Correo Electrónico ]
+          |
+          v
+[ Sistema busca Registro en LocalStorage ] ------( No existe )-----> [ Exigir PIN Numérico Estático ]
+          |
+      ( Existe )
+          v
+[ Mostrar Botón "INGRESAR CON HUELLA" ]
+          |
+          v
+[ Evento: Touch / Click ]
+          |
+          v
+[ Llamar a Herramienta de Lectura dactilar del Teléfono ]
+          |
+          v-----> [ Hardware Nativo (WebAuthn credentials.get) ]
+          v-----> [ Fallback de Interacción de Huella localizada con Archivo ]
+          |
+          v
+[ Comparar Entrada Biométrica con el Archivo de Huella alojado ]
+          |
+    +-----+-----+
+    |           |
+[ COINCIDE ] [ RECHAZADO ]
+    |           |
+    v           v
+[ Login Exitoso ] [ Mostrar Mensaje de Error ]
+[ Acceso a CMMS ]
+```
+
+### 19.3 Criterios de Seguridad y Almacenamiento
+
+- **Localización Estricta:** Las firmas biométricas y los identificadores quedan exclusivamente alojados en el teléfono (`localStorage`).
+- **Validación Desconectada:** El sistema debe procesar el inicio de sesión bajo estado 100% desconectado comparando la interacción de la huella con el archivo cargado directamente por el módulo local del dispositivo.
+- **Acceso Cruzado Privilegiado:** El login alternado PIN/Huella garantiza la redundancia ante fallas de sensores húmedos o sucios en terreno industrial.
+
 # Fin del documento

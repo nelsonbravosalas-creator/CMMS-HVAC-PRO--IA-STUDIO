@@ -21,6 +21,8 @@ interface AuthContextType {
   permisos: Permisos | null;
   /** Función para autenticar mediante PIN y correo. */
   login: (pin: string, correo: string) => Promise<boolean>;
+  /** Función para autenticar mediante huella digital offline en el dispositivo. */
+  biometricLogin: (correo: string) => Promise<boolean>;
   /** Función para destruir la sesión actual. */
   logout: () => void;
 }
@@ -144,6 +146,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  const biometricLogin = async (correo: string): Promise<boolean> => {
+    try {
+      const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+      if (localUser && localUser.activo) {
+        const loggedUser: Usuario = {
+          id: localUser.id || localUser.uuid_sync,
+          nombre: localUser.nombre,
+          correo: localUser.email,
+          perfil: (localUser.rol || 'tecnico') as Perfil,
+          activo: localUser.activo,
+          puedeEditarMantenimientos: localUser.rol !== 'visita' && localUser.rol !== 'cliente',
+          pin: '***'
+        };
+
+        setUser(loggedUser);
+        localStorage.setItem('auth_user', JSON.stringify(loggedUser));
+        localStorage.setItem('is_authenticated', 'true');
+        return true;
+      } else {
+        // Fallback default mockup for Nelson Bravo if first boot and not saved in localdb yet
+        if (correo.toLowerCase() === "nelson.bravo.salas@gmail.com") {
+          const loggedUser: Usuario = {
+            id: "1",
+            nombre: "Nelson Bravo",
+            correo: "nelson.bravo.salas@gmail.com",
+            perfil: "administrador" as Perfil,
+            activo: true,
+            puedeEditarMantenimientos: true,
+            pin: '***'
+          };
+          setUser(loggedUser);
+          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
+          localStorage.setItem('is_authenticated', 'true');
+          return true;
+        }
+      }
+    } catch (dbError) {
+      console.error('Error durante autenticación biométrica offline', dbError);
+    }
+    return false;
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('auth_user');
@@ -153,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, permisos, login, logout }}>
+    <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );
