@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   Zap,
   Menu as MenuIcon,
+  Building2,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
@@ -55,6 +56,7 @@ const NAV_ITEMS = [
   { href: "/scanner", icon: ScanLine, label: "Scanner QR" },
   { href: "/equipos", icon: Box, label: "Equipos", badgeKey: 'equiposTotal', badgeColor: "bg-purple-600" },
   { href: "/mapa", icon: MapPin, label: "Mapa" },
+  { href: "/clientes", icon: Building2, label: "Clientes" },
   { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
   { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio", badgeKey: 'ordenesServicioTotal', badgeColor: "bg-indigo-500" },
@@ -537,6 +539,13 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
                   <div className="w-12 h-12 bg-purple-600/20 rounded-2xl flex items-center justify-center text-purple-400"><MapPin className="w-6 h-6" /></div>
                   <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Mapa</span>
+                </div>
+              </Link>
+
+              <Link href="/clientes" onClick={() => setIsMoreDrawerOpen(false)}>
+                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                  <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400"><Building2 className="w-6 h-6" /></div>
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Clientes</span>
                 </div>
               </Link>
 
