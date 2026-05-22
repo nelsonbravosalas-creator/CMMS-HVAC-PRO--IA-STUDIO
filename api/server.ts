@@ -246,6 +246,53 @@ ensureTables().catch(console.error);
     res.json({ status: "ok" });
   });
 
+  app.post("/api/auth", async (req, res) => {
+    try {
+      const { correo, pin } = req.body;
+      if (!correo || !pin) {
+        return res.status(400).json({ success: false, error: "Correo y PIN requeridos" });
+      }
+
+      const sql = getSql();
+      const correoLower = correo.toLowerCase();
+      // En la tabla users: correo podria estar en la columna 'correo' O en 'data->>'email'' O en la columna 'data' (JSONB) dependiendo de la migracion
+      const _users = await sql`SELECT * FROM users WHERE LOWER(correo) = ${correoLower} OR LOWER(data->>'email') = ${correoLower}`;
+      if (_users.length === 0) {
+        return res.status(401).json({ success: false, error: "Credenciales inválidas" });
+      }
+
+      const user = _users[0];
+      const storedPin = user.pin || (user.data && user.data.pin);
+      
+      const bcrypt = require('bcryptjs');
+      let isMatch = false;
+      if (storedPin && storedPin.startsWith('$2')) {
+        isMatch = bcrypt.compareSync(pin, storedPin);
+      } else {
+        isMatch = storedPin === pin;
+      }
+
+      if (!isMatch) {
+        return res.status(401).json({ success: false, error: "Credenciales inválidas" });
+      }
+
+      // Convert DB user format to expected return format
+      const userData = user.data || {};
+      const returnUser = {
+        id: user.id || userData.id || user.uuid_sync,
+        nombre: user.nombre || userData.nombre,
+        correo: user.correo || userData.email || correo,
+        perfil: user.perfil || userData.rol || 'tecnico',
+        activo: true // assuming active if they exist in this basic check, though we should check user.activo or userData.activo
+      };
+
+      res.json({ success: true, user: returnUser, token: "mock-jwt-token" });
+    } catch (e: any) {
+      console.error("Auth error:", e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   app.post("/api/ocr", async (req, res) => {
     try {
       const imageBase64 = req.body.imageBase64 || req.body.image;

@@ -88,7 +88,7 @@ class SyncEngine {
 
       const responseText = await response.text();
       if (responseText.trim().startsWith('<')) {
-         throw new Error(`Sync Error: Server returned HTML instead of JSON. Check the API URL or proxy settings.`);
+         throw new Error(`Sync Error: Server returned HTML (likely waking up or proxy loading). Retry later.`);
       }
       const { success, results, serverChanges } = JSON.parse(responseText);
 
@@ -179,6 +179,8 @@ class SyncEngine {
       const isFetchError = errorMsg.toLowerCase().includes('failed to fetch') || 
                            errorMsg.toLowerCase().includes('networkerror') || 
                            errorMsg.toLowerCase().includes('load failed') ||
+                           errorMsg.toLowerCase().includes('waking up') ||
+                           errorMsg.toLowerCase().includes('html') ||
                            errorMsg.toLowerCase().includes('empty response');
 
       if (isRateLimit) {

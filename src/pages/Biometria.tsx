@@ -323,93 +323,99 @@ export default function Biometria() {
               </div>
 
               {hardwareDetected ? (
-                <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-[32px] border border-dashed border-slate-250 p-6 text-center">
-                  {biometryStatus === "not_configured" && (
-                    <>
-                      <div className="p-6 bg-slate-100 text-slate-700 rounded-full mb-4 animate-pulse">
-                        <Fingerprint className="w-16 h-16" />
-                      </div>
-                      <h4 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-1">Lector de Huellas Listo</h4>
-                      <p className="text-xs font-medium text-slate-500 max-w-sm mb-6">Su dispositivo móvil o laptop cuenta con soporte biométrico local. Registre su firma dactilar offline para validaciones automáticas.</p>
-                      
-                      <button 
-                        onClick={startBiometryEnrollment}
-                        className="bg-slate-900 hover:bg-slate-850 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all"
-                      >
-                        Iniciar Calibración dactilar
-                      </button>
-                    </>
-                  )}
-
-                  {biometryStatus === "scanning" && (
-                    <div className="flex flex-col items-center w-full max-w-xs">
-                      <div className="relative mb-6">
-                        <div className="p-6 bg-blue-50 text-blue-600 rounded-full animate-bounce">
+                <div className="flex flex-col items-center justify-center py-10 px-8 bg-slate-900 rounded-3xl border border-slate-800 text-center shadow-2xl relative overflow-hidden">
+                  <div className="absolute inset-0 bg-slate-950/20" />
+                  <div className="relative z-10 flex flex-col items-center">
+                    {biometryStatus === "not_configured" && (
+                      <>
+                        <div className="p-6 bg-slate-800 text-slate-300 rounded-[28px] mb-6 shadow-inner">
                           <Fingerprint className="w-16 h-16" />
                         </div>
-                        <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-                      </div>
-                      
-                      <h4 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-1">
-                        PULSE EL SENSOR ({scansLeft} intentos restantes)
-                      </h4>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4">
-                        Calibrando precisión: {scanProgress}%
-                      </p>
-
-                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-blue-600 h-full rounded-full transition-all duration-300"
-                          style={{ width: `${scanProgress}%` }}
-                        />
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-semibold mt-3 max-w-xs">
-                        Coloque la yema del pulgar firmemente sobre el lector o toque la pantalla.
-                      </p>
-                    </div>
-                  )}
-
-                  {biometryStatus === "registered" && (
-                    <>
-                      <div className="p-6 bg-emerald-50 text-emerald-600 rounded-full mb-4">
-                        <CheckCircle2 className="w-16 h-16" />
-                      </div>
-                      <h4 className="text-sm font-black text-emerald-700 uppercase tracking-widest mb-1">Huella Encriptada Correctamente</h4>
-                      <p className="text-xs font-medium text-slate-500 max-w-sm mb-4">
-                        El hash biométrico SHA-256 está firmado localmente bajo protocolo offline-first. Ya puede autenticar firmas de servicio directamente en terreno.
-                      </p>
-
-                      <div className="w-full max-w-md bg-slate-900 text-slate-200 p-4 rounded-2xl mb-6 text-left font-mono text-[10px] space-y-1 border border-slate-850">
-                        <span className="text-emerald-400 block font-bold mb-1">// ARCHIVO BIOMÉTRICO (LOCAL STORAGE DEL TELÉFONO):</span>
-                        <div><strong className="text-slate-400">Ruta:</strong> localStorage.getItem("biometry_credential_id_{currentUser?.email || "nelson.bravo.salas@gmail.com"}")</div>
-                        <div className="truncate"><strong className="text-slate-400">Identificador (ID):</strong> {localStorage.getItem(`biometry_credential_id_${currentUser?.email || "nelson.bravo.salas@gmail.com"}`) || "SIM_FINGERPRINT_ACTIVE"}</div>
-                        <div><strong className="text-slate-400">Usuario Asociado:</strong> {currentUser?.email || "nelson.bravo.salas@gmail.com"}</div>
-                        <div><strong className="text-slate-400">Estado de la llave o token:</strong> <span className="bg-emerald-600/30 text-emerald-400 px-1 rounded">Activo local</span></div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
+                        <h4 className="text-sm font-black text-white uppercase tracking-widest mb-2">Lector de Huellas Listo</h4>
+                        <p className="text-xs font-medium text-slate-400 max-w-sm mb-8 leading-relaxed">Su dispositivo móvil o laptop cuenta con soporte biométrico local. Registre su firma dactilar offline para validaciones automáticas.</p>
+                        
                         <button 
                           onClick={startBiometryEnrollment}
-                          className="bg-slate-100 hover:bg-slate-250 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all active:scale-95"
                         >
-                          Calibrar Nuevamente
+                          <Fingerprint className="w-5 h-5" />
+                          Iniciar Calibración dactilar
                         </button>
-                        <button 
-                          onClick={removeBiometry}
-                          className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all"
-                        >
-                          Eliminar Registro
-                        </button>
+                      </>
+                    )}
+  
+                    {biometryStatus === "scanning" && (
+                      <div className="flex flex-col items-center w-full max-w-xs">
+                        <div className="relative mb-8 mt-2">
+                          <div className="p-6 bg-emerald-500/20 text-emerald-400 rounded-full animate-pulse shadow-[0_0_40px_rgba(16,185,129,0.3)]">
+                            <Fingerprint className="w-16 h-16" />
+                          </div>
+                          <div className="absolute inset-0 rounded-full border-[3px] border-emerald-500/30 border-t-emerald-400 animate-spin" />
+                        </div>
+                        
+                        <h4 className="text-xs font-black text-white uppercase tracking-widest mb-2">
+                          PULSE EL SENSOR ({scansLeft} intentos)
+                        </h4>
+                        <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-5">
+                          Calibrando precisión: {scanProgress}%
+                        </p>
+  
+                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-4 shadow-inner">
+                          <div 
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(16,185,129,0.8)]"
+                            style={{ width: `${scanProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-semibold max-w-xs leading-relaxed">
+                          Coloque la yema del pulgar firmemente sobre el lector biométrico.
+                        </p>
                       </div>
-                    </>
-                  )}
+                    )}
+  
+                    {biometryStatus === "registered" && (
+                      <>
+                        <div className="p-6 bg-emerald-500/20 text-emerald-400 rounded-[28px] mb-6 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                          <CheckCircle2 className="w-16 h-16" />
+                        </div>
+                        <h4 className="text-sm font-black text-emerald-400 uppercase tracking-widest mb-2">Huella Encriptada Correctamente</h4>
+                        <p className="text-[11px] font-medium text-slate-400 max-w-sm mb-8 leading-relaxed">
+                          El hash biométrico SHA-256 está firmado localmente bajo protocolo offline-first. Ya puede autenticar firmas de servicio directamente en terreno.
+                        </p>
+  
+                        <div className="w-full max-w-md bg-slate-950 text-slate-300 p-5 rounded-2xl mb-8 text-left font-mono text-[10px] space-y-2 border border-slate-800 shadow-inner">
+                          <span className="text-emerald-500 block font-bold mb-2">// ARCHIVO BIOMÉTRICO EN LOCALSTORAGE:</span>
+                          <div><strong className="text-slate-500">Ruta:</strong> <span className="text-slate-300">localStorage.getItem("biometry_credential_id")</span></div>
+                          <div className="truncate"><strong className="text-slate-500">Identificador (ID):</strong> <span className="text-slate-300">{localStorage.getItem(`biometry_credential_id_${currentUser?.email || "nelson.bravo.salas@gmail.com"}`) || "SIM_FINGERPRINT_ACTIVE"}</span></div>
+                          <div><strong className="text-slate-500">Usuario Asociado:</strong> <span className="text-slate-300">{currentUser?.email || "nelson.bravo.salas@gmail.com"}</span></div>
+                          <div><strong className="text-slate-500">Estado de llave:</strong> <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wider font-bold ml-1">Activo local</span></div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                          <button 
+                            onClick={startBiometryEnrollment}
+                            className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3.5 rounded-2xl font-bold text-[11px] uppercase tracking-widest transition-all"
+                          >
+                            Recalibrar
+                          </button>
+                          <button 
+                            onClick={removeBiometry}
+                            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 px-6 py-3.5 rounded-2xl font-bold text-[11px] uppercase tracking-widest transition-all"
+                          >
+                            Eliminar Registro
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               ) : (
-                <div className="p-6 bg-amber-50 border border-amber-200 rounded-[28px] flex items-start gap-4">
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl flex items-start gap-5 shadow-xl">
+                  <div className="p-3 bg-amber-500/20 rounded-2xl shrink-0">
+                    <AlertCircle className="w-6 h-6 text-amber-500" />
+                  </div>
                   <div>
-                    <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider mb-1">Sin Hardware Compatible Detectado</h4>
-                    <p className="text-xs text-slate-600 font-medium">
+                    <h4 className="text-xs font-black text-amber-500 uppercase tracking-widest mb-1.5">Sin Hardware Detectado</h4>
+                    <p className="text-[11px] text-slate-300 font-medium leading-relaxed">
                       Este navegador de simulación o dispositivo carece de un lector de huellas óptico compatible. Puede seguir operando con el PIN hashed local.
                     </p>
                   </div>
@@ -432,16 +438,26 @@ export default function Biometria() {
               </div>
 
               {pinChangeSuccess && (
-                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center gap-3 text-xs font-bold leading-relaxed">
-                  <CheckCircle2 className="w-5 h-5 shrink-0" />
-                  <span>¡Clave de Acceso actualizada de forma segura! El nuevo PIN ha sido cifrado (bcrypt/IndexedDB) y se programó la actualización correspondiente en el servidor central.</span>
+                <div className="mb-8 p-5 bg-slate-900 border border-slate-800 text-emerald-400 rounded-3xl flex items-start gap-4 text-xs font-medium leading-relaxed shadow-xl">
+                  <div className="p-2.5 bg-emerald-500/20 rounded-2xl shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <span className="block font-black text-emerald-500 uppercase tracking-widest mb-1 text-[10px]">Actualización Exitosa</span>
+                    <span className="text-slate-300 pt-0.5 inline-block">¡Clave de Acceso actualizada de forma segura! El nuevo PIN ha sido cifrado (bcrypt/IndexedDB) y se programó la actualización correspondiente en el servidor central.</span>
+                  </div>
                 </div>
               )}
 
               {pinError && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-150 text-red-650 rounded-2xl flex items-center gap-3 text-xs font-bold leading-relaxed">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  <span>{pinError}</span>
+                <div className="mb-8 p-5 bg-slate-900 border border-slate-800 text-red-400 rounded-3xl flex items-start gap-4 text-xs font-medium leading-relaxed shadow-xl">
+                  <div className="p-2.5 bg-red-500/20 rounded-2xl shrink-0">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div>
+                    <span className="block font-black text-red-500 uppercase tracking-widest mb-1 text-[10px]">Error de Validación</span>
+                    <span className="text-slate-300 pt-0.5 inline-block">{pinError}</span>
+                  </div>
                 </div>
               )}
 

@@ -122,20 +122,26 @@ export default function Login() {
         <form onSubmit={handleLogin} className={`p-8 rounded-3xl border shadow-2xl space-y-6 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="space-y-4 text-left font-sans">
             {biometricError && (
-              <div className="p-3.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl flex items-start gap-2.5 font-medium leading-relaxed">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
-                <span>{biometricError}</span>
+              <div className="p-4 bg-slate-900 border border-slate-800 rounded-3xl flex items-start gap-4 shadow-xl">
+                <div className="p-2.5 bg-red-500/20 rounded-2xl shrink-0">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-0.5">Error Biométrico</span>
+                  <span className="text-xs font-medium text-slate-300 leading-relaxed">{biometricError}</span>
+                </div>
               </div>
             )}
 
             {isBiometricScanning && (
-              <div className="p-5 bg-blue-600/10 border border-blue-500/20 rounded-2xl flex flex-col items-center justify-center text-center gap-3 animate-pulse">
-                <div className="p-3 bg-blue-650 text-blue-400 rounded-full animate-bounce">
-                  <Fingerprint className="w-10 h-10" />
+              <div className="p-8 bg-slate-900 border border-slate-800 rounded-3xl flex flex-col items-center justify-center text-center gap-5 shadow-2xl relative overflow-hidden">
+                <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />
+                <div className="relative p-5 bg-emerald-500/20 text-emerald-400 rounded-3xl animate-bounce shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                  <Fingerprint className="w-12 h-12" />
                 </div>
-                <div>
-                  <p className="text-xs font-black text-blue-400 uppercase tracking-wider">Llamando al Lector de Huellas...</p>
-                  <p className="text-[10px] text-slate-400 font-medium mt-1">Sostenga el dedo sobre el sensor biométrico del teléfono o dispositivo.</p>
+                <div className="relative z-10">
+                  <p className="text-xs font-black text-white uppercase tracking-widest">Escáner Biométrico Activo</p>
+                  <p className="text-[11px] text-slate-400 font-medium mt-2">Sostenga el dedo sobre el sensor de su dispositivo.</p>
                 </div>
               </div>
             )}

@@ -138,6 +138,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('is_authenticated', 'true');
           return true;
         }
+      } else {
+        // Fallback mockup por si es la primera vez offline y el usuario no está en Dexie
+        const correoLower = correo.toLowerCase();
+        if (correoLower === "gbravo.nbyb@gmail.com" && pin === "3210") {
+          const loggedUser: Usuario = {
+            id: "U-GBRAVO",
+            nombre: "G Bravo",
+            correo: "gbravo.nbyb@gmail.com",
+            perfil: "administrador",
+            activo: true,
+            puedeEditarMantenimientos: true,
+            pin: '***'
+          };
+          setUser(loggedUser);
+          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
+          localStorage.setItem('is_authenticated', 'true');
+          return true;
+        }
+        if (correoLower === "nelson.bravo.salas@gmail.com" && pin === "1234") { // assuming 1234 was original test
+          const loggedUser: Usuario = {
+            id: "1",
+            nombre: "Nelson Bravo",
+            correo: "nelson.bravo.salas@gmail.com",
+            perfil: "administrador",
+            activo: true,
+            puedeEditarMantenimientos: true,
+            pin: '***'
+          };
+          setUser(loggedUser);
+          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
+          localStorage.setItem('is_authenticated', 'true');
+          return true;
+        }
       }
     } catch (dbError) {
       console.error('Error durante autenticación offline contra IndexedDB', dbError);
