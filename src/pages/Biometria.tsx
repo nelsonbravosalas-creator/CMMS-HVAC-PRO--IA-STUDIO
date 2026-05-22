@@ -35,6 +35,7 @@ export default function Biometria() {
   const [scansLeft, setScansLeft] = useState(3);
   const [hardwareDetected, setHardwareDetected] = useState(true);
   const [biometriaError, setBiometriaError] = useState("");
+  const [scanTimeoutCountdown, setScanTimeoutCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     // Get currently logged-in user from store or db
@@ -153,6 +154,17 @@ export default function Biometria() {
     setBiometryStatus("scanning");
     setScanProgress(0);
     setScansLeft(3);
+    setScanTimeoutCountdown(10);
+
+    const timer = setInterval(() => {
+      setScanTimeoutCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     // Intenta usar la API WebAuthn real del celular/dispositivo
     try {
@@ -188,6 +200,8 @@ export default function Biometria() {
 
         const credential = await navigator.credentials.create(options) as any;
         if (credential) {
+          clearInterval(timer);
+          setScanTimeoutCountdown(null);
           const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
           const userEmail = currentUser?.email || "nelson.bravo.salas@gmail.com";
           
@@ -204,6 +218,9 @@ export default function Biometria() {
       }
     } catch (e: any) {
       console.warn("La API WebAuthn no se pudo completar (posiblemente por estar en un iframe seguro o sin SSL). Activando calibración y firma local certificada.");
+    } finally {
+      clearInterval(timer);
+      setScanTimeoutCountdown(null);
     }
 
     // Fallback: Proceso de calibración táctil visual
@@ -366,9 +383,23 @@ export default function Biometria() {
                             style={{ width: `${scanProgress}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-slate-400 font-semibold max-w-xs leading-relaxed">
+                        <p className="text-[10px] text-slate-400 font-semibold max-w-xs leading-relaxed mb-4">
                           Coloque la yema del pulgar firmemente sobre el lector biométrico.
                         </p>
+                        
+                        {scanTimeoutCountdown !== null && (
+                          <div className="w-full max-w-[150px] bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-1000 ease-linear ${scanTimeoutCountdown <= 3 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${(scanTimeoutCountdown / 10) * 100}%` }}
+                            />
+                          </div>
+                        )}
+                        {scanTimeoutCountdown !== null && scanTimeoutCountdown <= 3 && (
+                          <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest mt-3 animate-pulse">
+                            Expirando en {scanTimeoutCountdown}s
+                          </p>
+                        )}
                       </div>
                     )}
   

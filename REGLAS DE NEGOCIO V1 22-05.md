@@ -787,4 +787,12 @@ Este protocolo define cómo el hardware telefónico y la aplicación realizan el
 - **Validación Desconectada:** El sistema debe procesar el inicio de sesión bajo estado 100% desconectado comparando la interacción de la huella con el archivo cargado directamente por el módulo local del dispositivo.
 - **Acceso Cruzado Privilegiado:** El login alternado PIN/Huella garantiza la redundancia ante fallas de sensores húmedos o sucios en terreno industrial.
 
+---
+
+## 20. Control de Sesiones e Inactividad
+
+| ID | Regla |
+|---|---|
+| BR-AUTH-004 | Las sesiones se desconectarán automáticamente tras 30 minutos de inactividad, cerrando la sesión tanto en PWA como web, para prevenir costos innecesarios de procesamiento en el backend. |
+
 # Fin del documento

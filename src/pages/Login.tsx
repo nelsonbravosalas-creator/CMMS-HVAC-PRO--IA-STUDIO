@@ -12,6 +12,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isBiometricScanning, setIsBiometricScanning] = useState(false);
   const [biometricError, setBiometricError] = useState("");
+  const [scanTimeoutCountdown, setScanTimeoutCountdown] = useState<number | null>(null);
   const [, setLocation] = useLocation();
   const { login, biometricLogin } = useAuth();
 
@@ -66,6 +67,17 @@ export default function Login() {
     }
 
     setIsBiometricScanning(true);
+    setScanTimeoutCountdown(10);
+    
+    const timer = setInterval(() => {
+      setScanTimeoutCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     try {
       // Intentar llamar a la herramienta nativa del teléfono (WebAuthn)
@@ -84,6 +96,8 @@ export default function Login() {
         const assertion = await navigator.credentials.get(options);
         if (assertion) {
           // Loguear usando el archivo u objeto guardado
+          clearInterval(timer);
+          setScanTimeoutCountdown(null);
           const success = await biometricLogin(userEmail);
           setIsBiometricScanning(false);
           if (success) {
@@ -94,6 +108,9 @@ export default function Login() {
       }
     } catch (credentialError) {
       console.warn("WebAuthn interrumpido o no disponible. Activando reconocimiento y validación interactiva del archivo de huella dactilar local.");
+    } finally {
+      clearInterval(timer);
+      setScanTimeoutCountdown(null);
     }
 
     // Fallback: Simula la interacción directa de la huella dactilar con el archivo de huella alojado en el teléfono
@@ -139,9 +156,23 @@ export default function Login() {
                 <div className="relative p-5 bg-emerald-500/20 text-emerald-400 rounded-3xl animate-bounce shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                   <Fingerprint className="w-12 h-12" />
                 </div>
-                <div className="relative z-10">
+                <div className="relative z-10 w-full flex flex-col items-center">
                   <p className="text-xs font-black text-white uppercase tracking-widest">Escáner Biométrico Activo</p>
-                  <p className="text-[11px] text-slate-400 font-medium mt-2">Sostenga el dedo sobre el sensor de su dispositivo.</p>
+                  <p className="text-[11px] text-slate-400 font-medium mt-2 mb-4">Sostenga el dedo sobre el sensor de su dispositivo.</p>
+                  
+                  {scanTimeoutCountdown !== null && (
+                    <div className="w-full max-w-[150px] bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-1000 ease-linear ${scanTimeoutCountdown <= 3 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${(scanTimeoutCountdown / 10) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                  {scanTimeoutCountdown !== null && scanTimeoutCountdown <= 3 && (
+                    <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest mt-3 animate-pulse">
+                      Expirando en {scanTimeoutCountdown}s
+                    </p>
+                  )}
                 </div>
               </div>
             )}

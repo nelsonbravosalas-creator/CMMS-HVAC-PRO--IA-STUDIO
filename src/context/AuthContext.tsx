@@ -5,7 +5,7 @@
  * @module context/AuthContext
  */
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL, Perfil } from '../types';
 import bcrypt from 'bcryptjs';
 
@@ -221,13 +221,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
-  };
+  }, []);
+
+  // BR-AUTH-004: Inactivity Timeout (30 minutes)
+  useEffect(() => {
+    let inactivityTimer: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer);
+      // 30 minutes in milliseconds = 30 * 60 * 1000 = 1800000
+      inactivityTimer = setTimeout(() => {
+        if (user) {
+          console.log("30 minutes of inactivity detected. Automatically logging out to prevent processing costs.");
+          logout();
+        }
+      }, 1800000);
+    };
+
+    if (user) {
+      resetTimer();
+      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+      
+      events.forEach(event => document.addEventListener(event, resetTimer, { passive: true }));
+
+      return () => {
+        clearTimeout(inactivityTimer);
+        events.forEach(event => document.removeEventListener(event, resetTimer));
+      };
+    }
+  }, [user, logout]);
 
   return (
     <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout }}>
