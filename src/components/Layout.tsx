@@ -143,6 +143,7 @@ interface LayoutProps {
 import { syncEngine } from '../sync/syncEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
+import ClientSelectorWidget from "./ClientSelectorWidget";
 
 export default function Layout({ children }: LayoutProps) {
   /** Dynamic active client name */
@@ -404,38 +405,14 @@ export default function Layout({ children }: LayoutProps) {
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Client Selector (Responsive Dropdown) */}
-            <div className={`relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+            {/* Active Client Badge (Simple Capsule) */}
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black tracking-wider uppercase ${
               isDarkMode 
-                ? 'bg-slate-900 border-slate-700 hover:border-slate-500 hover:bg-slate-800 text-slate-100 shadow-md' 
-                : 'bg-white border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-800 shadow-sm'
+                ? 'bg-slate-900/60 border-slate-800 text-slate-300' 
+                : 'bg-white/80 border-slate-200 text-slate-700 shadow-sm'
             }`}>
               <Database className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <div className="relative flex items-center min-w-[100px] max-w-[150px] sm:max-w-[200px]">
-                <select
-                  aria-label="Seleccionar Cliente"
-                  id="client-dropdown-select"
-                  value={activeClientId || ""}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val) {
-                      localStorage.setItem("active_client", val);
-                      window.location.reload();
-                    }
-                  }}
-                  className="w-full bg-transparent border-none pr-5 text-[10px] tracking-wider uppercase font-black cursor-pointer appearance-none focus:outline-none text-ellipsis overflow-hidden whitespace-nowrap"
-                >
-                  <option value="" disabled className={isDarkMode ? 'bg-slate-950 text-slate-400' : 'bg-white text-slate-500'}>
-                    No seleccionado
-                  </option>
-                  {activeClients.map((c) => (
-                    <option key={c.uuid_sync} value={c.uuid_sync} className={isDarkMode ? 'bg-slate-900 text-slate-100' : 'bg-white text-slate-900'}>
-                      {c.nombre || "Cliente Sin Nombre"}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-0 pointer-events-none opacity-60" />
-              </div>
+              <span className="max-w-[120px] sm:max-w-[180px] truncate">{activeClientName}</span>
             </div>
 
             {/* Profile Badge */}
@@ -587,6 +564,9 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </>
       )}
+
+      {/* Floating Draggable Client Selector Widget */}
+      <ClientSelectorWidget isDarkMode={isDarkMode} />
     </div>
   );
 }
