@@ -52,6 +52,22 @@ export default function Dashboard() {
   const work_orders = useAppStore(state => state.work_orders);
   const loading = useAppStore(state => state.isLoading);
 
+  const activeClient = localStorage.getItem("active_client");
+
+  const clientAssets = useMemo(() => {
+    if (activeClient) {
+      return assets.filter(eq => eq.cliente_id === activeClient);
+    }
+    return assets;
+  }, [assets, activeClient]);
+
+  const clientWorkOrders = useMemo(() => {
+    if (activeClient) {
+      return work_orders.filter(wo => wo.cliente_id === activeClient);
+    }
+    return work_orders;
+  }, [work_orders, activeClient]);
+
   /** Estado para filtrar por sucursal / almacén */
   const [almacen, setAlmacen] = useState("");
   /** Estado para filtrar por estado técnico (falla, mantenimiento, operativo) */
@@ -61,12 +77,12 @@ export default function Dashboard() {
    * Memoización de equipos filtrados.
    */
   const filteredEquipos = useMemo(() => {
-    return assets.filter(eq => {
+    return clientAssets.filter(eq => {
       const matchAlmacen = almacen ? eq.tag.startsWith(almacen) : true;
       const matchEstado = estado ? eq.estado === estado : true;
       return matchAlmacen && matchEstado;
     });
-  }, [assets, almacen, estado]);
+  }, [clientAssets, almacen, estado]);
 
   const kpis = useMemo(() => {
     const total = filteredEquipos.length;
@@ -82,9 +98,9 @@ export default function Dashboard() {
       mantv,
       operativo,
       disponibilidad: `${disponibilidad}%`,
-      work_orders: work_orders.filter(t => t.estado === 'abierto' || t.estado === 'en_proceso').length
+      work_orders: clientWorkOrders.filter(t => t.estado === 'abierto' || t.estado === 'en_proceso').length
     };
-  }, [filteredEquipos, work_orders]);
+  }, [filteredEquipos, clientWorkOrders]);
 
   const dataStatus = useMemo(() => {
     const fallas = filteredEquipos.filter(e => e.estado === 'falla').length;

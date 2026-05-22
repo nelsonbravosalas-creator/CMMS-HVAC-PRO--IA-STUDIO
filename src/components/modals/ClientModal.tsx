@@ -38,9 +38,9 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   useEffect(() => {
     if (sinSucursales) {
       if (subs.length === 0) {
-        setSubs([{ id: Math.random().toString(), tipo: 'Tienda', nombre: 'Casa Matriz', direccion: direccion, codigo: '' }]);
+        setSubs([{ id: Math.random().toString(), tipo: 'Tienda', nombre: 'Casa Matriz', direccion: direccion, codigo: 'MATR' }]);
       } else {
-        setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion })));
+        setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion, codigo: s.codigo || 'MATR' })));
       }
     }
   }, [sinSucursales, direccion]);
@@ -314,7 +314,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
                     />
                     <label htmlFor="sinSucursales" className="text-xs font-bold text-slate-600 cursor-pointer">
-                       El cliente no tiene sucursales (usar dirección matriz como sucursal única)
+                       El cliente no tiene sucursal, pero la dirección será la sucursal
                     </label>
                  </div>
                  

@@ -26,7 +26,7 @@ export default function Login() {
     e.preventDefault();
     if (pin) {
       setIsLoading(true);
-      const success = await login(pin);
+      const success = await login(pin, email);
       setIsLoading(false);
       if (success) {
         window.location.href = "/client-selector";

@@ -124,6 +124,11 @@ export default function EditorOrdenServicio() {
         } catch (e) {
           console.error("Error parsing OS draft", e);
         }
+      } else {
+        const activeClient = localStorage.getItem("active_client");
+        if (activeClient) {
+          setGeneralData(prev => ({ ...prev, cliente: activeClient }));
+        }
       }
     }
   }, [isNew]);

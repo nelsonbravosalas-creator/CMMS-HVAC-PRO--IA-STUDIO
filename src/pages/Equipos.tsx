@@ -68,7 +68,9 @@ export default function Equipos() {
   }, [filters]);
 
   const filteredEquipos = useMemo(() => {
+    const activeClientUid = localStorage.getItem("active_client");
     return assets.filter(eq => {
+      if (activeClientUid && eq.cliente_id !== activeClientUid) return false;
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;

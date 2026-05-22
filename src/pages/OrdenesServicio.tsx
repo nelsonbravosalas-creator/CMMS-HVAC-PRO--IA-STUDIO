@@ -21,9 +21,13 @@ export default function OrdenesServicio() {
   const [, setLocation] = useLocation();
 
   const rawOrdenes = useLiveQuery(() => db.ordenes_servicio.toArray(), []) || [];
+  const activeClientUid = localStorage.getItem("active_client");
 
   const filtered = rawOrdenes.filter(os => {
     const data = os.data || {};
+    if (activeClientUid && data.generalData?.cliente !== activeClientUid) {
+      return false;
+    }
     const tg = data.generalData?.equipoTag || "";
     const tec = data.generalData?.tecnico || "";
     return tg.toLowerCase().includes(filter.toLowerCase()) ||

@@ -40,11 +40,17 @@ export default function Tickets() {
 
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = useMemo(() => work_orders.filter(t => 
-    t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
-    t.equipo_tag?.toLowerCase().includes(filter.toLowerCase()) ||
-    t.id.toLowerCase().includes(filter.toLowerCase())
-  ), [work_orders, filter]);
+  const filtered = useMemo(() => {
+    const activeClientUuid = localStorage.getItem("active_client");
+    return work_orders.filter(t => {
+      if (activeClientUuid && t.cliente_id !== activeClientUuid) {
+        return false;
+      }
+      return t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
+             t.equipo_tag?.toLowerCase().includes(filter.toLowerCase()) ||
+             t.id.toLowerCase().includes(filter.toLowerCase());
+    });
+  }, [work_orders, filter]);
 
   if (loading && work_orders.length === 0) {
     return (

@@ -1,11 +1,21 @@
 import { Building, LogOut, ChevronRight, Check } from "lucide-react";
 import { useLocation } from "wouter";
-import { useState } from "react";
-import { CLIENTS } from "../data/clients";
+import { useState, useEffect } from "react";
+import { useAppStore } from "../store/useAppStore";
 
 export default function ClientSelector() {
   const [, setLocation] = useLocation();
   const [selected, setSelected] = useState<string | null>(null);
+
+  const clients = useAppStore(state => state.clients);
+  const isLoading = useAppStore(state => state.isLoading);
+  const hydrate = useAppStore(state => state.hydrate);
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  const activeClients = clients.filter(c => c.activo !== false);
 
   const handleSelect = (clientId: string) => {
     setSelected(clientId);
@@ -48,24 +58,29 @@ export default function ClientSelector() {
         <div className="max-w-2xl w-full">
           <div className="mb-8 text-center md:text-left">
             <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Seleccionar Cliente</h1>
-            <p className="text-slate-500 font-medium">Tienes acceso a {CLIENTS.length} centros de control habilitados.</p>
+            <p className="text-slate-500 font-medium">Tienes acceso a {activeClients.length} centros de control habilitados.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {CLIENTS.length > 0 ? (
-              CLIENTS.map((client) => (
+            {isLoading ? (
+              <div className="col-span-full text-center py-12">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-slate-500 font-bold uppercase text-xs tracking-widest">Cargando Clientes...</p>
+              </div>
+            ) : activeClients.length > 0 ? (
+              activeClients.map((client) => (
                 <div
-                  key={client.id}
-                  onClick={() => handleSelect(client.id)}
+                  key={client.uuid_sync}
+                  onClick={() => handleSelect(client.uuid_sync)}
                   className={`group relative bg-white p-6 rounded-2xl border transition-all cursor-pointer hover:shadow-xl hover:-translate-y-1 ${
-                    selected === client.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'
+                    selected === client.uuid_sync ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-3 rounded-xl transition-colors ${selected === client.id ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
+                    <div className={`p-3 rounded-xl transition-colors ${selected === client.uuid_sync ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
                       <Building className="w-6 h-6" />
                     </div>
-                    {selected === client.id && <Check className="w-5 h-5 text-blue-500" />}
+                    {selected === client.uuid_sync && <Check className="w-5 h-5 text-blue-500" />}
                   </div>
 
                   <div className="space-y-1">

@@ -26,9 +26,13 @@ export default function InformesHVAC() {
   const [, setLocation] = useLocation();
 
   const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
+  const activeClientUid = localStorage.getItem("active_client");
 
   const filtered = rawReports.filter(inf => {
     const data = inf.data || {};
+    if (activeClientUid && data.generalData?.cliente !== activeClientUid) {
+      return false;
+    }
     const tg = data.generalData?.equipoTag || "";
     const tec = data.generalData?.tecnico || "";
     // filter logic

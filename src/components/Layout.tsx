@@ -145,6 +145,14 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 
 export default function Layout({ children }: LayoutProps) {
+  /** Dynamic active client name */
+  const activeClientId = localStorage.getItem("active_client");
+  const activeClientName = useLiveQuery(async () => {
+    if (!activeClientId) return null;
+    const client = await db.clients.get(activeClientId);
+    return client ? client.nombre : null;
+  }, [activeClientId]) || "Entorno General";
+
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Control del drawer de acciones secundarias (Mobile) */
@@ -396,10 +404,10 @@ export default function Layout({ children }: LayoutProps) {
             }`}
             onClick={() => window.location.href = "/client-selector"}>
               <Database className={`w-3.5 h-3.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <span className="tracking-widest uppercase">
-                {localStorage.getItem("active_client") || "Entorno General"}
+              <span className="tracking-widest uppercase truncate max-w-[200px]">
+                {activeClientName}
               </span>
-              <ChevronDown className="w-3 h-3 opacity-50" />
+              <ChevronDown className="w-3 h-3 opacity-50 text-slate-400" />
             </div>
 
             {/* Profile Badge */}

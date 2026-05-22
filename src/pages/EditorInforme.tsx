@@ -697,6 +697,11 @@ export default function EditorInforme() {
       // Load from mock if relative found (and no draft exists)
       setGeneralData({ ...generalData, ...informe });
       setMachineData({ ...machineData, tag: informe.tag || '' });
+    } else {
+      const activeClient = localStorage.getItem("active_client");
+      if (activeClient) {
+        setGeneralData(prev => ({ ...prev, cliente: activeClient }));
+      }
     }
   }, [id]);
 
