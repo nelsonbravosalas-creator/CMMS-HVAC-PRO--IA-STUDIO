@@ -115,6 +115,6 @@ export const useMantenimientos = () => {
     createMantenimiento,
     updateMantenimiento,
     deleteMantenimiento,
-    syncNow: () => syncEngine.triggerSync().catch(console.error)
+    syncNow: () => syncEngine.triggerSync(true).catch(console.error)
   };
 };
