@@ -641,25 +641,19 @@ function resolveTable(name: string): string | null {
       
       for (const record of records) {
         if (operation === 'delete') {
+          const ts = Date.now();
           switch (table) {
-            case 'assets': 
-              const aTagRows = await sql`SELECT tag FROM assets WHERE uuid_sync = ${record.uuid_sync}`;
-              if (aTagRows.length > 0) {
-                 const t = aTagRows[0].tag;
-                 // Delete related items (assuming their JSONB stores 'tag' or 'maquinaTag')
-                 await sql`DELETE FROM work_orders WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM preventive_maintenance WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM reports WHERE data->>'tag' = ${t} OR data->'machineData'->>'tag' = ${t}`;
-              }
-              await sql`DELETE FROM assets WHERE uuid_sync = ${record.uuid_sync}`; 
-              break;
-            case 'work_orders': await sql`DELETE FROM work_orders WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'preventive_maintenance': await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'users': await sql`DELETE FROM users WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'reports': await sql`DELETE FROM reports WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'clients': await sql`DELETE FROM clients WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'branches': await sql`DELETE FROM branches WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'events': await sql`DELETE FROM events WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'assets': await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'users': await sql`UPDATE users SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'clients': await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'branches': await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'settings': await sql`UPDATE settings SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
           }
           results.push({ uuid_sync: record.uuid_sync, deleted: true });
           continue;
