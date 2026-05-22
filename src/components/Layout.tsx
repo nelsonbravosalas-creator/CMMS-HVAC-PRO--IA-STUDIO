@@ -465,9 +465,16 @@ export default function Layout({ children }: LayoutProps) {
             {menuPosition === 'right' ? 'R' : 'L'}
           </button>
 
-          <div className={`flex items-center gap-2 p-2 mt-0 -mb-[23px] mr-[1px] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 ${
-            isDarkMode ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-200'
-          } ${menuPosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}>
+          <motion.div 
+            key={menuPosition}
+            drag
+            dragMomentum={false}
+            dragElastic={0.1}
+            whileDrag={{ scale: 1.05, boxShadow: "0px 30px 60px rgba(0,0,0,0.5)" }}
+            className={`flex items-center gap-2 p-2 mt-0 -mb-[23px] mr-[1px] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 cursor-grab active:cursor-grabbing touch-none ${
+              isDarkMode ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-200'
+            } ${menuPosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}
+          >
             
             {/* Secondary Actions (More) */}
             <div 
@@ -500,7 +507,7 @@ export default function Layout({ children }: LayoutProps) {
                 <LayoutDashboard className="w-6 h-6" />
               </div>
             </Link>
-          </div>
+          </motion.div>
         </nav>
       </div>
 
