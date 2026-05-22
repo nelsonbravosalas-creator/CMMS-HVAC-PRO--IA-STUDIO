@@ -273,7 +273,7 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
           )}
           {ticket.estado === 'resuelto' && (
             <button 
-              onClick={() => handleCloseTicket(ticket)}
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'cerrado' })}
               className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl font-black"
             >
                Cerrar Ticket

@@ -80,16 +80,16 @@ export const buildFullTag = (sucursal: string, tipo: string, correlativo: string
 export const canTransitionTicket = (currentState: string, targetState: string, rol: string): boolean => {
   // Validations based on transition map in rules.
   if (currentState === TICKET_STATES.ABIERTO) {
-    return [TICKET_STATES.ASIGNADO, TICKET_STATES.CANCELADO].includes(targetState);
+    return ([TICKET_STATES.ASIGNADO, TICKET_STATES.CANCELADO] as string[]).includes(targetState);
   }
   if (currentState === TICKET_STATES.ASIGNADO) {
-    return [TICKET_STATES.EN_PROCESO, TICKET_STATES.CANCELADO].includes(targetState);
+    return ([TICKET_STATES.EN_PROCESO, TICKET_STATES.CANCELADO] as string[]).includes(targetState);
   }
   if (currentState === TICKET_STATES.EN_PROCESO) {
-    return [TICKET_STATES.RESUELTO, TICKET_STATES.CANCELADO].includes(targetState);
+    return ([TICKET_STATES.RESUELTO, TICKET_STATES.CANCELADO] as string[]).includes(targetState);
   }
   if (currentState === TICKET_STATES.RESUELTO) {
-    return [TICKET_STATES.CERRADO, TICKET_STATES.EN_PROCESO].includes(targetState);
+    return ([TICKET_STATES.CERRADO, TICKET_STATES.EN_PROCESO] as string[]).includes(targetState);
   }
   return false;
 };

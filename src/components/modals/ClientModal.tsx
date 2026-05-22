@@ -33,6 +33,17 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   const [contactoCargo, setContactoCargo] = useState('');
   const [contactoEmail, setContactoEmail] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [sinSucursales, setSinSucursales] = useState(false);
+
+  useEffect(() => {
+    if (sinSucursales) {
+      if (subs.length === 0) {
+        setSubs([{ id: Math.random().toString(), tipo: 'Tienda', nombre: 'Casa Matriz', direccion: direccion, codigo: '' }]);
+      } else {
+        setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion })));
+      }
+    }
+  }, [sinSucursales, direccion]);
 
   useEffect(() => {
     if (editingClient && isOpen) {
@@ -44,14 +55,22 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoCargo(editingClient.client.contacto_cargo || '');
       setContactoEmail(editingClient.client.email || '');
 
-      setSubs(editingClient.branches.map(b => ({
+      const loadedSubs = editingClient.branches.map(b => ({
         id: b.id,
         uuid_sync: b.uuid_sync,
         tipo: 'Tienda',
         nombre: b.nombre,
         direccion: b.direccion || '',
         codigo: b.codigo,
-      })));
+      }));
+      setSubs(loadedSubs);
+      
+      // Auto-detect if it's "sin sucursales" format
+      if (loadedSubs.length === 1 && loadedSubs[0].nombre === 'Casa Matriz') {
+         setSinSucursales(true);
+      } else {
+         setSinSucursales(false);
+      }
     } else {
       setNombre('');
       setRut('');
@@ -61,6 +80,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoCargo('');
       setContactoEmail('');
       setSubs([]);
+      setSinSucursales(false);
     }
   }, [editingClient, isOpen]);
 
@@ -278,9 +298,24 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
              <div className="space-y-6">
                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                     <h4 className="text-xs font-black uppercase text-indigo-600 tracking-widest">Sucursales (SUB)</h4>
-                    <button onClick={addSub} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-indigo-100 transition-colors">
-                       <Plus className="w-3 h-3" /> Agregar SUB
-                    </button>
+                    {!sinSucursales && (
+                      <button onClick={addSub} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-indigo-100 transition-colors">
+                         <Plus className="w-3 h-3" /> Agregar SUB
+                      </button>
+                    )}
+                 </div>
+                 
+                 <div className="flex items-center gap-2 mt-2">
+                    <input 
+                       type="checkbox" 
+                       id="sinSucursales"
+                       checked={sinSucursales}
+                       onChange={e => setSinSucursales(e.target.checked)}
+                       className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    />
+                    <label htmlFor="sinSucursales" className="text-xs font-bold text-slate-600 cursor-pointer">
+                       El cliente no tiene sucursales (usar dirección matriz como sucursal única)
+                    </label>
                  </div>
                  
                  <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
@@ -292,14 +327,16 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
                  {subs.map((sub, index) => (
                     <div key={sub.id} className="p-4 sm:p-6 bg-slate-50 border border-slate-200 rounded-3xl relative group space-y-4 shadow-sm">
-                       <button onClick={() => removeSub(sub.id)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
-                          <Trash2 className="w-4 h-4" />
-                       </button>
+                       {!sinSucursales && (
+                         <button onClick={() => removeSub(sub.id)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                            <Trash2 className="w-4 h-4" />
+                         </button>
+                       )}
                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">SUB {index + 1}</span>
                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-2">
                           <div className="space-y-1">
                              <label className="text-[9px] font-black uppercase text-slate-400">Tipo</label>
-                             <select value={sub.tipo} onChange={e => updateSub(sub.id, 'tipo', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                             <select disabled={sinSucursales} value={sub.tipo} onChange={e => updateSub(sub.id, 'tipo', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50">
                                 <option value="Tienda">Tienda</option>
                                 <option value="Bodega">Bodega / Almacén</option>
                                 <option value="Proyecto">Proyecto</option>
@@ -309,15 +346,15 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                           </div>
                           <div className="space-y-1">
                              <label className="text-[9px] font-black uppercase text-slate-400">Codificador (4 Caracteres)</label>
-                             <input type="text" maxLength={4} placeholder="Ej. ST01" value={sub.codigo} onChange={e => updateSub(sub.id, 'codigo', e.target.value.toUpperCase())} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none tracking-widest select-all text-indigo-600" />
+                             <input type="text" maxLength={4} placeholder="Ej. MATR" value={sub.codigo} onChange={e => updateSub(sub.id, 'codigo', e.target.value.toUpperCase())} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none tracking-widest select-all text-indigo-600" />
                           </div>
                           <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Nombre de la Sucursal</label>
-                             <input type="text" placeholder="Nombre identificador" value={sub.nombre} onChange={e => updateSub(sub.id, 'nombre', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                             <input disabled={sinSucursales} type="text" placeholder="Nombre identificador" value={sub.nombre} onChange={e => updateSub(sub.id, 'nombre', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
                           </div>
                           <div className="space-y-1 md:col-span-4">
                              <label className="text-[9px] font-black uppercase text-slate-400">Dirección</label>
-                             <input type="text" placeholder="Dirección de la instalación" value={sub.direccion} onChange={e => updateSub(sub.id, 'direccion', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                             <input disabled={sinSucursales} type="text" placeholder="Dirección de la instalación" value={sub.direccion} onChange={e => updateSub(sub.id, 'direccion', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
                           </div>
                        </div>
                     </div>

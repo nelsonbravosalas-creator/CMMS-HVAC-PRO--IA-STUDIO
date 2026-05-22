@@ -156,6 +156,26 @@ export default function EditorOrdenServicio() {
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
 
+    const isCanvasEmpty = (canvas: HTMLCanvasElement | null) => {
+      if (!canvas) return true;
+      const blank = document.createElement('canvas');
+      blank.width = canvas.width;
+      blank.height = canvas.height;
+      return canvas.toDataURL() === blank.toDataURL();
+    };
+
+    if (isCanvasEmpty(canvasTecRef.current)) {
+      alert("Error: No es posible finalizar: falta la firma del técnico.");
+      setIsSyncing(false);
+      return;
+    }
+
+    if (isCanvasEmpty(canvasCliRef.current)) {
+      alert("Error: No es posible finalizar: falta la firma del cliente.");
+      setIsSyncing(false);
+      return;
+    }
+
     const dataPayload = {
       generalData,
       checklist,
@@ -163,6 +183,10 @@ export default function EditorOrdenServicio() {
       galeria,
       ubicacionGeografica,
       status: 'firmada',
+      firmas: {
+        tecnico: canvasTecRef.current?.toDataURL() || '',
+        cliente: canvasCliRef.current?.toDataURL() || ''
+      },
       fechaSincronizacionLocal: new Date().toISOString()
     };
 
@@ -172,9 +196,8 @@ export default function EditorOrdenServicio() {
       id: rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`,
       draft_key: OS_DRAFT_KEY,
       estado: 'firmada',
-      sync_status: 'pending' as const,
+      sync_status: 'pending_insert' as const,
       updated_at: Date.now(),
-      created_at: Date.now(),
       data: dataPayload
     };
 
@@ -184,22 +207,24 @@ export default function EditorOrdenServicio() {
         await db.sync_queue.add({
           table: 'ordenes_servicio',
           uuid_sync: uuid,
-          operation: 'INSERT',
-          timestamp: Date.now()
+          operation: 'insert',
+          timestamp: Date.now(),
+          data: record
         });
       } else {
         const existing = await db.ordenes_servicio.get(uuid);
-        await db.ordenes_servicio.put({ ...existing, ...record, created_at: existing?.created_at || Date.now() });
+        await db.ordenes_servicio.put({ ...existing, ...record, sync_status: 'pending_update' });
         await db.sync_queue.add({
           table: 'ordenes_servicio',
           uuid_sync: uuid,
-          operation: 'UPDATE',
-          timestamp: Date.now()
+          operation: 'update',
+          timestamp: Date.now(),
+          data: { ...existing, ...record }
         });
       }
 
       // Triggers background sync to Neon
-      syncEngine.processQueue().catch(console.error);
+      syncEngine.triggerSync().catch(console.error);
 
       setStatus('firmada');
       localStorage.removeItem(OS_DRAFT_KEY);
@@ -212,7 +237,7 @@ export default function EditorOrdenServicio() {
         doc.text(`ORDEN DE SERVICIO`, 10, 10);
         doc.setFontSize(10);
         doc.text(`Cliente: ${dataPayload.generalData.cliente}`, 10, 20); 
-        doc.text(`Técnico: ${dataPayload.generalData.tecnicoId}`, 10, 25);
+        doc.text(`Técnico: ${dataPayload.generalData.tecnico}`, 10, 25);
         
         const pdfBase64 = doc.output('datauristring');
         const { DocumentExportService } = await import('../lib/DocumentExportService');

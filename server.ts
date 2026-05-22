@@ -869,7 +869,8 @@ function resolveTable(name: string): string | null {
         if (ALLOWED_TABLES.includes(t)) {
            // We can't use parameters for table names in standard postgres tagged templates,
            // so we use simple select for count. Alternatively:
-           const countRes = await sql(`SELECT COUNT(*) FROM ${t}`);
+           const query = `SELECT COUNT(*) FROM "${t}"`;
+           const countRes = await (sql as any)(query);
            counts[t] = Number(countRes[0].count);
         }
       }

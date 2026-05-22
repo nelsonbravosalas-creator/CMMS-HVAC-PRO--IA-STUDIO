@@ -6,6 +6,9 @@ import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps
 
 import { useMantenimientos } from '../../hooks/useMantenimientos';
 import { AssetSearchModal } from './AssetSearchModal';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/database';
 
 interface NuevoMantenimientoModalProps {
   onClose: () => void;
@@ -15,15 +18,17 @@ interface NuevoMantenimientoModalProps {
 
 export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = ({ onClose, duplicateId, equipoTag: initialTag }) => {
   const { createMantenimiento } = useMantenimientos();
+  const authUser = useAuthStore(state => state.user);
+  
   const [hasChanges, setHasChanges] = useState(false);
   const [frecuencia, setFrecuencia] = useState("Mensual");
   const [fechaActual, setFechaActual] = useState(new Date().toISOString().split('T')[0]);
   const [proximaMantencion, setProximaMantencion] = useState("");
   const [tipoServicio, setTipoServicio] = useState("Preventivo");
-  const [estadoFinal, setEstadoFinal] = useState("Realizado");
+  const [estadoFinal, setEstadoFinal] = useState("Ejecutado"); // Updated to match valid states 'ejecutado'
   const [descripcion, setDescripcion] = useState("");
   const [equipoTag, setEquipoTag] = useState(initialTag || "");
-  const [tecnico, setTecnico] = useState("Nelson Bravo");
+  const [tecnico, setTecnico] = useState(authUser?.nombre || "Tecnico Desconocido");
   const [duracion, setDuracion] = useState("60");
   const [costoMateriales, setCostoMateriales] = useState("0");
   const [hallazgos, setHallazgos] = useState("");
@@ -102,23 +107,33 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
         alert("Error: Falta TAG de Equipo.");
         return;
      }
+     
+     // Validate technically that the asset exists and is active (not deleted)
+     const existingAsset = await db.assets.where('tag').equals(equipoTag).first();
+     if (!existingAsset || existingAsset.deleted_at) {
+        setIsSaving(false);
+        alert("Error: El activo asociado no existe o está dado de baja.");
+        return;
+     }
 
      try {
         const docId = `MANT-${Date.now()}`;
         await createMantenimiento({
           id: docId,
           equipo_tag: equipoTag,
-          tipo: tipoServicio,
-          estado: estadoFinal,
+          tipo: tipoServicio.toLowerCase(),
+          estado: estadoFinal.toLowerCase() as 'ejecutado' | 'en_proceso' | 'cancelado' | 'observado',
           fecha: fechaActual,
+          proxima_fecha: proximaMantencion || undefined, // Missing field in original
           tecnico: tecnico,
+          tecnico_id: authUser?.id || "unknown", // Missing field in original
           hallazgos: hallazgos,
-          acciones: descripcion,
-          repuestos: repuestos,
-          ubicacionGeografica
+          descripcion: descripcion,
+          // acciones: descripcion, // Schema says `descripcion` for work done
+          // repuestos: repuestos, // Can stay if needed but base LocalMantenimiento might not have it
         });
         
-        if (estadoFinal === 'realizado' || estadoFinal === 'completado') {
+        if (estadoFinal.toLowerCase() === 'ejecutado' || estadoFinal.toLowerCase() === 'completado') {
            try {
               const { jsPDF } = await import('jspdf');
               const doc = new jsPDF('p', 'mm', 'a4');

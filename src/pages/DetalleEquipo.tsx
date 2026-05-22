@@ -288,7 +288,7 @@ export default function DetalleEquipo() {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px] font-bold uppercase mt-2">
                              <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Hallazgos</span> <span className="text-slate-700">{m.hallazgos || 'Ninguno'}</span></div>
-                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Acciones Tomadas</span> <span className="text-slate-700">{m.acciones || 'Ninguna'}</span></div>
+                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Acciones Tomadas</span> <span className="text-slate-700">{m.descripcion || (m as any).acciones || 'Ninguna'}</span></div>
                           </div>
                        </div>
                      ))

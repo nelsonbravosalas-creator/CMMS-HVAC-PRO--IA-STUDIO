@@ -9,6 +9,10 @@ import { ALMACEN_LABELS } from '../../data/branches';
 import { useTickets } from '../../hooks/useTickets';
 import { SearchableSelect } from '../SearchableSelect';
 
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/database';
+import { useAppStore } from '../../store/useAppStore';
+
 interface TicketFormProps {
   onClose: () => void;
   equipoTag?: string;
@@ -28,6 +32,9 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [prioridad, setPrioridad] = useState("Media");
   const [tipoIncidencia, setTipoIncidencia] = useState("Falla Técnica");
   const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
+  
+  const storeClients = useAppStore(state => state.clients);
+  const storeBranches = useAppStore(state => state.branches);
   
   const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -64,20 +71,26 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
+  const localAssets = useLiveQuery(() => db.assets.filter(a => !a.deleted_at).toArray()) || [];
+  
+  const filteredEquipos = localAssets.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
-    const eqSucursal = eq.tag.split('.')[0];
-    const matchSucursal = searchSucursal ? eqSucursal === searchSucursal : true;
+    const matchSucursal = searchSucursal ? eq.sucursal_id === searchSucursal || (storeBranches && storeBranches[eq.sucursal_id]?.nombre === searchSucursal) : true;
     return matchTag && matchDesc && matchSucursal;
   });
 
   const handleSelectAsset = (eq: any) => {
     setTag(eq.tag);
     setEquipoDesc(eq.nombre);
-    setCliente("Empresa Mandante SPA"); // Simplified for demo
-    const sucursalCode = eq.tag.split('.')[0];
-    setSucursal(ALMACEN_LABELS[sucursalCode] || sucursalCode);
+    
+    // Attempt to resolve names from IDs
+    const clientName = (storeClients && eq.cliente_id && storeClients[eq.cliente_id]?.nombre) || eq.cliente_id;
+    setCliente(eq.cliente_id); 
+    
+    const branchName = (storeBranches && eq.sucursal_id && storeBranches[eq.sucursal_id]?.nombre) || eq.sucursal_id;
+    setSucursal(branchName);
+    
     setShowAssetSearch(false);
   };
 
@@ -87,6 +100,12 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     e.preventDefault();
     setIsSaving(true);
     
+    if (tipoIncidencia === 'Falla Técnica' && !tag) {
+       alert("Un ticket de tipo 'Falla Técnica' requiere vincular un activo (TAG) obligatorio.");
+       setIsSaving(false);
+       return;
+    }
+
     try {
       await createTicket({
         titulo: titulo || `FALLA REPORTADA EN ${tag}`,

@@ -55,11 +55,13 @@ export interface LocalMantenimiento extends LocalBase {
   id: string;
   equipo_tag: string;
   tecnico: string;
+  tecnico_id?: string;
   tipo: string;
   fecha: string;
+  proxima_fecha?: string;
   estado: string;
   hallazgos: string;
-  acciones: string;
+  descripcion?: string; // Originally acciones
   repuestos: string;
   ubicacionGeografica?: { lat: number, lng: number };
 }

@@ -37,12 +37,12 @@ export default function InformesHVAC() {
            inf.id.toLowerCase().includes(filter.toLowerCase());
   }).map(inf => ({
     id: inf.id,
-    fecha: inf.data?.generalData?.fecha || new Date(inf.created_at || Date.now()).toISOString().split('T')[0],
+    fecha: inf.data?.generalData?.fecha || new Date(inf.updated_at || Date.now()).toISOString().split('T')[0],
     tag: inf.data?.generalData?.equipoTag || "S/T",
     equipoNombre: inf.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
     tipoServicio: inf.data?.generalData?.tipoMantenimiento || "Preventivo",
     tecnico: inf.data?.generalData?.tecnico || "No Asignado",
-    estado: inf.estado || (inf.data?.status || "borrador")
+    estado: (inf as any).estado || (inf.data?.status || "borrador")
   }));
 
   return (

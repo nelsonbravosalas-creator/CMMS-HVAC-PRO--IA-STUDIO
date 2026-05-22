@@ -719,7 +719,21 @@ export default function EditorInforme() {
   // Handle Finalize & Sync (Auto-numbering assignment)
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
-    
+
+    const isCanvasEmpty = (canvas: HTMLCanvasElement | null) => {
+      if (!canvas) return true;
+      const blank = document.createElement('canvas');
+      blank.width = canvas.width;
+      blank.height = canvas.height;
+      return canvas.toDataURL() === blank.toDataURL();
+    };
+
+    if (isCanvasEmpty(canvasTecRef.current)) {
+      alert("Error: No es posible finalizar: falta la firma del técnico.");
+      setIsSyncing(false);
+      return;
+    }
+
     // Si ya existe un folio (edicion), lo usamos, si no, uno nuevo
     const currentFolio = generalData.folio || `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -734,6 +748,10 @@ export default function EditorInforme() {
         checklist,
         observaciones,
         galeria,
+        firmas: {
+          tecnico: canvasTecRef.current?.toDataURL() || '',
+          cliente: canvasCliRef.current?.toDataURL() || ''
+        },
         status: 'firmado',
         fechaSincronizacionLocal: new Date().toISOString()
       }

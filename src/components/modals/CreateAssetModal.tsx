@@ -166,6 +166,14 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
          // ignore error
       }
 
+      const branch = localSucursales.find(s => (s.codigo || s.id) === tagData.almacen);
+      if (!branch) {
+        throw new Error('Debe seleccionar una sucursal válida asociada a un cliente.');
+      }
+      if (!branch.cliente_id) {
+        throw new Error('La sucursal seleccionada no tiene un cliente asociado valid.');
+      }
+
       await createAsset({
         uuid_sync: crypto.randomUUID(),
         tag: fullTag || `EQUIPO-${Date.now()}`,
@@ -174,16 +182,16 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         marca: tagData.marca,
         modelo: tagData.modelo,
         serie: tagData.serie,
-        ubicacion: tagData.almacen,
-        area: tagData.almacen,
+        ubicacion: branch.nombre || tagData.almacen,
+        area: branch.nombre || tagData.almacen,
         capacidad: potencia.toString(),
         voltaje: voltaje.toString(),
         corriente: corriente.toString(),
         fecha_instalacion: new Date().toISOString(),
         vida_util: 10,
         estado: "operativo",
-        cliente_id: 'cliente_defecto',
-        sucursal_id: 'sucursal_defecto'
+        cliente_id: branch.cliente_id,
+        sucursal_id: branch.uuid_sync
       });
       
       onClose();

@@ -69,9 +69,9 @@ export default function ClientSelector() {
                   </div>
 
                   <div className="space-y-1">
-                    <h3 className="font-bold text-slate-900 text-lg uppercase tracking-tight leading-snug">{client.name}</h3>
+                    <h3 className="font-bold text-slate-900 text-lg uppercase tracking-tight leading-snug">{client.nombre}</h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                      <span className="uppercase">{client.site}</span>
+                      <span className="uppercase">{client.direccion || 'Sin Sucursal'}</span>
                       <span className="opacity-20">|</span>
                       <span>{client.rut}</span>
                     </div>
@@ -79,9 +79,9 @@ export default function ClientSelector() {
 
                   <div className="mt-6 flex items-center justify-between border-t border-slate-50 pt-4">
                     <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
-                      client.plan === 'Enterprise Pro' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+                      true ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
                     }`}>
-                      {client.plan}
+                      Activo
                     </span>
                     <div className="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-bold text-xs uppercase">
                       Configurar <ChevronRight className="w-3.5 h-3.5" />

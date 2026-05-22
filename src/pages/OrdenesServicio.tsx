@@ -31,7 +31,7 @@ export default function OrdenesServicio() {
            os.id.toLowerCase().includes(filter.toLowerCase());
   }).map(os => ({
     id: os.id,
-    fecha: os.data?.generalData?.fecha || new Date(os.created_at || Date.now()).toISOString().split('T')[0],
+    fecha: os.data?.generalData?.fecha || new Date(os.updated_at || Date.now()).toISOString().split('T')[0],
     tag: os.data?.generalData?.equipoTag || "S/T",
     equipoNombre: os.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
     tipoServicio: os.data?.generalData?.tipoServicio || "Preventivo",
