@@ -104,8 +104,9 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
      }
 
      try {
+        const docId = `MANT-${Date.now()}`;
         await createMantenimiento({
-          id: `MANT-${Date.now()}`,
+          id: docId,
           equipo_tag: equipoTag,
           tipo: tipoServicio,
           estado: estadoFinal,
@@ -116,6 +117,32 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
           repuestos: repuestos,
           ubicacionGeografica
         });
+        
+        if (estadoFinal === 'realizado' || estadoFinal === 'completado') {
+           try {
+              const { jsPDF } = await import('jspdf');
+              const doc = new jsPDF('p', 'mm', 'a4');
+              doc.setFont("helvetica", "bold");
+              doc.text(`REGISTRO DE MANTENIMIENTO: ${docId}`, 10, 10);
+              doc.setFontSize(10);
+              doc.text(`Técnico: ${tecnico}`, 10, 20);
+              doc.text(`Equipo: ${equipoTag}`, 10, 25);
+              
+              const pdfBase64 = doc.output('datauristring');
+              const { DocumentExportService } = await import('../../lib/DocumentExportService');
+              const exportResult = await DocumentExportService.exportDocument({
+                documentId: docId,
+                documentType: 'maintenance',
+                method: 'email',
+                assetTag: equipoTag,
+                pdfBase64
+              });
+              alert(`Mantenimiento Finalizado.\n${exportResult.message}`);
+           } catch (e: any) {
+              console.warn("Export error", e);
+              alert(`Mantenimiento guardado.\nNota: Módulo de email fallido: ${e.message}`);
+           }
+        }
         
         onClose();
      } catch (error) {

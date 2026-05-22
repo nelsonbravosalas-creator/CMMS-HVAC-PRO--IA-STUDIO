@@ -203,7 +203,32 @@ export default function EditorOrdenServicio() {
 
       setStatus('firmada');
       localStorage.removeItem(OS_DRAFT_KEY);
-      alert("Orden de Servicio guardada y firmada exitosamente.");
+      
+      // Export PDF via Email Automáticamente
+      try {
+        const { jsPDF } = await import('jspdf');
+        const doc = new jsPDF('p', 'mm', 'a4');
+        doc.setFont("helvetica", "bold");
+        doc.text(`ORDEN DE SERVICIO`, 10, 10);
+        doc.setFontSize(10);
+        doc.text(`Cliente: ${dataPayload.generalData.cliente}`, 10, 20); 
+        doc.text(`Técnico: ${dataPayload.generalData.tecnicoId}`, 10, 25);
+        
+        const pdfBase64 = doc.output('datauristring');
+        const { DocumentExportService } = await import('../lib/DocumentExportService');
+        const exportResult = await DocumentExportService.exportDocument({
+          documentId: record.id,
+          documentType: 'work_order', 
+          method: 'email',
+          clientId: dataPayload.generalData.cliente, // We have the clientId saved here hopefully
+          pdfBase64
+        });
+        alert(`Orden de Servicio guardada y firmada exitosamente.\n${exportResult.message}`);
+      } catch (exportError: any) {
+         console.warn("Export fallido", exportError);
+         alert(`Orden de Servicio guardada exitosamente.\nNota: No se pudo enviar el correo: ${exportError.message}`);
+      }
+
       setLocation("/ordenes-servicio");
     } catch (error) {
       console.error("Error saving OS:", error);

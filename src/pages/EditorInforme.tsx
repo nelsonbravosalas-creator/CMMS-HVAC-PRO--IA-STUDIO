@@ -748,7 +748,39 @@ export default function EditorInforme() {
     
     // Clear draft storage for this report as it's now saved
     localStorage.removeItem(DRAFT_KEY);
-    alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}`);
+
+    // Export PDF via Email Automáticamente
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
+      doc.setFont("helvetica", "bold");
+      doc.text(`INFORME TÉCNICO: ${machineData.tag}`, 10, 10);
+      doc.setFontSize(10);
+      doc.text(`Cliente: ${generalData.cliente}`, 10, 20);
+      doc.text(`Sucursal: ${generalData.sucursal}`, 10, 25);
+      doc.text(`Fecha: ${generalData.fecha}`, 10, 30);
+      
+      doc.text("Resumen de Hallazgos:", 10, 45);
+      doc.setFont("helvetica", "normal");
+      const splitText = doc.splitTextToSize(observaciones || "Sin observaciones registradas.", 180);
+      doc.text(splitText, 10, 50);
+
+      const pdfBase64 = doc.output('datauristring');
+      
+      const { DocumentExportService } = await import('../lib/DocumentExportService');
+      
+      const exportResult = await DocumentExportService.exportDocument({
+        documentId: currentFolio,
+        documentType: 'efficiency_report',
+        method: 'email',
+        clientName: generalData.cliente,
+        assetTag: machineData.tag,
+        pdfBase64
+      });
+      alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\n${exportResult.message}`);
+    } catch (exportError: any) {
+      console.warn("Exportación fallida", exportError);
+      alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\nNota: No se pudo enviar el correo: ${exportError.message}`);
+    }
   };
 
   const [showAssetConfig, setShowAssetConfig] = useState(false);

@@ -7,6 +7,8 @@ export interface ExportPayload {
   documentType: 'maintenance' | 'work_order' | 'ticket' | 'efficiency_report';
   method: ExportMethod;
   clientId?: string;
+  clientName?: string;
+  assetTag?: string;
   pdfBase64?: string; // Generated on the client side
 }
 

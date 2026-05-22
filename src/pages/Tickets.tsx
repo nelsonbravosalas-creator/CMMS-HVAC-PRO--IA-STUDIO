@@ -94,6 +94,37 @@ export default function Tickets() {
      }
   };
 
+  const handleCloseTicket = async (ticket: any) => {
+    await updateTicket(ticket.uuid_sync, { estado: 'cerrado' });
+    
+    // Export PDF via Email Automáticamente
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      doc.setFont("helvetica", "bold");
+      doc.text(`TICKET CERRADO: ${ticket.id}`, 10, 10);
+      doc.setFontSize(10);
+      doc.text(`Título: ${ticket.titulo}`, 10, 20);
+      doc.text(`Equipo: ${ticket.equipo_tag || 'N/A'}`, 10, 25);
+      doc.text(`Asignado a: ${ticket.asignado_a || 'N/A'}`, 10, 30);
+      
+      const pdfBase64 = doc.output('datauristring');
+      const { DocumentExportService } = await import('../lib/DocumentExportService');
+      
+      const exportResult = await DocumentExportService.exportDocument({
+        documentId: ticket.id,
+        documentType: 'ticket',
+        method: 'email',
+        assetTag: ticket.equipo_tag, // Usa el activo para encontrar el cliente en el endpoint
+        pdfBase64
+      });
+      alert(`Ticket cerrado exitosamente.\n${exportResult.message}`);
+    } catch (e: any) {
+      console.warn("Export PDF Error:", e);
+      alert(`Ticket cerrado exitosamente.\nNota: Módulo de notificaciones asíncronas no logró procesar el email: ${e.message}`);
+    }
+  };
+
   const statuses = [
     { id: 'abierto', label: 'Abiertos', color: 'bg-red-500', bg: 'bg-red-50' },
     { id: 'en_proceso', label: 'En Proceso', color: 'bg-amber-500', bg: 'bg-amber-50' },
@@ -242,7 +273,7 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
           )}
           {ticket.estado === 'resuelto' && (
             <button 
-              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'cerrado' })}
+              onClick={() => handleCloseTicket(ticket)}
               className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl font-black"
             >
                Cerrar Ticket

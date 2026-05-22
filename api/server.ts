@@ -8,11 +8,8 @@ import path from "path";
 // Exigido por el usuario: utilizar exclusivamente DATABASE_URL
 // Esto lanzará un error si falla, lo cual es de esperar en entorno local si no hay .env (deben setearlo en Vercel o Settings)
 const getSql = () => {
-  let dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) throw new Error('DATABASE_URL no definida');
-  if (!dbUrl.startsWith('postgres')) {
-    dbUrl = 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-  }
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error('DATABASE_URL no definida. Agrégala en las variables de entorno de Vercel.');
   return neon(dbUrl);
 };
 
@@ -256,7 +253,7 @@ ensureTables().catch(console.error);
       if (!imageBase64) return res.status(400).json({ error: 'imageBase64 requerido' });
       
       const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      const model = ai.getGenerativeModel({ model: 'gemini-3.1-flash' });
+      const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' });
       
       const prompt = "Extrae de esta placa HVAC o similares: Marca, Modelo, N Serie, Refrigerante, Voltaje, Amperaje Nominal y Capacidad. REGLA: Si la capacidad esta en kW convierte: 1kW=3412 BTU. Si en Toneladas: 1TR=12000 BTU. Devuelve SOLO un objeto JSON con estas keys: {'marca':'','modelo':'','n_serie':'','refrigerante':'','capacidad_btu':'','voltaje':'','amperaje':''}";
       
@@ -324,17 +321,17 @@ function resolveTable(name: string): string | null {
       let rows;
       
       switch (table) {
-        case 'assets': rows = await sql`SELECT * FROM assets WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'users': rows = await sql`SELECT * FROM users WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'reports': rows = await sql`SELECT * FROM reports WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'events': rows = await sql`SELECT * FROM events WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'clients': rows = await sql`SELECT * FROM clients WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'branches': rows = await sql`SELECT * FROM branches WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'settings': rows = await sql`SELECT * FROM settings WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'assets': rows = await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'users': rows = await sql`SELECT * FROM users WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'reports': rows = await sql`SELECT * FROM reports WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'events': rows = await sql`SELECT * FROM events WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'clients': rows = await sql`SELECT * FROM clients WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'branches': rows = await sql`SELECT * FROM branches WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'settings': rows = await sql`SELECT * FROM settings WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
         default: rows = [];
       }
       res.json({ success: true, data: rows });
@@ -564,17 +561,17 @@ function resolveTable(name: string): string | null {
         if (table) {
            try {
              switch (table) {
-               case 'assets': await sql`DELETE FROM assets WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'users': await sql`DELETE FROM users WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'preventive_maintenance': await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'work_orders': await sql`DELETE FROM work_orders WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'reports': await sql`DELETE FROM reports WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'events': await sql`DELETE FROM events WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'clients': await sql`DELETE FROM clients WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'branches': await sql`DELETE FROM branches WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'catalog_asset_types': await sql`DELETE FROM catalog_asset_types WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'settings': await sql`DELETE FROM settings WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'ordenes_servicio': await sql`DELETE FROM ordenes_servicio WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'assets': await sql`UPDATE assets SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'users': await sql`UPDATE users SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'reports': await sql`UPDATE reports SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'events': await sql`UPDATE events SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'clients': await sql`UPDATE clients SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'branches': await sql`UPDATE branches SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'settings': await sql`UPDATE settings SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
              }
              results.deletes.push({ uuid_sync: del.uuid_sync, success: true });
            } catch (postgresError: any) {
@@ -590,18 +587,18 @@ function resolveTable(name: string): string | null {
          try {
             let rows: any[] = [];
             switch (table) {
-              case 'assets': rows = await sql`SELECT * FROM assets WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'users': rows = await sql`SELECT * FROM users WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'reports': rows = await sql`SELECT * FROM reports WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'events': rows = await sql`SELECT * FROM events WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'clients': rows = await sql`SELECT * FROM clients WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'branches': rows = await sql`SELECT * FROM branches WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'settings': rows = await sql`SELECT * FROM settings WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE timestamp > ${lastSync} LIMIT 200`; break;
+              case 'assets': rows = await sql`SELECT * FROM assets WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'users': rows = await sql`SELECT * FROM users WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'reports': rows = await sql`SELECT * FROM reports WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'events': rows = await sql`SELECT * FROM events WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'clients': rows = await sql`SELECT * FROM clients WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'branches': rows = await sql`SELECT * FROM branches WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'settings': rows = await sql`SELECT * FROM settings WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break; // settings NO deleted_at by schema
+              case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE timestamp > ${lastSync} LIMIT 200`; break; // audit_logs has NO deleted_at
             }
             if (rows && rows.length > 0) {
                serverChanges[table] = rows;
@@ -637,19 +634,19 @@ function resolveTable(name: string): string | null {
               if (aTagRows.length > 0) {
                  const t = aTagRows[0].tag;
                  // Delete related items (assuming their JSONB stores 'tag' or 'maquinaTag')
-                 await sql`DELETE FROM work_orders WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM preventive_maintenance WHERE data->>'tag' = ${t}`;
-                 await sql`DELETE FROM reports WHERE data->>'tag' = ${t} OR data->'machineData'->>'tag' = ${t}`;
+                 await sql`UPDATE work_orders SET deleted_at = ${Date.now()} WHERE data->>'tag' = ${t}`;
+                 await sql`UPDATE preventive_maintenance SET deleted_at = ${Date.now()} WHERE data->>'tag' = ${t}`;
+                 await sql`UPDATE reports SET deleted_at = ${Date.now()} WHERE data->>'tag' = ${t} OR data->'machineData'->>'tag' = ${t}`;
               }
-              await sql`DELETE FROM assets WHERE uuid_sync = ${record.uuid_sync}`; 
+              await sql`UPDATE assets SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; 
               break;
-            case 'work_orders': await sql`DELETE FROM work_orders WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'preventive_maintenance': await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'users': await sql`DELETE FROM users WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'reports': await sql`DELETE FROM reports WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'clients': await sql`DELETE FROM clients WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'branches': await sql`DELETE FROM branches WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'events': await sql`DELETE FROM events WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'users': await sql`UPDATE users SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'reports': await sql`UPDATE reports SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'clients': await sql`UPDATE clients SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'branches': await sql`UPDATE branches SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'events': await sql`UPDATE events SET deleted_at = ${Date.now()} WHERE uuid_sync = ${record.uuid_sync}`; break;
           }
           results.push({ uuid_sync: record.uuid_sync, deleted: true });
           continue;
@@ -808,17 +805,30 @@ function resolveTable(name: string): string | null {
   // NEW DOCUMENT EXPORT ENDPOINT (Email, WhatsApp, Share)
   app.post("/api/export", async (req, res) => {
     try {
-      const { documentId, method, pdfBase64, clientId, documentType } = req.body;
+      const { documentId, method, pdfBase64, clientId, clientName, assetTag, documentType } = req.body;
       
       let recipientEmail = null;
+      let targetClientId = clientId;
+      const sql = getSql();
+      
+      if (!targetClientId && assetTag) {
+        // Find client for this asset
+        const assetRows = await sql`SELECT cliente_id FROM assets WHERE tag = ${assetTag} OR uuid_sync = ${assetTag} LIMIT 1`;
+        if (assetRows.length > 0) targetClientId = assetRows[0].cliente_id;
+      }
       
       // 2. Query Neon to extract contact email
-      if (clientId) {
-        const sql = getSql();
+      if (targetClientId) {
         // Query both properties because clients table might use "email" or "data->>'email'"
-        const clientRows = await sql`SELECT data FROM clients WHERE uuid_sync = ${clientId} OR id = ${clientId}`;
+        const clientRows = await sql`SELECT data FROM clients WHERE uuid_sync = ${targetClientId} OR id = ${targetClientId}`;
         if (clientRows.length > 0) {
-            const clientData = clientRows[0].data;
+            const clientData = clientRows[0].data || {};
+            recipientEmail = clientData.email || clientData.contacto_email || null;
+        }
+      } else if (clientName) {
+        const clientRows = await sql`SELECT data FROM clients WHERE nombre ILIKE ${'%' + clientName + '%'}`;
+        if (clientRows.length > 0) {
+            const clientData = clientRows[0].data || {};
             recipientEmail = clientData.email || clientData.contacto_email || null;
         }
       }
