@@ -1,11 +1,32 @@
 import { neon } from '@neondatabase/serverless';
 import { EQUIPOS_DATA } from '../src/data/assets.js';
-import { USUARIOS_MOCK, CLIENTES_MOCK } from '../src/data/users.js';
+import { CLIENTES_MOCK } from '../src/data/users.js';
 import { MANTENIMIENTOS_MOCK } from '../src/data/preventive_maintenance.js';
 import { TICKETS_MOCK } from '../src/data/work_orders.js';
 import { INFORMES_MOCK } from '../src/data/reports.js';
 import { EVENTOS_MOCK } from '../src/data/events.js';
 import { SUCURSALES } from '../src/data/branches.js';
+
+const BACKEND_USUARIOS_SEED = [
+  {
+    id: 'U1',
+    nombre: 'Nelson Bravo',
+    correo: 'Nbravo.nbyb@gmail.com',
+    perfil: 'programador',
+    activo: true,
+    puedeEditarMantenimientos: true,
+    pin: '3517'
+  },
+  {
+    id: 'U2',
+    nombre: 'Gonzalo Bravo',
+    correo: 'gbravo.nbyb@gmail.com',
+    perfil: 'administrador',
+    activo: true,
+    puedeEditarMantenimientos: true,
+    pin: '3210'
+  }
+];
 
 export default async function handler(req, res) {
   const defaultUrl = 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
@@ -147,7 +168,7 @@ export default async function handler(req, res) {
           );
         `;
         let count = 0;
-        for (const usuario of USUARIOS_MOCK) {
+        for (const usuario of BACKEND_USUARIOS_SEED) {
           await sql`
             INSERT INTO users (id, nombre, correo, perfil, activo, data)
             VALUES (${usuario.id}, ${usuario.nombre}, ${usuario.correo}, ${usuario.perfil}, ${usuario.activo}, ${JSON.stringify(usuario)})

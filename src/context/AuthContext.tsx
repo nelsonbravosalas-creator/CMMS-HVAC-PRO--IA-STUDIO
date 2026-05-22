@@ -6,13 +6,13 @@
  */
 
 import React, { createContext, useContext, useState } from 'react';
-import { Usuario, Permisos, PERMISOS_POR_PERFIL } from '../types';
-import { USUARIOS_MOCK } from '../data/users';
+import { Usuario, Permisos, PERMISOS_POR_PERFIL, Perfil } from '../types';
+import bcrypt from 'bcryptjs';
 
 /**
  * Definición del contrato del contexto de autenticación.
  */
-import { db } from '../db/database'; // we might need this for db storage
+import { db } from '../db/database';
 
 interface AuthContextType {
   /** Datos del usuario actual. Null si no hay sesión. */
@@ -25,14 +25,6 @@ interface AuthContextType {
   logout: () => void;
 }
 
-// Below we redefine sha256 to be used
-async function sha256(message: string): Promise<string> {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
@@ -41,23 +33,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(() => {
-    // Intentar recuperar sesión persistida
-    const savedPin = localStorage.getItem('auth_pin');
-    
-    if (savedPin) {
-      const foundUser = USUARIOS_MOCK.find(u => (u as any).pin === savedPin && u.activo);
-      if (foundUser) {
-        return foundUser as Usuario;
-      } else {
-        // If the pin is stale (e.g. mock data changed), remove it so they can re-login
-        // or we can fallback to the mock user 0 if is_authenticated is true.
-        localStorage.removeItem('auth_pin');
+    // Intentar recuperar sesión persistida desde localStorage de forma segura
+    const savedUserJson = localStorage.getItem('auth_user');
+    if (savedUserJson) {
+      try {
+        return JSON.parse(savedUserJson) as Usuario;
+      } catch (e) {
+        localStorage.removeItem('auth_user');
       }
-    }
-    
-    // Si estamos en entorno de desarrollo local, o si se saltó el login
-    if (localStorage.getItem("is_authenticated") === "true") {
-       return USUARIOS_MOCK[0] as Usuario; // Fallback
     }
     return null;
   });
@@ -66,8 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const permisos = user ? PERMISOS_POR_PERFIL[user.perfil] : null;
 
   /**
-   * Intenta loguear un usuario buscando coincidencias de PIN en la base de datos (o mock).
-   * @param pin Código de acceso del técnico/operario.
+   * Intenta loguear un usuario buscando coincidencias de PIN en la base de datos (o localmente offline).
    */
   const login = async (pin: string, correo: string): Promise<boolean> => {
     // 1. Intentar login contra API real (email + PIN)
@@ -79,34 +61,93 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const json = await response.json();
       if (json.success && json.user) {
-        setUser(json.user);
-        // Guardar hash del PIN en IndexedDB para fallback offline
-        const pinHash = await sha256(pin);
-        await db.settings.put({ key: 'auth_pin_hash', value: pinHash, updated_at: Date.now(), sync_status: 'synced' });
-        await db.settings.put({ key: 'auth_user', value: JSON.stringify(json.user), updated_at: Date.now(), sync_status: 'synced' });
+        const loggedUser: Usuario = {
+          id: json.user.id,
+          nombre: json.user.nombre,
+          correo: json.user.correo || correo,
+          perfil: (json.user.perfil || 'visita') as Perfil,
+          activo: json.user.activo,
+          puedeEditarMantenimientos: json.user.perfil !== 'visita' && json.user.perfil !== 'cliente',
+          pin: '***' // No guardamos el PIN real en el objeto del estado por seguridad
+        };
+
+        setUser(loggedUser);
+        
+        // Guardar para persistencia síncrona en recarga de página
+        localStorage.setItem('auth_user', JSON.stringify(loggedUser));
         localStorage.setItem('is_authenticated', 'true');
+        if (json.token) {
+          localStorage.setItem('auth_token', json.token);
+        }
+
+        // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline
+        const pinHash = bcrypt.hashSync(pin, 10);
+        const existingLocalUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+        if (existingLocalUser) {
+          await db.users.update(existingLocalUser.uuid_sync, {
+            id: json.user.id || existingLocalUser.id,
+            nombre: json.user.nombre || existingLocalUser.nombre,
+            rol: loggedUser.perfil,
+            pin: pinHash,
+            activo: true,
+            updated_at: Date.now()
+          });
+        } else {
+          await db.users.put({
+            uuid_sync: crypto.randomUUID(),
+            id: json.user.id || `U-${Date.now()}`,
+            nombre: json.user.nombre,
+            email: correo,
+            rol: loggedUser.perfil,
+            pin: pinHash,
+            activo: true,
+            updated_at: Date.now(),
+            sync_status: 'synced'
+          });
+        }
         return true;
       }
     } catch (networkError) {
-      console.warn('API no disponible, intentando login offline...');
-      // Fallback: comparar pin con hash almacenado en IndexedDB
-      const storedHashRecord = await db.settings.get('auth_pin_hash');
-      const storedUserRecord = await db.settings.get('auth_user');
-      if (storedHashRecord?.value && storedUserRecord?.value) {
-        const inputHash = await sha256(pin);
-        if (inputHash === storedHashRecord.value) {
-          setUser(JSON.parse(storedUserRecord.value) as any);
+      console.warn('API no disponible o error de red, intentando login offline...', networkError);
+    }
+
+    // Fallback offline-first: Buscar usuario en la tabla 'users' de Dexie/IndexedDB
+    try {
+      const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+      if (localUser && localUser.activo) {
+        // Validar el PIN contra el bcrypt hash almacenado
+        const isMatch = localUser.pin.startsWith('$2')
+          ? bcrypt.compareSync(pin, localUser.pin)
+          : localUser.pin === pin;
+
+        if (isMatch) {
+          const loggedUser: Usuario = {
+            id: localUser.id || localUser.uuid_sync,
+            nombre: localUser.nombre,
+            correo: localUser.email,
+            perfil: (localUser.rol || 'tecnico') as Perfil,
+            activo: localUser.activo,
+            puedeEditarMantenimientos: localUser.rol !== 'visita' && localUser.rol !== 'cliente',
+            pin: '***'
+          };
+
+          setUser(loggedUser);
+          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
           localStorage.setItem('is_authenticated', 'true');
           return true;
         }
       }
+    } catch (dbError) {
+      console.error('Error durante autenticación offline contra IndexedDB', dbError);
     }
+
     return false;
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('auth_pin');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
   };

@@ -22,7 +22,7 @@ import {
   Briefcase,
   UserCircle
 } from "lucide-react";
-import { USUARIOS_MOCK, Usuario } from "../data/users";
+import { Usuario } from "../data/users";
 import { ClientModal } from "../components/modals/ClientModal";
 import { UserModal } from "../components/modals/UserModal";
 import { useAppStore } from "../store/useAppStore";
