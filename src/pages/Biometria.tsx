@@ -363,11 +363,16 @@ export default function Biometria() {
   
                     {biometryStatus === "scanning" && (
                       <div className="flex flex-col items-center w-full max-w-xs">
-                        <div className="relative mb-8 mt-2">
-                          <div className="p-6 bg-emerald-500/20 text-emerald-400 rounded-full animate-pulse shadow-[0_0_40px_rgba(16,185,129,0.3)]">
-                            <Fingerprint className="w-16 h-16" />
+                        <div className="relative mb-8 mt-2 w-32 h-32 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-75" />
+                          <div className="relative p-6 bg-slate-800 border border-emerald-500/30 text-emerald-400 rounded-full shadow-[0_0_40px_rgba(16,185,129,0.3)] z-10 animate-pulse">
+                            <Fingerprint className="w-14 h-14" />
                           </div>
-                          <div className="absolute inset-0 rounded-full border-[3px] border-emerald-500/30 border-t-emerald-400 animate-spin" />
+                          
+                          <svg className="absolute inset-0 w-full h-full transform -rotate-90 z-20 pointer-events-none" viewBox="0 0 100 100">
+                             <circle cx="50" cy="50" r="48" fill="transparent" stroke="rgba(16, 185, 129, 0.15)" strokeWidth="4"/>
+                             <circle cx="50" cy="50" r="48" fill="transparent" stroke="rgba(16, 185, 129, 0.8)" strokeWidth="4" strokeLinecap="round" strokeDasharray="301.59" strokeDashoffset={301.59 - (301.59 * scanProgress) / 100} className="transition-all duration-300 ease-out"/>
+                          </svg>
                         </div>
                         
                         <h4 className="text-xs font-black text-white uppercase tracking-widest mb-2">
