@@ -5,7 +5,8 @@ import {
   RotateCcw, 
   Edit2, 
   Search,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from "lucide-react";
 import { ClientModal } from "../components/modals/ClientModal";
 import { useAppStore } from "../store/useAppStore";
@@ -104,6 +105,25 @@ export default function Clientes() {
                       </button>
                     </div>
                   </div>
+                  
+                  {c.sync_status === 'conflicted' && (
+                    <div className="mb-6 p-5 bg-amber-50 border border-amber-200 rounded-3xl flex flex-col gap-4 text-left">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-black text-amber-800 uppercase tracking-wider">⚠️ SISTEMA DE RESOLUCIÓN DE CONFLICTOS ACTIVADO</p>
+                          <p className="text-slate-600 text-xs font-medium mt-1 leading-relaxed">
+                            Este cliente fue creado o modificado originalmente en modo <strong className="text-amber-800">offline first</strong> y al intentar sincronizarse con la base de datos central ha generado una réplica (duplicado de RUT o de Nombre de Empresa). Por favor verifique y compare los datos ingresados.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-white/80 p-4 rounded-2xl border border-amber-100 text-[11px] text-slate-700 leading-relaxed shadow-sm">
+                        <span className="font-extrabold text-amber-800 uppercase block mb-1">💡 Medida sugerida por el auditor de seguridad:</span>
+                        Si los RUT coinciden exactamente, le recomendamos realizar una <strong>Fusión de Ficha Maestra</strong>. Bajo esta medida, el sistema absorbe automáticamente todas las sucursales secundarias y equipos de ambas fichas bajo un único registro principal unificado, sanando la redundancia y manteniendo la integridad del inventario industrial y el etiquetado QR.
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-2">
                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Sucursales</span>

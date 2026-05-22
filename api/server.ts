@@ -487,7 +487,39 @@ function resolveTable(name: string): string | null {
               case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
               case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
               case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
-              case 'clients': await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`; break;
+              case 'clients': {
+                const rowRut = (data.rut || "").trim().replace(/[^0-9kK]/g, '').toUpperCase();
+                const rowName = (data.nombre || "").trim().toLowerCase();
+
+                const otherClients = await sql`SELECT uuid_sync, data FROM clients WHERE deleted_at IS NULL AND uuid_sync != ${uuid_sync}`;
+                let hasDuplicate = false;
+                let duplicateReason = "";
+                for (const oc of otherClients) {
+                  const ocData = typeof oc.data === 'string' ? JSON.parse(oc.data) : oc.data;
+                  const ocRut = (ocData.rut || "").trim().replace(/[^0-9kK]/g, '').toUpperCase();
+                  const ocName = (ocData.nombre || "").trim().toLowerCase();
+
+                  if (rowRut && ocRut && rowRut === ocRut) {
+                    hasDuplicate = true;
+                    duplicateReason = `RUT de cliente duplicado: ${data.rut}`;
+                    break;
+                  }
+                  if (rowName && ocName && rowName === ocName) {
+                    hasDuplicate = true;
+                    duplicateReason = `Nombre de cliente duplicado: ${data.nombre}`;
+                    break;
+                  }
+                }
+
+                if (hasDuplicate) {
+                  const err: any = new Error(duplicateReason);
+                  err.isConflict = true;
+                  throw err;
+                }
+
+                await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`;
+                break;
+              }
               case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`; break;
               case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
               case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
@@ -504,7 +536,12 @@ function resolveTable(name: string): string | null {
           results.inserts.push({ uuid_sync, folio_oficial: data.tag || data.id, success: true });
         } catch(postgresError: any) {
           console.error(`[SYNC POSTGRES ERROR] INSERT failed for table ${table}, uuid_sync: ${uuid_sync}. Error:`, postgresError.message);
-          results.inserts.push({ uuid_sync, error: postgresError.message, success: false });
+          results.inserts.push({ 
+            uuid_sync, 
+            result: postgresError.isConflict ? 'conflict' : 'error',
+            error: postgresError.message, 
+            success: false 
+          });
         }
       }
 
@@ -541,7 +578,39 @@ function resolveTable(name: string): string | null {
               case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'clients': await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'clients': {
+                const rowRut = (data.rut || "").trim().replace(/[^0-9kK]/g, '').toUpperCase();
+                const rowName = (data.nombre || "").trim().toLowerCase();
+
+                const otherClients = await sql`SELECT uuid_sync, data FROM clients WHERE deleted_at IS NULL AND uuid_sync != ${uuid_sync}`;
+                let hasDuplicate = false;
+                let duplicateReason = "";
+                for (const oc of otherClients) {
+                  const ocData = typeof oc.data === 'string' ? JSON.parse(oc.data) : oc.data;
+                  const ocRut = (ocData.rut || "").trim().replace(/[^0-9kK]/g, '').toUpperCase();
+                  const ocName = (ocData.nombre || "").trim().toLowerCase();
+
+                  if (rowRut && ocRut && rowRut === ocRut) {
+                    hasDuplicate = true;
+                    duplicateReason = `RUT de cliente duplicado: ${data.rut}`;
+                    break;
+                  }
+                  if (rowName && ocName && rowName === ocName) {
+                    hasDuplicate = true;
+                    duplicateReason = `Nombre de cliente duplicado: ${data.nombre}`;
+                    break;
+                  }
+                }
+
+                if (hasDuplicate) {
+                  const err: any = new Error(duplicateReason);
+                  err.isConflict = true;
+                  throw err;
+                }
+
+                await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
+                break;
+              }
               case 'branches': await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
@@ -551,7 +620,12 @@ function resolveTable(name: string): string | null {
           results.updates.push({ uuid_sync, success: true });
         } catch(postgresError: any) {
           console.error(`[SYNC POSTGRES ERROR] UPDATE failed for table ${table}, uuid_sync: ${uuid_sync}. Error:`, postgresError.message);
-          results.updates.push({ uuid_sync, error: postgresError.message, success: false });
+          results.updates.push({ 
+            uuid_sync, 
+            result: postgresError.isConflict ? 'conflict' : 'error',
+            error: postgresError.message, 
+            success: false 
+          });
         }
       }
 

@@ -98,6 +98,35 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       const branchRepo = new BranchRepository();
       let clientId = editingClient?.client.uuid_sync;
 
+      // VALIDATE NO DUPLICATE CLIENT NAME OR RUT
+      const clientsList = useAppStore.getState().clients;
+      const cleanRut = (r: string) => r.replace(/[^0-9kK]/g, '').toUpperCase();
+      const normalizedRut = cleanRut(rut);
+      const normalizedName = nombre.trim().toLowerCase();
+
+      for (const c of clientsList) {
+        if (editingClient && c.uuid_sync === editingClient.client.uuid_sync) {
+          continue;
+        }
+        if (c.deleted_at) {
+          continue;
+        }
+        
+        const cRut = cleanRut(c.rut || "");
+        if (normalizedRut && cRut && normalizedRut === cRut) {
+          alert(`Error: Ya existe un cliente registrado con el RUT ${rut}. No se permiten RUTs duplicados.`);
+          setIsSaving(false);
+          return;
+        }
+
+        const cName = (c.nombre || "").trim().toLowerCase();
+        if (normalizedName && cName && normalizedName === cName) {
+          alert(`Error: Ya existe un cliente con el nombre "${nombre}". No se permiten clientes de nombre idéntico duplicados.`);
+          setIsSaving(false);
+          return;
+        }
+      }
+
       // VALIDATE GLOBAL UNIQUE BRANCH CODES BEFORE SAVING
       const allBranches = await branchRepo.getAll();
       for (const sub of subs) {
