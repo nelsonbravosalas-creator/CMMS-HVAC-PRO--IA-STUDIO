@@ -21,7 +21,7 @@ export const SyncIndicator = () => {
   }, [isOnline]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-auto">
       <AnimatePresence>
         {pendingCount > 0 && (
           <motion.div
@@ -49,14 +49,22 @@ export const SyncIndicator = () => {
         )}
       </AnimatePresence>
 
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border ${
-        isOnline 
-          ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-          : 'bg-slate-50 text-slate-500 border-slate-200'
-      }`}>
-        <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-        {isOnline ? 'Cloud Sync Activo' : 'Offline'}
-      </div>
+      <button 
+        onClick={() => {
+          import('../sync/syncEngine').then(({ syncEngine }) => {
+            syncEngine.triggerSync(true);
+          });
+        }}
+        disabled={isSyncing || !isOnline}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border cursor-pointer hover:scale-105 transition-transform active:scale-95 ${
+          isOnline 
+            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200' 
+            : 'bg-slate-50 text-slate-500 border-slate-200'
+        }`}
+      >
+        <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? (isSyncing ? 'bg-emerald-500 animate-spin' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}`} />
+        {isOnline ? (isSyncing ? 'Sincronizando...' : 'Forzar Sincronización') : 'Offline'}
+      </button>
     </div>
   );
 };

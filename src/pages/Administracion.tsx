@@ -14,21 +14,50 @@ import {
   Plus,
   Trash2,
   Eye,
-  Briefcase
+  Briefcase,
+  Database,
+  CloudLightning,
+  RefreshCw
 } from "lucide-react";
 import { UserModal } from "../components/modals/UserModal";
 import { useAppStore } from "../store/useAppStore";
+import { syncEngine } from "../sync/syncEngine";
+import { db } from "../db/database";
 
 export default function Administracion() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [filter, setFilter] = useState("");
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [isMapping, setIsMapping] = useState(false);
 
   const users = useAppStore(state => state.users);
 
   const handleAddUser = () => {
     setEditingUser(null);
     setShowUserModal(true);
+  };
+  
+  const handleDatabaseMap = async () => {
+    if (!window.confirm("¿Está seguro de querer re-mapear la base de datos Neon y limpiar el caché local del teléfono? Esta acción descargará toda la data desde la nube ordenando las tablas contextualmente.")) return;
+    
+    setIsMapping(true);
+    try {
+      // Clear last sync to force full download
+      localStorage.removeItem('last_sync_timestamp');
+      console.log("Limpiando metadata de sincronización...");
+      
+      // We force sync Engine to run
+      await syncEngine.fullSync(true);
+      
+      // Hydrate all data in context
+      await useAppStore.getState().hydrate();
+      
+      alert("✅ Base de datos Neon mapeada y caché del teléfono sincronizado correctamente.");
+    } catch (e: any) {
+      alert("❌ Error mapeando la base de datos: " + e.message);
+    } finally {
+      setIsMapping(false);
+    }
   };
 
   const activeUsers = users.filter(u => 
@@ -44,6 +73,14 @@ export default function Administracion() {
           <p className="text-slate-500 text-sm font-medium">Gestión de perfiles técnicos, administrativos y credenciales locales seguras.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handleDatabaseMap}
+            disabled={isMapping}
+            className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all border border-indigo-500/20 disabled:opacity-50"
+          >
+            {isMapping ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />} 
+            {isMapping ? "Mapeando..." : "Mapear DB a Caché"}
+          </button>
           <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
             <RotateCcw className="w-4 h-4" /> Actualizar Lista
           </button>
