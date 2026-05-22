@@ -33,7 +33,15 @@ class SyncEngine {
     store.setSyncing(true);
 
     try {
-      const pendingItems = await syncQueue.peekAll();
+      const allPending = await syncQueue.peekAll();
+      const now = Date.now();
+      
+      const pendingItems = allPending.filter((item) => {
+        if ((item.retry_count || 0) >= 3) return false;
+        if (item.next_retry_at && item.next_retry_at > now) return false;
+        return true;
+      });
+
       store.setPendingCount(pendingItems.length);
 
       const inserts: any[] = [];
@@ -88,30 +96,32 @@ class SyncEngine {
          for (const item of pendingItems) {
            const table = db[item.table as keyof typeof db] as any;
            const result = resultMap.get(item.uuid_sync);
-           const itemSuccess = result ? result.success : true; // assume true if not explicitly failed
+           const rStatus = result ? result.result : 'error';
+           const rSuccess = rStatus === 'applied' || rStatus === 'noop' || (result && result.success);
 
-           if (table && item.operation !== 'delete') {
-              if (itemSuccess) {
+           if (rSuccess) {
+              if (table && item.operation !== 'delete') {
                 // mark as synced
                 await table.update(item.uuid_sync, {
                   sync_status: 'synced',
                   last_synced_at: Date.now(),
                   retry_count: 0
                 });
-              } else {
-                // mark as failed
-                logger.error('SyncEngine', `Row ${item.uuid_sync} failed: ${result.error}`);
+              }
+              await syncQueue.remove(item.id!);
+           } else {
+              // mark as failed locally
+              if (table && item.operation !== 'delete') {
+                const isConflict = rStatus === 'conflict';
+                logger.error('SyncEngine', `Row ${item.uuid_sync} failed: ${result?.error}`);
                 await table.update(item.uuid_sync, {
-                  sync_status: 'failed',
+                  sync_status: isConflict ? 'conflicted' : 'failed',
                   last_synced_at: Date.now()
                 });
               }
+              // mark failed in queue to trigger retry logic
+              await syncQueue.markFailed(item.id!, result?.error || 'Unknown error');
            }
-           
-           // remove from queue regardless, to prevent blocking. User must fix and save again to re-queue.
-           // or we can increment retry_count... Let's remove it if it strictly failed Postgres validations
-           // or leave it if it's network error. Since backend returned gracefully with error, it's a validation/conflict error.
-           await syncQueue.remove(item.id!);
          }
 
          store.setPendingCount(await db.sync_queue.count());

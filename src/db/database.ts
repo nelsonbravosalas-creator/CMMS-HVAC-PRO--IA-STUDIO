@@ -135,6 +135,11 @@ export interface SyncOperation {
   operation: 'insert' | 'update' | 'delete';
   data: any;
   timestamp: number;
+  retry_count?: number;
+  last_error?: string;
+  next_retry_at?: number;
+  locked_at?: number;
+  created_at?: number;
 }
 
 export interface AuditLog {
