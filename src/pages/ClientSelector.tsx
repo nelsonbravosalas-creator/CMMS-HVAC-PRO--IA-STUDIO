@@ -15,14 +15,19 @@ export default function ClientSelector() {
     setSelected(clientId);
     localStorage.setItem("active_client", clientId);
     setTimeout(() => {
-      // Check if there was a pending tag
-      const pendingTag = localStorage.getItem("pending_tag");
-      if (pendingTag) {
-        // In a real app we'd redirect to the equipment card of that tag
-        // For now, let's just go to scanner or dashboard
-        localStorage.removeItem("pending_tag");
+      const intendedRoute = localStorage.getItem("intended_route");
+      if (intendedRoute) {
+        localStorage.removeItem("intended_route");
+        setLocation(intendedRoute);
+      } else {
+        const pendingTag = localStorage.getItem("pending_tag");
+        if (pendingTag) {
+          localStorage.removeItem("pending_tag");
+          setLocation(`/equipos/${pendingTag}`);
+        } else {
+          setLocation("/");
+        }
       }
-      setLocation("/");
     }, 500);
   };
 

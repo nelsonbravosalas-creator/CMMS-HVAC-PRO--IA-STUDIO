@@ -38,6 +38,9 @@ export default function App() {
 
     // Initial routing logic
     if (!auth && location !== "/login") {
+      if (location !== "/") {
+        localStorage.setItem("intended_route", location);
+      }
       setLocation("/login");
     } else if (auth && !client && location !== "/client-selector") {
       setLocation("/client-selector");
@@ -46,12 +49,20 @@ export default function App() {
 
   // Auth pages (no layout)
   if (!isAuthenticated && location === "/login") {
-    return <Login />;
+    return (
+      <AuthProvider>
+        <Login />
+      </AuthProvider>
+    );
   }
 
   // Tenant selector (no layout)
   if (isAuthenticated && !hasClientSelected) {
-    return <ClientSelector />;
+    return (
+      <AuthProvider>
+        <ClientSelector />
+      </AuthProvider>
+    );
   }
 
   return (

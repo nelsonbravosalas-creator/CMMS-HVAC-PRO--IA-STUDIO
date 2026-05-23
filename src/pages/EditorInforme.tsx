@@ -36,6 +36,7 @@ import { INFORMES_MOCK } from "../data/informes";
 import { EQUIPOS_DATA } from "../data/equipos";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import LoadingIndicator from "../components/LoadingIndicator";
+import { DataStore } from "../services/dataStore";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
@@ -78,6 +79,47 @@ const CHECKLIST_ITEMS = [
   "Nivel de refrigerante", "Fugas de refrigerante", "Revisión de compresores", "Relés y contactores",
   "Controles y termostatos", "Prueba de Presion", "Alarmas y protecciones", "Funcionamiento general"
 ];
+
+type OCRPayload = {
+  marca?: string;
+  modelo?: string;
+  n_serie?: string;
+  refrigerante?: string;
+  capacidad_btu?: string;
+  voltaje?: string;
+  amperaje?: string;
+};
+
+function isValidOCRPayload(payload: unknown): payload is OCRPayload {
+  if (!payload || typeof payload !== "object") return false;
+
+  const candidate = payload as Record<string, unknown>;
+  const requiredFields = ["marca", "modelo", "refrigerante"];
+  return requiredFields.every(field => typeof candidate[field] === "string" && candidate[field].trim().length > 0);
+}
+
+function normalizeOCRPayload(payload: OCRPayload) {
+  return {
+    marca: payload.marca?.trim() || "",
+    modelo: payload.modelo?.trim() || "",
+    serie: payload.n_serie?.trim() || "",
+    refrigerante: payload.refrigerante?.trim() || "",
+    capacidad: payload.capacidad_btu?.trim() || "",
+    voltaje: payload.voltaje?.trim() || ""
+  };
+}
+
+function buildReportSnapshot(generalData: Record<string, unknown>, machineData: Record<string, unknown>, circuits: CircuitData[], checklist: ChecklistEvidence, observaciones: string, galeria: {src: string; desc: string}[], status: string) {
+  return {
+    generalData,
+    machineData,
+    circuits,
+    checklist,
+    observaciones,
+    galeria,
+    status
+  };
+}
 
 export default function EditorInforme() {
   const [, params] = useRoute<{ id: string }>("/informes/:id");
@@ -170,17 +212,45 @@ export default function EditorInforme() {
   // Handle Finalize & Sync (Auto-numbering assignment)
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
-    // Simular latencia de red/sync
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     const newFolio = `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     setGeneralData(prev => ({ ...prev, folio: newFolio }));
-    setStatus('firmado');
-    setIsSyncing(false);
-    
-    // Clear draft storage for this report as it's now synced
-    localStorage.removeItem(DRAFT_KEY);
-    alert(`Informe Sincronizado Exitosamente. Folio Asignado: ${newFolio}`);
+
+    const snapshot = buildReportSnapshot(
+      generalData,
+      machineData,
+      circuits,
+      checklist,
+      observaciones,
+      galeria,
+      status
+    );
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      DataStore.enqueueSyncOperation({
+        type: "report-finalize",
+        payload: {
+          folio: newFolio,
+          draftKey: DRAFT_KEY,
+          snapshot,
+          createdAt: new Date().toISOString()
+        }
+      });
+      setStatus('offline_draft');
+      setIsSyncing(false);
+      alert("Sin conexión. El informe quedó en cola local para sincronización.");
+      return;
+    }
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      localStorage.removeItem(DRAFT_KEY);
+      setStatus('firmado');
+      DataStore.completeSyncOperation(`sync-${Date.now()}`);
+      alert(`Informe Sincronizado Exitosamente. Folio Asignado: ${newFolio}`);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const [showAssetConfig, setShowAssetConfig] = useState(false);
@@ -335,13 +405,15 @@ export default function EditorInforme() {
       alert("API Key no configurada");
       return;
     }
+
     setLoadingAI(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
+
       const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
         reader.readAsDataURL(file);
       });
       const base64Data = await base64Promise;
@@ -351,7 +423,7 @@ export default function EditorInforme() {
       const imgPart = {
         inlineData: {
           data: base64Data,
-          mimeType: file.type
+          mimeType: file.type || "image/jpeg"
         }
       };
 
@@ -359,21 +431,31 @@ export default function EditorInforme() {
         model: "gemini-3-flash-preview",
         contents: { parts: [imgPart, { text: prompt }] }
       });
-      
+
       const text = result.text || "";
       const jsonMatch = text.match(/\{[\s\S]*?\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        setMachineData(prev => ({
-          ...prev,
-          marca: data.marca || prev.marca,
-          modelo: data.modelo || prev.modelo,
-          serie: data.n_serie || prev.serie,
-          refrigerante: data.refrigerante || prev.refrigerante,
-          capacidad: data.capacidad_btu || prev.capacidad,
-          voltaje: data.voltaje || prev.voltaje
-        }));
+
+      if (!jsonMatch) {
+        alert("No se pudo extraer un JSON válido de la placa.");
+        return;
       }
+
+      const parsed = JSON.parse(jsonMatch[0]) as unknown;
+      if (!isValidOCRPayload(parsed)) {
+        alert("La respuesta OCR no contiene los campos mínimos necesarios.");
+        return;
+      }
+
+      const normalized = normalizeOCRPayload(parsed);
+      setMachineData(prev => ({
+        ...prev,
+        marca: normalized.marca || prev.marca,
+        modelo: normalized.modelo || prev.modelo,
+        serie: normalized.serie || prev.serie,
+        refrigerante: normalized.refrigerante || prev.refrigerante,
+        capacidad: normalized.capacidad || prev.capacidad,
+        voltaje: normalized.voltaje || prev.voltaje
+      }));
     } catch (err) {
       console.error(err);
       alert("Error al procesar con IA");

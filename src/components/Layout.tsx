@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { DataStore, useDataStore } from "../services/dataStore";
 
 interface LayoutProps {
   children: ReactNode;
@@ -91,13 +92,13 @@ export default function Layout({ children }: LayoutProps) {
   const [showPWABanner, setShowPWABanner] = useState(true);
   const [menuPosition, setMenuPosition] = useState<'left' | 'right'>('right');
 
-  // Mock data for badges
+  const pendingSync = useDataStore(() => DataStore.getPendingSyncOperations());
   const stats = {
-    ticketsAbiertos: 4,
-    mantenimientosPendientes: 12,
+    ticketsAbiertos: useDataStore(() => DataStore.getTickets().filter(t => t.estado === 'abierto').length),
+    mantenimientosPendientes: useDataStore(() => DataStore.getMantenimientos().filter(m => m.estado === 'programado').length),
     informesPendientesFirma: 3,
-    offlineOps: 2,
-    equiposEnFalla: 1,
+    offlineOps: pendingSync.filter(op => op.status === 'pending').length,
+    equiposEnFalla: useDataStore(() => DataStore.getEquipos().filter(e => e.estado === 'falla').length),
     disponibilidadGlobal: "98.2%"
   };
 
@@ -188,7 +189,7 @@ export default function Layout({ children }: LayoutProps) {
           <NavItem variant="large" href="/planificacion" icon={CalendarIcon} label="Calendario" onClick={() => setIsMobileMenuOpen(false)} />
           <NavItem variant="large" href="/informes" icon={FileText} label="Informes HVAC" badge={stats.informesPendientesFirma} onClick={() => setIsMobileMenuOpen(false)} />
           <NavItem variant="large" href="/tickets" icon={Ticket} label="Tickets" badge={stats.ticketsAbiertos} onClick={() => setIsMobileMenuOpen(false)} />
-          <NavItem variant="large" href="/mapa" icon={MapPin} label="Mapa" onClick={() => setIsMobileMenuOpen(false)} />
+          <NavItem variant="large" href="/mapa" icon={MapPin} label="Mapa" onClick={() => setIsMoreDrawerOpen(false)} />
           <NavItem variant="large" href="/reportes" icon={BarChart3} label="Reportes" onClick={() => setIsMobileMenuOpen(false)} />
           <NavItem variant="large" href="/eficiencia" icon={Zap} label="EFICIENCIA" onClick={() => setIsMobileMenuOpen(false)} />
           <NavItem variant="large" href="/administracion" icon={Users} label="Administración" onClick={() => setIsMobileMenuOpen(false)} />

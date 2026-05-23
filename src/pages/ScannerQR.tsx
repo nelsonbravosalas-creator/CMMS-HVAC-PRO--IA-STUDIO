@@ -24,6 +24,61 @@ const LIB_URL = "https://unpkg.com/html5-qrcode";
 
 type QRMode = "main" | "camera" | "upload" | "manual" | "generate" | "result";
 
+type ParsedScanResult =
+  | { kind: "tag"; tag: string }
+  | { kind: "invalid"; message: string };
+
+const TRUSTED_HOSTS = new Set(["nelsonbravosalas-creator.github.io", "hvac-cmms.app"]);
+
+function normalizeTagValue(value: string): string {
+  const cleaned = value.trim().replace(/\s+/g, "").toUpperCase();
+  if (!cleaned) return "";
+  if (cleaned.includes("/")) {
+    return cleaned.split("/").pop() || cleaned;
+  }
+  return cleaned;
+}
+
+function parseScannedValue(value: string): ParsedScanResult {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return { kind: "invalid", message: "El código QR está vacío." };
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsedUrl = new URL(trimmed);
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return { kind: "invalid", message: "Solo se aceptan URLs http/https." };
+      }
+
+      const isSameOrigin = typeof window !== "undefined" && parsedUrl.hostname === window.location.hostname;
+      const isTrustedHost = TRUSTED_HOSTS.has(parsedUrl.hostname);
+
+      if (!isSameOrigin && !isTrustedHost) {
+        return { kind: "invalid", message: "La URL del QR no está autorizada." };
+      }
+
+      const tag = parsedUrl.searchParams.get("tag");
+      if (!tag) {
+        return { kind: "invalid", message: "El QR no contiene un TAG válido." };
+      }
+
+      return { kind: "tag", tag: normalizeTagValue(tag) };
+    } catch {
+      return { kind: "invalid", message: "La URL del QR no es válida." };
+    }
+  }
+
+  const tag = normalizeTagValue(trimmed);
+  if (!tag) {
+    return { kind: "invalid", message: "El código QR no contiene un TAG válido." };
+  }
+
+  return { kind: "tag", tag };
+}
+
 /**
  * Componente interno para el lector de cámara.
  * Aislarlo permite un control más estricto del ciclo de vida del hardware.
@@ -128,21 +183,15 @@ export default function ScannerQR() {
   }, [mode]);
 
   const handleScanSuccess = useCallback((tag: string) => {
-    // Detectar si el contenido es una URL
-    const isUrl = tag.toLowerCase().startsWith('http://') || tag.toLowerCase().startsWith('https://');
-    
-    if (isUrl) {
-      // Redirección inmediata
-      window.location.href = tag;
+    const parsed = parseScannedValue(tag);
+
+    if (parsed.kind === "invalid") {
+      setScannerError(parsed.message);
       return;
     }
 
-    // Si no es URL, procesar como TAG interno
-    let cleanTag = String(tag);
-    if (cleanTag.includes('/')) {
-      cleanTag = cleanTag.split('/').pop() || cleanTag;
-    }
-    setResultTag(cleanTag.trim().toUpperCase());
+    setScannerError(null);
+    setResultTag(parsed.tag);
     setMode("result");
   }, []);
 
@@ -325,7 +374,10 @@ export default function ScannerQR() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button className="flex items-center justify-center gap-3 py-5 bg-blue-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-3xl shadow-xl active:scale-95 transition-all">
+                  <button 
+                    onClick={() => setLocation(`/equipos/${resultTag}`)}
+                    className="flex items-center justify-center gap-3 py-5 bg-blue-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-3xl shadow-xl active:scale-95 transition-all"
+                  >
                     <ExternalLink className="w-4 h-4" /> Ver Ficha
                   </button>
                   <button 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, LogIn, Sun, Moon, ShieldCheck } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -8,6 +9,7 @@ export default function Login() {
   const [showPin, setShowPin] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [, setLocation] = useLocation();
+  const { login } = useAuth();
 
   useEffect(() => {
     // Preserve tag from URL if present
@@ -20,10 +22,10 @@ export default function Login() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo/prototype, any non-empty values work
-    if (email && pin) {
-      localStorage.setItem("is_authenticated", "true");
+    if (email && pin && login(email, pin)) {
       setLocation("/client-selector");
+    } else {
+      alert("Usuario o PIN inválido. Use una credencial válida.");
     }
   };
 

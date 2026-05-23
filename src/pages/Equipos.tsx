@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   Box, 
@@ -20,7 +19,8 @@ import {
   QrCode
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { EQUIPOS_DATA, Equipo } from "../data/equipos";
+import { DataStore, useDataStore } from "../services/dataStore";
+import { Equipo } from "../data/equipos";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import { BulkUploadModal } from "../components/modals/BulkUploadModal";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
@@ -43,6 +43,7 @@ export default function Equipos() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedEqLabel, setSelectedEqLabel] = useState<any | null>(null);
+  const equipos = useDataStore(() => DataStore.getEquipos());
   const [filters, setFilters] = useState<FilterState>(() => {
     const saved = localStorage.getItem("equipos_filters");
     return saved ? JSON.parse(saved) : { search: "", tipo: "", estado: "", area: "", almacen: "" };
@@ -66,7 +67,7 @@ export default function Equipos() {
   }, [filters]);
 
   const filteredEquipos = useMemo(() => {
-    return EQUIPOS_DATA.filter(eq => {
+    return equipos.filter(eq => {
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;
@@ -83,7 +84,7 @@ export default function Equipos() {
       if (valA > valB) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
-  }, [filters, sortField, sortOrder]);
+  }, [equipos, filters, sortField, sortOrder]);
 
   return (
     <div className="flex flex-col gap-6 text-left relative">
@@ -245,7 +246,7 @@ export default function Equipos() {
         )}
       </div>
 
-      {showCreateModal && <CreateAssetModal onClose={() => setShowCreateModal(false)} />}
+      {showCreateModal && <CreateAssetModal onClose={() => setShowCreateModal(false)} onSave={(equipo) => DataStore.addEquipo(equipo)} />}
       {showBulkModal && <BulkUploadModal onClose={() => setShowBulkModal(false)} />}
     </div>
   );

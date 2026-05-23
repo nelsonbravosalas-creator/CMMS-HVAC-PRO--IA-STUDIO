@@ -19,14 +19,15 @@ import {
   MessageSquare,
   Download
 } from "lucide-react";
-import { TICKETS_MOCK, Ticket } from "../data/tickets";
+import { Ticket } from "../data/tickets";
+import { DataStore, useDataStore } from "../services/dataStore";
 import { TicketForm } from "../components/modals/TicketForm";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
 
 export default function Tickets() {
   const { permisos } = useAuth();
-  const [tickets, setTickets] = useState<Ticket[]>(TICKETS_MOCK);
+  const tickets = useDataStore(() => DataStore.getTickets());
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");
 
@@ -138,7 +139,12 @@ export default function Tickets() {
         )}
       </div>
 
-      {showModal && <TicketForm onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <TicketForm
+          onClose={() => setShowModal(false)}
+          onSave={(ticket) => setTickets(prev => [...prev, ticket])}
+        />
+      )}
     </div>
   );
 }

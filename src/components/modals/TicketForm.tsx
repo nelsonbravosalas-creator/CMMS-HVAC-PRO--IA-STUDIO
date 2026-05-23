@@ -4,9 +4,12 @@ import {
 } from 'lucide-react';
 import { AssetSearchModal } from './AssetSearchModal';
 import { EQUIPOS_DATA } from '../../data/equipos';
+import { DataStore } from '../../services/dataStore';
+import { Ticket } from '../../data/tickets';
 
 interface TicketFormProps {
   onClose: () => void;
+  onSave?: (ticket: Ticket) => void;
   equipoTag?: string;
 }
 
@@ -17,13 +20,18 @@ const ALMACEN_LABELS: Record<string, string> = {
   '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
 };
 
-export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: initialTag }) => {
+export const TicketForm: React.FC<TicketFormProps> = ({ onClose, onSave, equipoTag: initialTag }) => {
   const [showAssetSearch, setShowAssetSearch] = useState(false);
   const [tag, setTag] = useState(initialTag || "");
   const [equipoDesc, setEquipoDesc] = useState("");
   const [cliente, setCliente] = useState("");
   const [sucursal, setSucursal] = useState("");
-  
+  const [title, setTitle] = useState("");
+  const [priority, setPriority] = useState<'baja' | 'media' | 'alta' | 'critica'>('baja');
+  const [ticketType, setTicketType] = useState<'falla' | 'inspeccion' | 'consulta'>('falla');
+  const [description, setDescription] = useState("");
+  const [assigned, setAssigned] = useState('Nelson Bravo');
+
   // Search Modal States
   const [searchQuery, setSearchQuery] = useState("");
   const [searchClient, setSearchClient] = useState("");
@@ -47,6 +55,32 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     setShowAssetSearch(false);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tag || !title || !description) {
+      alert("Por favor complete TAG, título y descripción antes de guardar.");
+      return;
+    }
+
+    const newTicket: Ticket = {
+      id: `TK-${Date.now()}`,
+      tag,
+      titulo: title,
+      descripcion: description,
+      tipo: ticketType,
+      prioridad: priority,
+      estado: 'abierto',
+      creador: 'Nelson Bravo',
+      asignado: assigned,
+      fecha: new Date().toISOString().split('T')[0],
+      notas: ''
+    };
+
+    DataStore.addTicket(newTicket);
+    onSave?.(newTicket);
+    onClose();
+  };
+
   const today = new Date().toLocaleDateString('es-CL');
 
   return (
@@ -62,7 +96,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
             <button onClick={onClose} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
           </div>
 
-          <form className="p-8 space-y-6 overflow-y-auto">
+          <form className="p-8 space-y-6 overflow-y-auto" onSubmit={handleSubmit}>
             {/* Asset Link Section */}
             <div className="bg-blue-50/30 p-6 rounded-[32px] border border-blue-100/50 space-y-4">
               <div className="flex justify-between items-center">
@@ -133,41 +167,64 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Título del Ticket</label>
-              <input type="text" placeholder="EJ: FALLA COMPRESOR SALA B" className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="EJ: FALLA COMPRESOR SALA B"
+                className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Prioridad</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500">
-                  <option>Baja</option>
-                  <option>Media</option>
-                  <option>Alta</option>
-                  <option>CRÍTICA</option>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+                >
+                  <option value="baja">Baja</option>
+                  <option value="media">Media</option>
+                  <option value="alta">Alta</option>
+                  <option value="critica">Crítica</option>
                 </select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-slate-400">Tipo Incidencia</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500">
-                  <option>Falla Técnica</option>
-                  <option>Mejora Solicitada</option>
-                  <option>Consulta Preventiva</option>
-                  <option>Garantía</option>
+                <select
+                  value={ticketType}
+                  onChange={(e) => setTicketType(e.target.value as any)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+                >
+                  <option value="falla">Falla Técnica</option>
+                  <option value="inspeccion">Inspección</option>
+                  <option value="consulta">Consulta</option>
                 </select>
               </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Descripción del Problema</label>
-              <textarea rows={3} placeholder="Detalle el problema observado..." className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500" />
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Detalle el problema observado..."
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+              />
             </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Asignar Personal</label>
-              <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500">
-                <option>Nelson Bravo (Tech Lead)</option>
-                <option>Gonzalo Bravo (Senior Tech)</option>
-                <option>Disponible para cualquiera</option>
+              <select
+                value={assigned}
+                onChange={(e) => setAssigned(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+              >
+                <option value="Nelson Bravo">Nelson Bravo (Tech Lead)</option>
+                <option value="Gonzalo Bravo">Gonzalo Bravo (Senior Tech)</option>
+                <option value="Equipo Disponible">Disponible para cualquiera</option>
               </select>
             </div>
 

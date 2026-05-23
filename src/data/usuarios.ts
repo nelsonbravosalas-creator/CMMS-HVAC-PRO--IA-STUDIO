@@ -22,7 +22,7 @@ export const USUARIOS_MOCK: Usuario[] = [
     id: 'U2',
     nombre: 'Gonzalo Bravo',
     correo: 'gbravo.nbyb@gmail.com',
-    perfil: 'Administrador',
+    perfil: 'administrador',
     activo: true,
     puedeEditarMantenimientos: true,
     pin: '3210'

@@ -3,13 +3,15 @@ import LoadingIndicator from '../LoadingIndicator';
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator
 } from 'lucide-react';
-import { EQUIPOS_DATA } from '../../data/equipos';
+import { EQUIPOS_DATA, Equipo } from '../../data/equipos';
+import { DataStore } from '../../services/dataStore';
 
 interface CreateAssetModalProps {
   onClose: () => void;
+  onSave?: (equipo: Equipo) => void;
 }
 
-export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) => {
+export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose, onSave }) => {
   const [tagData, setTagData] = useState({
     almacen: '21-STK',
     tipo: 'AC',
@@ -21,6 +23,37 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [voltaje, setVoltaje] = useState<number>(220);
   const [corriente, setCorriente] = useState<number>(10);
   const potencia = (voltaje * corriente) / 1000;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
+    const newEquipo: Equipo = {
+      tag: fullTag,
+      nombre: tagData.nombreEquipo,
+      tipo: tipoMap[tagData.tipo] || tagData.tipo,
+      marca: 'N/A',
+      modelo: 'N/A',
+      serie: '',
+      ubicacion: almacenMap[tagData.almacen] || tagData.almacen,
+      area: almacenMap[tagData.almacen] || tagData.almacen,
+      capacidad: potencia.toFixed(0),
+      voltaje: voltaje.toString(),
+      corriente: corriente.toString(),
+      refrigerante: 'R-410A',
+      fechaInstalacion: new Date().toISOString().split('T')[0],
+      vidaUtil: 10,
+      estado: 'operativo',
+      ultimoMantenimiento: new Date().toISOString().split('T')[0],
+      proximoMantenimiento: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      horasOperacion: 0,
+      tecnicos: ['Nelson Bravo'],
+      notas: 'Activo registrado desde el módulo de creación rápida.'
+    };
+
+    DataStore.addEquipo(newEquipo);
+    onSave?.(newEquipo);
+    onClose();
+  };
 
   useEffect(() => {
     // Buscar el máximo correlativo actual para esta sucursal y tipo
@@ -122,7 +155,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
              <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
           </div>
 
-          <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-8" onSubmit={handleSubmit}>
              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">Sucursal / Almacén</label>

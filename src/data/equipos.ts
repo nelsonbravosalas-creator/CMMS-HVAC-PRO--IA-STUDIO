@@ -14,7 +14,7 @@ export interface Equipo {
   refrigerante: string;
   fechaInstalacion: string;
   vidaUtil: number;
-  estado: 'Operativo' | 'Falla' | 'Mantenimiento' | 'Baja'; 
+  estado: 'operativo' | 'falla' | 'mantenimiento' | 'baja';
   ultimoMantenimiento: string;
   proximoMantenimiento: string;
   horasOperacion: number;
@@ -191,7 +191,7 @@ export const EQUIPOS_DATA: Equipo[] = [
     "estado": "operativo",
     "ultimoMantenimiento": "2026-02-02",
     "proximoMantenimiento": "2026-05-03",
-    "hoursOperacion": 0,
+    "horasOperacion": 0,
     "tecnicos": [
       "Nelson Bravo",
       "Gonzalo Bravo"
