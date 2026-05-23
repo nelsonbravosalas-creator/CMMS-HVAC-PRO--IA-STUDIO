@@ -17,6 +17,7 @@ import {
   Send
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
 
 // URL de la librería para carga dinámica
@@ -142,6 +143,7 @@ const QRScannerView = memo(({ onScanSuccess, onScannerError, selectedCameraId }:
 });
 
 export default function ScannerQR() {
+  const [, setLocation] = useLocation();
   const [mode, setMode] = useState<QRMode>("main");
   const [resultTag, setResultTag] = useState<string>("");
   const [cameras, setCameras] = useState<any[]>([]);

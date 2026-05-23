@@ -142,7 +142,7 @@ export default function Tickets() {
       {showModal && (
         <TicketForm
           onClose={() => setShowModal(false)}
-          onSave={(ticket) => setTickets(prev => [...prev, ticket])}
+          onSave={(ticket) => DataStore.addTicket(ticket)}
         />
       )}
     </div>

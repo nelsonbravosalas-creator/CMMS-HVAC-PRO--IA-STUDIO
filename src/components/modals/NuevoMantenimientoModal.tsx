@@ -3,17 +3,18 @@ import {
   X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User
 } from 'lucide-react';
 import { DataStore } from '../../services/dataStore';
-import { Mantenimiento } from '../../data/mantenimientos';
+import { Mantenimiento } from '../../data/preventive_maintenance';
 
 interface NuevoMantenimientoModalProps {
   onClose: () => void;
   onSave?: (mantenimiento: Mantenimiento) => void;
   duplicateId?: string;
+  equipoTag?: string;
 }
 
-export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = ({ onClose, onSave, duplicateId }) => {
+export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = ({ onClose, onSave, duplicateId, equipoTag }) => {
   const [hasChanges, setHasChanges] = useState(false);
-  const [tag, setTag] = useState('');
+  const [tag, setTag] = useState(equipoTag || '');
   const [serviceType, setServiceType] = useState<'preventivo' | 'correctivo' | 'inspeccion' | 'instalacion'>('preventivo');
   const [status, setStatus] = useState<'programado' | 'realizado' | 'ejecutado' | 're-programado' | 'anulado'>('programado');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);

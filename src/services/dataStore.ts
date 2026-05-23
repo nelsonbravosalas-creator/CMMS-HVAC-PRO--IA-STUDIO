@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { EQUIPOS_DATA, Equipo } from "../data/assets";
 import { TICKETS_MOCK, Ticket } from "../data/work_orders";
 import { MANTENIMIENTOS_MOCK, Mantenimiento } from "../data/preventive_maintenance";
@@ -226,7 +227,7 @@ export const DataStore = {
     const next = [...tickets, newTicket];
     
     // Regla de Negocio: Si el ticket es una falla, actualizar estado del equipo
-    if (newTicket.prioridad === "urgente" || newTicket.estado === "abierto") {
+    if (newTicket.prioridad === "critica" || newTicket.estado === "abierto") {
       this.updateEquipoStatus(newTicket.tag, "falla");
     }
 
@@ -317,7 +318,7 @@ export function useDataStore<T>(getter: () => T) {
     const unsubscribe = DataStore.subscribe(() => {
       setData(getter());
     });
-    return unsubscribe;
+    return () => { unsubscribe(); };
   }, [getter]);
 
   return data;

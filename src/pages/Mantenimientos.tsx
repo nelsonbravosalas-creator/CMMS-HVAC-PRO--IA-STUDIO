@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   X
 } from "lucide-react";
+import { Link } from "wouter";
 import { Mantenimiento } from "../data/preventive_maintenance";
 import { DataStore, useDataStore } from "../services/dataStore";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
@@ -149,7 +150,7 @@ export default function Mantenimientos() {
       </div>
 
       {showModal && <NuevoMantenimientoModal onClose={() => setShowModal(false)} />}
-      {showCalendar && <MaintenanceCalendar onClose={() => setShowCalendar(false)} events={[]} />}
+      {showCalendar && <MaintenanceCalendar onClose={() => setShowCalendar(false)} />}
     </div>
   );
 }
