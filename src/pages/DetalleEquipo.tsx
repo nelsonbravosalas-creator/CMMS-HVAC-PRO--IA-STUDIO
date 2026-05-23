@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   ArrowLeft, 
   Settings2, 
@@ -22,11 +22,18 @@ import {
   Copy,
   Info,
   Edit2,
-  ScanLine
+  ScanLine,
+  X,
+  Wrench,
+  BarChart3
 } from "lucide-react";
 import { Link, useRoute } from "wouter";
-import { EQUIPOS_DATA, Equipo } from "../data/equipos";
+import { EQUIPOS_DATA, Equipo } from "../data/assets";
+import { SearchableSelect } from "../components/SearchableSelect";
+import { REFRIGERANTES_CHILE } from "../data/refrigerantes";
 import { TicketForm } from "../components/modals/TicketForm";
+import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
+import { db } from "../db/database";
 import { 
   BarChart, 
   Bar, 
@@ -39,15 +46,50 @@ import {
   Line
 } from "recharts";
 
+import { useAppStore } from "../store/useAppStore";
+import { useAssets } from "../hooks/useAssets";
+
 type Tab = "info" | "historial" | "historico" | "documentos";
 
 export default function DetalleEquipo() {
   const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
   const tag = params ? params.tag : undefined;
-  const equipo = tag ? EQUIPOS_DATA.find(e => e.tag === tag) : undefined;
+  
+  const assets = useAppStore(state => state.assets);
+  const loading = useAppStore(state => state.isLoading);
+  const equipo = useMemo(() => assets.find(a => a.tag === tag), [assets, tag]);
+
+  const { editAsset } = useAssets();
+  
+  const preventive_maintenance = useAppStore(state => state.preventive_maintenance);
+  const historialMantenimiento = useMemo(() => 
+    preventive_maintenance.filter(m => m.equipo_tag === tag),
+    [preventive_maintenance, tag]
+  );
+  
   const [activeTab, setActiveTab] = useState<Tab>("info");
   const [isEditing, setIsEditing] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
+  const [showMantenimientoForm, setShowMantenimientoForm] = useState(false);
+  const [formData, setFormData] = useState<any>({});
+
+  useEffect(() => {
+    if (equipo) setFormData(equipo);
+  }, [equipo]);
+
+  const handleSave = async () => {
+    if (!equipo) return;
+    try {
+      await editAsset(equipo.uuid_sync, formData);
+      setIsEditing(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500 font-medium">Cargando datos del equipo...</div>;
+  }
 
   if (!equipo) {
     return (
@@ -69,7 +111,7 @@ export default function DetalleEquipo() {
         <div className="flex items-center gap-4">
           <Link href="/equipos">
             <button className="p-2.5 hover:bg-slate-100 text-slate-400 hover:text-slate-900 rounded-xl transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+              <X className="w-5 h-5" />
             </button>
           </Link>
           <div>
@@ -87,15 +129,20 @@ export default function DetalleEquipo() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-           <button onClick={() => setIsEditing(!isEditing)} className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isEditing ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+           <button 
+             onClick={() => isEditing ? handleSave() : setIsEditing(true)} 
+             className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isEditing ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+           >
               <Plus className="w-4 h-4" /> {isEditing ? 'Guardar Cambios' : 'Editar Ficha'}
            </button>
-           <button className="p-2.5 bg-slate-50 text-slate-400 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-all">
-              <Share2 className="w-4 h-4" />
-           </button>
-           <button className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 rounded-xl hover:bg-red-50 transition-all">
-              <Trash2 className="w-4 h-4" />
-           </button>
+           {isEditing && (
+             <button 
+               onClick={() => setIsEditing(false)} 
+               className="px-4 py-2.5 bg-red-100 text-red-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-red-200 transition-all font-black"
+             >
+               Cancelar
+             </button>
+           )}
         </div>
       </div>
 
@@ -141,26 +188,41 @@ export default function DetalleEquipo() {
                          <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Especificaciones Maestras</h3>
                       </div>
                       <div className="space-y-4">
-                         <ParamRow label="Nombre del Activo" value={equipo.nombre} editable={isEditing} />
-                         <ParamRow label="Tipo de Equipo" value={equipo.tipo} editable={isEditing} />
-                         <ParamRow label="Marca / Fabr." value={equipo.marca} editable={isEditing} />
-                         <ParamRow label="Modelo / Serie" value={`${equipo.modelo} / ${equipo.serie || 'N/A'}`} editable={isEditing} />
-                         <ParamRow label="Capacidad (BTU)" value={`${equipo.capacidad}`} editable={isEditing} />
-                         <ParamRow label="Refrigerante" value={equipo.refrigerante} editable={isEditing} />
+                         <ParamRow label="Nombre del Activo" value={formData.nombre} field="nombre" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Tipo de Equipo" value={formData.tipo} field="tipo" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Marca / Fabr." value={formData.marca} field="marca" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Modelo / Serie" value={`${formData.modelo} / ${formData.serie || 'N/A'}`} field="modelo" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Capacidad (BTU)" value={`${formData.capacidad}`} field="capacidad" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         
+                         <div className="flex flex-col gap-1 group text-left">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Refrigerante</span>
+                            {isEditing ? (
+                               <SearchableSelect
+                                 options={REFRIGERANTES_CHILE}
+                                 value={formData.refrigerante || ''}
+                                 onChange={(val) => setFormData({...formData, refrigerante: val})}
+                                 placeholder="Buscar o crear..."
+                                 allowCreate={true}
+                                 disabled={false}
+                               />
+                            ) : (
+                               <p className="text-sm font-black text-slate-700 tracking-tight uppercase group-hover:text-slate-900 transition-colors">{formData.refrigerante || 'S/I'}</p>
+                            )}
+                         </div>
                       </div>
                    </div>
-
+ 
                    <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6">
                       <div className="flex items-center gap-3 pb-4 border-b border-slate-50">
                          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Layout className="w-4 h-4" /></div>
                          <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Ubicación y Vida Útil</h3>
                       </div>
                       <div className="space-y-4">
-                         <ParamRow label="Área / Departamento" value={equipo.area} editable={isEditing} />
-                         <ParamRow label="Ubicación Física" value={equipo.ubicacion} editable={isEditing} />
-                         <ParamRow label="Vida Útil (Años)" value={`${equipo.vidaUtil} años`} editable={isEditing} />
-                         <ParamRow label="Voltaje / Corriente" value={`${equipo.voltaje}V / ${equipo.corriente}A`} editable={isEditing} />
-                         <ParamRow label="Fecha Instalación" value={equipo.fechaInstalacion || 'S/I'} editable={isEditing} />
+                         <ParamRow label="Área / Departamento" value={formData.area} field="area" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Ubicación Física" value={formData.ubicacion} field="ubicacion" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Vida Útil (Años)" value={`${formData.vida_util}`} field="vida_util" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Voltaje / Corriente" value={`${formData.voltaje}V / ${formData.corriente}A`} field="voltaje" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
+                         <ParamRow label="Fecha Instalación" value={formData.fecha_instalacion || 'S/I'} field="fecha_instalacion" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                       </div>
                    </div>
                 </div>
@@ -169,7 +231,7 @@ export default function DetalleEquipo() {
                 <div className="bg-white p-6 rounded-3xl border border-slate-200">
                    <div className="flex justify-between items-center mb-8">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><BarChart className="w-4 h-4" /></div>
+                        <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><BarChart3 className="w-4 h-4" /></div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Resumen de Costos e Incidencias (12 meses)</h3>
                       </div>
                       <div className="text-[10px] font-black text-emerald-600 uppercase">Ahorro Estimado: +12% vs Promedio</div>
@@ -197,35 +259,40 @@ export default function DetalleEquipo() {
              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Registro de Intervenciones</h3>
-                   <button className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-2">
+                   <button 
+                    onClick={() => setShowMantenimientoForm(true)}
+                    className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center gap-2"
+                   >
                       <Plus className="w-3.5 h-3.5" /> Programar Mantenimiento
                    </button>
                 </div>
                 <div className="divide-y divide-slate-50">
-                   {[1, 2, 3].map(i => (
-                     <div key={i} className="p-6 hover:bg-slate-50 transition-colors group">
-                        <div className="flex justify-between items-start mb-4">
-                           <div className="flex items-center gap-3">
-                              <div className="p-2.5 bg-slate-100 text-slate-500 rounded-xl"><RefreshCw className="w-4 h-4" /></div>
-                              <div>
-                                 <h4 className="text-sm font-black text-slate-900 uppercase">Mantenimiento Preventivo Bimestral</h4>
-                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">REALIZADO EL 12/03/2026 POR NELSON BRAVO</p>
-                              </div>
-                           </div>
-                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"><Edit2 className="w-3.5 h-3.5" /></button>
-                              <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-slate-900"><Copy className="w-3.5 h-3.5" /></button>
-                              <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
-                           </div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[10px] font-bold uppercase">
-                           <div><span className="text-slate-400 block mb-1">Estado Filtros</span> <span className="text-emerald-600">Limpieza OK</span></div>
-                           <div><span className="text-slate-400 block mb-1">Presión Ref.</span> <span className="text-slate-700">120 PSI</span></div>
-                           <div><span className="text-slate-400 block mb-1">Consumo Eléc.</span> <span className="text-slate-700">4.2A</span></div>
-                           <div><span className="text-slate-400 block mb-1">Insumos</span> <span className="text-slate-700">Recarga R-410A</span></div>
-                        </div>
-                     </div>
-                   ))}
+                   {historialMantenimiento.length === 0 ? (
+                     <div className="p-20 text-center text-slate-400 italic text-xs font-bold uppercase">No hay registros de mantenimiento para este equipo</div>
+                   ) : (
+                     historialMantenimiento.map(m => (
+                       <div key={m.uuid_sync} className="p-6 hover:bg-slate-50 transition-colors group">
+                          <div className="flex justify-between items-start mb-4">
+                             <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-slate-100 text-slate-500 rounded-xl"><RefreshCw className="w-4 h-4" /></div>
+                                <div>
+                                   <h4 className="text-sm font-black text-slate-900 uppercase">{m.tipo}</h4>
+                                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">REALIZADO EL {m.fecha} POR {m.tecnico}</p>
+                                </div>
+                             </div>
+                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600"><Edit2 className="w-3.5 h-3.5" /></button>
+                                <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-slate-900"><Copy className="w-3.5 h-3.5" /></button>
+                                <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                             </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px] font-bold uppercase mt-2">
+                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Hallazgos</span> <span className="text-slate-700">{m.hallazgos || 'Ninguno'}</span></div>
+                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Acciones Tomadas</span> <span className="text-slate-700">{m.descripcion || (m as any).acciones || 'Ninguna'}</span></div>
+                          </div>
+                       </div>
+                     ))
+                   )}
                 </div>
              </div>
            )}
@@ -314,8 +381,11 @@ export default function DetalleEquipo() {
                  >
                     <PenTool className="w-4 h-4" /> Abrir Ticket de Falla
                  </button>
-                 <button className="w-full py-4 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-white/10">
-                    <Layout className="w-4 h-4" /> Duplicar Mantenimiento
+                 <button 
+                  onClick={() => setShowMantenimientoForm(true)}
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-blue-500"
+                 >
+                    <Wrench className="w-4 h-4" /> Registrar Mantenimiento
                  </button>
                  <button className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
                     <Trash2 className="w-4 h-4" /> Revertir Último Cambio
@@ -327,14 +397,16 @@ export default function DetalleEquipo() {
            <div className="bg-white p-8 rounded-[40px] border border-slate-200 space-y-6">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Técnicos Asignados</h3>
               <div className="space-y-4">
-                 {equipo.tecnicos.map(t => (
+                 {equipo.tecnicos && equipo.tecnicos.length > 0 ? equipo.tecnicos.map(t => (
                    <div key={t} className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
-                         {t.split(' ').map(n => n[0]).join('')}
+                         {t ? t.split(' ').map(n => n[0]).join('') : ''}
                       </div>
                       <div className="text-xs font-black text-slate-900 uppercase tracking-tight">{t}</div>
                    </div>
-                 ))}
+                 )) : (
+                   <div className="text-xs text-slate-400 font-medium">Sin técnicos asignados</div>
+                 )}
                  <button className="w-full py-3 bg-slate-50 text-slate-400 hover:text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
                     Gestionar Técnicos
                  </button>
@@ -349,22 +421,31 @@ export default function DetalleEquipo() {
           equipoTag={equipo.tag}
         />
       )}
+      {showMantenimientoForm && (
+        <NuevoMantenimientoModal
+          onClose={() => {
+            setShowMantenimientoForm(false);
+          }}
+          equipoTag={equipo.tag}
+        />
+      )}
     </div>
   );
 }
 
-function ParamRow({ label, value, editable }: { label: string, value: string, editable?: boolean }) {
+function ParamRow({ label, value, field, onChange, editable }: { label: string, value: string, field: string, onChange: (f: string, v: string) => void, editable?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 group">
+    <div className="flex flex-col gap-1 group text-left">
        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{label}</span>
        {editable ? (
          <input 
            type="text" 
-           defaultValue={value}
-           className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+           value={value || ''}
+           onChange={(e) => onChange(field, e.target.value)}
+           className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none w-full"
          />
        ) : (
-         <p className="text-sm font-black text-slate-700 tracking-tight uppercase group-hover:text-slate-900 transition-colors uppercase">{value}</p>
+         <p className="text-sm font-black text-slate-700 tracking-tight uppercase group-hover:text-slate-900 transition-colors uppercase">{value || 'S/I'}</p>
        )}
     </div>
   );

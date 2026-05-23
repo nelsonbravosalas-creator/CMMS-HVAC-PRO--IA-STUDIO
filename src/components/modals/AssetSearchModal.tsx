@@ -11,23 +11,25 @@ import {
   Users,
   History
 } from 'lucide-react';
-import { INFORMES_MOCK } from "../../data/informes";
-import { EQUIPOS_DATA } from "../../data/equipos";
+import { INFORMES_MOCK } from "../../data/reports";
+import { EQUIPOS_DATA } from "../../data/assets";
+import { SearchableSelect } from '../SearchableSelect';
+import { useAppStore } from '../../store/useAppStore';
 
 interface AssetSearchModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
-  onSelect: (eq: any) => void;
-  tag: string;
-  setTag: (val: string) => void;
-  cliente: string;
-  setCliente: (val: string) => void;
-  sucursal: string;
-  setSucursal: (val: string) => void;
-  descripcion: string;
-  setDescripcion: (val: string) => void;
-  clients: Record<string, string>;
-  results: any[];
+  onSelect?: (eq: any) => void;
+  tag?: string;
+  setTag?: (val: string) => void;
+  cliente?: string;
+  setCliente?: (val: string) => void;
+  sucursal?: string;
+  setSucursal?: (val: string) => void;
+  descripcion?: string;
+  setDescripcion?: (val: string) => void;
+  clients?: Record<string, string>;
+  results?: any[];
 }
 
 export function AssetSearchModal({ 
@@ -41,14 +43,23 @@ export function AssetSearchModal({
   clients, 
   results 
 }: AssetSearchModalProps) {
-  const [activeTab, setActiveTab] = useState<'activos' | 'informes' | 'qr'>('activos');
+  const [activeTab, setActiveTab] = useState<'assets' | 'reports' | 'qr'>('assets');
   const today = new Date().toLocaleDateString('es-CL');
+  const storeClients = useAppStore(state => state.clients);
+  const storeBranches = useAppStore(state => state.branches);
+
+  // If sucursal needs to be constrained to selected cliente
+  const filteredBranches = sucursal && Object.keys(storeBranches || {}).length > 0 
+    ? storeBranches 
+    : storeBranches; 
+  // We can just use storeBranches for now, filtering by cliente if needed.
+  
   
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-       <div className="bg-white w-full h-full md:h-auto md:max-w-4xl md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-screen md:max-h-[90vh]">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+       <div className="bg-white w-full h-[100dvh] md:h-auto md:max-w-4xl md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] md:max-h-[90vh]">
           {/* Header */}
           <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50">
              <div>
@@ -68,14 +79,14 @@ export function AssetSearchModal({
           {/* Navigation Tabs */}
           <div className="flex p-2 bg-slate-100/50 border-b border-slate-100">
             <button 
-              onClick={() => setActiveTab('activos')}
-              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'activos' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setActiveTab('assets')}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'assets' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Activos
             </button>
             <button 
-              onClick={() => setActiveTab('informes')}
-              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'informes' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              onClick={() => setActiveTab('reports')}
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === 'reports' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Informes
             </button>
@@ -90,8 +101,8 @@ export function AssetSearchModal({
             </button>
           </div>
 
-          <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1">
-             {activeTab === 'activos' && (
+          <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
+             {activeTab === 'assets' && (
                <>
                  <form 
                    onSubmit={(e) => {
@@ -114,32 +125,45 @@ export function AssetSearchModal({
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Cliente</label>
-                       <div className="relative">
-                          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                          <input 
-                            type="text"
-                            value={cliente}
-                            onChange={(e) => setCliente(e.target.value)}
-                            placeholder="Nombre Cliente..."
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
-                          />
-                       </div>
+                       <SearchableSelect
+                         options={[
+                           { value: "", label: "Todos los Clientes" },
+                           ...(storeClients || []).map((c: any) => ({
+                             value: c.nombre,
+                             label: c.nombre
+                           }))
+                         ]}
+                         value={cliente}
+                         onChange={(val) => {
+                           if (setCliente) setCliente(val);
+                           if (setSucursal) setSucursal("");
+                         }}
+                         placeholder="Todos los Clientes"
+                         icon={<Users className="w-4 h-4" />}
+                       />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Sucursal</label>
-                       <div className="relative">
-                          <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-                          <select 
-                            value={sucursal}
-                            onChange={(e) => setSucursal(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
-                          >
-                             <option value="">Todas las Sucursales</option>
-                             {Object.entries(clients).map(([k, v]: any) => (
-                               <option key={k} value={k}>{v}</option>
-                             ))}
-                          </select>
-                       </div>
+                       <SearchableSelect
+                         options={[
+                           { value: "", label: "Todas las Sucursales" },
+                           ...(storeBranches || [])
+                             .filter((b: any) => {
+                               if (!cliente) return true;
+                               const clientObj = storeClients.find(c => c.uuid_sync === b.cliente_id);
+                               return clientObj ? clientObj.nombre === cliente : false;
+                             })
+                             .map((b: any) => ({
+                               value: b.nombre,
+                               label: b.nombre,
+                               subtitle: b.codigo
+                             }))
+                         ]}
+                         value={sucursal}
+                         onChange={(val) => { if (setSucursal) setSucursal(val); }}
+                         placeholder="Todas las Sucursales"
+                         icon={<Building2 className="w-4 h-4" />}
+                       />
                     </div>
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Descripción del Equipo</label>
@@ -212,7 +236,7 @@ export function AssetSearchModal({
                </>
              )}
 
-             {activeTab === 'informes' && (
+             {activeTab === 'reports' && (
                <div className="space-y-6">
                  <div className="space-y-2">
                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Buscar Informes Recientes</label>

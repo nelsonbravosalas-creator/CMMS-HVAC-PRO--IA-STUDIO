@@ -12,20 +12,42 @@ import {
   CheckCircle2,
   ScanLine,
   ChevronRight,
-  MoreVertical
+  MoreVertical,
+  Download
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { INFORMES_MOCK, InformeHVAC } from "../data/informes";
+import { ReportBulkUploadModal } from "../components/modals/ReportBulkUploadModal";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "../db/database";
 
 export default function InformesHVAC() {
   const [filter, setFilter] = useState("");
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [, setLocation] = useLocation();
 
-  const filtered = INFORMES_MOCK.filter(inf => 
-    inf.tag.toLowerCase().includes(filter.toLowerCase()) ||
-    inf.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
-    inf.id.toLowerCase().includes(filter.toLowerCase())
-  );
+  const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
+  const activeClientUid = localStorage.getItem("active_client");
+
+  const filtered = rawReports.filter(inf => {
+    const data = inf.data || {};
+    if (activeClientUid && data.generalData?.cliente !== activeClientUid) {
+      return false;
+    }
+    const tg = data.generalData?.equipoTag || "";
+    const tec = data.generalData?.tecnico || "";
+    // filter logic
+    return tg.toLowerCase().includes(filter.toLowerCase()) ||
+           tec.toLowerCase().includes(filter.toLowerCase()) ||
+           inf.id.toLowerCase().includes(filter.toLowerCase());
+  }).map(inf => ({
+    id: inf.id,
+    fecha: inf.data?.generalData?.fecha || new Date(inf.updated_at || Date.now()).toISOString().split('T')[0],
+    tag: inf.data?.generalData?.equipoTag || "S/T",
+    equipoNombre: inf.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
+    tipoServicio: inf.data?.generalData?.tipoMantenimiento || "Preventivo",
+    tecnico: inf.data?.generalData?.tecnico || "No Asignado",
+    estado: (inf as any).estado || (inf.data?.status || "borrador")
+  }));
 
   return (
     <div className="flex flex-col gap-6 text-left">
@@ -35,6 +57,12 @@ export default function InformesHVAC() {
           <p className="text-slate-500 text-sm font-medium">Informes técnicos, protocolos de firma y entregables.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowBulkUpload(true)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+          >
+            <Download className="w-4 h-4" /> Carga Masiva
+          </button>
           <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
             <ScanLine className="w-4 h-4" /> Escanear QR
           </button>
@@ -48,10 +76,10 @@ export default function InformesHVAC() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatusSummary label="Borradores" count="4" color="slate" />
-        <StatusSummary label="Enviados" count="12" color="blue" />
-        <StatusSummary label="Firmados" count="86" color="emerald" />
-        <StatusSummary label="Bloqueados" count="3" color="amber" />
+        <StatusSummary label="Borradores" count={filtered.filter(i => i.estado === 'borrador').length.toString()} color="slate" />
+        <StatusSummary label="Enviados" count={filtered.filter(i => i.estado === 'enviado').length.toString()} color="blue" />
+        <StatusSummary label="Firmados" count={filtered.filter(i => i.estado === 'firmado').length.toString()} color="emerald" />
+        <StatusSummary label="Bloqueados" count={filtered.filter(i => i.estado === 'bloqueado').length.toString()} color="amber" />
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
@@ -102,11 +130,11 @@ export default function InformesHVAC() {
                   <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 w-fit ${
                     inf.estado === 'firmado' ? 'bg-emerald-100 text-emerald-600' : 
                     inf.estado === 'enviado' ? 'bg-blue-100 text-blue-600' : 
-                    inf.estado === 'bloqueado' ? 'bg-amber-100 text-amber-600' : 
+                    inf.estado === 'en revision' ? 'bg-amber-100 text-amber-600' : 
                     'bg-slate-100 text-slate-600'
                   }`}>
                     {inf.estado === 'firmado' && <CheckCircle2 className="w-2.5 h-2.5" />}
-                    {inf.estado === 'bloqueado' && <Lock className="w-2.5 h-2.5" />}
+                    {inf.estado === 'en revision' && <Lock className="w-2.5 h-2.5" />}
                     {inf.estado}
                   </span>
                 </td>
@@ -124,6 +152,10 @@ export default function InformesHVAC() {
           </tbody>
         </table>
       </div>
+      
+      {showBulkUpload && (
+        <ReportBulkUploadModal onClose={() => setShowBulkUpload(false)} />
+      )}
     </div>
   );
 }

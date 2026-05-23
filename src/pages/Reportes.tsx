@@ -123,8 +123,8 @@ export default function Reportes() {
                         <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
                         <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
                         <Legend iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase'}} />
-                        <Line type="monotone" dataKey="tickets" stroke="#2563eb" strokeWidth={3} dot={{r: 4}} />
-                        <Line type="monotone" dataKey="mantenimientos" stroke="#10b981" strokeWidth={3} dot={{r: 4}} />
+                        <Line type="monotone" dataKey="work_orders" stroke="#2563eb" strokeWidth={3} dot={{r: 4}} />
+                        <Line type="monotone" dataKey="preventive_maintenance" stroke="#10b981" strokeWidth={3} dot={{r: 4}} />
                       </LineChart>
                     </ResponsiveContainer>
                  </ChartBox>

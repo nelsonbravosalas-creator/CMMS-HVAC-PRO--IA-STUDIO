@@ -25,12 +25,12 @@ export function ActivityEventModal({ isOpen, onClose, event }: ActivityEventModa
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
           <motion.div 
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="w-full max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh]"
           >
             {/* Header */}
             <div className={`p-6 text-white ${
@@ -54,7 +54,7 @@ export function ActivityEventModal({ isOpen, onClose, event }: ActivityEventModa
             </div>
 
             {/* Body */}
-            <div className="p-6 md:p-8 overflow-y-auto space-y-8 flex-1">
+            <div className="p-6 md:p-8 overflow-y-auto space-y-8 flex-1 min-h-0">
               
               {/* Core Info Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

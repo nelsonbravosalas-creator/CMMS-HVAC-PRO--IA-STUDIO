@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Info, 
   Settings, 
@@ -13,11 +13,54 @@ import {
   Github, 
   Mail,
   HardDrive,
-  Coins
+  Coins,
+  Image as ImageIcon,
+  Upload,
+  Download,
+  FileText
 } from "lucide-react";
+
+import { resetApplicationData } from "../lib/reset";
+import { xmlSyncService } from "../lib/xmlSync";
+import { logger } from "../lib/logger";
 
 export default function Configuracion() {
   const [currency, setCurrency] = useState(() => localStorage.getItem("system_currency") || "CLP");
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const xmlInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportXML = async () => {
+    setIsExporting(true);
+    try {
+      await xmlSyncService.exportToXML();
+      alert("Respaldo XML generado y descargado con éxito.");
+    } catch (e) {
+      alert("Error al exportar XML. Revise la consola.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportXML = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm("Esta acción integrará los datos del archivo XML en su base de datos local. Los registros existentes con el mismo UUID se actualizarán. ¿Desea continuar?")) {
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const count = await xmlSyncService.importFromXML(file);
+      alert(`Importación exitosa: ${count} registros procesados. El sistema se recargará para aplicar los cambios.`);
+      window.location.reload();
+    } catch (e: any) {
+      alert("Error en la importación: " + e.message);
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
 // =========================================================
   // 1. ESTADO Y LÓGICA DE SUBIDA DE LOGO (Persistencia Local)
@@ -30,7 +73,7 @@ export default function Configuracion() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = reader.result;
+        const base64 = reader.result as string;
         setAppLogo(base64);
         localStorage.setItem("system_logo", base64);
       };
@@ -47,10 +90,9 @@ export default function Configuracion() {
     localStorage.setItem("system_currency", currency);
   }, [currency]);
 
-  const resetLocalData = () => {
-    if (confirm("¿Está seguro de limpiar todos los datos locales? Se eliminarán filtros, presets y tickets locales.")) {
-      localStorage.clear();
-      window.location.reload();
+  const handleResetApplication = async () => {
+    if (confirm("¿Está seguro de realizar un RESET TOTAL del sistema? Se eliminarán todos los datos locales (IndexedDB), sesiones, logos y configuraciones. Deberá iniciar sesión nuevamente.")) {
+      await resetApplicationData();
     }
   };
 
@@ -65,7 +107,7 @@ export default function Configuracion() {
          <div className="lg:col-span-2 space-y-8">
             
             <SectionBox title="Acerca del Sistema" icon={<Info className="w-4 h-4" />}>
-               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-center gap-6 mb-6">
+               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-center gap-6 mb-6 text-container-contrast">
                   <div className="w-16 h-16 bg-blue-600 text-white rounded-[24px] flex items-center justify-center shadow-2xl shadow-blue-600/20">
                      <Zap className="w-8 h-8 fill-current" />
                   </div>
@@ -137,7 +179,7 @@ export default function Configuracion() {
                            </button>
                         ))}
                      </div>
-                     <p className="text-[9px] font-medium text-slate-400 mt-2 italic">Afecta visualmente a costos de mantenimiento e informes.</p>
+                     <p className="text-[9px] font-medium text-slate-400 mt-2 italic">Afecta visualmente a costos de mantenimiento e reports.</p>
                   </div>
                </div>
             </SectionBox>
@@ -163,15 +205,47 @@ export default function Configuracion() {
          <div className="lg:col-span-1 space-y-8">
             <SectionBox title="Gestión de Datos" icon={<Database className="w-4 h-4" />} variant="dark">
                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-2 p-4 bg-white/5 rounded-[24px] border border-white/10">
+                     <div className="flex items-center gap-2 mb-2">
+                        <FileText className="w-3 h-3 text-blue-400" />
+                        <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">Respaldo Maestro</span>
+                     </div>
+                     <div className="flex gap-2">
+                        <button 
+                           onClick={handleExportXML} 
+                           disabled={isExporting}
+                           className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                        >
+                           {isExporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                           Exportar XML
+                        </button>
+                        <button 
+                           onClick={() => xmlInputRef.current?.click()} 
+                           disabled={isImporting}
+                           className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase rounded-xl transition-all flex items-center justify-center gap-2 border border-white/10 disabled:opacity-50"
+                        >
+                           {isImporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                           Importar XML
+                        </button>
+                        <input 
+                           type="file" 
+                           ref={xmlInputRef} 
+                           className="hidden" 
+                           accept=".xml" 
+                           onChange={handleImportXML} 
+                        />
+                     </div>
+                  </div>
+
                   <button onClick={() => window.location.reload()} className="w-full py-4 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2">
                      <RefreshCw className="w-4 h-4" /> Recargar Sistema
                   </button>
-                  <button onClick={resetLocalData} className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
-                     <Trash2 className="w-4 h-4" /> Limpiar Datos Locales
+                  <button onClick={handleResetApplication} className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
+                     <Trash2 className="w-4 h-4" /> Reset Maestro de Datos
                   </button>
                </div>
                <p className="text-[9px] font-medium text-white/40 mt-6 leading-relaxed italic">
-                 La limpieza eliminará todos los filtros guardados y estados de sesión. Úselo solo si experimenta comportamientos inesperados.
+                 El respaldo XML mapea todas las tablas de IndexedDB. La importación incorporará los datos respetando los UUIDs existentes.
                </p>
             </SectionBox>
 

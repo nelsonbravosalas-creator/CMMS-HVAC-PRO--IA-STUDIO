@@ -1,6 +1,20 @@
 
+/**
+ * Definiciones de tipos globales y sistema de control de acceso (RBAC).
+ * 
+ * @module types
+ */
+
+/** 
+ * Perfiles de usuario disponibles en el sistema.
+ * Determinan el nivel de acceso y las funcionalidades habilitadas.
+ */
 export type Perfil = 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'programador' | 'cliente' | 'contratista';
 
+/**
+ * Matriz de capacidades funcionales.
+ * Cada booleano activa o desactiva componentes/acciones en la UI.
+ */
 export interface Permisos {
   ver_dashboard: boolean;
   ver_mantenimientos: boolean;
@@ -17,6 +31,9 @@ export interface Permisos {
   ver_ubicacion: boolean;
 }
 
+/**
+ * Objeto Usuario con sus atributos de identidad y perfil.
+ */
 export interface Usuario {
   id: string;
   nombre: string;
@@ -24,9 +41,14 @@ export interface Usuario {
   perfil: Perfil;
   activo: boolean;
   puedeEditarMantenimientos: boolean;
+  /** Código de seguridad para validaciones locales rápidas */
   pin: string;
 }
 
+/**
+ * Configuración maestra de permisos por perfil.
+ * Este objeto es la fuente de verdad para el renderizado condicional de la UI.
+ */
 export const PERMISOS_POR_PERFIL: Record<Perfil, Permisos> = {
   visita: {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,

@@ -30,7 +30,8 @@ import {
   Label
 } from "recharts";
 import { Link } from "wouter";
-import { EQUIPOS_DATA } from "../data/equipos";
+import { useAppStore } from "../store/useAppStore";
+import { ALMACEN_LABELS } from "../data/branches";
 
 const DATA_MONTHLY = [
   { name: 'Ene', cost: 4200, activity: 120 },
@@ -39,13 +40,6 @@ const DATA_MONTHLY = [
   { name: 'Abr', cost: 4800, activity: 130 },
 ];
 
-const ALMACEN_LABELS: Record<string, string> = { 
-  '11-STK': 'Iquique', '12-STK': 'Antofagasta', '13-STK': 'Copiapó', 
-  '21-STK': 'Santiago 14 de la Fama', '21-STK-SB': 'BME La Vara 3310',
-  '23-STK': 'Viña del Mar', '24-STK': 'Rancagua', '31-STK': 'Concepción',
-  '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
-};
-
 const DATA_POWER = [
   { name: 'Santiago', power: 400 },
   { name: 'Antofagasta', power: 320 },
@@ -53,23 +47,42 @@ const DATA_POWER = [
   { name: 'Iquique', power: 150 },
 ];
 
-const DATA_STATUS = [
-  { name: 'Operativo', value: 85, color: '#10b981' },
-  { name: 'Falla', value: 5, color: '#ef4444' },
-  { name: 'Preventivo', value: 10, color: '#f59e0b' },
-];
-
 export default function Dashboard() {
+  const assets = useAppStore(state => state.assets);
+  const work_orders = useAppStore(state => state.work_orders);
+  const loading = useAppStore(state => state.isLoading);
+
+  const activeClient = localStorage.getItem("active_client");
+
+  const clientAssets = useMemo(() => {
+    if (activeClient) {
+      return assets.filter(eq => eq.cliente_id === activeClient);
+    }
+    return assets;
+  }, [assets, activeClient]);
+
+  const clientWorkOrders = useMemo(() => {
+    if (activeClient) {
+      return work_orders.filter(wo => wo.cliente_id === activeClient);
+    }
+    return work_orders;
+  }, [work_orders, activeClient]);
+
+  /** Estado para filtrar por sucursal / almacén */
   const [almacen, setAlmacen] = useState("");
+  /** Estado para filtrar por estado técnico (falla, mantenimiento, operativo) */
   const [estado, setEstado] = useState("");
 
+  /**
+   * Memoización de equipos filtrados.
+   */
   const filteredEquipos = useMemo(() => {
-    return EQUIPOS_DATA.filter(eq => {
+    return clientAssets.filter(eq => {
       const matchAlmacen = almacen ? eq.tag.startsWith(almacen) : true;
       const matchEstado = estado ? eq.estado === estado : true;
       return matchAlmacen && matchEstado;
     });
-  }, [almacen, estado]);
+  }, [clientAssets, almacen, estado]);
 
   const kpis = useMemo(() => {
     const total = filteredEquipos.length;
@@ -85,9 +98,9 @@ export default function Dashboard() {
       mantv,
       operativo,
       disponibilidad: `${disponibilidad}%`,
-      tickets: fallas * 2 // Mocked relation
+      work_orders: clientWorkOrders.filter(t => t.estado === 'abierto' || t.estado === 'en_proceso').length
     };
-  }, [filteredEquipos]);
+  }, [filteredEquipos, clientWorkOrders]);
 
   const dataStatus = useMemo(() => {
     const fallas = filteredEquipos.filter(e => e.estado === 'falla').length;
@@ -107,7 +120,7 @@ export default function Dashboard() {
       {/* Header / Filter Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Salud Operativa</h2>
+          <h2 className="text-2xl font-black text-[#a7e6b1] tracking-tight uppercase">Salud Operativa</h2>
           <p className="text-slate-500 text-sm font-medium">Resumen ejecutivo y monitoreo de activos real-time.</p>
         </div>
         
@@ -116,7 +129,7 @@ export default function Dashboard() {
             <select 
               value={almacen}
               onChange={(e) => setAlmacen(e.target.value)}
-              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 border-r border-slate-100"
+              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 border-r border-slate-100 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10"
             >
               <option value="">Todos los Almacenes</option>
               {Object.entries(ALMACEN_LABELS).map(([k, v]) => (
@@ -126,7 +139,7 @@ export default function Dashboard() {
             <select 
               value={estado}
               onChange={(e) => setEstado(e.target.value)}
-              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600"
+              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 dark:bg-slate-900 dark:text-slate-100"
             >
               <option value="">Cualquier Estado</option>
               <option value="falla">Falla Crítica</option>
@@ -145,10 +158,10 @@ export default function Dashboard() {
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KPICard label="Disponibilidad" value={kpis.disponibilidad} trend="+0.4%" icon={Activity} color="text-emerald-500" />
+        <KPICard label="Disponibilidad" value={kpis.disponibilidad} trend="+0.4%" icon={Activity} color="text-emerald-500" className="text-container-contrast" />
         <KPICard label="MTBF" value="420h" trend="-12h" icon={Clock} color="text-blue-500" />
         <KPICard label="MTTR" value="4.2h" trend="-0.8h" icon={Wrench} color="text-amber-500" />
-        <KPICard label="Tickets Activos" value={kpis.tickets.toString().padStart(2, '0')} icon={Ticket} color="text-red-500" alert={kpis.tickets > 0} />
+        <KPICard label="Tickets Activos" value={kpis.work_orders.toString().padStart(2, '0')} icon={Ticket} color="text-red-500" alert={kpis.work_orders > 0} />
         <KPICard label="Equipos en Falla" value={kpis.fallas.toString().padStart(2, '0')} icon={AlertTriangle} color="text-rose-500" alert={kpis.fallas > 0} />
         <KPICard label="Mantv. Pendientes" value={kpis.mantv.toString().padStart(2, '0')} icon={CheckCircle2} color="text-slate-500" />
       </div>
@@ -294,7 +307,7 @@ export default function Dashboard() {
                   <div className="flex-1">
                     <div className="flex justify-between items-center text-[10px] font-bold mb-1">
                       <span className="text-slate-400 uppercase">Preventivo Programado</span>
-                      <span className="text-blue-600 uppercase">{eq.proximoMantenimiento}</span>
+                      <span className="text-blue-600 uppercase">{eq.proximo_mantenimiento}</span>
                     </div>
                     <p className="text-sm font-bold text-slate-800 uppercase tracking-tight">{eq.nombre} / {eq.tag}</p>
                   </div>
@@ -339,9 +352,9 @@ export default function Dashboard() {
   );
 }
 
-function KPICard({ label, value, trend, icon: Icon, color, alert }: any) {
+function KPICard({ label, value, trend, icon: Icon, color, alert, className = "" }: any) {
   return (
-    <div className={`p-4 bg-white rounded-2xl border shadow-sm flex flex-col gap-2 transition-all hover:shadow-md ${alert ? 'border-red-100 ring-4 ring-red-500/5 pulse-red' : 'border-slate-100'}`}>
+    <div className={`p-4 bg-white rounded-2xl border shadow-sm flex flex-col gap-2 transition-all hover:shadow-md ${alert ? 'border-red-100 ring-4 ring-red-500/5 pulse-red' : 'border-slate-100'} ${className}`}>
       <div className="flex justify-between items-start">
         <div className={`p-2 rounded-lg bg-slate-50 ${color}`}>
           <Icon className="w-4 h-4" />
