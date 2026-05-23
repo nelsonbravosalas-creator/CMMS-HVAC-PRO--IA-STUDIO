@@ -8,6 +8,10 @@ export interface Mantenimiento {
   sucursal: string;
   tecnico: string;
   descripcion: string;
+  uuid_sync?: string;
+  updated_at?: number;
+  created_at?: number;
+  deleted_at?: number;
 }
 
 export const MANTENIMIENTOS_MOCK: Mantenimiento[] = [

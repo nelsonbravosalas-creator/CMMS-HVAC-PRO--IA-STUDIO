@@ -20,6 +20,12 @@ export interface Equipo {
   horasOperacion: number;
   tecnicos: string[];
   notas: string;
+  uuid_sync?: string;
+  updated_at?: number;
+  created_at?: number;
+  deleted_at?: number;
+  cliente_id?: string;
+  sucursal_id?: string;
 }
 
 export const EQUIPOS_DATA: Equipo[] = [

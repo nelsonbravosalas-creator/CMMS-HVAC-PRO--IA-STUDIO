@@ -25,10 +25,21 @@ import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
 
+import { DataStore } from "./services/dataStore";
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [hasClientSelected, setHasClientSelected] = useState<boolean>(false);
   const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    // Trigger sync on mount
+    DataStore.sync();
+    
+    // Periodically sync every 5 minutes
+    const interval = setInterval(() => DataStore.sync(), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const auth = localStorage.getItem("is_authenticated") === "true";

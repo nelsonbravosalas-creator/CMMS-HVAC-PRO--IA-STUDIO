@@ -16,6 +16,9 @@ import {
   Menu,
   Bell,
   WifiOff,
+  Cloud,
+  CloudOff,
+  RefreshCw,
   Moon,
   Sun,
   Download,
@@ -24,7 +27,7 @@ import {
   AlertTriangle,
   Zap,
 } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { DataStore, useDataStore } from "../services/dataStore";
 
@@ -91,8 +94,21 @@ export default function Layout({ children }: LayoutProps) {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showPWABanner, setShowPWABanner] = useState(true);
   const [menuPosition, setMenuPosition] = useState<'left' | 'right'>('right');
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   const pendingSync = useDataStore(() => DataStore.getPendingSyncOperations());
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const stats = {
     ticketsAbiertos: useDataStore(() => DataStore.getTickets().filter(t => t.estado === 'abierto').length),
     mantenimientosPendientes: useDataStore(() => DataStore.getMantenimientos().filter(m => m.estado === 'programado').length),
@@ -223,13 +239,31 @@ export default function Layout({ children }: LayoutProps) {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Sync Status */}
-            {stats.offlineOps > 0 && (
-              <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded">
-                <WifiOff className="w-3 h-3 text-amber-500" />
-                <span className="text-[9px] font-bold text-amber-500 uppercase hidden md:inline">{stats.offlineOps} PENDIENTES</span>
-              </div>
-            )}
+            {/* Sync Status Indicator */}
+            <div className={`flex items-center gap-2 px-2 py-1 rounded border ${
+              !isOnline 
+                ? 'bg-red-500/10 border-red-500/20 text-red-500' 
+                : stats.offlineOps > 0 
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' 
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+            }`}>
+              {!isOnline ? (
+                <>
+                  <WifiOff className="w-3 h-3" />
+                  <span className="text-[9px] font-black uppercase hidden md:inline">Offline</span>
+                </>
+              ) : stats.offlineOps > 0 ? (
+                <>
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  <span className="text-[9px] font-black uppercase hidden md:inline">{stats.offlineOps} Pendientes</span>
+                </>
+              ) : (
+                <>
+                  <Cloud className="w-3 h-3" />
+                  <span className="text-[9px] font-black uppercase hidden md:inline">Sincronizado</span>
+                </>
+              )}
+            </div>
 
             {/* Notifications Bell */}
             <div className="relative cursor-pointer group p-2">

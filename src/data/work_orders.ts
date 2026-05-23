@@ -11,6 +11,10 @@ export interface Ticket {
   asignado: string;
   fecha: string;
   notas: string;
+  uuid_sync?: string;
+  updated_at?: number;
+  created_at?: number;
+  deleted_at?: number;
 }
 
 export const TICKETS_MOCK: Ticket[] = [

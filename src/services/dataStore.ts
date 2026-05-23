@@ -55,6 +55,128 @@ export const DataStore = {
     return () => listeners.delete(listener);
   },
 
+  async sync() {
+    console.log("🔄 Starting synchronization...");
+    const lastSync = Number(localStorage.getItem("cmms:lastSync") || 0);
+    const now = Date.now();
+
+    // 1. Collect local changes (for now we assume everything in localStorage is a potential update)
+    // In a more robust system, we'd track dirty flags or a log of operations.
+    const equipos = this.getEquipos();
+    const tickets = this.getTickets();
+    const mantenimientos = this.getMantenimientos();
+
+    const payload = {
+      lastSync,
+      inserts: [
+        ...equipos.map(e => ({ table: 'assets', uuid_sync: e.tag, data: e, updated_at: now })),
+        ...tickets.map(t => ({ table: 'work_orders', uuid_sync: t.id, data: t, updated_at: now })),
+        ...mantenimientos.map(m => ({ table: 'preventive_maintenance', uuid_sync: m.id, data: m, updated_at: now }))
+      ],
+      updates: [],
+      deletes: []
+    };
+
+    try {
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error(`Sync failed: ${response.statusText}`);
+      
+      const result = await response.json();
+      console.log("✅ Sync push completed:", result);
+
+      // 2. Fetch updates from server
+      for (const table of ['assets', 'work_orders', 'preventive_maintenance']) {
+        const res = await fetch(`/api/sync/${table}?since=${lastSync}`);
+        if (res.ok) {
+          const { data } = await res.json();
+          if (data && data.length > 0) {
+            this.mergeRemoteData(table, data);
+          }
+        }
+      }
+
+      localStorage.setItem("cmms:lastSync", now.toString());
+      notify();
+    } catch (error) {
+      console.error("❌ Sync error:", error);
+    }
+  },
+
+  mergeRemoteData(table: string, remoteData: any[]) {
+    if (table === 'assets') {
+      const local = this.getEquipos();
+      const next = [...local];
+      remoteData.forEach(r => {
+        const index = next.findIndex(e => e.tag === r.tag || e.uuid_sync === r.uuid_sync);
+        const remoteUpdated = Number(r.updated_at || 0);
+        const localUpdated = index >= 0 ? Number(next[index].updated_at || 0) : -1;
+
+        if (remoteUpdated > localUpdated) {
+          const equipo: Equipo = {
+            tag: r.tag,
+            nombre: r.nombre,
+            tipo: r.tipo,
+            marca: r.marca,
+            modelo: r.modelo,
+            serie: r.serie,
+            ubicacion: r.ubicacion,
+            area: r.area,
+            capacidad: r.capacidad,
+            voltaje: r.voltaje,
+            corriente: r.corriente,
+            refrigerante: r.refrigerante,
+            fechaInstalacion: r.fecha_instalacion,
+            vidaUtil: r.vida_util,
+            estado: r.estado,
+            ultimoMantenimiento: r.ultimo_mantenimiento,
+            proximoMantenimiento: r.proximo_mantenimiento,
+            horasOperacion: r.horas_operacion,
+            tecnicos: Array.isArray(r.tecnicos) ? r.tecnicos : [],
+            notas: r.notas,
+            uuid_sync: r.uuid_sync,
+            updated_at: remoteUpdated,
+            created_at: Number(r.created_at || 0),
+            deleted_at: r.deleted_at ? Number(r.deleted_at) : undefined,
+            cliente_id: r.cliente_id,
+            sucursal_id: r.sucursal_id
+          };
+          if (index >= 0) next[index] = equipo;
+          else next.push(equipo);
+        }
+      });
+      this.saveEquipos(next.filter(e => !e.deleted_at)); // Don't show deleted ones
+    } else if (table === 'work_orders' || table === 'preventive_maintenance') {
+      const isTickets = table === 'work_orders';
+      const local = isTickets ? this.getTickets() : this.getMantenimientos();
+      const next = [...local];
+      remoteData.forEach(r => {
+        const data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+        const index = next.findIndex((item: any) => item.uuid_sync === r.uuid_sync || item.id === r.id);
+        const remoteUpdated = Number(r.updated_at || 0);
+        const localUpdated = index >= 0 ? Number((next[index] as any).updated_at || 0) : -1;
+
+        if (remoteUpdated > localUpdated) {
+          const item = {
+            ...data,
+            uuid_sync: r.uuid_sync,
+            updated_at: remoteUpdated,
+            created_at: Number(r.created_at || 0),
+            deleted_at: r.deleted_at ? Number(r.deleted_at) : undefined
+          };
+          if (index >= 0) next[index] = item;
+          else next.push(item);
+        }
+      });
+      if (isTickets) this.saveTickets((next as Ticket[]).filter(t => !t.deleted_at));
+      else this.saveMantenimientos((next as Mantenimiento[]).filter(m => !m.deleted_at));
+    }
+  },
+
   getEquipos(): Equipo[] {
     return parseStored<Equipo[]>(STORAGE_KEYS.equipos, EQUIPOS_DATA);
   },
@@ -65,13 +187,21 @@ export const DataStore = {
 
   updateEquipoStatus(tag: string, status: Equipo["estado"]) {
     const equipos = this.getEquipos();
-    const next = equipos.map(e => e.tag === tag ? { ...e, estado: status } : e);
+    const now = Date.now();
+    const next = equipos.map(e => e.tag === tag ? { ...e, estado: status, updated_at: now } : e);
     this.saveEquipos(next);
   },
 
   addEquipo(equipo: Equipo) {
     const equipos = this.getEquipos();
-    const next = [...equipos, equipo];
+    const now = Date.now();
+    const newEquipo = {
+      ...equipo,
+      uuid_sync: equipo.uuid_sync || equipo.tag || `asset-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      updated_at: now,
+      created_at: equipo.created_at || now
+    };
+    const next = [...equipos, newEquipo];
     this.saveEquipos(next);
     return next;
   },
@@ -86,11 +216,18 @@ export const DataStore = {
 
   addTicket(ticket: Ticket) {
     const tickets = this.getTickets();
-    const next = [...tickets, ticket];
+    const now = Date.now();
+    const newTicket = {
+      ...ticket,
+      uuid_sync: ticket.uuid_sync || ticket.id || `ticket-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      updated_at: now,
+      created_at: ticket.created_at || now
+    };
+    const next = [...tickets, newTicket];
     
     // Regla de Negocio: Si el ticket es una falla, actualizar estado del equipo
-    if (ticket.prioridad === "urgente" || ticket.estado === "abierto") {
-      this.updateEquipoStatus(ticket.tag, "falla");
+    if (newTicket.prioridad === "urgente" || newTicket.estado === "abierto") {
+      this.updateEquipoStatus(newTicket.tag, "falla");
     }
 
     this.saveTickets(next);
@@ -112,16 +249,21 @@ export const DataStore = {
     
     if (!equipoExists) {
       console.warn(`Intento de agregar mantenimiento a equipo inexistente: ${mantenimiento.tag}`);
-      // Opcional: Podríamos crear el equipo o lanzar error. 
-      // Por ahora, permitimos pero registramos la advertencia.
     }
 
     const mantenimientos = this.getMantenimientos();
-    const next = [...mantenimientos, mantenimiento];
+    const now = Date.now();
+    const newMantenimiento = {
+      ...mantenimiento,
+      uuid_sync: mantenimiento.uuid_sync || mantenimiento.id || `mant-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      updated_at: now,
+      created_at: mantenimiento.created_at || now
+    };
+    const next = [...mantenimientos, newMantenimiento];
     
     // Si el mantenimiento se realizó con éxito, el equipo vuelve a operativo si estaba en falla
-    if (mantenimiento.estado === "realizado" || mantenimiento.estado === "ejecutado") {
-      this.updateEquipoStatus(mantenimiento.tag, "operativo");
+    if (newMantenimiento.estado === "realizado" || newMantenimiento.estado === "ejecutado") {
+      this.updateEquipoStatus(newMantenimiento.tag, "operativo");
     }
 
     this.saveMantenimientos(next);
