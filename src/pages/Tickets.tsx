@@ -19,7 +19,7 @@ import {
   MessageSquare,
   Download
 } from "lucide-react";
-import { Ticket } from "../data/tickets";
+import { Ticket } from "../data/work_orders";
 import { DataStore, useDataStore } from "../services/dataStore";
 import { TicketForm } from "../components/modals/TicketForm";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";

@@ -3,9 +3,9 @@ import {
   X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History
 } from 'lucide-react';
 import { AssetSearchModal } from './AssetSearchModal';
-import { EQUIPOS_DATA } from '../../data/equipos';
+import { EQUIPOS_DATA } from '../../data/assets';
 import { DataStore } from '../../services/dataStore';
-import { Ticket } from '../../data/tickets';
+import { Ticket } from '../../data/work_orders';
 
 interface TicketFormProps {
   onClose: () => void;

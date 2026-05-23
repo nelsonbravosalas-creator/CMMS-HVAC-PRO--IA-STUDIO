@@ -1,6 +1,6 @@
-import { EQUIPOS_DATA, Equipo } from "../data/equipos";
-import { TICKETS_MOCK, Ticket } from "../data/tickets";
-import { MANTENIMIENTOS_MOCK, Mantenimiento } from "../data/mantenimientos";
+import { EQUIPOS_DATA, Equipo } from "../data/assets";
+import { TICKETS_MOCK, Ticket } from "../data/work_orders";
+import { MANTENIMIENTOS_MOCK, Mantenimiento } from "../data/preventive_maintenance";
 
 const STORAGE_KEYS = {
   equipos: "cmms:equipos",

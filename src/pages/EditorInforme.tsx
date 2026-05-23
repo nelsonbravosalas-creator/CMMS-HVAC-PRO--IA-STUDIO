@@ -32,8 +32,8 @@ import {
 } from "lucide-react";
 import { Link, useRoute, useLocation } from "wouter";
 import { AssetSearchModal } from "../components/modals/AssetSearchModal";
-import { INFORMES_MOCK } from "../data/informes";
-import { EQUIPOS_DATA } from "../data/equipos";
+import { INFORMES_MOCK } from "../data/reports";
+import { EQUIPOS_DATA } from "../data/assets";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { DataStore } from "../services/dataStore";

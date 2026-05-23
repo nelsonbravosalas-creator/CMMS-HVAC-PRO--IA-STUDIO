@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { DataStore, useDataStore } from "../services/dataStore";
-import { Equipo } from "../data/equipos";
+import { Equipo } from "../data/assets";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import { BulkUploadModal } from "../components/modals/BulkUploadModal";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";

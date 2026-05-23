@@ -18,7 +18,7 @@ import {
   CheckCircle2,
   X
 } from "lucide-react";
-import { Mantenimiento } from "../data/mantenimientos";
+import { Mantenimiento } from "../data/preventive_maintenance";
 import { DataStore, useDataStore } from "../services/dataStore";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { MaintenanceCalendar } from "../components/modals/MaintenanceCalendar";

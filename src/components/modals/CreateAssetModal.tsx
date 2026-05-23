@@ -3,7 +3,7 @@ import LoadingIndicator from '../LoadingIndicator';
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator
 } from 'lucide-react';
-import { EQUIPOS_DATA, Equipo } from '../../data/equipos';
+import { EQUIPOS_DATA, Equipo } from '../../data/assets';
 import { DataStore } from '../../services/dataStore';
 
 interface CreateAssetModalProps {
