@@ -1,4 +1,3 @@
-import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { neon } from "@neondatabase/serverless";
@@ -232,7 +231,11 @@ async function ensureTables() {
 }
 
 async function startServer() {
-  await ensureTables();
+  try {
+    await ensureTables();
+  } catch (error: any) {
+    console.error("⚠️ Database initialization failed or timed out during startup:", error.message || error);
+  }
   const app = express();
   const PORT = 3000;
 
@@ -443,11 +446,14 @@ function resolveTable(name: string): string | null {
       const sql = getSql();
       const results: any = { inserts: [], updates: [], deletes: [] };
       
-      // En entorno serverless neon() usamos llamadas en serie simulando la transacción
-      for (const ins of inserts) {
+      // En entorno serverless de Neon, ejecutamos las operaciones en paralelo por fases
+      // para reducir drásticamente el tiempo de ejecución y evitar interrupciones o timeouts HTTP.
+      
+      // Fase 1: Inserts en paralelo
+      const insertPromises = inserts.map(async (ins: any) => {
         const rawTable = ins.table;
         const table = resolveTable(rawTable);
-        if (!table) continue;
+        if (!table) return null;
 
         const data = ins.data || {};
         const uuid_sync = ins.uuid_sync;
@@ -483,7 +489,6 @@ function resolveTable(name: string): string | null {
               WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL;
             `;
           } else {
-            // generic JSONB tables
             const id = data.id || uuid_sync;
             const strData = JSON.stringify(data);
             
@@ -511,13 +516,17 @@ function resolveTable(name: string): string | null {
           status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
           errorMsg = err.message;
         }
-        results.inserts.push({ uuid_sync, table, result: status, error: errorMsg, folio_oficial: data.tag || data.id });
-      }
+        return { uuid_sync, table, result: status, error: errorMsg, folio_oficial: data.tag || data.id };
+      });
 
-      for (const upd of updates) {
+      const resInserts = await Promise.all(insertPromises);
+      results.inserts = resInserts.filter(Boolean);
+
+      // Fase 2: Updates en paralelo
+      const updatePromises = updates.map(async (upd: any) => {
         const rawTable = upd.table;
         const table = resolveTable(rawTable);
-        if (!table) continue;
+        if (!table) return null;
 
         const data = upd.data || {};
         const uuid_sync = upd.uuid_sync;
@@ -561,43 +570,49 @@ function resolveTable(name: string): string | null {
           status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
           errorMsg = err.message;
         }
-        results.updates.push({ uuid_sync, table, result: status, error: errorMsg });
-      }
+        return { uuid_sync, table, result: status, error: errorMsg };
+      });
 
+      const resUpdates = await Promise.all(updatePromises);
+      results.updates = resUpdates.filter(Boolean);
+
+      // Fase 3: Deletes en paralelo
       const serverTime = Date.now();
-
-      for (const del of deletes) {
+      const deletePromises = deletes.map(async (del: any) => {
         const rawTable = del.table;
         const table = resolveTable(rawTable);
-        if (table) {
-           const ts = serverTime;
-           let status = 'applied';
-           let errorMsg = '';
-           try {
-             switch (table) {
-               case 'assets': await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'users': await sql`UPDATE users SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'clients': await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'branches': await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'settings': await sql`UPDATE settings SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-               case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-             }
-           } catch (err: any) {
-             status = 'error';
-             errorMsg = err.message;
-           }
-           results.deletes.push({ uuid_sync: del.uuid_sync, table, result: status, error: errorMsg });
-        }
-      }
+        if (!table) return null;
 
-      // get server changes
+        const ts = serverTime;
+        let status = 'applied';
+        let errorMsg = '';
+        try {
+          switch (table) {
+            case 'assets': await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'users': await sql`UPDATE users SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'clients': await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'branches': await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'settings': await sql`UPDATE settings SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+          }
+        } catch (err: any) {
+          status = 'error';
+          errorMsg = err.message;
+        }
+        return { uuid_sync: del.uuid_sync, table, result: status, error: errorMsg };
+      });
+
+      const resDeletes = await Promise.all(deletePromises);
+      results.deletes = resDeletes.filter(Boolean);
+
+      // Fase 4: Obtención de cambios del servidor en paralelo para todas las tablas
       const serverChanges: Record<string, any[]> = {};
-      for (const table of ALLOWED_TABLES) {
+      const pullPromises = ALLOWED_TABLES.map(async (table) => {
          try {
             let rows: any[] = [];
             switch (table) {
@@ -615,10 +630,12 @@ function resolveTable(name: string): string | null {
               case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE timestamp > ${lastSync} LIMIT 200`; break;
             }
             if (rows && rows.length > 0) {
-               serverChanges[table] = rows;
+              serverChanges[table] = rows;
             }
          } catch(e){}
-      }
+      });
+
+      await Promise.all(pullPromises);
 
       console.log(`[SYNC] Sync applied: Inserts ${inserts.length}, Updates ${updates.length}, Deletes ${deletes.length}`);
       res.json({ success: true, results, serverChanges, serverTime });

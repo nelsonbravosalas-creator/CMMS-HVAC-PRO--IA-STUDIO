@@ -270,12 +270,12 @@ function LeafletMap({ assets, onAssetClick }) {
     }).setView([-33.4489, -70.6483], 13);
 
     // Capa de Mapa "Silver/Light" (CartoDB Positron - Costo 0 para uso web razonable)
-    (window as any).L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19
     }).addTo(map);
 
     // Contenedor para marcadores para poder borrarlos fácilmente
-    markersLayerRef.current = (window as any).L.layerGroup().addTo(map);
+    markersLayerRef.current = window.L.layerGroup().addTo(map);
     mapInstance.current = map;
 
     return () => {
@@ -292,7 +292,7 @@ function LeafletMap({ assets, onAssetClick }) {
     // Icono Personalizado que imita la gráfica original
     const createCustomIcon = (status) => {
       const colorClass = status === 'falla' ? '#ef4444' : status === 'mantenimiento' ? '#f59e0b' : '#10b981';
-      return (window as any).L.divIcon({
+      return window.L.divIcon({
         html: `
           <div class="relative group">
             <div class="absolute -inset-2 rounded-full opacity-20 animate-ping" style="background-color: ${colorClass}"></div>
@@ -310,7 +310,7 @@ function LeafletMap({ assets, onAssetClick }) {
     const latlngs = [];
 
     assets.forEach(asset => {
-      const marker = (window as any).L.marker([asset.lat, asset.lng], {
+      const marker = window.L.marker([asset.lat, asset.lng], {
         icon: createCustomIcon(asset.estado)
       });
       
@@ -321,7 +321,7 @@ function LeafletMap({ assets, onAssetClick }) {
 
     // Ajustar zoom para ver todos los activos si hay más de uno
     if (latlngs.length > 0) {
-      const bounds = (window as any).L.latLngBounds(latlngs);
+      const bounds = window.L.latLngBounds(latlngs);
       mapInstance.current.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [assets]);

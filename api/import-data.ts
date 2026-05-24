@@ -44,12 +44,12 @@ export default async function handler(req, res) {
       const sql = neon(connectionString);
       let resultados = {};
 
-      const tableAssetsCount = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'assets'`;
-      if (tableAssetsCount[0].count === '0' || tableAssetsCount[0].count === 0) {
+      const tableActivosCount = await sql`SELECT count(*) FROM information_schema.tables WHERE table_name = 'assets'`;
+      if (tableActivosCount[0].count === '0' || tableActivosCount[0].count === 0) {
         await sql`
-          CREATE TABLE IF NOT EXISTS assets (
-            uuid_sync TEXT PRIMARY KEY,
-            tag TEXT UNIQUE,
+          CREATE TABLE IF NOT EXISTS activos (
+            id TEXT PRIMARY KEY,
+            tag TEXT,
             nombre TEXT,
             tipo TEXT,
             marca TEXT,
@@ -68,28 +68,44 @@ export default async function handler(req, res) {
             proximo_mantenimiento TEXT,
             horas_operacion INTEGER,
             notas TEXT,
-            data JSONB,
-            updated_at BIGINT,
-            created_at BIGINT
+            data JSONB
           );
         `;
+      } else {
+        // Intentar agregar columnas si faltan en DB existente
+        try {
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS tag TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS marca TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS modelo TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS serie TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS area TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS capacidad TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS voltaje TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS corriente TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS refrigerante TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS fecha_instalacion TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS vida_util INTEGER`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS ultimo_mantenimiento TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS proximo_mantenimiento TEXT`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS horas_operacion INTEGER`;
+          await sql`ALTER TABLE activos ADD COLUMN IF NOT EXISTS notas TEXT`;
+        } catch (e) {
+          console.warn("Fallo al actualizar columnas de activos:", e.message);
+        }
       }
 
       const checkActivos = await sql`SELECT count(*) FROM assets`;
       if (checkActivos[0].count === '0' || checkActivos[0].count === 0 || req.query.force === 'true') {
         let count = 0;
-        const now = Date.now();
         for (const equipo of EQUIPOS_DATA) {
-          const uuid = equipo.uuid_sync || equipo.tag;
           await sql`
             INSERT INTO assets (
-              uuid_sync, tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
+              id, tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
               voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
-              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas, data,
-              updated_at, created_at
+              ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas, data
             )
             VALUES (
-              ${uuid}, 
+              ${equipo.tag}, 
               ${equipo.tag}, 
               ${equipo.nombre}, 
               ${equipo.tipo}, 
@@ -102,19 +118,16 @@ export default async function handler(req, res) {
               ${equipo.voltaje || ''}, 
               ${equipo.corriente || ''}, 
               ${equipo.refrigerante || ''}, 
-              ${equipo.fechaInstalacion || ''}, 
-              ${equipo.vidaUtil || 0}, 
+              ${equipo.fecha_instalacion || ''}, 
+              ${equipo.vida_util || 0}, 
               ${equipo.estado || 'operativo'}, 
-              ${equipo.ultimoMantenimiento || ''}, 
-              ${equipo.proximoMantenimiento || ''}, 
-              ${equipo.horasOperacion || 0}, 
+              ${equipo.ultimo_mantenimiento || ''}, 
+              ${equipo.proximo_mantenimiento || ''}, 
+              ${equipo.horas_operacion || 0}, 
               ${equipo.notas || ''}, 
-              ${JSON.stringify(equipo)},
-              ${now},
-              ${now}
+              ${JSON.stringify(equipo)}
             )
-            ON CONFLICT (uuid_sync) DO UPDATE SET
-              tag = EXCLUDED.tag,
+            ON CONFLICT (id) DO UPDATE SET
               nombre = EXCLUDED.nombre,
               tipo = EXCLUDED.tipo,
               marca = EXCLUDED.marca,
@@ -133,8 +146,7 @@ export default async function handler(req, res) {
               proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
               horas_operacion = EXCLUDED.horas_operacion,
               notas = EXCLUDED.notas,
-              data = EXCLUDED.data,
-              updated_at = EXCLUDED.updated_at;
+              data = EXCLUDED.data;
           `;
           count++;
         }

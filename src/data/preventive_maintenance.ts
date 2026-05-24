@@ -4,14 +4,10 @@ export interface Mantenimiento {
   tag: string;
   tipo: 'preventivo' | 'correctivo' | 'inspeccion' | 'instalacion';
   fecha: string;
-  estado: 'programado' | 'ejecutado' | 're-programado' | 'anulado' | 'realizado' | 'atrasado';
+  estado: 'programado' | 'ejecutado' | 'realizado' | 're-programado'| 'anulado' | 'atrasado';
   sucursal: string;
   tecnico: string;
   descripcion: string;
-  uuid_sync?: string;
-  updated_at?: number;
-  created_at?: number;
-  deleted_at?: number;
 }
 
 export const MANTENIMIENTOS_MOCK: Mantenimiento[] = [

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Ticket as TicketIcon, 
   AlertCircle, 
@@ -17,39 +17,62 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   MessageSquare,
-  Download
+  Download,
+  Cloud,
+  CheckSquare
 } from "lucide-react";
-import { Ticket } from "../data/work_orders";
-import { DataStore, useDataStore } from "../services/dataStore";
 import { TicketForm } from "../components/modals/TicketForm";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
+import { useAppStore } from "../store/useAppStore";
+import { useTickets } from "../hooks/useTickets";
+import { useGoogleTasks } from "../hooks/useGoogleTasks";
+import { StatusIndicator } from "../components/StatusIndicator";
 
 export default function Tickets() {
   const { permisos } = useAuth();
-  const tickets = useDataStore(() => DataStore.getTickets());
+  const work_orders = useAppStore(state => state.work_orders);
+  const loading = useAppStore(state => state.isLoading);
+  const { updateTicket } = useTickets();
+  const { syncTicketsToTasks, isSyncing } = useGoogleTasks();
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");
 
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = tickets.filter(t => 
-    t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
-    t.tag.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const activeClientUuid = localStorage.getItem("active_client");
+    return work_orders.filter(t => {
+      if (activeClientUuid && t.cliente_id !== activeClientUuid) {
+        return false;
+      }
+      return t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
+             t.equipo_tag?.toLowerCase().includes(filter.toLowerCase()) ||
+             t.id.toLowerCase().includes(filter.toLowerCase());
+    });
+  }, [work_orders, filter]);
+
+  if (loading && work_orders.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <Clock className="w-12 h-12 text-slate-200 mb-4 animate-spin-slow" />
+        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Sincronizando Historial de Tickets...</p>
+      </div>
+    );
+  }
 
   const exportToCSV = () => {
-    const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Tipo", "Fecha", "Creador", "Asignado"];
+    const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Fecha", "Creador", "Asignado", "Sync"];
     const rows = filtered.map(t => [
       t.id,
-      t.tag,
+      t.equipo_tag,
       t.titulo,
       t.estado,
       t.prioridad,
-      t.tipo,
-      t.fecha,
-      t.creador,
-      t.asignado
+      t.fecha_creacion,
+      t.creado_por,
+      t.asignado_a,
+      t.sync_status
     ]);
 
     const csvContent = [
@@ -67,6 +90,46 @@ export default function Tickets() {
     link.click();
     document.body.removeChild(link);
   };
+  
+  const handleGoogleTasksSync = async () => {
+     try {
+        await syncTicketsToTasks(work_orders);
+        alert("✅ Tickets sincronizados con Google Tasks exitosamente.");
+     } catch (err: any) {
+        alert("❌ Hubo un error al sincronizar con Google Tasks: " + err.message);
+     }
+  };
+
+  const handleCloseTicket = async (ticket: any) => {
+    await updateTicket(ticket.uuid_sync, { estado: 'cerrado' });
+    
+    // Export PDF via Email Automáticamente
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      doc.setFont("helvetica", "bold");
+      doc.text(`TICKET CERRADO: ${ticket.id}`, 10, 10);
+      doc.setFontSize(10);
+      doc.text(`Título: ${ticket.titulo}`, 10, 20);
+      doc.text(`Equipo: ${ticket.equipo_tag || 'N/A'}`, 10, 25);
+      doc.text(`Asignado a: ${ticket.asignado_a || 'N/A'}`, 10, 30);
+      
+      const pdfBase64 = doc.output('datauristring');
+      const { DocumentExportService } = await import('../lib/DocumentExportService');
+      
+      const exportResult = await DocumentExportService.exportDocument({
+        documentId: ticket.id,
+        documentType: 'ticket',
+        method: 'email',
+        assetTag: ticket.equipo_tag, // Usa el activo para encontrar el cliente en el endpoint
+        pdfBase64
+      });
+      alert(`Ticket cerrado exitosamente.\n${exportResult.message}`);
+    } catch (e: any) {
+      console.warn("Export PDF Error:", e);
+      alert(`Ticket cerrado exitosamente.\nNota: Módulo de notificaciones asíncronas no logró procesar el email: ${e.message}`);
+    }
+  };
 
   const statuses = [
     { id: 'abierto', label: 'Abiertos', color: 'bg-red-500', bg: 'bg-red-50' },
@@ -83,6 +146,14 @@ export default function Tickets() {
           <p className="text-slate-500 text-sm font-medium">Gestión de incidencias y solicitudes técnicas.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handleGoogleTasksSync}
+            disabled={isSyncing}
+            className={`bg-[#4285F4]/10 hover:bg-[#4285F4]/20 text-[#4285F4] px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all border border-[#4285F4]/20 ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isSyncing ? <Clock className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />} 
+            {isSyncing ? "Sincronizando..." : "Google Tasks"}
+          </button>
           <button 
             onClick={exportToCSV}
             className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
@@ -134,23 +205,23 @@ export default function Tickets() {
           </div>
         ) : (
           filtered.map(t => (
-            <TicketCard key={t.id} ticket={t} />
+            <TicketCard key={t.uuid_sync} ticket={t} />
           ))
         )}
       </div>
 
-      {showModal && (
-        <TicketForm
-          onClose={() => setShowModal(false)}
-          onSave={(ticket) => DataStore.addTicket(ticket)}
-        />
-      )}
+      {showModal && <TicketForm onClose={() => setShowModal(false)} />}
     </div>
   );
 }
 
-const TicketCard: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
+const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
+  const { updateTicket } = useTickets();
   const priorities: Record<string, string> = {
+    Alta: "bg-orange-100 text-orange-600",
+    Critica: "bg-red-100 text-red-600",
+    Media: "bg-blue-100 text-blue-600",
+    Baja: "bg-slate-100 text-slate-600",
     alta: "bg-orange-100 text-orange-600",
     critica: "bg-red-100 text-red-600",
     media: "bg-blue-100 text-blue-600",
@@ -160,17 +231,20 @@ const TicketCard: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
   return (
     <div className="bg-white rounded-[40px] border border-slate-200 p-8 shadow-sm hover:shadow-2xl transition-all group flex flex-col gap-6 relative overflow-hidden">
        <div className="flex justify-between items-start">
-          <div className={`p-2.5 rounded-2xl ${priorities[ticket.prioridad]}`}>
+          <div className={`p-2.5 rounded-2xl ${priorities[ticket.prioridad] || "bg-slate-100 text-slate-600"}`}>
              <AlertTriangle className="w-5 h-5" />
           </div>
-          <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+          <div className="flex items-center gap-2">
+            <StatusIndicator status={ticket.sync_status} />
+            <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+          </div>
        </div>
 
        <div>
           <div className="flex items-center gap-2 mb-1">
              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{ticket.id}</span>
              <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-             <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{ticket.tag}</span>
+             <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{ticket.equipo_tag}</span>
           </div>
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight line-clamp-1">{ticket.titulo}</h3>
           <p className="text-[10px] font-medium text-slate-500 mt-2 line-clamp-2">{ticket.descripcion}</p>
@@ -188,17 +262,26 @@ const TicketCard: React.FC<{ ticket: Ticket }> = ({ ticket }) => {
 
        <div className="flex items-center gap-2">
           {ticket.estado === 'abierto' && (
-            <button className="flex-1 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all">
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'en_proceso' })}
+              className="flex-1 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all font-black"
+            >
                <Play className="w-3.5 h-3.5 fill-current" /> Iniciar
             </button>
           )}
           {(ticket.estado === 'abierto' || ticket.estado === 'en_proceso') && (
-            <button className="flex-1 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all">
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'resuelto' })}
+              className="flex-1 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all font-black"
+            >
                <Check className="w-3.5 h-3.5" /> Resolver
             </button>
           )}
           {ticket.estado === 'resuelto' && (
-            <button className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl">
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'cerrado' })}
+              className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl font-black"
+            >
                Cerrar Ticket
             </button>
           )}

@@ -1,422 +1,597 @@
+/**
+ * Vista de Terminal Scanner y Generador de Etiquetas QR.
+ * Es el punto de interacción física con los activos técnicos en terreno.
+ * 
+ * @module pages/ScannerQR
+ */
+
 import { 
-  ScanLine, 
-  Image as ImageIcon, 
-  Type, 
-  QrCode, 
+  Camera, 
   ArrowLeft, 
-  Search, 
-  Filter,
-  Download, 
+  QrCode, 
+  Box, 
   Printer, 
+  Share2,
+  Image as ImageIcon,
   ExternalLink,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
-  Camera,
-  Box,
-  Send
+  ChevronLeft,
+  ScanLine,
+  X,
+  Save
 } from "lucide-react";
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
-
-// URL de la librería para carga dinámica
-const LIB_URL = "https://unpkg.com/html5-qrcode";
-
-type QRMode = "main" | "camera" | "upload" | "manual" | "generate" | "result";
-
-type ParsedScanResult =
-  | { kind: "tag"; tag: string }
-  | { kind: "invalid"; message: string };
-
-const TRUSTED_HOSTS = new Set(["nelsonbravosalas-creator.github.io", "hvac-cmms.app"]);
-
-function normalizeTagValue(value: string): string {
-  const cleaned = value.trim().replace(/\s+/g, "").toUpperCase();
-  if (!cleaned) return "";
-  if (cleaned.includes("/")) {
-    return cleaned.split("/").pop() || cleaned;
-  }
-  return cleaned;
-}
-
-function parseScannedValue(value: string): ParsedScanResult {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return { kind: "invalid", message: "El código QR está vacío." };
-  }
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    try {
-      const parsedUrl = new URL(trimmed);
-      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-        return { kind: "invalid", message: "Solo se aceptan URLs http/https." };
-      }
-
-      const isSameOrigin = typeof window !== "undefined" && parsedUrl.hostname === window.location.hostname;
-      const isTrustedHost = TRUSTED_HOSTS.has(parsedUrl.hostname);
-
-      if (!isSameOrigin && !isTrustedHost) {
-        return { kind: "invalid", message: "La URL del QR no está autorizada." };
-      }
-
-      const tag = parsedUrl.searchParams.get("tag");
-      if (!tag) {
-        return { kind: "invalid", message: "El QR no contiene un TAG válido." };
-      }
-
-      return { kind: "tag", tag: normalizeTagValue(tag) };
-    } catch {
-      return { kind: "invalid", message: "La URL del QR no es válida." };
-    }
-  }
-
-  const tag = normalizeTagValue(trimmed);
-  if (!tag) {
-    return { kind: "invalid", message: "El código QR no contiene un TAG válido." };
-  }
-
-  return { kind: "tag", tag };
-}
+import * as htmlToImage from 'html-to-image';
+import { assetsRepo } from "../repositories/AssetRepository";
+import { EQUIPOS_DATA } from "../data/assets";
+import { SUCURSALES } from "../data/branches";
+import { Scanner } from '@yudiel/react-qr-scanner';
+import { useAssets } from "../hooks/useAssets";
 
 /**
- * Componente interno para el lector de cámara.
- * Aislarlo permite un control más estricto del ciclo de vida del hardware.
+ * Componente ScannerQR.
+ * 
+ * Modos de operación:
+ * 1. Scanner: Utiliza la cámara para detectar tags y redirigir al historial del equipo.
+ * 2. Generator: Crea una etiqueta física estandarizada con branding de NBYB SPA.
+ * 
+ * Funcionalidades técnicas:
+ * - Exportación: Captura el DOM de la etiqueta y genera un PNG descargable (html2canvas).
+ * - Impresión: Aplica una hoja de estilos CSS específica (@media print) para formato 100mm x 50mm.
+ * - Validación de TAG: Genera identificadores únicos siguiendo el esquema Almacen.Tipo.Correlativo.
+ * 
+ * @returns {JSX.Element} Interfaz de captura y generación de assets.
  */
-const QRScannerView = memo(({ onScanSuccess, onScannerError, selectedCameraId }: any) => {
-  const qrScannerRef = useRef<any>(null);
-  const containerId = "qr-reader-internal";
-
-  useEffect(() => {
-    let isMounted = true;
-    let html5QrCode: any = null;
-
-    const init = async () => {
-      // 1. Asegurar que la librería esté cargada
-      if (!(window as any).Html5Qrcode) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = LIB_URL;
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-      }
-
-      if (!isMounted) return;
-
-      try {
-        // 2. Inicializar instancia
-        html5QrCode = new (window as any).Html5Qrcode(containerId);
-        qrScannerRef.current = html5QrCode;
-
-        // Tamaño agrandado un 50% (250 * 1.5 = 375)
-        const config = { 
-          fps: 15, 
-          qrbox: { width: 375, height: 375 },
-          aspectRatio: 1.0 
-        };
-
-        // 3. Iniciar cámara
-        await html5QrCode.start(
-          selectedCameraId, 
-          config, 
-          (text: string) => onScanSuccess(text)
-        );
-      } catch (err) {
-        if (isMounted) onScannerError(String(err));
-      }
-    };
-
-    init();
-
-    return () => {
-      isMounted = false;
-      if (html5QrCode && html5QrCode.isScanning) {
-        html5QrCode.stop().catch((e: any) => console.warn("Cleanup error:", e));
-      }
-    };
-  }, [selectedCameraId, onScanSuccess, onScannerError]);
-
-  return <div id={containerId} className="w-full h-full" />;
-});
-
+/**
+ * =========================================================================
+ * COMPONENTE: ScannerQR.tsx (Lógica de Interacción Física-Digital)
+ * =========================================================================
+ * 
+ * FUNCIONAMIENTO:
+ * Este componente es el puente entre el código QR físico y la base de datos.
+ * 
+ * FLUJO DE DOCUMENTACIÓN:
+ * 1. El usuario escanea un QR que apunta a la URL de Vercel (ej: .../scanner?tag=XXX).
+ * 2. Al cargar, el useEffect lee el parámetro 'tag' de la URL.
+ * 3. Se realiza un "llamado a la base de datos" (actualmente a EQUIPOS_DATA) para recuperar la ficha técnica.
+ * 
+ * INTERACCIONES:
+ * - data/equipos.ts: Provee la información del equipo tras el escaneo.
+ * - react-qr-scanner: Maneja la interfaz de cámara.
+ */
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<QRMode>("main");
-  const [resultTag, setResultTag] = useState<string>("");
-  const [cameras, setCameras] = useState<any[]>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
-  const [scannerError, setScannerError] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(false);
 
-  // Carga inicial de cámaras
+  /** Modos de la vista: scanner (captura) o generator (creación) */
+  const [mode, setMode] = useState<"scanner" | "generator">("scanner");
+  /** Estado de carga durante la exportación de imagen o registro en BD */
+  const [isExporting, setIsExporting] = useState(false);
+  /** Estado de activación del sensor de cámara */
+  const [isScannerActive, setIsScannerActive] = useState(false);
+  /** Almacena el último resultado de escaneo exitoso */
+  const [lastResult, setLastResult] = useState<string | null>(null);
+  /** Datos del equipo encontrado en la base de datos */
+  const [equipoEscaneado, setEquipoEscaneado] = useState<any>(null);
+
+  /** Referencia al elemento DOM de la etiqueta para html2canvas */
+  const tagRef = useRef<HTMLDivElement>(null);
+
+  /** Hook de efecto para leer los parámetros al cargar la página si viene desde un QR */
   useEffect(() => {
-    if (mode === "camera") {
-      setIsInitializing(true);
-      const loadCameras = async () => {
-        try {
-          if (!(window as any).Html5Qrcode) {
-            await new Promise((resolve) => {
-              const script = document.createElement('script');
-              script.src = LIB_URL;
-              script.onload = resolve;
-              document.head.appendChild(script);
-            });
-          }
-
-          const devices = await (window as any).Html5Qrcode.getCameras();
-          if (devices && devices.length > 0) {
-            setCameras(devices);
-            const backCam = devices.find((d: any) => /back|rear|trasera|environment/i.test(d.label));
-            setSelectedCameraId(backCam ? backCam.id : devices[0].id);
-          } else {
-            setScannerError("No se detectaron cámaras en el dispositivo.");
-          }
-        } catch (err) {
-          setScannerError("Error al acceder al hardware de cámara.");
-        } finally {
-          setIsInitializing(false);
+    // Leemos la URL para ver si la aplicación fue abierta escaneando un código QR
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tagParam = params.get("tag");
+      if (tagParam) {
+        setLastResult(tagParam);
+        // Hacemos el "llamado a la base de datos" local (EQUIPOS_DATA mock por ahora)
+        const equipo = EQUIPOS_DATA.find(eq => eq.tag === tagParam);
+        if (equipo) {
+          setEquipoEscaneado(equipo);
+        } else {
+          setEquipoEscaneado({ error: "Equipo no encontrado en la base de datos." });
         }
-      };
-      loadCameras();
-    }
-  }, [mode]);
-
-  const handleScanSuccess = useCallback((tag: string) => {
-    const parsed = parseScannedValue(tag);
-
-    if (parsed.kind === "invalid") {
-      setScannerError(parsed.message);
-      return;
-    }
-
-    setScannerError(null);
-    setResultTag(parsed.tag);
-    setMode("result");
-  }, []);
-
-  const handleScannerError = useCallback((err: string) => {
-    if (!err.includes("interrupted") && !err.includes("Node")) {
-      setScannerError("Fallo al iniciar el sensor de imagen.");
+      }
     }
   }, []);
 
-  const switchCamera = () => {
-    if (cameras.length <= 1) return;
-    const idx = cameras.findIndex(c => c.id === selectedCameraId);
-    setSelectedCameraId(cameras[(idx + 1) % cameras.length].id);
+  /** Datos para pre-poblar el generador de etiquetas */
+  const [tagData, setTagData] = useState({
+    almacen: '21-STK',
+    tipo: 'AC',
+    correlativo: '012',
+    nombreEquipo: '1-4 SALA SERVIDORES'
+  });
+  
+  /** 
+   * URL base para los códigos QR.
+   * Se utiliza window.location.origin para asegurar que el QR apunte siempre al dominio correcto,
+   * ya sea en desarrollo local o en producción (Vercel).
+   */
+  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin : "");
+
+  /** TAG completo calculado (ej: 21-STK.AC.012) */
+  const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
+  
+  /** 
+   * URL final incrustada en el código QR.
+   */
+  const qrUrl = `${baseUrl}/?tag=${encodeURIComponent(fullTag)}`;
+  /** Endpoint externo para la generación del código QR */
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
+
+  /**
+   * Inicia el proceso de escaneo.
+   */
+  const handleStartScanner = () => {
+    setIsScannerActive(true);
+    setLastResult(null);
+    setEquipoEscaneado(null);
+  };
+
+  /** 
+   * Función que se ejecuta cuando el sensor de la cámara detecta un código.
+   * Procesa el texto (que puede ser una URL o solo el TAG) y busca en la base de datos.
+   */
+  const handleScanSuccess = (text: string) => {
+    if (text) {
+      // Detenemos el scanner para evitar múltiples lecturas seguidas
+      setIsScannerActive(false);
+
+      // LÓGICA DE EXTRACCIÓN DE TAG:
+      // El QR puede contener una URL completa como "https://dominio.com/scanner?tag=21-STK.AC.002"
+      // o un formato antiguo "https://.../EQUIPOS/21-STK.AC.002".
+      // Esta lógica "limpia" la entrada para obtener solo el identificador "21-STK.AC.002".
+      let tagValue = text;
+      try {
+        if (text.includes('?tag=')) {
+          // Extraemos el valor del parámetro 'tag'
+          const urlObj = new URL(text);
+          tagValue = urlObj.searchParams.get('tag') || text;
+        } else if (text.includes('/EQUIPOS/')) {
+          // Si es formato de ruta, tomamos lo que viene después de /EQUIPOS/
+          tagValue = text.split('/EQUIPOS/').pop() || text;
+        } else if (text.includes('/scanner/')) {
+          // Caso genérico de ruta /scanner/TAG
+          tagValue = text.split('/scanner/').pop() || text;
+        }
+      } catch (e) {
+        // Si no es una URL (es decir, el QR solo contiene el texto del TAG), lo usamos directo
+      }
+
+      // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
+      setLastResult(tagValue);
+      
+      // BÚSQUEDA EN BASE DE DATOS LOCAL:
+      assetsRepo.getByTag(tagValue)
+        .then(asset => {
+           if (asset) {
+             setEquipoEscaneado({
+               tag: asset.tag,
+               nombre: asset.nombre,
+               ubicacion: asset.ubicacion || "Ubicación en BD"
+             });
+           } else {
+             const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
+             if (localFallback) {
+               setEquipoEscaneado(localFallback);
+             } else {
+               setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
+             }
+           }
+        })
+        .catch(err => {
+           setEquipoEscaneado({ error: `Error de búsqueda local.` });
+        })
+    }
+  };
+
+  const handleExport = async () => {
+    if (!tagRef.current) return;
+    setIsExporting(true);
+    try {
+      const dataUrl = await htmlToImage.toPng(tagRef.current, {
+        pixelRatio: 3,
+        backgroundColor: '#ffffff'
+      });
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `QR_Etiqueta_${fullTag}.png`;
+      link.click();
+    } catch (err) {
+      console.error("Export failed", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const { createAsset } = useAssets();
+
+  const handleRegister = async () => {
+    setIsExporting(true);
+    try {
+      await createAsset({
+        tag: fullTag,
+        nombre: tagData.nombreEquipo,
+        tipo: tagData.tipo,
+        estado: "operativo",
+        ubicacion: tagData.almacen
+      });
+      console.log("Activo guardado localmente (Offline First)");
+      alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
+    } catch (error) {
+      console.error("Error al guardar activo", error);
+      alert("Hubo un error al guardar el activo.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 font-sans text-slate-900">
-      <div className="max-w-4xl mx-auto flex flex-col gap-8 pb-20">
-        
-        {/* Encabezado Navegable */}
-        <div className="flex items-center gap-4">
-          {mode !== "main" && (
+    <div className="min-h-screen bg-slate-950 text-white p-4 lg:p-8 overflow-x-hidden">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page { size: 100mm 50mm; margin: 0; }
+          body * { visibility: hidden !important; }
+          #printable-tag-preview, #printable-tag-preview * { visibility: visible !important; }
+          #printable-tag-preview { 
+            position: fixed !important; 
+            left: 0 !important; 
+            top: 0 !important; 
+            width: 100mm !important; 
+            height: 50mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            border-radius: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .no-print { display: none !important; }
+        }
+      `}} />
+
+      <div className="max-w-6xl mx-auto space-y-8 no-print pb-20">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
             <button 
-              onClick={() => { setMode("main"); setScannerError(null); }}
-              className="p-2 bg-white hover:bg-slate-100 rounded-xl shadow-sm border border-slate-200 transition-all active:scale-95"
+              onClick={() => setLocation("/")}
+              className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-all active:scale-90 border border-white/5 shadow-2xl"
             >
-              <ArrowLeft className="w-5 h-5 text-slate-500" />
+              <X className="w-6 h-6" />
             </button>
-          )}
-          <div className="text-left">
-            <h2 className="text-2xl font-black tracking-tight uppercase leading-none">
-              {mode === "main" && "Centro de Escaneo"}
-              {mode === "camera" && "Cámara en Vivo"}
-              {mode === "upload" && "Cargar Imagen"}
-              {mode === "manual" && "Ingresar TAG"}
-              {mode === "generate" && "Generar QR"}
-              {mode === "result" && "Validación"}
-            </h2>
-            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1 opacity-70">
-              Operaciones NBYB SPA • 2024
-            </p>
+            <div>
+              <div className="flex items-center gap-3">
+                 <h2 className="text-2xl font-black uppercase tracking-tight text-white italic">
+                   {mode === "scanner" ? "Terminal Scanner" : "Generador de QR"}
+                 </h2>
+                 <div className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${mode === 'scanner' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+                    V.3.1
+                 </div>
+              </div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">
+                OPERACIONES NBYB SPA • CMMS CONTROL 2024
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/50 p-1.5 rounded-3xl border border-white/5 flex items-center shadow-inner backdrop-blur-3xl">
+             <button 
+                onClick={() => setMode("scanner")}
+                className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'scanner' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 font-black' : 'text-slate-400 hover:text-white'}`}
+             >
+                <ScanLine className="w-4 h-4" /> Scanner
+             </button>
+             <button 
+                onClick={() => setMode("generator")}
+                className={`flex items-center gap-3 px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'generator' ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/30 font-black' : 'text-slate-400 hover:text-white'}`}
+             >
+                <QrCode className="w-4 h-4" /> Generar
+             </button>
           </div>
         </div>
 
-        {/* Menú Principal */}
-        {mode === "main" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <ModeCard icon={ScanLine} label="Cámara" color="bg-blue-600 text-white" onClick={() => setMode("camera")} />
-            <ModeCard icon={ImageIcon} label="Imagen" color="bg-emerald-500 text-white" onClick={() => setMode("upload")} />
-            <ModeCard icon={Type} label="Manual" color="bg-amber-500 text-white" onClick={() => setMode("manual")} />
-            <ModeCard icon={QrCode} label="Generar" color="bg-slate-900 text-white" onClick={() => setMode("generate")} />
+        {mode === "scanner" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-500">
+             <div className="lg:col-span-8 space-y-6">
+                <div className="relative aspect-[4/3] bg-slate-900 rounded-[40px] border border-white/5 overflow-hidden shadow-2xl group">
+                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+                      {isScannerActive ? (
+                        <div className="absolute inset-0 z-10 w-full h-full bg-black">
+                             <Scanner 
+                             onScan={(detectedCodes) => {
+                               if (detectedCodes.length > 0) {
+                                 handleScanSuccess(detectedCodes[0].rawValue);
+                               }
+                             }}
+                             onError={(error) => {
+                               console.error("Scanner Error:", error);
+                               alert("Error de cámara: " + (error as Error).message);
+                               setIsScannerActive(false);
+                             }}
+                             components={{
+                               torch: true,
+                               zoom: true,
+                               finder: true
+                             }}
+                           />
+                           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+                             <button 
+                               onClick={() => setIsScannerActive(false)}
+                               className="px-6 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-full text-[10px] font-bold uppercase tracking-widest transition-all shadow-xl backdrop-blur-md"
+                             >
+                               Detener Cámara
+                             </button>
+                           </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center border border-blue-600/20 animate-pulse">
+                             <Camera className="w-10 h-10 text-blue-500" />
+                          </div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 text-center px-6">Sensor de Imagen Listo</p>
+                          <button 
+                            onClick={handleStartScanner}
+                            className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl shadow-blue-600/30 transition-all active:scale-95"
+                          >
+                             Activar Scanner
+                          </button>
+                        </>
+                      )}
+                   </div>
+                   
+                   <div className="absolute inset-0 pointer-events-none opacity-40">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border-2 border-white/30 rounded-3xl">
+                         <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl"></div>
+                         <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl"></div>
+                         <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-xl"></div>
+                         <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl"></div>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <div className="bg-white/5 p-6 rounded-3xl border border-white/5 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/10 transition-all">
+                      <ImageIcon className="w-6 h-6 text-emerald-500" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cargar Archivo</span>
+                   </div>
+                   <div className="bg-white/5 p-6 rounded-3xl border border-white/5 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/10 transition-all">
+                      <ScanLine className="w-6 h-6 text-blue-500" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Escaneo Lento</span>
+                   </div>
+                   <div className="bg-white/5 p-6 rounded-3xl border border-white/5 flex flex-col items-center gap-3 cursor-pointer hover:bg-white/10 transition-all">
+                      <Box className="w-6 h-6 text-amber-500" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Historial</span>
+                   </div>
+                </div>
+             </div>
+
+             <div className="lg:col-span-4 space-y-6">
+                <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-8 rounded-[40px] shadow-2xl relative overflow-hidden">
+                   <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
+                      <QrCode className="w-32 h-32" />
+                   </div>
+                   <h4 className="text-xl font-black uppercase italic leading-none mb-1">Detección Inteligente</h4>
+                   <p className="text-[10px] font-bold text-white/60 mb-6 uppercase tracking-widest">IA Powered Recognition</p>
+                   <p className="text-sm font-medium text-blue-100/80 leading-relaxed mb-8">
+                      Posicione el código QR dentro del recuadro para el reconocimiento automático del TAG identificador.
+                   </p>
+                   <div className="flex gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
+                   </div>
+                </div>
+                <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 space-y-4">
+                   <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Última Lectura</h5>
+                   <div className="p-5 bg-black/40 rounded-2xl border border-white/5 flex flex-col items-center gap-2">
+                      <span className="text-xs font-mono text-slate-400 break-all text-center">
+                        {lastResult ? (
+                          <>
+                            <div className="mb-2 text-blue-400 font-bold">DETECTADO: {lastResult}</div>
+                            {equipoEscaneado && equipoEscaneado.tag ? (
+                               <div className="text-[10px] text-white">
+                                 <div><strong className="text-slate-500">Equipo:</strong> {equipoEscaneado.nombre}</div>
+                                 <div className="mt-1"><strong className="text-slate-500">Ubicación:</strong> {equipoEscaneado.ubicacion}</div>
+                                 <button 
+                                   onClick={() => setLocation(`/equipos/${equipoEscaneado.tag}`)}
+                                   className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                                 >
+                                   Ver Ficha Completa
+                                 </button>
+                               </div>
+                            ) : equipoEscaneado && equipoEscaneado.error ? (
+                               <div className="text-red-400 text-[10px]">{equipoEscaneado.error}</div>
+                            ) : (
+                               <div className="text-amber-400 text-[10px]">Buscando en base de datos...</div>
+                            )}
+                          </>
+                        ) : "Esperando datos..."}
+                      </span>
+                   </div>
+                </div>
+             </div>
           </div>
-        )}
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch animate-in fade-in slide-in-from-right-10 duration-500">
+             <div className="lg:col-span-5 bg-white/5 rounded-[48px] border border-white/10 p-10 flex flex-col items-center justify-between gap-10 shadow-3xl backdrop-blur-sm">
+                <div className="w-full space-y-6">
+                   <div className="flex items-center justify-center gap-4">
+                      <div className="h-0.5 w-8 bg-blue-600/30"></div>
+                      <h3 className="text-[11px] font-black text-blue-400 uppercase tracking-[0.4em] italic text-center">Mockup Físico de Etiqueta</h3>
+                      <div className="h-0.5 w-8 bg-blue-600/30"></div>
+                   </div>
+                   
+                   <div 
+                     id="printable-tag-preview" 
+                     ref={tagRef}
+                     className="w-full aspect-[2/1] bg-white rounded-[24px] shadow-[0_40px_80px_rgba(0,0,0,0.4)] flex relative border border-slate-200 select-none mx-auto overflow-hidden min-h-[250px]"
+                   >
+                     <div className="w-[45%] flex flex-col items-center justify-center p-6 border-r border-slate-100 bg-white">
+                        <div className="w-full max-w-[160px] aspect-square flex items-center justify-center">
+                           <img 
+                             src={qrImageUrl} 
+                             alt="Generated QR" 
+                             crossOrigin="anonymous"
+                             className="w-full h-full mix-blend-multiply"
+                           />
+                        </div>
+                        <p className="mt-3 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Escaneo Directo CMMS</p>
+                     </div>
 
-        {/* Modo Cámara */}
-        {mode === "camera" && (
-          <div className="max-w-2xl mx-auto w-full space-y-6">
-            <div className="bg-white p-3 rounded-[40px] border border-slate-200 shadow-2xl overflow-hidden relative">
-              <div className="w-full aspect-square rounded-[32px] overflow-hidden bg-slate-900 relative">
-                
-                {selectedCameraId && !scannerError && (
-                  <QRScannerView 
-                    selectedCameraId={selectedCameraId}
-                    onScanSuccess={handleScanSuccess}
-                    onScannerError={handleScannerError}
-                  />
-                )}
+                     <div className="flex-1 p-8 flex flex-col justify-between bg-white text-slate-900 text-left">
+                        <div className="flex justify-end">
+                           <div className="bg-black text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
+                              <span className="text-[12px] font-black italic tracking-tighter">NβyB</span>
+                              <span className="text-[8px] font-bold opacity-80">SPA</span>
+                           </div>
+                        </div>
 
-                {!scannerError && (
-                  <div className="absolute inset-0 pointer-events-none z-10">
-                    <div className="absolute inset-0 border-[60px] border-slate-950/40"></div>
-                    {/* Ventana de visor agrandada a 375px (+50%) */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[375px] h-[375px] border-2 border-blue-500/50 rounded-3xl">
-                       <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg"></div>
-                       <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg"></div>
-                       <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg"></div>
-                       <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg"></div>
-                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_15px_#3b82f6] animate-[scan_2s_linear_infinite]"></div>
-                    </div>
-                  </div>
-                )}
+                        <div className="space-y-1">
+                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Tag Identificador</p>
+                           <div className="text-[24px] lg:text-[28px] font-mono font-black text-slate-950 tracking-tighter leading-[0.9] italic">
+                             {tagData.almacen} -<br />
+                             {tagData.tipo}.{tagData.correlativo.padStart(3, '0')}
+                           </div>
+                        </div>
 
-                {isInitializing && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-4 bg-slate-900 z-20">
-                    <LoadingIndicator size="lg" color="text-blue-500" label="Cargando Lente..." />
-                  </div>
-                )}
-
-                {scannerError && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-rose-500 px-8 text-center gap-4 bg-slate-900 z-30">
-                    <AlertCircle className="w-12 h-12" />
-                    <p className="text-sm font-bold uppercase tracking-tight">{scannerError}</p>
-                    <button 
-                      onClick={() => setMode("manual")} 
-                      className="mt-2 bg-white text-slate-900 px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl"
-                    >
-                      Ingreso Manual
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-3 z-20">
-                {cameras.length > 1 && (
-                  <button 
-                    onClick={switchCamera} 
-                    className="bg-white/20 backdrop-blur-xl border border-white/30 p-4 rounded-full text-white hover:bg-white/40 transition-all active:scale-90"
-                  >
-                    <RefreshCw className="w-5 h-5" />
-                  </button>
-                )}
-                <div className="bg-slate-900/80 backdrop-blur-md px-8 py-3 rounded-full text-[10px] font-black text-white uppercase tracking-[0.2em] border border-white/10 shadow-xl">
-                  Enfoque el código QR
+                        <div className="space-y-1 pt-4 border-t border-slate-50 text-left">
+                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Descripción de Activo</p>
+                           <p className="text-[11px] font-black text-slate-800 uppercase leading-snug line-clamp-2 italic">
+                             {tagData.nombreEquipo}
+                           </p>
+                        </div>
+                     </div>
+                   </div>
+                   <div className="text-center mt-3 flex items-center justify-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                      <span className="text-[10px] font-medium text-slate-400/80 tracking-widest uppercase">DIMENSIÓN ÓPTIMA DE IMPRESIÓN: <strong className="text-white">100mm x 50mm</strong></span>
+                   </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between bg-white p-5 rounded-[24px] border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-4 text-left">
-                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-                  <Camera className="w-6 h-6" />
+                <div className="w-full grid grid-cols-2 gap-6">
+                   <button 
+                     onClick={handleExport}
+                     disabled={isExporting}
+                     className="group flex flex-col items-center justify-center gap-3 py-8 bg-slate-900 hover:bg-slate-800 rounded-[40px] border border-white/5 transition-all active:scale-95 shadow-2xl disabled:opacity-50"
+                   >
+                     {isExporting ? <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div> : <ImageIcon className="w-6 h-6 text-slate-600 group-hover:text-blue-500 transition-colors" />}
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em] group-hover:text-white transition-colors">Exportar Imagen</span>
+                   </button>
+                   <button 
+                     onClick={handlePrint}
+                     className="group flex flex-col items-center justify-center gap-3 py-8 bg-slate-900 hover:bg-slate-800 rounded-[40px] border border-white/5 transition-all active:scale-95 shadow-2xl"
+                   >
+                     <Printer className="w-6 h-6 text-slate-600 group-hover:text-amber-500 transition-colors" />
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em] group-hover:text-white transition-colors">Imprimir Etiqueta</span>
+                   </button>
                 </div>
+             </div>
+
+             <div className="lg:col-span-7 bg-white/5 rounded-[48px] border border-white/10 p-12 space-y-10 shadow-3xl backdrop-blur-sm">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Hardware</p>
-                  <p className="text-xs font-bold text-slate-900 truncate max-w-[180px]">
-                    {cameras.find(c => c.id === selectedCameraId)?.label || "Iniciando..."}
-                  </p>
+                   <h3 className="text-3xl font-black uppercase italic text-white flex items-center gap-4 text-left">
+                      Editor de Identidad <Box className="w-8 h-8 text-blue-500" />
+                   </h3>
+                   <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.4em] mt-2 text-left">Configuración Estándar NBYB SPA</p>
                 </div>
-              </div>
-              <button 
-                onClick={() => setMode("manual")} 
-                className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                TAG Manual
-              </button>
-            </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="space-y-3">
+                      <label className="text-[11px] font-black uppercase text-blue-500 tracking-[0.3em] block text-left">Sucursal / Instalación</label>
+                      <select 
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-white"
+                        value={tagData.almacen}
+                        onChange={(e) => setTagData({...tagData, almacen: e.target.value})}
+                      >
+                         {SUCURSALES.map(s => (
+                           <option key={s.id} value={s.id}>{s.nombre}</option>
+                         ))}
+                      </select>
+                   </div>
+                   <div className="space-y-3">
+                      <label className="text-[11px] font-black uppercase text-blue-500 tracking-[0.3em] block text-left">Tipo de Activo técnico</label>
+                      <select 
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-bold uppercase outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-white"
+                        value={tagData.tipo}
+                        onChange={(e) => setTagData({...tagData, tipo: e.target.value})}
+                      >
+                         <option value="AC">Aire Acondicionado (AC)</option>
+                         <option value="VH">Vehículo (VH)</option>
+                         <option value="GE">Grupo Electrógeno (GE)</option>
+                         <option value="EB">Equipo Bodega (EB)</option>
+                         <option value="GO">Grúa Horquilla (GO)</option>
+                      </select>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                   <div className="md:col-span-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                         <label className="text-[11px] font-black uppercase text-blue-500 tracking-[0.3em]">Correlativo</label>
+                         <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                      </div>
+                      <input 
+                         type="text"
+                         className="w-full bg-blue-600/5 border border-blue-600/20 rounded-2xl px-6 py-4 text-base font-black text-blue-400 font-mono outline-none text-center shadow-inner"
+                         value={tagData.correlativo}
+                         onChange={(e) => setTagData({...tagData, correlativo: e.target.value.replace(/\D/g, '').slice(0,3)})}
+                      />
+                   </div>
+                   <div className="md:col-span-8 space-y-3">
+                      <label className="text-[11px] font-black uppercase text-blue-500 tracking-[0.3em] block text-left">Nombre del Activo</label>
+                      <input 
+                         type="text"
+                         placeholder="EJ: UNIDAD EXTERNA PISO 4"
+                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-black uppercase outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-white"
+                         value={tagData.nombreEquipo}
+                         onChange={(e) => setTagData({...tagData, nombreEquipo: e.target.value})}
+                      />
+                   </div>
+                </div>
+
+                <div className="bg-slate-900/60 rounded-[40px] p-8 space-y-6 shadow-inner border border-white/5 backdrop-blur-xl">
+                   <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center">
+                            <Share2 className="w-4 h-4 text-blue-500" />
+                         </div>
+                         <label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.3em]">Protocolo de Enlace Automático</label>
+                      </div>
+                   </div>
+                   <div className="bg-black/60 p-5 rounded-2xl flex items-center justify-between border border-white/5 group">
+                      <span className="text-[10px] font-mono text-slate-500 truncate pr-6 italic group-hover:text-blue-400 transition-colors">{qrUrl}</span>
+                      <ExternalLink className="w-5 h-5 text-blue-600 opacity-50 group-hover:opacity-100 cursor-pointer" />
+                   </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-6 pt-6 text-left">
+                   <button 
+                     onClick={handleRegister}
+                     disabled={isExporting}
+                     className="flex-1 py-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-[32px] font-black text-xs uppercase tracking-[0.3em] shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:shadow-[0_20px_60px_rgba(37,99,235,0.6)] active:scale-95 transition-all flex items-center justify-center gap-4 group disabled:opacity-50"
+                   >
+                      {isExporting ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-6 h-6 group-hover:rotate-12 transition-transform" />}
+                      {isExporting ? "Guardando..." : "Guardar los cambios y crear en BD"}
+                   </button>
+                   <button 
+                     onClick={() => setMode("scanner")}
+                     className="px-8 py-6 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-[32px] font-bold text-xs uppercase tracking-[0.3em] border border-white/5 transition-all flex items-center justify-center gap-4"
+                   >
+                     <ChevronLeft className="w-5 h-5" /> Volver Atrás
+                   </button>
+                </div>
+             </div>
           </div>
         )}
-
-        {/* Pantalla de Resultados */}
-        {mode === "result" && resultTag && (
-          <div className="max-w-xl mx-auto w-full animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="bg-white rounded-[40px] border border-slate-200 shadow-2xl overflow-hidden">
-              <div className="bg-emerald-500 p-10 flex flex-col items-center text-center gap-6">
-                <div className="w-20 h-20 bg-white text-emerald-500 rounded-full flex items-center justify-center shadow-2xl">
-                  <CheckCircle2 className="w-10 h-10" />
-                </div>
-                <div>
-                  <h3 className="text-white text-2xl font-black uppercase tracking-tight leading-none">Activo Validado</h3>
-                  <div className="mt-4 inline-block px-4 py-1 bg-emerald-600/50 rounded-full text-white text-[11px] font-bold tracking-widest border border-white/20 uppercase">
-                    {resultTag}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-10 text-left space-y-8">
-                <div className="grid grid-cols-2 gap-8 items-end">
-                  <div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Identificador</span>
-                    <p className="text-lg font-black text-slate-900 font-mono italic">#{resultTag}</p>
-                  </div>
-                  <div className="text-right flex flex-col items-end">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</span>
-                    <div className="text-emerald-500 font-black text-lg uppercase flex items-center gap-2">
-                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                       Operativo
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
-                  <div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Equipo</span>
-                    <p className="font-bold text-slate-800 uppercase tracking-tighter">Unidad de Climatización Industrial</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Mantenimiento</span>
-                    <p className="font-bold text-slate-800">Abril 2024</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button 
-                    onClick={() => setLocation(`/equipos/${resultTag}`)}
-                    className="flex items-center justify-center gap-3 py-5 bg-blue-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-3xl shadow-xl active:scale-95 transition-all"
-                  >
-                    <ExternalLink className="w-4 h-4" /> Ver Ficha
-                  </button>
-                  <button 
-                    onClick={() => setMode("camera")} 
-                    className="flex items-center justify-center gap-3 py-5 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.2em] rounded-3xl active:scale-95 transition-all"
-                  >
-                    <Send className="w-4 h-4 rotate-180" /> Nuevo Escaneo
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <style>{`
-          @keyframes scan {
-            0% { top: 0; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-          }
-        `}</style>
       </div>
-    </div>
-  );
-}
-
-function ModeCard({ icon: Icon, label, color, onClick }: any) {
-  return (
-    <div 
-      onClick={onClick} 
-      className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all cursor-pointer flex flex-col items-center gap-5 group"
-    >
-      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 shadow-lg ${color}`}>
-        <Icon className="w-8 h-8" />
-      </div>
-      <span className="font-black text-slate-900 text-[11px] uppercase tracking-[0.2em]">{label}</span>
     </div>
   );
 }

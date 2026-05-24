@@ -4,7 +4,7 @@ export interface InformeHVAC {
   tag: string;
   equipoNombre: string;
   fecha: string;
-  estado: 'borrador' | 'enviado' | 'firmado' | 'en_revision' | 'bloqueado';
+  estado: 'borrador' | 'enviado' | 'firmado' | 'en revision';
   sucursal: string;
   tecnico: string;
   tipoServicio: string;

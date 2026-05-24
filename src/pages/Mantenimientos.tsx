@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Wrench, 
   Calendar, 
@@ -18,9 +18,8 @@ import {
   CheckCircle2,
   X
 } from "lucide-react";
-import { Link } from "wouter";
-import { Mantenimiento } from "../data/preventive_maintenance";
-import { DataStore, useDataStore } from "../services/dataStore";
+import { useAppStore } from "../store/useAppStore";
+import { useMantenimientos } from "../hooks/useMantenimientos";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
 import { MaintenanceCalendar } from "../components/modals/MaintenanceCalendar";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
@@ -28,18 +27,50 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Mantenimientos() {
   const { permisos } = useAuth();
+  const preventive_maintenance = useAppStore(state => state.preventive_maintenance);
+  const assets = useAppStore(state => state.assets);
+  const loading = useAppStore(state => state.isLoading);
+  const { createMantenimiento, deleteMantenimiento } = useMantenimientos();
+  
   const [showModal, setShowModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [filter, setFilter] = useState("");
-  const mats = useDataStore(() => DataStore.getMantenimientos());
 
   if (!permisos?.ver_mantenimientos) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const filtered = mats.filter(m => 
-    m.tag.toLowerCase().includes(filter.toLowerCase()) || 
-    m.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
-    m.id.toLowerCase().includes(filter.toLowerCase())
-  );
+  const assetToClientMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    assets.forEach(a => {
+      if (a.cliente_id) {
+        map[a.tag] = a.cliente_id;
+      }
+    });
+    return map;
+  }, [assets]);
+
+  const filtered = useMemo(() => {
+    const activeClientUuid = localStorage.getItem("active_client");
+    return preventive_maintenance.filter(m => {
+      if (activeClientUuid) {
+        const client_id = assetToClientMap[m.equipo_tag];
+        if (client_id && client_id !== activeClientUuid) {
+          return false;
+        }
+      }
+      return m.equipo_tag.toLowerCase().includes(filter.toLowerCase()) || 
+             m.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
+             m.id.toLowerCase().includes(filter.toLowerCase());
+    });
+  }, [preventive_maintenance, filter, assetToClientMap]);
+
+  if (loading && preventive_maintenance.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <Wrench className="w-12 h-12 text-slate-200 mb-4 animate-bounce" />
+        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Recuperando Bitácora de Mantenimientos...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 text-left">
@@ -99,49 +130,47 @@ export default function Mantenimientos() {
       <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">ID / Fecha</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Equipo (TAG)</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Servicio</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Técnico</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Estado</th>
-              <th className="px-6 py-4 text-right"></th>
+            <tr className="bg-slate-50/50 border-b border-slate-100 italic">
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">ID / Fecha</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Equipo TAG</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipo</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Técnico</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Acciones</th>
             </tr>
           </thead>
-          <tbody>
-            {filtered.map((m) => (
-              <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+          <tbody className="divide-y divide-slate-50">
+            {filtered.map(m => (
+              <tr key={m.uuid_sync} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-black text-slate-900 italic tracking-tighter">#{m.id}</span>
-                    <span className="text-[10px] font-bold text-slate-400">{m.fecha}</span>
-                  </div>
+                  <div className="text-xs font-black text-slate-900">{m.id}</div>
+                  <div className="text-[10px] font-bold text-slate-400">{m.fecha}</div>
+                </td>
+                <td className="px-6 py-4 font-bold text-blue-600 text-xs">{m.equipo_tag}</td>
+                <td className="px-6 py-4">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{m.tipo}</span>
                 </td>
                 <td className="px-6 py-4">
-                   <Link href={`/equipos/${m.tag}`}>
-                    <span className="text-xs font-black text-blue-600 hover:underline cursor-pointer tracking-widest">{m.tag}</span>
-                   </Link>
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                    m.estado === 'atrasado' ? 'bg-red-100 text-red-600' : 
+                    m.estado === 'programado' ? 'bg-blue-100 text-blue-600' : 
+                    'bg-emerald-100 text-emerald-600'
+                  }`}>
+                    {m.estado}
+                  </span>
                 </td>
-                <td className="px-6 py-4">
-                   <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${m.tipo === 'correctivo' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
-                      <span className="text-[10px] font-black uppercase text-slate-600">{m.tipo}</span>
-                   </div>
-                </td>
-                <td className="px-6 py-4 text-xs font-bold text-slate-500">{m.tecnico}</td>
-                <td className="px-6 py-4">
-                   <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${
-                     m.estado === 'realizado' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                     m.estado === 'programado' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                     'bg-amber-50 text-amber-600 border-amber-100'
-                   }`}>
-                     {m.estado}
-                   </span>
-                </td>
+                <td className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">{m.tecnico}</td>
                 <td className="px-6 py-4 text-right">
-                   <button className="p-2 text-slate-300 hover:text-blue-600 transition-colors opacity-0 group-hover:opacity-100">
-                      <MoreVertical className="w-4 h-4" />
-                   </button>
+                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
+                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><Edit3 className="w-3.5 h-3.5" /></button>
+                      <button 
+                        onClick={() => deleteMantenimiento(m.uuid_sync)}
+                        className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                   </div>
                 </td>
               </tr>
             ))}
@@ -155,8 +184,8 @@ export default function Mantenimientos() {
   );
 }
 
-function StatCard({ label, value, color }: { label: string, value: string, color: 'emerald' | 'blue' | 'red' | 'slate' }) {
-  const colors = {
+function StatCard({ label, value, color }: { label: string, value: string, color: string }) {
+  const colors: Record<string, string> = {
     emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
     blue: "bg-blue-50 text-blue-600 border-blue-100",
     red: "bg-red-50 text-red-600 border-red-100",

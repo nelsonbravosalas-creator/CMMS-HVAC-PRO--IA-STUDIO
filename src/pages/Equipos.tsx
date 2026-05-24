@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { 
   Box, 
@@ -19,13 +20,17 @@ import {
   QrCode
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { DataStore, useDataStore } from "../services/dataStore";
-import { Equipo } from "../data/assets";
+import { EQUIPOS_DATA, Equipo } from "../data/assets";
+import { ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import { BulkUploadModal } from "../components/modals/BulkUploadModal";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { QRLabelModal } from "../components/modals/QRLabelModal";
 import { useAuth } from "../context/AuthContext";
+import { useAppStore } from "../store/useAppStore";
+import { useAssets } from "../hooks/useAssets";
+import { LocalActivo } from "../db/database";
+import { StatusIndicator } from "../components/StatusIndicator";
 
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
@@ -43,22 +48,18 @@ export default function Equipos() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedEqLabel, setSelectedEqLabel] = useState<any | null>(null);
-  const equipos = useDataStore(() => DataStore.getEquipos());
+  
+  const assets = useAppStore(state => state.assets);
+  const loading = useAppStore(state => state.isLoading);
+
   const [filters, setFilters] = useState<FilterState>(() => {
     const saved = localStorage.getItem("equipos_filters");
     return saved ? JSON.parse(saved) : { search: "", tipo: "", estado: "", area: "", almacen: "" };
   });
 
-  const ALMACEN_LABELS: Record<string, string> = { 
-    '11-STK': 'Iquique', '12-STK': 'Antofagasta', '13-STK': 'Copiapó', 
-    '21-STK': 'Santiago 14 de la Fama', '21-STK-SB': 'BME La Vara 3310',
-    '23-STK': 'Viña del Mar', '24-STK': 'Rancagua', '31-STK': 'Concepción',
-    '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
-  };
-
   if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
 
-  const [sortField, setSortField] = useState<keyof Equipo>("tag");
+  const [sortField, setSortField] = useState<keyof LocalActivo>("tag");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [, setLocation] = useLocation();
 
@@ -67,7 +68,9 @@ export default function Equipos() {
   }, [filters]);
 
   const filteredEquipos = useMemo(() => {
-    return equipos.filter(eq => {
+    const activeClientUid = localStorage.getItem("active_client");
+    return assets.filter(eq => {
+      if (activeClientUid && eq.cliente_id !== activeClientUid) return false;
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;
@@ -78,13 +81,22 @@ export default function Equipos() {
 
       return matchSearch && matchTipo && matchEstado && matchArea && matchAlmacen;
     }).sort((a, b) => {
-      const valA = a[sortField] || "";
-      const valB = b[sortField] || "";
+      const valA = (a[sortField] || "").toString();
+      const valB = (b[sortField] || "").toString();
       if (valA < valB) return sortOrder === "asc" ? -1 : 1;
       if (valA > valB) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
-  }, [equipos, filters, sortField, sortOrder]);
+  }, [assets, filters, sortField, sortOrder]);
+
+  if (loading && assets.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <Box className="w-12 h-12 text-slate-200 mb-4 animate-bounce" />
+        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Inicializando Base de Datos Maestra...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 text-left relative">
@@ -176,12 +188,12 @@ export default function Equipos() {
            <div className="flex items-center gap-3">
               <select 
                 className="text-[9px] font-black uppercase text-slate-500 outline-none pr-6 bg-transparent"
-                value={sortField}
-                onChange={(e) => setSortField(e.target.value as any)}
+                value={String(sortField)}
+                onChange={(e) => setSortField(e.target.value as keyof LocalActivo)}
               >
                 <option value="tag">Ordenar por TAG</option>
                 <option value="nombre">Ordenar por Nombre</option>
-                <option value="ultimoMantenimiento">Mantenimiento</option>
+                <option value="ultimo_mantenimiento">Mantenimiento</option>
               </select>
               <button 
                 onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
@@ -197,8 +209,8 @@ export default function Equipos() {
       <div className="min-h-[400px]">
         {viewMode === "grid" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredEquipos.map((eq: Equipo) => (
-              <EquipoCardGrid key={eq.tag} equipo={eq} onShowLabel={setSelectedEqLabel} />
+            {filteredEquipos.map((eq: LocalActivo) => (
+              <EquipoCardGrid key={eq.uuid_sync} equipo={eq} onShowLabel={setSelectedEqLabel} />
             ))}
           </div>
         )}
@@ -216,8 +228,8 @@ export default function Equipos() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 text-xs">
-                {filteredEquipos.map((eq: Equipo) => (
-                   <EquipoRowList key={eq.tag} equipo={eq} onShowLabel={setSelectedEqLabel} />
+                {filteredEquipos.map((eq: LocalActivo) => (
+                   <EquipoRowList key={eq.uuid_sync} equipo={eq} onShowLabel={setSelectedEqLabel} />
                 ))}
               </tbody>
             </table>
@@ -228,7 +240,7 @@ export default function Equipos() {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
             {filteredEquipos.map(eq => (
               <div 
-                key={eq.tag} 
+                key={eq.uuid_sync} 
                 onClick={() => setLocation(`/equipos/${eq.tag}`)}
                 className="aspect-square bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative"
               >
@@ -246,13 +258,13 @@ export default function Equipos() {
         )}
       </div>
 
-      {showCreateModal && <CreateAssetModal onClose={() => setShowCreateModal(false)} onSave={(equipo) => DataStore.addEquipo(equipo)} />}
+      {showCreateModal && <CreateAssetModal onClose={() => setShowCreateModal(false)} />}
       {showBulkModal && <BulkUploadModal onClose={() => setShowBulkModal(false)} />}
     </div>
   );
 }
 
-const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
+const EquipoCardGrid: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
   const [, setLocation] = useLocation();
 
   return (
@@ -267,6 +279,7 @@ const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void 
             <Box className="w-6 h-6" />
           </div>
           <div className="flex items-center gap-2">
+            <StatusIndicator status={equipo.sync_status} />
             <button 
               onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
               className="p-3 bg-slate-100 hover:bg-white rounded-xl shadow-sm transition-all border border-transparent hover:border-slate-200"
@@ -295,7 +308,7 @@ const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void 
           </div>
           <div className="flex justify-between items-center text-[10px] font-bold uppercase">
              <span className="text-slate-400">Próximo Mantenimiento:</span>
-             <span className="text-slate-900">{equipo.proximoMantenimiento}</span>
+             <span className="text-slate-900">{equipo.proximo_mantenimiento}</span>
           </div>
        </div>
 
@@ -308,7 +321,7 @@ const EquipoCardGrid: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void 
   );
 }
 
-const EquipoRowList: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
+const EquipoRowList: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> = ({ equipo, onShowLabel }) => {
   const [, setLocation] = useLocation();
 
   return (
@@ -318,6 +331,7 @@ const EquipoRowList: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }
     >
       <td className="px-6 py-4 text-left">
         <div className="flex items-center gap-4">
+           <StatusIndicator status={equipo.sync_status} />
            <button 
              onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
              className="p-2 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-lg transition-all"
@@ -346,7 +360,7 @@ const EquipoRowList: React.FC<{ equipo: Equipo, onShowLabel: (eq: any) => void }
           {equipo.estado}
         </span>
       </td>
-      <td className="px-6 py-4 font-bold text-slate-600">{equipo.proximoMantenimiento}</td>
+      <td className="px-6 py-4 font-bold text-slate-600">{equipo.proximo_mantenimiento}</td>
       <td className="px-6 py-4 text-right">
          <div className="flex justify-end gap-2 text-slate-300 group-hover:text-slate-500">
             <Edit2 className="w-4 h-4 hover:text-blue-500" />

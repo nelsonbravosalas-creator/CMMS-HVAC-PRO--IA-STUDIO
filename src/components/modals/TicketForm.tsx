@@ -1,92 +1,155 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History
+  X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History, MapPin
 } from 'lucide-react';
+import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { AssetSearchModal } from './AssetSearchModal';
 import { EQUIPOS_DATA } from '../../data/assets';
-import { DataStore } from '../../services/dataStore';
-import { Ticket } from '../../data/work_orders';
+import { ALMACEN_LABELS } from '../../data/branches';
+import { useTickets } from '../../hooks/useTickets';
+import { SearchableSelect } from '../SearchableSelect';
+
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/database';
+import { useAppStore } from '../../store/useAppStore';
 
 interface TicketFormProps {
   onClose: () => void;
-  onSave?: (ticket: Ticket) => void;
   equipoTag?: string;
 }
 
-const ALMACEN_LABELS: Record<string, string> = { 
-  '11-STK': 'Iquique', '12-STK': 'Antofagasta', '13-STK': 'Copiapó', 
-  '21-STK': 'Santiago 14 de la Fama', '21-STK-SB': 'BME La Vara 3310',
-  '23-STK': 'Viña del Mar', '24-STK': 'Rancagua', '31-STK': 'Concepción',
-  '32-STK': 'Puerto Montt', 'Planta-STK': 'Planta Industrial'
-};
-
-export const TicketForm: React.FC<TicketFormProps> = ({ onClose, onSave, equipoTag: initialTag }) => {
+export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: initialTag }) => {
+  const { createTicket } = useTickets();
   const [showAssetSearch, setShowAssetSearch] = useState(false);
   const [tag, setTag] = useState(initialTag || "");
   const [equipoDesc, setEquipoDesc] = useState("");
-  const [cliente, setCliente] = useState("");
+  const [cliente, setCliente] = useState(localStorage.getItem("active_client") || "");
   const [sucursal, setSucursal] = useState("");
-  const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState<'baja' | 'media' | 'alta' | 'critica'>('baja');
-  const [ticketType, setTicketType] = useState<'falla' | 'inspeccion' | 'consulta'>('falla');
-  const [description, setDescription] = useState("");
-  const [assigned, setAssigned] = useState('Nelson Bravo');
+  
+  // Form fields
+  const [titulo, setTitulo] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [prioridad, setPrioridad] = useState("Media");
+  const [tipoIncidencia, setTipoIncidencia] = useState("Falla Técnica");
+  const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
+  
+  const storeClients = useAppStore(state => state.clients);
+  const storeBranches = useAppStore(state => state.branches);
 
+  const localAssets = useLiveQuery(() => db.assets.filter(a => !a.deleted_at).toArray()) || [];
+
+  React.useEffect(() => {
+    if (tag && localAssets.length > 0) {
+      const eq = localAssets.find(a => a.tag === tag);
+      if (eq) {
+        setEquipoDesc(eq.nombre || "");
+        setCliente(eq.cliente_id || "");
+        const branchObj = storeBranches && eq.sucursal_id ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+        setSucursal(branchObj ? branchObj.nombre : (eq.ubicacion || ""));
+      }
+    }
+  }, [tag, localAssets, storeBranches]);
+  
+  const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState("");
+
+  const captureGPS = () => {
+    setGpsLoading(true);
+    setGpsError("");
+    if (!navigator.geolocation) {
+      setGpsError("Tu navegador no soporta geolocalización.");
+      setGpsLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUbicacionGeografica({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        });
+        setGpsLoading(false);
+      },
+      (err) => {
+        console.error("GPS error", err);
+        setGpsError("No se pudo obtener la ubicación GPS.");
+        setGpsLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+  
   // Search Modal States
   const [searchQuery, setSearchQuery] = useState("");
   const [searchClient, setSearchClient] = useState("");
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
+  const filteredEquipos = localAssets.filter(eq => {
     const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
-    const eqSucursal = eq.tag.split('.')[0];
-    const matchSucursal = searchSucursal ? eqSucursal === searchSucursal : true;
+    const branchObj = storeBranches ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+    const matchSucursal = searchSucursal ? eq.sucursal_id === searchSucursal || (branchObj && branchObj.nombre === searchSucursal) : true;
     return matchTag && matchDesc && matchSucursal;
   });
 
   const handleSelectAsset = (eq: any) => {
     setTag(eq.tag);
     setEquipoDesc(eq.nombre);
-    setCliente("Empresa Mandante SPA"); // Simplified for demo
-    const sucursalCode = eq.tag.split('.')[0];
-    setSucursal(ALMACEN_LABELS[sucursalCode] || sucursalCode);
+    
+    // Attempt to resolve names from IDs
+    const clientObj = storeClients && eq.cliente_id ? storeClients.find(c => c.uuid_sync === eq.cliente_id) : null;
+    const clientName = clientObj ? clientObj.nombre : eq.cliente_id;
+    setCliente(eq.cliente_id); 
+    
+    const branchObj = storeBranches && eq.sucursal_id ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+    const branchName = branchObj ? branchObj.nombre : eq.sucursal_id;
+    setSucursal(branchName);
+    
     setShowAssetSearch(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tag || !title || !description) {
-      alert("Por favor complete TAG, título y descripción antes de guardar.");
-      return;
+    setIsSaving(true);
+    
+    if (tipoIncidencia === 'Falla Técnica' && !tag) {
+       alert("Un ticket de tipo 'Falla Técnica' requiere vincular un activo (TAG) obligatorio.");
+       setIsSaving(false);
+       return;
     }
 
-    const newTicket: Ticket = {
-      id: `TK-${Date.now()}`,
-      tag,
-      titulo: title,
-      descripcion: description,
-      tipo: ticketType,
-      prioridad: priority,
-      estado: 'abierto',
-      creador: 'Nelson Bravo',
-      asignado: assigned,
-      fecha: new Date().toISOString().split('T')[0],
-      notas: ''
-    };
-
-    DataStore.addTicket(newTicket);
-    onSave?.(newTicket);
-    onClose();
+    try {
+      await createTicket({
+        titulo: titulo || `FALLA REPORTADA EN ${tag}`,
+        descripcion: descripcion || equipoDesc,
+        prioridad: prioridad,
+        estado: 'abierto',
+        equipo_tag: tag,
+        cliente_id: cliente,
+        creado_por: 'Actual User',
+        asignado_a: asignadoA,
+        fecha_creacion: new Date().toISOString(),
+        ubicacionGeografica,
+      });
+      
+      onClose();
+    } catch (e) {
+      console.error("Ticket save error:", e);
+      alert("Error al guardar el ticket.");
+    } finally {
+      setIsSaving(false);
+    }
   };
-
+  
   const today = new Date().toLocaleDateString('es-CL');
 
   return (
     <>
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[95vh]">
+      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+        <div className="bg-white w-full max-w-2xl rounded-t-3xl sm:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-full sm:zoom-in-95 duration-200 flex flex-col h-[100dvh] sm:h-auto sm:max-h-[95vh]">
           {/* Header */}
           <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
             <div>
@@ -96,7 +159,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, onSave, equipoT
             <button onClick={onClose} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
           </div>
 
-          <form className="p-8 space-y-6 overflow-y-auto" onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
             {/* Asset Link Section */}
             <div className="bg-blue-50/30 p-6 rounded-[32px] border border-blue-100/50 space-y-4">
               <div className="flex justify-between items-center">
@@ -167,65 +230,70 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, onSave, equipoT
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Título del Ticket</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="EJ: FALLA COMPRESOR SALA B"
-                className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+              <input 
+                type="text" 
+                placeholder="EJ: FALLA COMPRESOR SALA B" 
+                className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold uppercase transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" 
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-1 z-40">
                 <label className="text-[10px] font-black uppercase text-slate-400">Prioridad</label>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
-                >
-                  <option value="baja">Baja</option>
-                  <option value="media">Media</option>
-                  <option value="alta">Alta</option>
-                  <option value="critica">Crítica</option>
-                </select>
+                <SearchableSelect
+                  options={[
+                    { value: 'Baja', label: 'Baja' },
+                    { value: 'Media', label: 'Media' },
+                    { value: 'Alta', label: 'Alta' },
+                    { value: 'CRÍTICA', label: 'CRÍTICA' },
+                  ]}
+                  value={prioridad}
+                  onChange={setPrioridad}
+                  placeholder="Selecciona prioridad"
+                />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 z-30">
                 <label className="text-[10px] font-black uppercase text-slate-400">Tipo Incidencia</label>
-                <select
-                  value={ticketType}
-                  onChange={(e) => setTicketType(e.target.value as any)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
-                >
-                  <option value="falla">Falla Técnica</option>
-                  <option value="inspeccion">Inspección</option>
-                  <option value="consulta">Consulta</option>
-                </select>
+                <SearchableSelect
+                  options={[
+                    { value: 'Falla Técnica', label: 'Falla Técnica' },
+                    { value: 'Mejora Solicitada', label: 'Mejora Solicitada' },
+                    { value: 'Consulta Preventiva', label: 'Consulta Preventiva' },
+                    { value: 'Garantía', label: 'Garantía' },
+                  ]}
+                  value={tipoIncidencia}
+                  onChange={setTipoIncidencia}
+                  placeholder="Selecciona tipo"
+                />
               </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-black uppercase text-slate-400">Descripción del Problema</label>
-              <textarea
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Detalle el problema observado..."
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
+              <textarea 
+                rows={3} 
+                placeholder="Detalle el problema observado..." 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none resize-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500" 
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 z-20">
               <label className="text-[10px] font-black uppercase text-slate-400">Asignar Personal</label>
-              <select
-                value={assigned}
-                onChange={(e) => setAssigned(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
-              >
-                <option value="Nelson Bravo">Nelson Bravo (Tech Lead)</option>
-                <option value="Gonzalo Bravo">Gonzalo Bravo (Senior Tech)</option>
-                <option value="Equipo Disponible">Disponible para cualquiera</option>
-              </select>
+              <SearchableSelect
+                options={[
+                  { value: 'Nelson Bravo (Tech Lead)', label: 'Nelson Bravo (Tech Lead)' },
+                  { value: 'Gonzalo Bravo (Senior Tech)', label: 'Gonzalo Bravo (Senior Tech)' },
+                  { value: 'Disponible para cualquiera', label: 'Disponible para cualquiera' },
+                ]}
+                value={asignadoA}
+                onChange={setAsignadoA}
+                placeholder="Selecciona personal"
+                icon={<User className="w-4 h-4 text-slate-400" />}
+              />
             </div>
 
             <div className="flex gap-4">
@@ -233,15 +301,43 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, onSave, equipoT
                 <Camera className="w-6 h-6 group-hover:text-blue-500 transition-colors" />
                 <span className="text-[9px] font-black uppercase">Adjuntar Evidencia</span>
               </button>
-              <button type="button" className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-rose-50 hover:text-rose-600 transition-all group hover:border-rose-100">
-                 <Trash2 className="w-6 h-6" />
-                 <span className="text-[9px] font-black uppercase">Limpiar Fotos</span>
+              <button 
+                type="button" 
+                onClick={captureGPS}
+                disabled={gpsLoading}
+                className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-emerald-50 hover:text-emerald-600 transition-all group hover:border-emerald-100"
+              >
+                 <MapPin className={`w-6 h-6 ${gpsLoading ? 'animate-pulse text-emerald-500' : (ubicacionGeografica ? 'text-emerald-500' : '')}`} />
+                 <span className="text-[9px] font-black uppercase">
+                   {gpsLoading ? 'Obteniendo GPS...' : (ubicacionGeografica ? 'Ubicación Capturada' : 'Capturar Ubicación')}
+                 </span>
               </button>
             </div>
+            
+            {gpsError && (
+              <p className="text-xs text-rose-500 font-bold">{gpsError}</p>
+            )}
 
-            <button type="submit" className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 mt-4 flex items-center justify-center gap-3">
-              <Save className="w-5 h-5" />
-              Emitir y Guardar Ticket
+            {ubicacionGeografica && import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY && (
+              <div className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 mt-2">
+                <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY}>
+                  <Map 
+                    defaultZoom={15} 
+                    defaultCenter={ubicacionGeografica}
+                    mapId="ticket_map_id"
+                    disableDefaultUI
+                  >
+                    <AdvancedMarker position={ubicacionGeografica}>
+                      <Pin background={'#ef4444'} borderColor={'#7f1d1d'} glyphColor={'#7f1d1d'} />
+                    </AdvancedMarker>
+                  </Map>
+                </APIProvider>
+              </div>
+            )}
+
+            <button disabled={isSaving} type="submit" className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 mt-4 flex items-center justify-center gap-3 disabled:opacity-50">
+              {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5" />}
+              {isSaving ? "Guardando..." : "Emitir y Guardar Ticket"}
             </button>
           </form>
         </div>

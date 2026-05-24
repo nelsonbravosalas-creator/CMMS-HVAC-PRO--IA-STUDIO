@@ -6,15 +6,11 @@ export interface Ticket {
   descripcion: string;
   tipo: 'falla' | 'inspeccion' | 'consulta';
   prioridad: 'baja' | 'media' | 'alta' | 'critica';
-  estado: 'abierto' | 'en_proceso' | 'resuelto' | 're_asignado';
+  estado: 'abierto' | 'en_proceso' | 'resuelto' | 're-asignado';
   creador: string;
   asignado: string;
   fecha: string;
   notas: string;
-  uuid_sync?: string;
-  updated_at?: number;
-  created_at?: number;
-  deleted_at?: number;
 }
 
 export const TICKETS_MOCK: Ticket[] = [
