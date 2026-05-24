@@ -132,7 +132,8 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
                    </select>
                 </div>
              )}
-             <button disabled={isSaving} className="w-full py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-slate-900/20 active:scale-[0.98] transition-all disabled:opacity-50">
+             <button disabled={isSaving} className="w-full py-4 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-3xl shadow-xl shadow-slate-900/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {isSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
                 {isSaving ? 'Guardando...' : (editingUser ? 'Guardar Cambios' : 'Crear Perfil Usuario')}
              </button>
           </form>
