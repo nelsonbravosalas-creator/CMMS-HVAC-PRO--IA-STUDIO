@@ -21,6 +21,7 @@ interface SubLocation {
   nombre: string;
   direccion: string;
   codigo: string;
+  region: string;
 }
 
 export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps) {
@@ -38,12 +39,12 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   useEffect(() => {
     if (sinSucursales) {
       if (subs.length === 0) {
-        setSubs([{ id: Math.random().toString(), tipo: 'Tienda', nombre: 'Casa Matriz', direccion: direccion, codigo: 'MATR' }]);
+        setSubs([{ id: Math.random().toString(), tipo: 'Tienda', nombre: 'Casa Matriz', direccion: direccion, codigo: 'MATR', region: region }]);
       } else {
-        setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion, codigo: s.codigo || 'MATR' })));
+        setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion, codigo: s.codigo || 'MATR', region: region })));
       }
     }
-  }, [sinSucursales, direccion]);
+  }, [sinSucursales, direccion, region]);
 
   useEffect(() => {
     if (editingClient && isOpen) {
@@ -62,6 +63,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         nombre: b.nombre,
         direccion: b.direccion || '',
         codigo: b.codigo,
+        region: b.region || '',
       }));
       setSubs(loadedSubs);
       
@@ -169,7 +171,9 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
               ...existing,
               nombre: sub.nombre,
               codigo: sub.codigo,
-              descripcion: sub.direccion
+              descripcion: sub.direccion,
+              direccion: sub.direccion,
+              region: sub.region || region || ''
             };
             await branchRepo.update(sub.uuid_sync, updatedBranch);
             existingBranchMap.delete(sub.uuid_sync); // Mark as processed
@@ -183,7 +187,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
               nombre: sub.nombre,
               direccion: sub.direccion,
               ciudad: '',
-              region: '',
+              region: sub.region || region || '',
               activo: true
             };
             await branchRepo.create(newBranch);
@@ -232,7 +236,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
             nombre: sub.nombre,
             direccion: sub.direccion,
             ciudad: '',
-            region: '',
+            region: sub.region || region || '',
             activo: true
           };
           await branchRepo.create(newBranch);
@@ -251,7 +255,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   };
 
   const addSub = () => {
-    setSubs([...subs, { id: Math.random().toString(), tipo: 'Tienda', nombre: '', direccion: '', codigo: '' }]);
+    setSubs([...subs, { id: Math.random().toString(), tipo: 'Tienda', nombre: '', direccion: '', codigo: '', region: '' }]);
   };
 
   const updateSub = (id: string, field: keyof SubLocation, value: string) => {
@@ -381,9 +385,23 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                              <label className="text-[9px] font-black uppercase text-slate-400">Nombre de la Sucursal</label>
                              <input disabled={sinSucursales} type="text" placeholder="Nombre identificador" value={sub.nombre} onChange={e => updateSub(sub.id, 'nombre', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
                           </div>
-                          <div className="space-y-1 md:col-span-4">
+                          <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Dirección</label>
                              <input disabled={sinSucursales} type="text" placeholder="Dirección de la instalación" value={sub.direccion} onChange={e => updateSub(sub.id, 'direccion', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
+                          </div>
+                          <div className="space-y-1 md:col-span-2">
+                             <label className="text-[9px] font-black uppercase text-slate-400">Región de la Sucursal</label>
+                             <select 
+                                disabled={sinSucursales} 
+                                value={sub.region || ""} 
+                                onChange={e => updateSub(sub.id, 'region', e.target.value)} 
+                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50"
+                             >
+                                <option value="">Heredar Región ({region || "Metropolitana de Santiago"})</option>
+                                {REGIONES_CHILE.map(r => (
+                                   <option key={r.value} value={r.value}>{r.label}</option>
+                                ))}
+                             </select>
                           </div>
                        </div>
                     </div>

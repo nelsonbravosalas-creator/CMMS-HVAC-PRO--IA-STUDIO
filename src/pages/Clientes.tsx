@@ -39,7 +39,8 @@ export default function Clientes() {
   const activeClients = clients.filter(c => 
     c.activo !== false && 
     (c.nombre?.toLowerCase().includes(filter.toLowerCase()) || 
-     (c.rut || "").toLowerCase().includes(filter.toLowerCase()))
+     (c.rut || "").toLowerCase().includes(filter.toLowerCase()) ||
+     (c.region || "").toLowerCase().includes(filter.toLowerCase()))
   );
 
   return (
@@ -133,9 +134,13 @@ export default function Clientes() {
                       <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Estado Contractual</span>
                       <span className="text-[10px] font-black text-emerald-650 uppercase">Activo</span>
                     </div>
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 col-span-2">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Dirección Central</span>
                       <span className="text-xs font-bold text-slate-600 line-clamp-1">{c.direccion || 'No registrada'}</span>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Región</span>
+                      <span className="text-xs font-extrabold text-indigo-600 line-clamp-1">{c.region || 'Metropolitana de Santiago'}</span>
                     </div>
                   </div>
                 </div>

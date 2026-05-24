@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import { neon } from "@neondatabase/serverless";
 import path from "path";
+import bcrypt from "bcryptjs";
 
 // Neon DB connection
 // Exigido por el usuario: utilizar exclusivamente DATABASE_URL
@@ -271,7 +272,6 @@ async function startServer() {
       const user = _users[0];
       const storedPin = user.pin || (user.data && user.data.pin);
       
-      const bcrypt = require('bcryptjs');
       let isMatch = false;
       if (storedPin && storedPin.startsWith('$2')) {
         isMatch = bcrypt.compareSync(pin, storedPin);

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   ScanLine, 
   TrendingUp, 
@@ -50,9 +50,17 @@ const DATA_POWER = [
 export default function Dashboard() {
   const assets = useAppStore(state => state.assets);
   const work_orders = useAppStore(state => state.work_orders);
+  const branches = useAppStore(state => state.branches);
   const loading = useAppStore(state => state.isLoading);
 
   const activeClient = localStorage.getItem("active_client");
+
+  const clientBranches = useMemo(() => {
+    if (activeClient) {
+      return branches.filter(b => b.cliente_id === activeClient && b.activo !== false);
+    }
+    return branches.filter(b => b.activo !== false);
+  }, [branches, activeClient]);
 
   const clientAssets = useMemo(() => {
     if (activeClient) {
@@ -72,6 +80,14 @@ export default function Dashboard() {
   const [almacen, setAlmacen] = useState("");
   /** Estado para filtrar por estado técnico (falla, mantenimiento, operativo) */
   const [estado, setEstado] = useState("");
+
+  // Reset branch filter if it's not valid for the current client's branches
+  useEffect(() => {
+    if (almacen && !clientBranches.some(b => (b.codigo || b.id) === almacen)) {
+      setAlmacen("");
+    }
+  }, [activeClient, clientBranches, almacen]);
+
 
   /**
    * Memoización de equipos filtrados.
@@ -131,9 +147,11 @@ export default function Dashboard() {
               onChange={(e) => setAlmacen(e.target.value)}
               className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 border-r border-slate-100 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10"
             >
-              <option value="">Todos los Almacenes</option>
-              {Object.entries(ALMACEN_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v} ({k})</option>
+              <option value="">Todas las Sucursales</option>
+              {clientBranches.map(b => (
+                <option key={b.id || b.uuid_sync} value={b.codigo || b.id}>
+                  {b.nombre} ({b.codigo || b.id})
+                </option>
               ))}
             </select>
             <select 
