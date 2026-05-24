@@ -39,6 +39,9 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [isScanning, setIsScanning] = useState(false);
   const potencia = (voltaje * corriente) / 1000;
   
+  const [ultimoMantenimiento, setUltimoMantenimiento] = useState(new Date().toISOString().split('T')[0]);
+  const [frecuenciaMantenimiento, setFrecuenciaMantenimiento] = useState("Semestral");
+  
   const [isExporting, setIsExporting] = useState(false);
   const [isCodificacionModalOpen, setIsCodificacionModalOpen] = useState(false);
   const [showTagPreview, setShowTagPreview] = useState(false);
@@ -174,6 +177,30 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         throw new Error('La sucursal seleccionada no tiene un cliente asociado valid.');
       }
 
+      let proximoDate = "";
+      try {
+        const lastParts = ultimoMantenimiento.split('-');
+        if (lastParts.length === 3) {
+          const lastD = new Date(parseInt(lastParts[0]), parseInt(lastParts[1]) - 1, parseInt(lastParts[2]));
+          let monthsToAdd = 6;
+          const freq = frecuenciaMantenimiento.toLowerCase();
+          if (freq.includes("mensual")) monthsToAdd = 1;
+          else if (freq.includes("bi") || freq.includes("2")) monthsToAdd = 2;
+          else if (freq.includes("tri") || freq.includes("3") || freq.includes("quarter")) monthsToAdd = 3;
+          else if (freq.includes("cuatri") || freq.includes("4")) monthsToAdd = 4;
+          else if (freq.includes("semes") || freq.includes("6") || freq.includes("half")) monthsToAdd = 6;
+          else if (freq.includes("anual") || freq.includes("12") || freq.includes("year")) monthsToAdd = 12;
+          
+          lastD.setMonth(lastD.getMonth() + monthsToAdd);
+          const y = lastD.getFullYear();
+          const m = String(lastD.getMonth() + 1).padStart(2, '0');
+          const d = String(lastD.getDate()).padStart(2, '0');
+          proximoDate = `${y}-${m}-${d}`;
+        }
+      } catch (err) {
+        console.error("Error setting proximo", err);
+      }
+
       await createAsset({
         uuid_sync: crypto.randomUUID(),
         tag: fullTag || `EQUIPO-${Date.now()}`,
@@ -190,6 +217,9 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         fecha_instalacion: new Date().toISOString(),
         vida_util: 10,
         estado: "operativo",
+        ultimo_mantenimiento: ultimoMantenimiento,
+        frecuencia_mantenimiento: frecuenciaMantenimiento,
+        proximo_mantenimiento: proximoDate || new Date().toISOString().split('T')[0],
         cliente_id: branch.cliente_id,
         sucursal_id: branch.uuid_sync
       });
@@ -459,6 +489,39 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col justify-center col-span-2 sm:col-span-1">
                       <span className="text-[8px] font-black text-blue-600 uppercase">Potencia Est.</span>
                       <span className="text-sm lg:text-base font-black text-blue-600">{potencia.toFixed(2)} kW</span>
+                   </div>
+                </div>
+             </div>
+
+             <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-2">
+                   <Calculator className="w-4 h-4 text-emerald-600" />
+                   <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Mantenimiento Preventivo</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Último Mantenimiento Realizado</label>
+                      <input 
+                         type="date" 
+                         value={ultimoMantenimiento} 
+                         onChange={(e) => setUltimoMantenimiento(e.target.value)} 
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:border-emerald-300 transition-all font-mono uppercase text-slate-700" 
+                      />
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Frecuencia de Mantenimiento</label>
+                      <select 
+                         value={frecuenciaMantenimiento} 
+                         onChange={(e) => setFrecuenciaMantenimiento(e.target.value)} 
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:border-emerald-300 transition-all text-slate-700 select"
+                      >
+                         <option value="Mensual">Mensual (1 Mes)</option>
+                         <option value="Bi-Mestral">Bi-Mestral (2 Meses)</option>
+                         <option value="Trimestral">Trimestral (3 Meses)</option>
+                         <option value="Cuatrimestral">Cuatrimestral (4 Meses)</option>
+                         <option value="Semestral">Semestral (6 Meses)</option>
+                         <option value="Anual">Anual (12 Meses)</option>
+                      </select>
                    </div>
                 </div>
              </div>

@@ -30,6 +30,7 @@ export interface LocalActivo extends LocalBase {
   estado: 'operativo' | 'falla' | 'mantenimiento' | 'baja';
   ultimo_mantenimiento: string;
   proximo_mantenimiento: string;
+  frecuencia_mantenimiento?: string;
   horas_operacion: number;
   tecnicos: string[];
   notas: string;

@@ -255,7 +255,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   };
 
   const addSub = () => {
-    setSubs([...subs, { id: Math.random().toString(), tipo: 'Tienda', nombre: '', direccion: '', codigo: '', region: '' }]);
+    setSubs([...subs, { id: Math.random().toString(), tipo: 'Tienda', nombre: '', direccion: '', codigo: '', region: region || '' }]);
   };
 
   const updateSub = (id: string, field: keyof SubLocation, value: string) => {

@@ -49,6 +49,7 @@ export interface Equipo {
   estado: 'operativo' | 'falla' | 'mantenimiento' | 'baja'; // Estado operacional de la máquina
   ultimo_mantenimiento: string; 
   proximo_mantenimiento: string;
+  frecuencia_mantenimiento?: string;
   horas_operacion: number;  
   tecnicos: string[];      // Referencia a una tabla de "Usuarios"
   notas: string;           

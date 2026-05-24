@@ -33,6 +33,71 @@ import { Link } from "wouter";
 import { useAppStore } from "../store/useAppStore";
 import { ALMACEN_LABELS } from "../data/branches";
 
+function formatToDDMMAAAA(dateStr: string): string {
+  if (!dateStr) return "-";
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
+  
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const y = parts[0];
+    const m = parts[1];
+    const d = parts[2];
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr;
+}
+
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  }
+  return null;
+}
+
+function calculateAndFormatProximoMantenimiento(ultimoMantenimiento: string, proximoMantenimiento: string, frecuencia?: string): string {
+  if (!ultimoMantenimiento) {
+    if (proximoMantenimiento) return formatToDDMMAAAA(proximoMantenimiento);
+    return "-";
+  }
+
+  const lastDate = parseDate(ultimoMantenimiento);
+  if (!lastDate || isNaN(lastDate.getTime())) {
+    if (proximoMantenimiento) return formatToDDMMAAAA(proximoMantenimiento);
+    return "-";
+  }
+
+  let monthsToAdd = 6;
+  
+  if (frecuencia) {
+    const freq = frecuencia.toLowerCase();
+    if (freq.includes("mensual")) monthsToAdd = 1;
+    else if (freq.includes("bi") || freq.includes("2")) monthsToAdd = 2;
+    else if (freq.includes("tri") || freq.includes("3") || freq.includes("quarter")) monthsToAdd = 3;
+    else if (freq.includes("cuatri") || freq.includes("4")) monthsToAdd = 4;
+    else if (freq.includes("semes") || freq.includes("6") || freq.includes("half")) monthsToAdd = 6;
+    else if (freq.includes("anual") || freq.includes("12") || freq.includes("year")) monthsToAdd = 12;
+  } else if (proximoMantenimiento) {
+    const nextDateObj = parseDate(proximoMantenimiento);
+    if (nextDateObj && !isNaN(nextDateObj.getTime())) {
+      const diffMonths = (nextDateObj.getFullYear() - lastDate.getFullYear()) * 12 + (nextDateObj.getMonth() - lastDate.getMonth());
+      if (diffMonths > 0) {
+        monthsToAdd = diffMonths;
+      }
+    }
+  }
+
+  const nextDate = new Date(lastDate);
+  nextDate.setMonth(nextDate.getMonth() + monthsToAdd);
+
+  const d = String(nextDate.getDate()).padStart(2, '0');
+  const m = String(nextDate.getMonth() + 1).padStart(2, '0');
+  const y = nextDate.getFullYear();
+
+  return `${d}/${m}/${y}`;
+}
+
 const DATA_MONTHLY = [
   { name: 'Ene', cost: 4200, activity: 120 },
   { name: 'Feb', cost: 3800, activity: 98 },
@@ -325,7 +390,7 @@ export default function Dashboard() {
                   <div className="flex-1">
                     <div className="flex justify-between items-center text-[10px] font-bold mb-1">
                       <span className="text-slate-400 uppercase">Preventivo Programado</span>
-                      <span className="text-blue-600 uppercase">{eq.proximo_mantenimiento}</span>
+                      <span className="text-blue-600 uppercase font-mono tracking-wider">{calculateAndFormatProximoMantenimiento(eq.ultimo_mantenimiento, eq.proximo_mantenimiento, eq.frecuencia_mantenimiento)}</span>
                     </div>
                     <p className="text-sm font-bold text-slate-800 uppercase tracking-tight">{eq.nombre} / {eq.tag}</p>
                   </div>
