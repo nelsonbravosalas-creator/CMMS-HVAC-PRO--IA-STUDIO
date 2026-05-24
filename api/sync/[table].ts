@@ -1,4 +1,4 @@
-import { getDb } from '../_db';
+import { getDb } from '../_db.js';
 
 const VALID_TABLES = ['assets', 'work_orders', 'preventive_maintenance', 'clients', 'users', 'branches', 'reports', 'events'];
 
@@ -40,19 +40,20 @@ export default async function handler(req: any, res: any) {
     const results = [];
 
     if (operation === 'delete') {
+      const now = Date.now();
       for (const record of records) {
         try {
           if (table === 'assets') {
-             await sql`DELETE FROM assets WHERE uuid_sync = ${record.uuid_sync}`;
+             await sql`UPDATE assets SET deleted_at = ${now}, estado = 'baja', updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
           } else {
-             // For others using mapping
-             if (table === 'work_orders') await sql`DELETE FROM work_orders WHERE uuid_sync = ${record.uuid_sync}`;
-             else if (table === 'preventive_maintenance') await sql`DELETE FROM preventive_maintenance WHERE uuid_sync = ${record.uuid_sync}`;
-             else if (table === 'clients') await sql`DELETE FROM clients WHERE uuid_sync = ${record.uuid_sync}`;
-             else if (table === 'users') await sql`DELETE FROM users WHERE uuid_sync = ${record.uuid_sync}`;
-             else if (table === 'branches') await sql`DELETE FROM branches WHERE uuid_sync = ${record.uuid_sync}`;
-             else if (table === 'reports') await sql`DELETE FROM reports WHERE uuid_sync = ${record.uuid_sync}`;
-             else if (table === 'events') await sql`DELETE FROM events WHERE uuid_sync = ${record.uuid_sync}`;
+             // Soft delete for generic JSONB tables
+             if (table === 'work_orders') await sql`UPDATE work_orders SET deleted_at = ${now}, updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'preventive_maintenance') await sql`UPDATE preventive_maintenance SET deleted_at = ${now}, updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'clients') await sql`UPDATE clients SET deleted_at = ${now}, updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'users') await sql`UPDATE users SET deleted_at = ${now}, updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'branches') await sql`UPDATE branches SET deleted_at = ${now}, updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'reports') await sql`UPDATE reports SET deleted_at = ${now}, updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
+             else if (table === 'events') await sql`UPDATE events SET deleted_at = ${now}, updated_at = ${now} WHERE uuid_sync = ${record.uuid_sync}`;
           }
           results.push({ uuid_sync: record.uuid_sync, success: true });
         } catch (e: any) {

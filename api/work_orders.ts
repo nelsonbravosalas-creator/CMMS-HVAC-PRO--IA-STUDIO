@@ -1,4 +1,4 @@
-import { getDb } from './_db';
+import { getDb } from './_db.js';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT * FROM work_orders ORDER BY fecha_creacion DESC LIMIT 500`;
+      const rows = await sql`SELECT * FROM work_orders WHERE deleted_at IS NULL ORDER BY fecha_creacion DESC LIMIT 500`;
       return res.json({ success: true, data: rows });
     }
 
@@ -37,7 +37,8 @@ export default async function handler(req: any, res: any) {
     if (method === 'DELETE') {
       const id = req.query.id;
       if (!id) return res.status(400).json({ error: 'Falta id' });
-      await sql`DELETE FROM work_orders WHERE id = ${id}`;
+      const now = Date.now();
+      await sql`UPDATE work_orders SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${id}`;
       return res.json({ success: true });
     }
 

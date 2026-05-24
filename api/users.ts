@@ -1,4 +1,4 @@
-import { getDb } from './_db';
+import { getDb } from './_db.js';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT id, nombre, correo, perfil, activo, uuid_sync, updated_at FROM users WHERE activo = true`;
+      const rows = await sql`SELECT id, nombre, correo, perfil, activo, uuid_sync, updated_at FROM users WHERE activo = true AND deleted_at IS NULL`;
       return res.json({ success: true, data: rows });
     }
 

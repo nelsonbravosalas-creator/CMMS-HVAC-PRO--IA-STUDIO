@@ -5,6 +5,8 @@ import { userRepo } from "../../repositories/UserRepository";
 import { useAppStore } from "../../store/useAppStore";
 import { syncEngine } from "../../sync/syncEngine";
 
+import bcrypt from 'bcryptjs';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -54,11 +56,14 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
     
     setIsSaving(true);
     try {
+       // Si el pin es cambiado o es nuevo (no empieza con $2 que es de bcrypt)
+       const finalPin = pin && !pin.startsWith('$2') ? bcrypt.hashSync(pin, 10) : pin;
+
        const userPayload: Partial<LocalUsuario> = {
           nombre,
           email,
           rol: perfil,
-          pin,
+          pin: finalPin,
           activo: true,
           cliente_id: perfil === "Cliente" ? cliente_id : undefined
        };
