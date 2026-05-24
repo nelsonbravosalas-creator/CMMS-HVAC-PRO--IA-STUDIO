@@ -35,10 +35,12 @@ export default function InformesHVAC() {
     }
     const tg = data.generalData?.equipoTag || "";
     const tec = data.generalData?.tecnico || "";
+    const idStr = inf.id || "";
+    const filterLower = (filter || "").toLowerCase();
     // filter logic
-    return tg.toLowerCase().includes(filter.toLowerCase()) ||
-           tec.toLowerCase().includes(filter.toLowerCase()) ||
-           inf.id.toLowerCase().includes(filter.toLowerCase());
+    return tg.toLowerCase().includes(filterLower) ||
+           tec.toLowerCase().includes(filterLower) ||
+           idStr.toLowerCase().includes(filterLower);
   }).map(inf => ({
     id: inf.id,
     fecha: inf.data?.generalData?.fecha || new Date(inf.updated_at || Date.now()).toISOString().split('T')[0],

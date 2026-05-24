@@ -28,6 +28,7 @@ import { useAppStore } from "../store/useAppStore";
 import { useTickets } from "../hooks/useTickets";
 import { useGoogleTasks } from "../hooks/useGoogleTasks";
 import { StatusIndicator } from "../components/StatusIndicator";
+import AccessDenied from "../components/AccessDenied";
 
 export default function Tickets() {
   const { permisos } = useAuth();
@@ -38,7 +39,9 @@ export default function Tickets() {
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");
 
-  if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
+  if (!permisos?.ver_dashboard) {
+    return <AccessDenied requiredPermission="Visualizar Dashboard" />;
+  }
 
   const filtered = useMemo(() => {
     const activeClientUuid = localStorage.getItem("active_client");
@@ -46,9 +49,14 @@ export default function Tickets() {
       if (activeClientUuid && t.cliente_id !== activeClientUuid) {
         return false;
       }
-      return t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
-             t.equipo_tag?.toLowerCase().includes(filter.toLowerCase()) ||
-             t.id.toLowerCase().includes(filter.toLowerCase());
+      const tituloLower = (t.titulo || "").toLowerCase();
+      const tagLower = (t.equipo_tag || "").toLowerCase();
+      const idLower = (t.id || "").toLowerCase();
+      const filterLower = (filter || "").toLowerCase();
+
+      return tituloLower.includes(filterLower) ||
+             tagLower.includes(filterLower) ||
+             idLower.includes(filterLower);
     });
   }, [work_orders, filter]);
 

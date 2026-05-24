@@ -36,7 +36,14 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const storeClients = useAppStore(state => state.clients);
   const storeBranches = useAppStore(state => state.branches);
 
-  const localAssets = useLiveQuery(() => db.assets.filter(a => !a.deleted_at).toArray()) || [];
+  const activeClientUuid = localStorage.getItem("active_client");
+  const localAssets = useLiveQuery(() => {
+    let query = db.assets.filter(a => !a.deleted_at && a.estado !== 'baja');
+    if (activeClientUuid) {
+      return query.and(a => a.cliente_id === activeClientUuid).toArray();
+    }
+    return query.toArray();
+  }, [activeClientUuid]) || [];
 
   React.useEffect(() => {
     if (tag && localAssets.length > 0) {

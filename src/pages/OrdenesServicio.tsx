@@ -30,9 +30,11 @@ export default function OrdenesServicio() {
     }
     const tg = data.generalData?.equipoTag || "";
     const tec = data.generalData?.tecnico || "";
-    return tg.toLowerCase().includes(filter.toLowerCase()) ||
-           tec.toLowerCase().includes(filter.toLowerCase()) ||
-           os.id.toLowerCase().includes(filter.toLowerCase());
+    const idStr = os.id || "";
+    const filterLower = (filter || "").toLowerCase();
+    return tg.toLowerCase().includes(filterLower) ||
+           tec.toLowerCase().includes(filterLower) ||
+           idStr.toLowerCase().includes(filterLower);
   }).map(os => ({
     id: os.id,
     fecha: os.data?.generalData?.fecha || new Date(os.updated_at || Date.now()).toISOString().split('T')[0],

@@ -31,6 +31,7 @@ import { useAppStore } from "../store/useAppStore";
 import { useAssets } from "../hooks/useAssets";
 import { LocalActivo } from "../db/database";
 import { StatusIndicator } from "../components/StatusIndicator";
+import AccessDenied from "../components/AccessDenied";
 
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
@@ -57,7 +58,9 @@ export default function Equipos() {
     return saved ? JSON.parse(saved) : { search: "", tipo: "", estado: "", area: "", almacen: "" };
   });
 
-  if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
+  if (!permisos?.ver_dashboard) {
+    return <AccessDenied requiredPermission="Visualizar Dashboard" />;
+  }
 
   const [sortField, setSortField] = useState<keyof LocalActivo>("tag");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");

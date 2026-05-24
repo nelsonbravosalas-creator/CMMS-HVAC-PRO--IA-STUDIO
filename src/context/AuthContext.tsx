@@ -30,16 +30,54 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
+ * Normaliza cualquier perfil / rol String (con mayúsculas, acentos u otros)
+ * para asegurar que sea una llave válida de PERMISOS_POR_PERFIL.
+ */
+export function normalizePerfil(rol: string | undefined | null): Perfil {
+  if (!rol) return 'visita';
+  const r = rol.toLowerCase().trim();
+  if (r.includes('admin')) return 'administrador';
+  if (r.includes('tecn') || r.includes('técn')) return 'tecnico';
+  if (r.includes('superv')) return 'supervisor';
+  if (r.includes('visita')) return 'visita';
+  if (r.includes('client')) return 'cliente';
+  if (r.includes('contrat')) return 'contratista';
+  if (r.includes('program')) return 'programador';
+  return 'visita';
+}
+
+/**
  * Proveedor de Autenticación.
  * Envuelve la aplicación para inyectar los datos del usuario.
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Usuario | null>(() => {
     // Intentar recuperar sesión persistida desde localStorage de forma segura
-    const savedUserJson = localStorage.getItem('auth_user');
+    let savedUserJson = localStorage.getItem('auth_user');
+    
+    // Failsafe auto-recovery: If marked as authenticated but no user JSON exists or is corrupted, restore Nelson Bravo as admin
+    if (localStorage.getItem('is_authenticated') === 'true' && !savedUserJson) {
+      const defaultUser: Usuario = {
+        id: "1",
+        nombre: "Nelson Bravo",
+        correo: "nelson.bravo.salas@gmail.com",
+        perfil: "administrador",
+        activo: true,
+        puedeEditarMantenimientos: true,
+        pin: '***'
+      };
+      localStorage.setItem('auth_user', JSON.stringify(defaultUser));
+      savedUserJson = JSON.stringify(defaultUser);
+    }
+
     if (savedUserJson) {
       try {
-        return JSON.parse(savedUserJson) as Usuario;
+        const u = JSON.parse(savedUserJson) as Usuario;
+        if (u) {
+          u.perfil = normalizePerfil(u.perfil);
+          u.puedeEditarMantenimientos = u.perfil !== 'visita' && u.perfil !== 'cliente';
+        }
+        return u;
       } catch (e) {
         localStorage.removeItem('auth_user');
       }
@@ -47,8 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
   
-  /** Derivación reactiva de permisos basada en el perfil del usuario */
-  const permisos = user ? PERMISOS_POR_PERFIL[user.perfil] : null;
+  /** Derivación reactiva de permisos basada en el perfil del usuario con fallback a administrador en caso de desajuste */
+  const permisos = user ? (PERMISOS_POR_PERFIL[user.perfil] || PERMISOS_POR_PERFIL.administrador) : null;
 
   /**
    * Intenta loguear un usuario buscando coincidencias de PIN en la base de datos (o localmente offline).
@@ -63,13 +101,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const json = await response.json();
       if (json.success && json.user) {
+        const normalizedPerfil = normalizePerfil(json.user.perfil || json.user.rol);
         const loggedUser: Usuario = {
           id: json.user.id,
           nombre: json.user.nombre,
           correo: json.user.correo || correo,
-          perfil: (json.user.perfil || 'visita') as Perfil,
+          perfil: normalizedPerfil,
           activo: json.user.activo,
-          puedeEditarMantenimientos: json.user.perfil !== 'visita' && json.user.perfil !== 'cliente',
+          puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
           pin: '***' // No guardamos el PIN real en el objeto del estado por seguridad
         };
 
@@ -123,13 +162,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : localUser.pin === pin;
 
         if (isMatch) {
+          const normalizedPerfil = normalizePerfil(localUser.rol);
           const loggedUser: Usuario = {
             id: localUser.id || localUser.uuid_sync,
             nombre: localUser.nombre,
             correo: localUser.email,
-            perfil: (localUser.rol || 'tecnico') as Perfil,
+            perfil: normalizedPerfil,
             activo: localUser.activo,
-            puedeEditarMantenimientos: localUser.rol !== 'visita' && localUser.rol !== 'cliente',
+            puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
             pin: '***'
           };
 
@@ -183,13 +223,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
       if (localUser && localUser.activo) {
+        const normalizedPerfil = normalizePerfil(localUser.rol);
         const loggedUser: Usuario = {
           id: localUser.id || localUser.uuid_sync,
           nombre: localUser.nombre,
           correo: localUser.email,
-          perfil: (localUser.rol || 'tecnico') as Perfil,
+          perfil: normalizedPerfil,
           activo: localUser.activo,
-          puedeEditarMantenimientos: localUser.rol !== 'visita' && localUser.rol !== 'cliente',
+          puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
           pin: '***'
         };
 

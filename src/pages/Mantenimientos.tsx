@@ -24,6 +24,7 @@ import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimiento
 import { MaintenanceCalendar } from "../components/modals/MaintenanceCalendar";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 export default function Mantenimientos() {
   const { permisos } = useAuth();
@@ -36,7 +37,9 @@ export default function Mantenimientos() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [filter, setFilter] = useState("");
 
-  if (!permisos?.ver_mantenimientos) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
+  if (!permisos?.ver_mantenimientos) {
+    return <AccessDenied requiredPermission="Visualizar Mantenimiento Preventivo" />;
+  }
 
   const assetToClientMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -57,9 +60,14 @@ export default function Mantenimientos() {
           return false;
         }
       }
-      return m.equipo_tag.toLowerCase().includes(filter.toLowerCase()) || 
-             m.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
-             m.id.toLowerCase().includes(filter.toLowerCase());
+      const tagLower = (m.equipo_tag || "").toLowerCase();
+      const tecnicoLower = (m.tecnico || "").toLowerCase();
+      const idLower = (m.id || "").toLowerCase();
+      const searchLower = (filter || "").toLowerCase();
+
+      return tagLower.includes(searchLower) || 
+             tecnicoLower.includes(searchLower) ||
+             idLower.includes(searchLower);
     });
   }, [preventive_maintenance, filter, assetToClientMap]);
 

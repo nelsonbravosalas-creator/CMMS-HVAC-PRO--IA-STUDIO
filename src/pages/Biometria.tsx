@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { db } from "../db/database";
+import { motion } from "motion/react";
 import bcrypt from "bcryptjs";
 
 export default function Biometria() {
@@ -364,14 +365,37 @@ export default function Biometria() {
                     {biometryStatus === "scanning" && (
                       <div className="flex flex-col items-center w-full max-w-xs">
                         <div className="relative mb-8 mt-2 w-32 h-32 flex items-center justify-center">
-                          <div className="absolute inset-0 bg-emerald-500/20 rounded-full animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-75" />
-                          <div className="relative p-6 bg-slate-800 border border-emerald-500/30 text-emerald-400 rounded-full shadow-[0_0_40px_rgba(16,185,129,0.3)] z-10 animate-pulse">
-                            <Fingerprint className="w-14 h-14" />
-                          </div>
+                          {/* Subtly expanding radiant waves using motion */}
+                          <motion.div
+                            className="absolute inset-0 bg-emerald-500/20 rounded-full"
+                            animate={{ scale: [1, 1.4], opacity: [0.75, 0] }}
+                            transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
+                          />
                           
+                          {/* Interactive heartbeat scaling of the fingerprint icon */}
+                          <motion.div 
+                            className="relative p-6 bg-slate-800 border border-emerald-500/30 text-emerald-400 rounded-full shadow-[0_0_40px_rgba(16,185,129,0.3)] z-10"
+                            animate={{ scale: [0.96, 1.04, 0.96] }}
+                            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                          >
+                            <Fingerprint className="w-14 h-14" />
+                          </motion.div>
+                          
+                          {/* Fluid SVG circular progress ring powered by motion */}
                           <svg className="absolute inset-0 w-full h-full transform -rotate-90 z-20 pointer-events-none" viewBox="0 0 100 100">
                              <circle cx="50" cy="50" r="48" fill="transparent" stroke="rgba(16, 185, 129, 0.15)" strokeWidth="4"/>
-                             <circle cx="50" cy="50" r="48" fill="transparent" stroke="rgba(16, 185, 129, 0.8)" strokeWidth="4" strokeLinecap="round" strokeDasharray="301.59" strokeDashoffset={301.59 - (301.59 * scanProgress) / 100} className="transition-all duration-300 ease-out"/>
+                             <motion.circle 
+                               cx="50" 
+                               cy="50" 
+                               r="48" 
+                               fill="transparent" 
+                               stroke="rgba(16, 185, 129, 0.8)" 
+                               strokeWidth="4" 
+                               strokeLinecap="round" 
+                               strokeDasharray="301.59" 
+                               animate={{ strokeDashoffset: 301.59 - (301.59 * scanProgress) / 100 }}
+                               transition={{ duration: 0.3, ease: "easeOut" }}
+                             />
                           </svg>
                         </div>
                         

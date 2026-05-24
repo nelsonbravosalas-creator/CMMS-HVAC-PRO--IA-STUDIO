@@ -23,9 +23,29 @@ import {
 import { resetApplicationData } from "../lib/reset";
 import { xmlSyncService } from "../lib/xmlSync";
 import { logger } from "../lib/logger";
+import { syncEngine } from "../sync/syncEngine";
+import { useSyncStore } from "../store/useSyncStore";
 
 export default function Configuracion() {
   const [currency, setCurrency] = useState(() => localStorage.getItem("system_currency") || "CLP");
+  const { isSyncing, pendingCount, lastSync, isOnline } = useSyncStore();
+  const [syncStatus, setSyncStatus] = useState<string>("");
+
+  const handleManualSync = async () => {
+    if (!isOnline) {
+      alert("Error: Dispositivo fuera de línea. Active su conexión a Internet.");
+      return;
+    }
+    setSyncStatus("Sincronizando...");
+    try {
+      await syncEngine.fullSync(true);
+      setSyncStatus("¡Sincronización completada!");
+      setTimeout(() => setSyncStatus(""), 3000);
+    } catch (e: any) {
+      setSyncStatus(`Error: ${e.message}`);
+    }
+  };
+
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const xmlInputRef = useRef<HTMLInputElement>(null);
@@ -203,6 +223,44 @@ export default function Configuracion() {
          </div>
 
          <div className="lg:col-span-1 space-y-8">
+            <SectionBox title="Sincronización Nube (Neon)" icon={<Server className="w-4 h-4" />} variant="dark">
+               <div className="space-y-4 text-left">
+                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">Vínculo de Red</span>
+                     <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isOnline ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {isOnline ? 'ONLINE' : 'OFFLINE'}
+                     </span>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">Cola Dexie Local</span>
+                     <span className="text-xs font-black text-white font-mono">{pendingCount} pendientes</span>
+                  </div>
+
+                  <div className="flex flex-col bg-white/5 p-4 rounded-2xl border border-white/10 gap-1 font-mono">
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">Último Envío Exitoso</span>
+                     <span className="text-xs font-black text-white">
+                        {lastSync ? new Date(lastSync).toLocaleTimeString() : 'Ninguno registrado'}
+                     </span>
+                  </div>
+
+                  <button 
+                     onClick={handleManualSync}
+                     disabled={isSyncing}
+                     className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 cursor-pointer"
+                  >
+                     <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                     {isSyncing ? 'Sincronizando...' : 'Forzar Sincronización'}
+                  </button>
+
+                  {syncStatus && (
+                     <p className="text-[9px] font-black text-center text-emerald-400 uppercase tracking-widest animate-pulse mt-1">
+                        {syncStatus}
+                     </p>
+                  )}
+               </div>
+            </SectionBox>
+
             <SectionBox title="Gestión de Datos" icon={<Database className="w-4 h-4" />} variant="dark">
                <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-2 p-4 bg-white/5 rounded-[24px] border border-white/10">

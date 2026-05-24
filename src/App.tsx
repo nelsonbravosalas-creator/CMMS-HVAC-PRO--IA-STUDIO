@@ -42,6 +42,7 @@ import { useSyncStore } from "./store/useSyncStore";
 import { SyncIndicator } from "./components/SyncIndicator";
 import { SyncInspectorPanel } from "./components/debug/SyncInspectorPanel";
 import { networkMonitor } from "./sync/networkMonitor";
+import { logger } from "./lib/logger";
 
 /**
  * Componente funcional App.
@@ -86,6 +87,44 @@ function App() {
     // 3. Monitor de red se inicia dentro de syncEngine.init() o manualmente si se prefiere
     // networkMonitor.init(); // networkMonitor.init() ya es llamado por syncEngine.init()
   }, []);
+
+  // 30-Minute Inactivity Session Disconnection Rule (§1)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let timeoutId: any;
+    const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
+
+    const handleLogout = () => {
+      logger.info("Session", "Session disconnected due to 30 minutes of inactivity.");
+      localStorage.setItem("is_authenticated", "false");
+      localStorage.removeItem("active_client");
+      setIsAuthenticated(false);
+      setHasClientSelected(false);
+      setLocation("/login");
+    };
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleLogout, INACTIVITY_LIMIT);
+    };
+
+    // Events to track user interaction/activity
+    const activityEvents = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    activityEvents.forEach((event) => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Start initial timer
+    resetTimer();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      activityEvents.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [isAuthenticated, setLocation]);
 
   useEffect(() => {
     const auth = localStorage.getItem("is_authenticated") === "true";

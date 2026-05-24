@@ -110,7 +110,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
      
      // Validate technically that the asset exists and is active (not deleted)
      const existingAsset = await db.assets.where('tag').equals(equipoTag).first();
-     if (!existingAsset || existingAsset.deleted_at) {
+     if (!existingAsset || existingAsset.deleted_at || existingAsset.estado === 'baja') {
         setIsSaving(false);
         alert("Error: El activo asociado no existe o está dado de baja.");
         return;
