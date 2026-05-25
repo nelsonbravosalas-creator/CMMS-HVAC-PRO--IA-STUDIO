@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT * FROM branches ORDER BY nombre ASC`;
+      const rows = await sql`SELECT * FROM branches WHERE deleted_at IS NULL ORDER BY nombre ASC`;
       return res.json({ success: true, data: rows });
     }
 

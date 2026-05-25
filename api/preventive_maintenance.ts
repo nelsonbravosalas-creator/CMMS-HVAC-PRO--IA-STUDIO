@@ -12,10 +12,10 @@ export default async function handler(req: any, res: any) {
     if (method === 'GET') {
       const tag = query.tag;
       if (tag) {
-        const rows = await sql`SELECT * FROM preventive_maintenance WHERE equipo_tag = ${tag} ORDER BY fecha DESC`;
+        const rows = await sql`SELECT * FROM preventive_maintenance WHERE equipo_tag = ${tag} AND deleted_at IS NULL ORDER BY fecha DESC`;
         return res.json({ success: true, data: rows });
       }
-      const rows = await sql`SELECT * FROM preventive_maintenance ORDER BY fecha DESC LIMIT 500`;
+      const rows = await sql`SELECT * FROM preventive_maintenance WHERE deleted_at IS NULL ORDER BY fecha DESC LIMIT 500`;
       return res.json({ success: true, data: rows });
     }
 
