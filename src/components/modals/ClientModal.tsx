@@ -393,7 +393,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                              <label className="text-[9px] font-black uppercase text-slate-400">Región de la Sucursal</label>
                              <select 
                                 disabled={sinSucursales} 
-                                value={sub.region || ""} 
+                                value={sub.region || region || ""} 
                                 onChange={e => updateSub(sub.id, 'region', e.target.value)} 
                                 className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50"
                              >

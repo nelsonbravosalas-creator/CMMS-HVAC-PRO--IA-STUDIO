@@ -225,6 +225,336 @@ async function ensureTables() {
     await tryUnique(sql`ALTER TABLE audit_logs ADD UNIQUE (id)`);
     await tryUnique(sql`ALTER TABLE assets ADD UNIQUE (tag)`);
 
+    // --- QA SENIOR MIGRATIONS & COMPATIBILITY LAYER ---
+    // STEP 0.2: Prevent ghost/empty tenant keys from causing check constraint violations
+    try {
+      await sql`UPDATE assets SET cliente_id='cliente-eecol-default-001' WHERE cliente_id = '' OR cliente_id IS NULL`;
+    } catch (e: any) {}
+
+    // STEP 1 & 7: Create compatibility schema and security tracking tables
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_clientes (
+        id TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_users (
+        id TEXT PRIMARY KEY,
+        nombre TEXT,
+        correo TEXT UNIQUE,
+        perfil TEXT,
+        pin TEXT,
+        activo BOOLEAN DEFAULT true,
+        creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_equipos (
+        tag TEXT PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        cliente_id TEXT NOT NULL,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_tickets (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        tag TEXT,
+        solicitante_id TEXT,
+        asignado_user_id TEXT,
+        supervisor_id TEXT,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_mantenimientos (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        tag TEXT,
+        ot_id TEXT,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    // STEP 1: Unify Event and Comment IDs with auto-increment sequences
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_ot_eventos (
+        id SERIAL PRIMARY KEY,
+        ticket_id TEXT,
+        cliente_id TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        actor_user_id TEXT NOT NULL DEFAULT '',
+        actor_nombre TEXT NOT NULL DEFAULT '',
+        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_ot_comentarios (
+        id SERIAL PRIMARY KEY,
+        ticket_id TEXT,
+        cliente_id TEXT NOT NULL,
+        autor_user_id TEXT NOT NULL DEFAULT '',
+        autor_nombre TEXT NOT NULL DEFAULT '',
+        texto TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    // STEP 7: Create Idempotency keys & Auth brute-force block lists tables
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_idempotency_keys (
+        key            text NOT NULL,
+        user_id        text NOT NULL,
+        status_code    int  NOT NULL,
+        response_body  jsonb NOT NULL,
+        expires_at     timestamptz NOT NULL,
+        created_at     timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (key, user_id)
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_auth_failures (
+        id            bigserial PRIMARY KEY,
+        email         text NOT NULL,
+        ip            text NOT NULL,
+        attempted_at  timestamptz NOT NULL DEFAULT now()
+      )`;
+    } catch (e: any) {}
+
+    // Additional schemas to ensure foreign key setup succeeds perfectly
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_usuarios_clientes (
+        user_id TEXT NOT NULL,
+        cliente_id TEXT NOT NULL,
+        PRIMARY KEY (user_id, cliente_id)
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_informes_mantenimiento (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        equipo_tag TEXT NOT NULL,
+        tecnico_user_id TEXT,
+        firmado_por_user_id TEXT,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_sla_config (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_pm_planes (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_pm_plantillas (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_checklist_plantillas (
+        id TEXT PRIMARY KEY,
+        cliente_id TEXT NOT NULL,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_push_subscriptions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        deleted_at TIMESTAMPTZ
+      )`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE TABLE IF NOT EXISTS cmms_one_shot_migrations (
+        key text PRIMARY KEY,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )`;
+    } catch (e: any) {}
+
+    // STEP 2: Add soft delete indices and column definitions across tables
+    try {
+      await sql`ALTER TABLE cmms_equipos                ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_mantenimientos         ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_tickets                ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_ot_eventos             ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_ot_comentarios         ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_informes_mantenimiento ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
+    } catch (e: any) {}
+
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS cmms_equipos_active_idx ON cmms_equipos (cliente_id) WHERE deleted_at IS NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS cmms_mantenimientos_active_idx ON cmms_mantenimientos (cliente_id) WHERE deleted_at IS NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS cmms_tickets_active_idx ON cmms_tickets (cliente_id) WHERE deleted_at IS NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`CREATE INDEX IF NOT EXISTS cmms_informes_active_idx ON cmms_informes_mantenimiento (cliente_id) WHERE deleted_at IS NULL`;
+    } catch (e: any) {}
+
+    // STEP 3: Add Foreign Key constraints safely
+    try {
+      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_equipo FOREIGN KEY (tag) REFERENCES cmms_equipos(tag)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_solicitante FOREIGN KEY (solicitante_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_asignado FOREIGN KEY (asignado_user_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_supervisor FOREIGN KEY (supervisor_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_equipos ADD CONSTRAINT fk_equipos_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_mantenimientos ADD CONSTRAINT fk_mant_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_mantenimientos ADD CONSTRAINT fk_mant_equipo FOREIGN KEY (tag) REFERENCES cmms_equipos(tag)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_mantenimientos ADD CONSTRAINT fk_mant_ot FOREIGN KEY (ot_id) REFERENCES cmms_tickets(id) ON DELETE SET NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_ot_eventos ADD CONSTRAINT fk_oteventos_ticket FOREIGN KEY (ticket_id) REFERENCES cmms_tickets(id) ON DELETE CASCADE`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_ot_eventos ADD CONSTRAINT fk_oteventos_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_ot_comentarios ADD CONSTRAINT fk_otcom_ticket FOREIGN KEY (ticket_id) REFERENCES cmms_tickets(id) ON DELETE CASCADE`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_ot_comentarios ADD CONSTRAINT fk_otcom_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_usuarios_clientes ADD CONSTRAINT fk_uc_user FOREIGN KEY (user_id) REFERENCES cmms_users(id) ON DELETE CASCADE`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_usuarios_clientes ADD CONSTRAINT fk_uc_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id) ON DELETE CASCADE`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_usuarios_clientes ADD CONSTRAINT uq_uc_user_cliente UNIQUE (user_id, cliente_id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_equipo FOREIGN KEY (equipo_tag) REFERENCES cmms_equipos(tag)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_tecnico FOREIGN KEY (tecnico_user_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_firmadopor FOREIGN KEY (firmado_por_user_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_sla_config ADD CONSTRAINT fk_sla_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id) ON DELETE CASCADE`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_pm_planes ADD CONSTRAINT fk_pmpl_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_pm_plantillas ADD CONSTRAINT fk_pmpt_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_checklist_plantillas ADD CONSTRAINT fk_chkp_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_push_subscriptions ADD CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES cmms_users(id) ON DELETE CASCADE`;
+    } catch (e: any) {}
+
+    try {
+      await sql`INSERT INTO cmms_one_shot_migrations(key) VALUES ('foreign-keys-strict-2026-05') ON CONFLICT DO NOTHING`;
+    } catch (e: any) {}
+
+    // STEP 4: Remove Empty/Null clients constraint
+    try {
+      await sql`ALTER TABLE cmms_equipos ADD CONSTRAINT chk_cmms_equipos_cliente_nonempty CHECK (cliente_id <> '')`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE assets ADD CONSTRAINT chk_assets_cliente_nonempty CHECK (cliente_id <> '')`;
+    } catch (e: any) {}
+
+    // STEP 5: Migrate any existing timestamp values to timestamptz (UTC mapping check)
+    try {
+      await sql`
+        DO $$
+        DECLARE r record;
+        BEGIN
+          FOR r IN
+            SELECT table_name, column_name FROM information_schema.columns
+            WHERE table_schema='public' AND data_type='timestamp without time zone'
+          LOOP
+            EXECUTE format(
+              'ALTER TABLE %I ALTER COLUMN %I TYPE timestamptz USING %I AT TIME ZONE ''UTC''',
+              r.table_name, r.column_name, r.column_name
+            );
+          END LOOP;
+        END $$;
+      `;
+    } catch (e: any) {}
+
+    // STEP 6: Convert creado_en format text to timestamptz timezone
+    try {
+      await sql`ALTER TABLE cmms_users ALTER COLUMN creado_en TYPE timestamptz USING creado_en::timestamptz`;
+    } catch (e: any) {}
+    try {
+      await sql`ALTER TABLE cmms_clientes ALTER COLUMN creado_en TYPE timestamptz USING creado_en::timestamptz`;
+    } catch (e: any) {}
+
+    // Sincronizar secuencias
+    try {
+      await sql`SELECT setval('cmms_ot_eventos_id_seq', COALESCE((SELECT MAX(id) FROM cmms_ot_eventos), 1))`;
+      await sql`SELECT setval('cmms_ot_comentarios_id_seq', COALESCE((SELECT MAX(id) FROM cmms_ot_comentarios), 1))`;
+    } catch (e: any) {}
+
     console.log("✅ Database Schema integrity check completed");
   } catch (error) {
     console.error("❌ Error initializing database:", error);
@@ -263,9 +593,33 @@ async function startServer() {
 
       const sql = getSql();
       const correoLower = correo.toLowerCase();
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+
+      // Anti brute-force: check lockout for the given email in the last 15 minutes
+      const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+      const failuresCount = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures WHERE LOWER(email) = ${correoLower} AND attempted_at > ${fifteenMinsAgo}`;
+      
+      if (failuresCount[0] && failuresCount[0].count >= 5) {
+        const oldestFailure = await sql`SELECT attempted_at FROM cmms_auth_failures WHERE LOWER(email) = ${correoLower} AND attempted_at > ${fifteenMinsAgo} ORDER BY attempted_at ASC LIMIT 1`;
+        let delay = 900;
+        if (oldestFailure[0]) {
+          const oldestTime = new Date(oldestFailure[0].attempted_at).getTime();
+          delay = Math.ceil((oldestTime + 15 * 60 * 1000 - Date.now()) / 1000);
+        }
+        console.warn({ event: "auth_failure", email: correoLower, ip, action: "lockout" });
+        return res.status(401).json({
+          success: false,
+          error: "account_locked",
+          message: "Cuenta bloqueada temporalmente por demasiados intentos fallidos.",
+          retryAfter: delay > 0 ? delay : 900
+        });
+      }
+
       // En la tabla users: correo podria estar en la columna 'correo' O en 'data->>'email'' O en la columna 'data' (JSONB) dependiendo de la migracion
       const _users = await sql`SELECT * FROM users WHERE LOWER(correo) = ${correoLower} OR LOWER(data->>'email') = ${correoLower}`;
       if (_users.length === 0) {
+        await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${correoLower}, ${ip}, NOW())`;
+        console.warn({ event: "auth_failure", email: correoLower, ip });
         return res.status(401).json({ success: false, error: "Credenciales inválidas" });
       }
 
@@ -280,8 +634,17 @@ async function startServer() {
       }
 
       if (!isMatch) {
+        await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${correoLower}, ${ip}, NOW())`;
+        console.warn({ event: "auth_failure", email: correoLower, ip });
         return res.status(401).json({ success: false, error: "Credenciales inválidas" });
       }
+
+      // Successful login reset failures and delete older than 24h as maintenance
+      await sql`DELETE FROM cmms_auth_failures WHERE LOWER(email) = ${correoLower}`;
+      try {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        await sql`DELETE FROM cmms_auth_failures WHERE attempted_at < ${twentyFourHoursAgo}`;
+      } catch (err) {}
 
       // Convert DB user format to expected return format
       const userData = user.data || {};
