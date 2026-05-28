@@ -114,7 +114,8 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
             <div className="flex-1 relative bg-white touch-none">
               <canvas 
                 ref={canvasRef} 
-                className="absolute inset-0 w-full h-full touch-none cursor-crosshair"
+                className="absolute inset-0 w-full h-full touch-none cursor-crosshair signature-canvas"
+                style={{ width: '100% !important', maxWidth: '100%', height: 'auto' }}
               />
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-5">
                 <span className="font-black text-6xl uppercase tracking-widest text-slate-900">FIRMAR</span>

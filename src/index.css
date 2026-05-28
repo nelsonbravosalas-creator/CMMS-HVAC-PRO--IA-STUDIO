@@ -193,6 +193,12 @@
 
 /* --- REGLAS DE UI SOLICITADAS POR EL USUARIO --- */
 
+canvas {
+  width: 100% !important;
+  max-width: 100%;
+  height: auto;
+}
+
 /* 1. "en el modo oscuro, resalta los bordes de los botones de cerrar con un contorno verde electrico" */
 .dark button:has(svg.lucide-x) {
   border: 1px solid #39FF14 !important;
