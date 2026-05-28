@@ -586,7 +586,7 @@ export default function EditorInforme() {
         );
       case 'firma':
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8">
              <SectionBox title="Firma Técnica de Ejecución">
                 <div className="space-y-4">
                    <canvas ref={canvasTecRef} className="w-full h-48 bg-slate-50 border border-slate-100 rounded-3xl touch-none shadow-inner" />

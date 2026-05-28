@@ -99,8 +99,7 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
           {/* Rotate the entire container so it's landscape on mobile */}
           <div 
             ref={containerRef}
-            className="w-[100vh] h-[100vw] sm:w-[80vw] sm:h-[80vh] bg-white rounded-3xl overflow-hidden flex flex-col rotate-90 sm:rotate-0 transform origin-center shadow-2xl relative touch-none"
-            style={{ maxHeight: '100vw', maxWidth: '100vh' }}
+            className="w-full max-w-4xl h-[70vh] sm:h-[80vh] bg-white rounded-3xl overflow-hidden flex flex-col shadow-2xl relative touch-none"
           >
             <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
               <span className="font-black text-xs uppercase tracking-widest text-slate-700">{title}</span>
