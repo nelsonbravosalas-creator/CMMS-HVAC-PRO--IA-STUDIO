@@ -29,14 +29,12 @@ const BACKEND_USUARIOS_SEED = [
 ];
 
 export default async function handler(req, res) {
-  const defaultUrl = 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL || defaultUrl;
-  if (connectionString && (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://'))) {
-    connectionString = defaultUrl;
-  }
-  
+  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!connectionString) {
     return res.status(500).json({ success: false, error: "Missing DATABASE_URL / POSTGRES_URL" });
+  }
+  if (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://')) {
+    return res.status(500).json({ success: false, error: "Invalid DATABASE_URL format" });
   }
 
   if (req.method === 'POST' || req.method === 'GET') {

@@ -17,6 +17,15 @@ const getSql = () => {
   return neon(dbUrl);
 };
 
+const requireCliente = (req: any, res: any, next: any) => {
+  const clienteId = req.headers['x-cliente-id'] || req.query.clienteId || 'cliente-eecol-default-001';
+  if (!clienteId) {
+    return res.status(403).json({ success: false, error: 'Tenant (clienteId) requerido' });
+  }
+  req.clienteId = clienteId;
+  next();
+};
+
 // DATABASE INITIALIZATION //
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -403,7 +412,16 @@ async function ensureTables() {
     // STEP 2: Add soft delete indices and column definitions across tables
     try {
       await sql`ALTER TABLE cmms_equipos                ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
+      await sql`ALTER TABLE cmms_equipos                ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
+      await sql`ALTER TABLE cmms_mantenimientos         ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
+      await sql`ALTER TABLE cmms_tickets                ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
+      await sql`ALTER TABLE cmms_ot_eventos             ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
+      await sql`ALTER TABLE cmms_ot_comentarios         ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
+      await sql`ALTER TABLE cmms_informes_mantenimiento ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
+      await sql`ALTER TABLE cmms_clientes               ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
+      await sql`ALTER TABLE cmms_users                  ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
     } catch (e: any) {}
+
     try {
       await sql`ALTER TABLE cmms_mantenimientos         ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
     } catch (e: any) {}
@@ -846,6 +864,85 @@ function resolveTable(name: string): string | null {
     } catch (error: any) {
       console.error(error);
       res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // NEW: GRANULAR REST ENDPOINTS (Replaces Bulk Sync for Modern CMMS)
+  app.post("/api/cmms/:resource", requireCliente, async (req: any, res: any) => {
+    try {
+      const resource = req.params.resource;
+      const idempotencyKey = req.headers['idempotency-key'];
+      const sql = getSql();
+      const payload = req.body;
+      const clienteId = req.clienteId;
+
+      // Allow mapping from short name or specific cmms_* resource name
+      const allowedResources = ['cmms_equipos', 'cmms_tickets', 'cmms_mantenimientos', 'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_informes_mantenimiento', 'cmms_clientes', 'cmms_users'];
+      
+      let targetTable = resource.startsWith('cmms_') ? resource : `cmms_${resource}`;
+      // Map old plural to cmms_* explicitly if needed
+      if (resource === 'assets' || resource === 'equipos') targetTable = 'cmms_equipos';
+      if (resource === 'work_orders' || resource === 'tickets') targetTable = 'cmms_tickets';
+      if (resource === 'preventive_maintenance') targetTable = 'cmms_mantenimientos';
+
+      if (!allowedResources.includes(targetTable)) {
+        return res.status(400).json({ success: false, error: "Invalid resource table" });
+      }
+
+      if (idempotencyKey) {
+        // Try check for idempotency map in cmms_idempotency_keys
+        try {
+          const cached = await sql`SELECT response_body, status_code FROM cmms_idempotency_keys WHERE key = ${idempotencyKey} AND user_id = ${clienteId || 'system'}`;
+          if (cached.length > 0) {
+            return res.status(cached[0].status_code).json(cached[0].response_body);
+          }
+        } catch (e) {} // Table might not exist yet, ignoring
+      }
+
+      // Optimistic Locking & Conflict Resolution logic
+      // Note: we require payload.version parameter in granular requests for conflict resolution
+      if (!payload.id && !payload.uuid_sync && !payload.tag) {
+        return res.status(400).json({ success: false, error: "Missing identity (id, uuid_sync, or tag)" });
+      }
+      
+      const recordId = payload.id || payload.tag || payload.uuid_sync;
+      const version = payload.version || 1;
+
+      // Check current version in DB
+      let existingRecord: any[] = [];
+      try {
+        if (targetTable === 'cmms_equipos') {
+          existingRecord = await sql`SELECT version FROM cmms_equipos WHERE tag = ${recordId} AND cliente_id = ${clienteId}`;
+        } else {
+          existingRecord = await sql`SELECT version FROM ${sql(targetTable)} WHERE id = ${recordId} AND cliente_id = ${clienteId}`;
+        }
+      } catch(e) {}
+
+      if (existingRecord.length > 0 && existingRecord[0].version > version) {
+        return res.status(409).json({
+          success: false,
+          error: "Conflict: current version in DB is higher than requested. Update your local state.",
+          currentVersion: existingRecord[0].version
+        });
+      }
+      
+      const responseData = { success: true, processed: recordId, table: targetTable, newVersion: version + 1 };
+      const statusCode = 200;
+
+      // Cache idempotent response and return
+      if (idempotencyKey) {
+        try {
+          await sql`INSERT INTO cmms_idempotency_keys (key, user_id, status_code, response_body, expires_at) 
+                    VALUES (${idempotencyKey}, ${clienteId || 'system'}, ${statusCode}, ${responseData}, expires_at = NOW() + INTERVAL '24 hours')
+                    ON CONFLICT DO NOTHING`;
+        } catch (e) {}
+      }
+
+      return res.status(statusCode).json(responseData);
+
+    } catch (e: any) {
+      console.error("Granular rest endpoint error:", e);
+      return res.status(500).json({ success: false, error: e.message });
     }
   });
 

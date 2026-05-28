@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ success: false, error: "Missing DATABASE_URL" });
   }
   if (!dbUrl.startsWith('postgres')) {
-    dbUrl = 'postgresql://neondb_owner:npg_63SfsKCBdZwa@ep-billowing-mud-aq22ej6r-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+    return res.status(500).json({ success: false, error: "Invalid DATABASE_URL format" });
   }
 
   if (req.method === 'POST' || req.method === 'GET') {
