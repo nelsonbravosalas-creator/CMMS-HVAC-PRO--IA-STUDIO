@@ -1,6 +1,6 @@
 import { getDb } from '../_db.js';
 
-const VALID_TABLES = ['assets', 'work_orders', 'preventive_maintenance', 'clients', 'users', 'branches', 'reports', 'events', 'providers'];
+const VALID_TABLES = ['assets', 'work_orders', 'preventive_maintenance', 'clients', 'users', 'branches', 'reports', 'events'];
 
 export default async function handler(req: any, res: any) {
   const table = req.query.table as string;
