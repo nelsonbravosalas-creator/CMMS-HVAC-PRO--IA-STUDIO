@@ -165,8 +165,9 @@ class SyncEngine {
            }
          }
 
-         this.lastSync = Date.now();
-          this.cooldownUntil = 0; // Clear cooldown on success
+         const { serverTime } = JSON.parse(responseText);
+         this.lastSync = serverTime || Date.now();
+         this.cooldownUntil = 0; // Clear cooldown on success
          localStorage.setItem('last_sync_timestamp', this.lastSync.toString());
          
          // Refresh views

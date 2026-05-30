@@ -31,6 +31,7 @@ async function ensureTables() {
       try { await sql`ALTER TABLE IF EXISTS eventos RENAME TO events`; } catch (e) {}
       try { await sql`ALTER TABLE IF EXISTS clientes RENAME TO clients`; } catch (e) {}
       try { await sql`ALTER TABLE IF EXISTS sucursales RENAME TO branches`; } catch (e) {}
+      try { await sql`ALTER TABLE IF EXISTS proveedores RENAME TO providers`; } catch (e) {}
     }
     await renameTables();
 
@@ -54,6 +55,7 @@ async function ensureTables() {
     await sql`CREATE TABLE IF NOT EXISTS events (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS clients (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS branches (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS providers (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS catalog_asset_types (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS settings (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS ordenes_servicio (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
@@ -94,6 +96,10 @@ async function ensureTables() {
       { table: 'branches', col: 'updated_at', type: 'BIGINT' },
       { table: 'branches', col: 'created_at', type: 'BIGINT' },
       { table: 'branches', col: 'data', type: 'JSONB' },
+      { table: 'providers', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'providers', col: 'updated_at', type: 'BIGINT' },
+      { table: 'providers', col: 'created_at', type: 'BIGINT' },
+      { table: 'providers', col: 'data', type: 'JSONB' },
       { table: 'catalog_asset_types', col: 'uuid_sync', type: 'TEXT' },
       { table: 'catalog_asset_types', col: 'updated_at', type: 'BIGINT' },
       { table: 'catalog_asset_types', col: 'created_at', type: 'BIGINT' },
@@ -161,6 +167,12 @@ async function ensureTables() {
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS data JSONB`;
+        } else if (t === 'providers') {
+          await sql`ALTER TABLE providers ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
+          await sql`ALTER TABLE providers ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
+          await sql`ALTER TABLE providers ADD COLUMN IF NOT EXISTS created_at BIGINT`;
+          await sql`ALTER TABLE providers ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+          await sql`ALTER TABLE providers ADD COLUMN IF NOT EXISTS data JSONB`;
         } else if (t === 'catalog_asset_types') {
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
@@ -193,6 +205,7 @@ async function ensureTables() {
     try { await sql`UPDATE events SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE clients SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE branches SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE providers SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE catalog_asset_types SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE settings SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE ordenes_servicio SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
@@ -215,6 +228,7 @@ async function ensureTables() {
     await tryUnique(sql`ALTER TABLE events ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE clients ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE branches ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE providers ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE catalog_asset_types ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE settings ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE ordenes_servicio ADD UNIQUE (uuid_sync)`);
@@ -329,7 +343,7 @@ ensureTables().catch(console.error);
 
   const ALLOWED_TABLES = [
     'assets', 'users', 'preventive_maintenance', 'work_orders', 
-    'reports', 'events', 'clients', 'branches', 
+    'reports', 'events', 'clients', 'branches', 'providers',
     'catalog_asset_types', 'settings', 'ordenes_servicio', 'audit_logs'
   ];
 
@@ -341,7 +355,8 @@ const TABLE_ALIAS_MAP: Record<string, string> = {
   'informes': 'reports',
   'eventos': 'events',
   'clientes': 'clients',
-  'sucursales': 'branches'
+  'sucursales': 'branches',
+  'proveedores': 'providers'
 };
 
 function resolveTable(name: string): string | null {
@@ -376,6 +391,7 @@ function resolveTable(name: string): string | null {
         case 'events': rows = await sql`SELECT * FROM events WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
         case 'clients': rows = await sql`SELECT * FROM clients WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
         case 'branches': rows = await sql`SELECT * FROM branches WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'providers': rows = await sql`SELECT * FROM providers WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
         case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
         case 'settings': rows = await sql`SELECT * FROM settings WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
         case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
@@ -568,6 +584,7 @@ function resolveTable(name: string): string | null {
                 break;
               }
               case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`; break;
+              case 'providers': await sql`INSERT INTO providers (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > providers.updated_at OR providers.updated_at IS NULL`; break;
               case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
               case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
               case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
@@ -659,6 +676,7 @@ function resolveTable(name: string): string | null {
                 break;
               }
               case 'branches': await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'providers': await sql`UPDATE providers SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
@@ -690,6 +708,7 @@ function resolveTable(name: string): string | null {
                case 'events': await sql`UPDATE events SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
                case 'clients': await sql`UPDATE clients SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
                case 'branches': await sql`UPDATE branches SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'providers': await sql`UPDATE providers SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
                case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
                case 'settings': await sql`UPDATE settings SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
                case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
@@ -716,6 +735,7 @@ function resolveTable(name: string): string | null {
               case 'events': rows = await sql`SELECT * FROM events WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
               case 'clients': rows = await sql`SELECT * FROM clients WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
               case 'branches': rows = await sql`SELECT * FROM branches WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'providers': rows = await sql`SELECT * FROM providers WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
               case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
               case 'settings': rows = await sql`SELECT * FROM settings WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break; // settings NO deleted_at by schema
               case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
@@ -727,8 +747,9 @@ function resolveTable(name: string): string | null {
          } catch(e){}
       }
 
+      const serverTime = Date.now();
       console.log(`[SYNC] Sync applied: Inserts ${inserts.length}, Updates ${updates.length}, Deletes ${deletes.length}`);
-      res.json({ success: true, results, serverChanges });
+      res.json({ success: true, results, serverChanges, serverTime });
     } catch (error: any) {
       console.error('[SYNC ERROR]:', error);
       res.status(500).json({ success: false, error: error.message });
