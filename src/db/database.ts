@@ -50,6 +50,7 @@ export interface LocalTicket extends LocalBase {
   asignado_a: string;
   fecha_creacion: string;
   ubicacionGeografica?: { lat: number, lng: number };
+  imagenes?: string[];
 }
 
 export interface LocalMantenimiento extends LocalBase {
@@ -154,6 +155,14 @@ export interface AuditLog {
   timestamp: number;
 }
 
+export interface LocalBlob {
+  uuid_sync: string;
+  blob: Blob;
+  mime_type: string;
+  metadata?: any;
+  created_at: number;
+}
+
 export class CMMSDatabase extends Dexie {
   assets!: Table<LocalActivo>;
   work_orders!: Table<LocalTicket>;
@@ -168,10 +177,11 @@ export class CMMSDatabase extends Dexie {
   events!: Table<LocalEvento>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
+  blobs!: Table<LocalBlob>;
 
   constructor() {
-    super('CMMS_LocalDB_v9');
-    this.version(9).stores({
+    super('CMMS_LocalDB_v10');
+    this.version(10).stores({
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at, estado',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
       preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at, estado',
@@ -184,7 +194,8 @@ export class CMMSDatabase extends Dexie {
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp',
-      audit_logs: '++id, action, userId, timestamp'
+      audit_logs: '++id, action, userId, timestamp',
+      blobs: 'uuid_sync, created_at'
     });
     
     this.on('populate', async () => {

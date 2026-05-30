@@ -72,7 +72,7 @@ export default function Tickets() {
   const exportToCSV = () => {
     const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Fecha", "Creador", "Asignado", "Sync"];
     const rows = filtered.map(t => [
-      t.id,
+      t.id || `OT-PENDIENTE-${t.uuid_sync.substring(0,6)}`,
       t.equipo_tag,
       t.titulo,
       t.estado,
@@ -223,6 +223,27 @@ export default function Tickets() {
   );
 }
 
+const TicketImagePreview: React.FC<{ imageRef: string }> = ({ imageRef }) => {
+  const [url, setUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (imageRef.startsWith('blob:')) {
+      const uuid = imageRef.replace('blob:', '');
+      db.blobs.get(uuid).then(b => {
+        if (b && b.blob) {
+          setUrl(URL.createObjectURL(b.blob));
+        }
+      }).catch(console.error);
+    } else {
+      setUrl(imageRef);
+    }
+  }, [imageRef]);
+
+  if (!url) return <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><ImageIcon className="w-3 h-3" /></div>;
+
+  return <img src={url} alt="Evidencia" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />;
+};
+
 const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
   const { updateTicket } = useTickets();
   const priorities: Record<string, string> = {
@@ -250,7 +271,9 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
 
        <div>
           <div className="flex items-center gap-2 mb-1">
-             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{ticket.id}</span>
+             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+               {ticket.id || `OT-PENDIENTE-${ticket.uuid_sync.substring(0,6)}`}
+             </span>
              <div className="w-1 h-1 rounded-full bg-slate-300"></div>
              <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{ticket.equipo_tag}</span>
           </div>
@@ -263,6 +286,20 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
              <div className="w-6 h-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-slate-600">NB</div>
              <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-blue-600">GB</div>
           </div>
+          
+          {ticket.imagenes && ticket.imagenes.length > 0 && (
+            <div className="flex gap-1 ml-auto">
+              {ticket.imagenes.slice(0, 3).map((imgRef: string, idx: number) => (
+                <TicketImagePreview key={idx} imageRef={imgRef} />
+              ))}
+              {ticket.imagenes.length > 3 && (
+                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-[9px] font-black text-slate-500">
+                  +{ticket.imagenes.length - 3}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400">
              <MessageSquare className="w-3 h-3" /> 4 Notas
           </div>

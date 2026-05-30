@@ -116,6 +116,83 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     setShowAssetSearch(false);
   };
 
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [imagenes, setImagenes] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<{id: string, url: string}[]>([]);
+
+  const handleImageCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    // Process image: compress and watermark
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = async () => {
+      if (!ctx) return;
+      
+      // Target max width/height
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+      if (width > height && width > MAX_SIZE) {
+        height *= MAX_SIZE / width;
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width *= MAX_SIZE / height;
+        height = MAX_SIZE;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Add watermark
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, height - 60, width, 60);
+      
+      ctx.font = '20px sans-serif';
+      ctx.fillStyle = 'white';
+      const dateStr = new Date().toLocaleString('es-CL');
+      ctx.fillText(`Fecha: ${dateStr}`, 20, height - 35);
+      ctx.fillText(`Usuario: Actual User | TAG: ${tag || 'N/A'}`, 20, height - 10);
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const blobId = crypto.randomUUID();
+        // Save to blob store
+        await db.blobs.put({
+          uuid_sync: blobId,
+          blob: blob,
+          mime_type: 'image/jpeg',
+          created_at: Date.now()
+        });
+        
+        const blobRef = `blob:${blobId}`;
+        setImagenes(prev => [...prev, blobRef]);
+        
+        // Add to preview
+        const reader = new FileReader();
+        reader.onload = () => {
+          setImagePreviews(prev => [...prev, { id: blobRef, url: reader.result as string }]);
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', 0.8);
+    };
+    
+    img.src = URL.createObjectURL(file);
+  };
+
+  const removeImage = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const uuid = id.replace('blob:', '');
+    await db.blobs.delete(uuid);
+    setImagenes(prev => prev.filter(imgId => imgId !== id));
+    setImagePreviews(prev => prev.filter(p => p.id !== id));
+  };
+
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,6 +217,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
         asignado_a: asignadoA,
         fecha_creacion: new Date().toISOString(),
         ubicacionGeografica,
+        imagenes,
       });
       
       onClose();
@@ -304,7 +382,12 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
             </div>
 
             <div className="flex gap-4">
-              <button type="button" className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-100/80 transition-all group">
+              <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageCapture} />
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-100/80 transition-all group"
+              >
                 <Camera className="w-6 h-6 group-hover:text-blue-500 transition-colors" />
                 <span className="text-[9px] font-black uppercase">Adjuntar Evidencia</span>
               </button>
@@ -320,6 +403,23 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
                  </span>
               </button>
             </div>
+
+            {imagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                {imagePreviews.map(preview => (
+                  <div key={preview.id} className="relative aspect-square bg-slate-100 rounded-2xl overflow-hidden group">
+                    <img src={preview.url} alt="evidencia" className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={(e) => removeImage(preview.id, e)}
+                      className="absolute top-2 right-2 bg-rose-500 text-white p-1.5 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             
             {gpsError && (
               <p className="text-xs text-rose-500 font-bold">{gpsError}</p>
