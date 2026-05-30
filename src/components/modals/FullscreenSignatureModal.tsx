@@ -38,8 +38,9 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
       ctx.lineJoin = 'round';
     };
 
-    // Initial resize
-    setTimeout(resizeCanvas, 100);
+    // Initial resize with longer delay to allow modal animation to complete
+    setTimeout(resizeCanvas, 300);
+    setTimeout(resizeCanvas, 50);
     window.addEventListener('resize', resizeCanvas);
 
     let drawing = false;
@@ -61,8 +62,10 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
 
     // Use PointerEvents which inherently support CSS transforms in offsetX/Y
     canvas.addEventListener('pointerdown', start);
-    canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', end);
+    // Add touch events explicitly to ensure compatibility
+    canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
 
     return () => {
       window.removeEventListener('pointerup', end);
@@ -115,7 +118,6 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
               <canvas 
                 ref={canvasRef} 
                 className="absolute inset-0 w-full h-full touch-none cursor-crosshair signature-canvas"
-                style={{ width: '100% !important', maxWidth: '100%', height: 'auto' }}
               />
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-5">
                 <span className="font-black text-6xl uppercase tracking-widest text-slate-900">FIRMAR</span>
