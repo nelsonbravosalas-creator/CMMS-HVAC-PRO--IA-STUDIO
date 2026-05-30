@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db, LocalActivo, LocalTicket, LocalMantenimiento, LocalUsuario, LocalCliente, LocalSucursal, LocalProveedor, SyncStatus } from '../db/database';
+import { db, LocalActivo, LocalTicket, LocalMantenimiento, LocalUsuario, LocalCliente, LocalSucursal, SyncStatus } from '../db/database';
 
 interface CMMSState {
   assets: LocalActivo[];
@@ -8,7 +8,6 @@ interface CMMSState {
   users: LocalUsuario[];
   clients: LocalCliente[];
   branches: LocalSucursal[];
-  providers: LocalProveedor[];
   isLoading: boolean;
   isOnline: boolean;
 
@@ -37,10 +36,6 @@ interface CMMSState {
   addCliente: (client: LocalCliente) => void;
   updateCliente: (client: LocalCliente) => void;
   deleteCliente: (uuid: string) => void;
-
-  addProveedor: (prov: LocalProveedor) => void;
-  updateProveedor: (prov: LocalProveedor) => void;
-  deleteProveedor: (uuid: string) => void;
 }
 
 import { logger } from '../lib/logger';
@@ -52,7 +47,6 @@ export const useAppStore = create<CMMSState>((set) => ({
   users: [],
   clients: [],
   branches: [],
-  providers: [],
   isLoading: true,
   isOnline: navigator.onLine,
 
@@ -60,31 +54,28 @@ export const useAppStore = create<CMMSState>((set) => ({
     set({ isLoading: true });
     logger.info('Store', 'Iniciando hidratación de datos...');
     try {
-      const [assets, work_orders, preventive_maintenance, users, clients, branches, providers] = await Promise.all([
+      const [assets, work_orders, preventive_maintenance, users, clients, branches] = await Promise.all([
         db.assets.where('sync_status').notEqual('pending_delete').toArray(),
         db.work_orders.where('sync_status').notEqual('pending_delete').toArray(),
         db.preventive_maintenance.where('sync_status').notEqual('pending_delete').toArray(),
         db.users.where('sync_status').notEqual('pending_delete').toArray(),
         db.clients.where('sync_status').notEqual('pending_delete').toArray(),
-        db.branches.where('sync_status').notEqual('pending_delete').toArray(),
-        db.providers.where('sync_status').notEqual('pending_delete').toArray()
+        db.branches.where('sync_status').notEqual('pending_delete').toArray()
       ]);
       
       set({ 
-         assets: assets.sort((a,b) => b.updated_at - a.updated_at), 
-         work_orders: work_orders.sort((a,b) => b.updated_at - a.updated_at), 
-         preventive_maintenance: preventive_maintenance.sort((a,b) => b.updated_at - a.updated_at), 
-         users, 
-         clients, 
-         branches,
-         providers,
-         isLoading: false 
+        assets: assets.sort((a,b) => b.updated_at - a.updated_at), 
+        work_orders: work_orders.sort((a,b) => b.updated_at - a.updated_at), 
+        preventive_maintenance: preventive_maintenance.sort((a,b) => b.updated_at - a.updated_at), 
+        users, 
+        clients, 
+        branches,
+        isLoading: false 
       });
 
       logger.info('Store', 'Hidratación completada con éxito', { 
         assets: assets.length, 
-        work_orders: work_orders.length,
-        providers: providers.length
+        work_orders: work_orders.length 
       });
     } catch (error) {
       logger.error('Store', 'Error en hidratación', error);
@@ -164,17 +155,5 @@ export const useAppStore = create<CMMSState>((set) => ({
 
   deleteCliente: (uuid) => set((state) => ({
     clients: state.clients.filter(c => c.uuid_sync !== uuid)
-  })),
-
-  addProveedor: (prov) => set((state) => ({
-    providers: [prov, ...state.providers]
-  })),
-
-  updateProveedor: (prov) => set((state) => ({
-    providers: state.providers.map(p => p.uuid_sync === prov.uuid_sync ? { ...p, ...prov } : p)
-  })),
-
-  deleteProveedor: (uuid) => set((state) => ({
-    providers: state.providers.filter(p => p.uuid_sync !== uuid)
   }))
 }));

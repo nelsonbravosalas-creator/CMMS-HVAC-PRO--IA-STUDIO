@@ -31,19 +31,10 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [descripcion, setDescripcion] = useState("");
   const [prioridad, setPrioridad] = useState("Media");
   const [tipoIncidencia, setTipoIncidencia] = useState("Falla Técnica");
-  const [asignadoA, setAsignadoA] = useState("");
+  const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
   
   const storeClients = useAppStore(state => state.clients);
   const storeBranches = useAppStore(state => state.branches);
-  const providers = useAppStore(state => state.providers);
-
-  const providerOptions = React.useMemo(() => {
-    return providers.map(p => ({
-      value: p.nombre,
-      label: p.nombre,
-      subtitle: p.contacto ? `Contacto: ${p.contacto}` : p.rut || 'Proveedor'
-    }));
-  }, [providers]);
 
   const activeClientUuid = localStorage.getItem("active_client");
   const localAssets = useLiveQuery(() => {
@@ -376,14 +367,17 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
             </div>
 
             <div className="space-y-1 z-20">
-              <label className="text-[10px] font-black uppercase text-slate-400">Proveedor asignado</label>
+              <label className="text-[10px] font-black uppercase text-slate-400">Asignar Personal</label>
               <SearchableSelect
-                options={providerOptions}
+                options={[
+                  { value: 'Nelson Bravo (Tech Lead)', label: 'Nelson Bravo (Tech Lead)' },
+                  { value: 'Gonzalo Bravo (Senior Tech)', label: 'Gonzalo Bravo (Senior Tech)' },
+                  { value: 'Disponible para cualquiera', label: 'Disponible para cualquiera' },
+                ]}
                 value={asignadoA}
                 onChange={setAsignadoA}
-                placeholder="Seleccione proveedor"
-                icon={<Building2 className="w-4 h-4 text-slate-400" />}
-                allowCreate={true}
+                placeholder="Selecciona personal"
+                icon={<User className="w-4 h-4 text-slate-400" />}
               />
             </div>
 
