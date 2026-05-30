@@ -98,7 +98,8 @@ export default function EditorInforme() {
   const informe = INFORMES_MOCK.find(i => i.id === id);
   
   const [activeSection, setActiveSection] = useState<Section | 'none'>('general');
-  const [viewMode, setViewMode] = useState<'sidebar' | 'tabs' | 'accordion'>('sidebar');
+  const [viewMode, setViewMode] = useState<'sidebar' | 'tabs' | 'accordion' | 'industrial'>('accordion');
+  const [appLogo] = useState<string | null>(() => localStorage.getItem("system_logo"));
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
   const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('cliente');
   const [status, setStatus] = useState<'borrador' | 'firmado' | 'bloqueado' | 'offline_draft'>(informe?.estado as any || 'offline_draft');
@@ -770,22 +771,10 @@ export default function EditorInforme() {
     setStatus('firmado');
     setIsSyncing(false);
     
-    // Export PDF via Email Automáticamente
-    try {
-      const doc = new jsPDF('p', 'mm', 'a4');
-      doc.setFont("helvetica", "bold");
-      doc.text(`INFORME TÉCNICO: ${machineData.tag}`, 10, 10);
-      doc.setFontSize(10);
-      doc.text(`Cliente: ${generalData.cliente}`, 10, 20);
-      doc.text(`Sucursal: ${generalData.sucursal}`, 10, 25);
-      doc.text(`Fecha: ${generalData.fecha}`, 10, 30);
-      
-      doc.text("Resumen de Hallazgos:", 10, 45);
-      doc.setFont("helvetica", "normal");
-      const splitText = doc.splitTextToSize(observaciones || "Sin observaciones registradas.", 180);
-      doc.text(splitText, 10, 50);
-
-      const pdfBase64 = doc.output('datauristring');
+     // Export PDF via Email Automáticamente
+     try {
+       const doc = await generateClimasolPDF();
+       const pdfBase64 = doc.output('datauristring');
       
       const { DocumentExportService } = await import('../lib/DocumentExportService');
       
@@ -850,22 +839,726 @@ export default function EditorInforme() {
   const canvasTecRef = useRef<HTMLCanvasElement>(null);
   const canvasCliRef = useRef<HTMLCanvasElement>(null);
 
-  // Export PDF
-  const handleExportPDF = async () => {
+  // Generador de Informe Premium con Estructura Climasol
+  const generateClimasolPDF = async () => {
     const doc = new jsPDF('p', 'mm', 'a4');
-    doc.setFont("helvetica", "bold");
-    doc.text(`INFORME TÉCNICO: ${machineData.tag}`, 10, 10);
-    doc.setFontSize(10);
-    doc.text(`Cliente: ${generalData.cliente}`, 10, 20);
-    doc.text(`Sucursal: ${generalData.sucursal}`, 10, 25);
-    doc.text(`Fecha: ${generalData.fecha}`, 10, 30);
     
-    doc.text("Resumen de Hallazgos:", 10, 45);
-    doc.setFont("helvetica", "normal");
-    const splitText = doc.splitTextToSize(observaciones || "Sin observaciones registradas.", 180);
-    doc.text(splitText, 10, 50);
+    // Resolve dynamic labels
+    const clientName = clients.find(c => c.uuid_sync === generalData.cliente || c.id === generalData.cliente)?.nombre || generalData.cliente || "EECOL ELECTRIC";
+    const selectedSuc = branches.find(b => b.uuid_sync === generalData.sucursal || b.id === generalData.sucursal);
+    const branchName = selectedSuc?.nombre || generalData.sucursal || "Vitacura Base";
+    const branchAddress = selectedSuc?.direccion || "Av. Vitacura 2670, Santiago, Chile";
+    const reportFolio = generalData.folio || `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const docDate = generalData.fecha || new Date().toLocaleDateString('es-CL');
+    
+    // Helper to draw status circle
+    const drawStatusCircle = (x: number, y: number, statusItem?: 'ok' | 'obs' | 'falla') => {
+      if (statusItem === 'ok') {
+        doc.setFillColor(16, 185, 129); // green
+        doc.circle(x, y, 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(4);
+        doc.setFont("helvetica", "bold");
+        doc.text("OK", x - 1.2, y + 0.65);
+      } else if (statusItem === 'obs') {
+        doc.setFillColor(245, 158, 11); // amber
+        doc.circle(x, y, 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(4);
+        doc.setFont("helvetica", "bold");
+        doc.text("OB", x - 1.2, y + 0.65);
+      } else if (statusItem === 'falla') {
+        doc.setFillColor(239, 68, 68); // rose
+        doc.circle(x, y, 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(4);
+        doc.setFont("helvetica", "bold");
+        doc.text("NG", x - 1.2, y + 0.65);
+      } else {
+        // default empty/gray circle
+        doc.setFillColor(226, 232, 240);
+        doc.circle(x, y, 2, 'F');
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(4);
+        doc.setFont("helvetica", "bold");
+        doc.text("NA", x - 1.2, y + 0.65);
+      }
+    };
 
-    doc.save(`Informe_${machineData.tag}_${generalData.fecha}.pdf`);
+    // ----- PAGE 1 -----
+    // Header background line/accent
+    doc.setDrawColor(11, 47, 100);
+    doc.setLineWidth(0.5);
+    doc.line(10, 24, 200, 24);
+
+    // Dynamic Snowflake Logo or Configured Corporate Logo
+    if (appLogo) {
+      try {
+        let format = "PNG";
+        if (appLogo.startsWith("data:image/jpeg") || appLogo.startsWith("data:image/jpg")) {
+          format = "JPEG";
+        } else if (appLogo.startsWith("data:image/webp")) {
+          format = "WEBP";
+        }
+        doc.addImage(appLogo, format, 13, 8, 10, 10);
+      } catch (e) {
+        console.error("Error drawing logo to PDF page 1:", e);
+        doc.setDrawColor(11, 47, 100);
+        doc.setLineWidth(0.6);
+        const cx = 18, cy = 14;
+        for (let a = 0; a < 360; a += 45) {
+          const rad = a * Math.PI / 180;
+          doc.line(cx, cy, cx + Math.cos(rad) * 4.5, cy + Math.sin(rad) * 4.5);
+          const rx = cx + Math.cos(rad) * 3;
+          const ry = cy + Math.sin(rad) * 3;
+          doc.line(rx, ry, rx + Math.cos(rad + 0.4) * 1.5, ry + Math.sin(rad + 0.4) * 1.5);
+          doc.line(rx, ry, rx + Math.cos(rad - 0.4) * 1.5, ry + Math.sin(rad - 0.4) * 1.5);
+        }
+      }
+    } else {
+      doc.setDrawColor(11, 47, 100);
+      doc.setLineWidth(0.6);
+      const cx = 18, cy = 14;
+      for (let a = 0; a < 360; a += 45) {
+        const rad = a * Math.PI / 180;
+        doc.line(cx, cy, cx + Math.cos(rad) * 4.5, cy + Math.sin(rad) * 4.5);
+        const rx = cx + Math.cos(rad) * 3;
+        const ry = cy + Math.sin(rad) * 3;
+        doc.line(rx, ry, rx + Math.cos(rad + 0.4) * 1.5, ry + Math.sin(rad + 0.4) * 1.5);
+        doc.line(rx, ry, rx + Math.cos(rad - 0.4) * 1.5, ry + Math.sin(rad - 0.4) * 1.5);
+      }
+    }
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(11, 47, 100); // Climasol Blue
+    doc.text("CLIMASOL", 26, 13);
+    doc.setFontSize(6);
+    doc.setTextColor(100, 116, 139);
+    doc.text("SOLUCIONES EN CLIMATIZACIÓN", 26, 17);
+
+    // Center Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(11, 47, 100);
+    doc.text("INFORME DE MANTENIMIENTO", 65, 12);
+    doc.text("AIRE ACONDICIONADO", 76, 16);
+
+    // Right Inform Info box
+    doc.setFillColor(11, 47, 100);
+    doc.roundedRect(150, 6, 50, 14, 1.5, 1.5, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "bold");
+    doc.text("N° DE INFORME", 163, 10);
+    doc.setFontSize(7.5);
+    doc.text(reportFolio, 159, 14);
+    
+    doc.setFillColor(241, 245, 249);
+    doc.rect(150, 20, 50, 5, 'F');
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "bold");
+    doc.text("FECHA:", 154, 23.5);
+    doc.setFontSize(7);
+    doc.setTextColor(11, 47, 100);
+    doc.text(docDate, 172, 23.5);
+
+    // --- SECTION 1: INFORMACIÓN GENERAL ---
+    let y = 29;
+    doc.setFillColor(11, 47, 100);
+    doc.roundedRect(10, y, 70, 5.5, 1, 1, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. INFORMACIÓN GENERAL", 14, y + 4);
+
+    y += 7.5;
+    // Box
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(10, y, 190, 29, "D");
+
+    // Grid details
+    doc.setFontSize(7);
+    doc.setTextColor(71, 85, 105);
+    doc.setFont("helvetica", "bold");
+    doc.text("Cliente:", 14, y + 5);
+    doc.text("Dirección:", 14, y + 10);
+    doc.text("Contacto:", 14, y + 15);
+    doc.text("Correo:", 14, y + 20);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
+    doc.text(clientName, 32, y + 5);
+    
+    // address split wrap
+    const splitAddr = doc.splitTextToSize(branchAddress, 60);
+    doc.text(splitAddr, 32, y + 10);
+    
+    doc.text("+56 9 1234 5678", 32, y + 15);
+    doc.text("contacto@eecol.cl", 32, y + 20);
+
+    // Column 2
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Técnico responsable:", 95, y + 5);
+    doc.text("Marca / Modelo:", 95, y + 10);
+    doc.text("Tipo de equipo:", 95, y + 15);
+    doc.text("N° de serie / TAG:", 95, y + 20);
+    doc.text("Capacidad:", 95, y + 25);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(15, 23, 42);
+    doc.text(generalData.tecnico || "Carlos López", 125, y + 5);
+    doc.text((machineData.marca || "LG") + " / " + (machineData.modelo || "S12ET"), 125, y + 10);
+    doc.text(machineData.tipo || "Split Muro", 125, y + 15);
+    doc.text(machineData.tag || "812KALB123456", 125, y + 20);
+    doc.text(machineData.capacidad || "12.000 BTU", 125, y + 25);
+
+    // equipment mock / icon on the right
+    doc.setDrawColor(203, 213, 225);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(172, y + 4, 22, 9, 1, 1, "DF"); // Indoor
+    doc.line(174, y + 11, 192, y + 11);
+    doc.setFillColor(226, 232, 240);
+    doc.rect(179, y + 5, 8, 2, "F");
+    
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(175, y + 15, 16, 11, 1, 1, "DF"); // Outdoor
+    doc.setDrawColor(148, 163, 184);
+    doc.circle(183, y + 20.5, 3.5, "D");
+    doc.line(183, y + 18, 183, y + 23);
+    doc.line(180, y + 20.5, 186, y + 20.5);
+
+    // --- SECTION 2 & 3: INSPECTION UNITS (Side-by-side) ---
+    y += 33;
+    const colW = 92;
+    const colGap = 6;
+    
+    // Section 2 Header
+    doc.setFillColor(11, 47, 100);
+    doc.rect(10, y, colW, 5.5, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text("2. INSPECCIÓN UNIDAD INTERIOR", 14, y + 4);
+
+    // Section 3 Header
+    doc.setFillColor(11, 47, 100);
+    doc.rect(10 + colW + colGap, y, colW, 5.5, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text("3. INSPECCIÓN UNIDAD EXTERIOR", 10 + colW + colGap + 4, y + 4);
+
+    // Tables outline
+    y += 5.5;
+    const tableH = 46;
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(10, y, colW, tableH, "D");
+    doc.rect(10 + colW + colGap, y, colW, tableH, "D");
+
+    // Table titles inside
+    doc.setFillColor(241, 245, 249);
+    doc.rect(10, y, colW, 4.5, "F");
+    doc.rect(10 + colW + colGap, y, colW, 4.5, "F");
+
+    doc.setTextColor(11, 47, 100);
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "bold");
+    doc.text("ITEM", 13, y + 3.2);
+    doc.text("ESTADO", 88, y + 3.2);
+
+    doc.text("ITEM", 10 + colW + colGap + 3, y + 3.2);
+    doc.text("ESTADO", 10 + colW + colGap + 78, y + 3.2);
+
+    // Row definitions
+    const interiorItems = [
+      { name: "Estado general del equipo", idx: 0 },
+      { name: "Limpieza de filtros de aire", idx: 1 },
+      { name: "Instalación filtros desecl.", idx: 2 },
+      { name: "Evaporador de unidad", idx: 3 },
+      { name: "Bandejas condensado / drenes", idx: 5 },
+      { name: "Bomba de condensado", idx: 6 },
+      { name: "Chequeo de desagüe", idx: 7 },
+      { name: "Controles y termostatos", idx: 23 }
+    ];
+
+    const exteriorItems = [
+      { name: "Limpieza de condensador", idx: 4 },
+      { name: "Revisión ventilador exterior", idx: 8 },
+      { name: "Verificación de correas", idx: 9 },
+      { name: "Lubricación de rodamientos", idx: 10 },
+      { name: "Revisión de compresores", idx: 21 },
+      { name: "Fugas de refrigerante", idx: 20 }
+    ];
+
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 41, 59);
+
+    for (let i = 0; i < 8; i++) {
+      const rowY = y + 4.5 + (i * 4.4) + 3.5;
+      doc.setDrawColor(241, 245, 249);
+      doc.line(10, rowY + 1.2, 10 + colW, rowY + 1.2);
+      
+      const itemVal = interiorItems[i];
+      if (itemVal) {
+        doc.text(itemVal.name, 13, rowY);
+        const statusItem = checklist[itemVal.idx]?.status;
+        drawStatusCircle(10 + colW - 6, rowY - 1, statusItem);
+      }
+    }
+
+    for (let i = 0; i < 8; i++) {
+      const rowY = y + 4.5 + (i * 4.4) + 3.5;
+      const startX = 10 + colW + colGap;
+      doc.setDrawColor(241, 245, 249);
+      doc.line(startX, rowY + 1.2, startX + colW, rowY + 1.2);
+
+      const itemVal = exteriorItems[i];
+      if (itemVal) {
+        doc.text(itemVal.name, startX + 3, rowY);
+        const statusItem = checklist[itemVal.idx]?.status;
+        drawStatusCircle(startX + colW - 6, rowY - 1, statusItem);
+      } else {
+        doc.text("-", startX + 3, rowY);
+      }
+    }
+
+    // Observations Area for Units
+    y += tableH;
+    doc.setDrawColor(226, 232, 240);
+    // Left Box
+    doc.setFillColor(252, 253, 254);
+    doc.rect(10, y, colW, 11, "DF");
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(11, 47, 100);
+    doc.text("Observaciones unidad interior:", 12, y + 3.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    const interiorFindings = interiorItems.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ");
+    const splitInteriorObs = doc.splitTextToSize(interiorFindings || "Unidad interior en buen estado general. Filtros limpios y sin acumulación de polvo.", colW - 6);
+    doc.text(splitInteriorObs, 12, y + 6.5);
+
+    // Right Box
+    doc.setFillColor(252, 253, 254);
+    doc.rect(10 + colW + colGap, y, colW, 11, "DF");
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(11, 47, 100);
+    doc.text("Observaciones unidad exterior:", 10 + colW + colGap + 2, y + 3.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    const exteriorFindings = exteriorItems.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ");
+    const splitExteriorObs = doc.splitTextToSize(exteriorFindings || "Condensador soplado y desincrustado, libre de obstrucciones de aire.", colW - 6);
+    doc.text(splitExteriorObs, 10 + colW + colGap + 2, y + 6.5);
+
+    // --- SECTIONS 4, 5 & 6 (Three Columns) ---
+    y += 15;
+    const colW3 = 61;
+    const colGap3 = 3.5;
+
+    const sections3 = [
+      {
+        title: "4. REVISIÓN ELÉCTRICA",
+        items: [
+          { name: "Conexiones eléctricas", idx: 11 },
+          { name: "Medición de consumos", idx: 12 },
+          { name: "Tensión de alimentación", idx: 13 },
+          { name: "Relés y contactores", idx: 22 },
+          { name: "Alarmas y protecciones", idx: 25 }
+        ],
+        obs: "Instalación e interruptores de poder dentro de rango nominal."
+      },
+      {
+        title: "5. REVISIÓN OPERACIONAL",
+        items: [
+          { name: "Encendido / Apagado", idx: 26 },
+          { name: "Cambio de modos", idx: 18 },
+          { name: "Flujo de aire", idx: 0 },
+          { name: "Válvula de expansión", idx: 18 },
+          { name: "Prueba de Presión", idx: 24 }
+        ],
+        obs: "Ciclo de control operando de manera idónea, respuesta normal."
+      },
+      {
+        title: "6. SISTEMA DE REFRIGERACIÓN",
+        items: [
+          { name: "Presiones de refrigerante", idx: 15 },
+          { name: "Nivel de refrigerante", idx: 19 },
+          { name: "Fugas de refrigerante", idx: 20 },
+          { name: "Temperaturas de trabajo", idx: 17 },
+          { name: "Carga complementaria", idx: 16 }
+        ],
+        obs: "Estabilidad de presiones de refrigerante confirmada."
+      }
+    ];
+
+    sections3.forEach((sec, sIdx) => {
+      const startX = 10 + (sIdx * (colW3 + colGap3));
+      doc.setFillColor(11, 47, 100);
+      doc.rect(startX, y, colW3, 5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text(sec.title, startX + 3, y + 3.6);
+
+      // Box body
+      const subBoxH = 34;
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(startX, y + 5, colW3, subBoxH, "D");
+
+      // Inner titles
+      doc.setFillColor(241, 245, 249);
+      doc.rect(startX, y + 5, colW3, 4, "F");
+      doc.setTextColor(11, 47, 100);
+      doc.setFontSize(5.5);
+      doc.text("ITEM", startX + 3, y + 8);
+      doc.text("ESTADO", startX + colW3 - 10, y + 8);
+
+      doc.setFontSize(5.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(30, 41, 59);
+
+      // Rows
+      sec.items.forEach((item, rIdx) => {
+        const rowY = y + 9 + (rIdx * 4) + 3;
+        doc.setDrawColor(248, 250, 252);
+        doc.line(startX, rowY + 1, startX + colW3, rowY + 1);
+
+        doc.text(item.name, startX + 3, rowY);
+        const statusItem = checklist[item.idx]?.status;
+        drawStatusCircle(startX + colW3 - 6, rowY - 1, statusItem);
+      });
+
+      // Observations Box underneath
+      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(252, 253, 254);
+      doc.rect(startX, y + 5 + subBoxH, colW3, 10, "DF");
+      
+      doc.setFontSize(5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(11, 47, 100);
+      doc.text("Observaciones:", startX + 3, y + 5 + subBoxH + 3.2);
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      const customObs = sec.items.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ");
+      const splitObs = doc.splitTextToSize(customObs || sec.obs, colW3 - 6);
+      doc.text(splitObs, startX + 3, y + 5 + subBoxH + 5.5);
+    });
+
+    // FOOTER PAGE 1
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Documento de Uso Técnico Oficial CLIMASOL - Folio ${reportFolio}`, 10, 287);
+    doc.text("Página 1 de 2", 185, 287);
+
+
+    // ----- PAGE 2 -----
+    doc.addPage();
+    let y2 = 14;
+
+    // Mini logo & Header
+    doc.setDrawColor(11, 47, 100);
+    doc.setLineWidth(0.4);
+    doc.line(10, 21, 200, 21);
+
+    // Mini Flake Logo or custom logo
+    if (appLogo) {
+      try {
+        let format = "PNG";
+        if (appLogo.startsWith("data:image/jpeg") || appLogo.startsWith("data:image/jpg")) {
+          format = "JPEG";
+        } else if (appLogo.startsWith("data:image/webp")) {
+          format = "WEBP";
+        }
+        doc.addImage(appLogo, format, 15, 9, 6, 6);
+      } catch (e) {
+        console.error("Error drawing logo to PDF page 2:", e);
+        doc.setDrawColor(11, 47, 100);
+        doc.setLineWidth(0.5);
+        for (let a = 0; a < 360; a += 45) {
+          const rad = a * Math.PI / 180;
+          doc.line(18, 12, 18 + Math.cos(rad) * 3, 12 + Math.sin(rad) * 3);
+        }
+      }
+    } else {
+      doc.setDrawColor(11, 47, 100);
+      doc.setLineWidth(0.5);
+      for (let a = 0; a < 360; a += 45) {
+        const rad = a * Math.PI / 180;
+        doc.line(18, 12, 18 + Math.cos(rad) * 3, 12 + Math.sin(rad) * 3);
+      }
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(11, 47, 100);
+    doc.text("CLIMASOL", 24, 13);
+    doc.setFontSize(6.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`INFORME DE MANTENIMIENTO TÉCNICO COMPLEMENTARIO - FOLIO: ${reportFolio}`, 60, 13);
+
+    // --- SECTION 7: MEDICIONES TÉCNICAS ---
+    y2 = 25;
+    doc.setFillColor(11, 47, 100);
+    doc.roundedRect(10, y2, 60, 5, 1, 1, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text("7. MEDICIONES TÉCNICAS", 14, y2 + 3.8);
+
+    y2 += 7;
+
+    const tableW = 190;
+    const measurementRows = [
+      { param: "Voltaje de alimentación", value: machineData.voltaje || "220 V", unit: "Volt [V]" },
+      { param: "Amperaje de operación (L1)", value: circuits[0]?.compressors[0]?.r || "5.2 A", unit: "Amperios [A]" },
+      { param: "Amperaje de operación (L2)", value: circuits[0]?.compressors[0]?.s || "5.1 A", unit: "Amperios [A]" },
+      { param: "Amperaje de operación (L3)", value: circuits[0]?.compressors[0]?.t || "5.1 A", unit: "Amperios [A]" },
+      { param: "Presión de Alta (Lado Descarga)", value: circuits[0]?.pa || "315 psi", unit: "psi (libra/pulg²)" },
+      { param: "Presión de Baja (Lado Aspiración)", value: circuits[0]?.pb || "118 psi", unit: "psi (libra/pulg²)" },
+      { param: "Temperatura de Evaporación", value: circuits[0]?.te || "6.5 °C", unit: "Grados Celsius [°C]" },
+      { param: "Temperatura de Condensación", value: circuits[0]?.tc || "42.3 °C", unit: "Grados Celsius [°C]" },
+      { param: "Subenfriamiento de Líquido", value: circuits[0]?.tsub || "8.5 °C", unit: "Grados Celsius [°C]" },
+      { param: "Sobrecalentamiento de Retorno", value: circuits[0]?.tsob || "9.2 °C", unit: "Grados Celsius [°C]" }
+    ];
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.setFillColor(248, 250, 252);
+    // table header
+    doc.rect(10, y2, tableW, 4.5, "DF");
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(11, 47, 100);
+    doc.setFontSize(6.5);
+    doc.text("PARÁMETRO TÉCNICO", 14, y2 + 3.2);
+    doc.text("VALOR REGISTRADO", 94, y2 + 3.2);
+    doc.text("UNIDAD DE MEDIDA", 154, y2 + 3.2);
+
+    y2 += 4.5;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(6);
+
+    measurementRows.forEach((row, rIdx) => {
+      doc.setFillColor(rIdx % 2 === 0 ? 255 : 248, rIdx % 2 === 0 ? 255 : 250, rIdx % 2 === 0 ? 255 : 252);
+      doc.rect(10, y2, tableW, 4, "F");
+      doc.setDrawColor(241, 245, 249);
+      doc.line(10, y2 + 4, 10 + tableW, y2 + 4);
+
+      doc.text(row.param, 14, y2 + 3);
+      doc.text(row.value, 94, y2 + 3);
+      doc.text(row.unit, 154, y2 + 3);
+      y2 += 4;
+    });
+
+    // --- SECTION 8: OBSERVACIONES Y RECOMENDACIONES ---
+    y2 += 4;
+    doc.setFillColor(11, 47, 100);
+    doc.roundedRect(10, y2, 75, 5, 1, 1, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text("8. RECOMENDACIONES Y DIAGNÓSTICO", 14, y2 + 3.8);
+
+    y2 += 7;
+    
+    // Split columns: left recommendations list, right: feedback seal
+    const recW = 120;
+    const sealW = 60;
+    const sealH = 24;
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(10, y2, recW, sealH + 16, "DF");
+
+    doc.setFontSize(6.5);
+    doc.setTextColor(11, 47, 100);
+    doc.setFont("helvetica", "bold");
+    doc.text("Hallazgos:", 13, y2 + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(51, 65, 85);
+    
+    const obsArr = [
+      "- " + (observaciones ? observaciones.split('\n')[0] : "Equipo en estado operativo óptimo, sin fugas activas."),
+      "- Filtros de aire limpios. Consumos eléctricos estables dentro del rango de placa."
+    ];
+    doc.text(obsArr[0], 13, y2 + 7.5);
+    if (obsArr[1]) doc.text(obsArr[1], 13, y2 + 11);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(11, 47, 100);
+    doc.text("Recomendaciones de ingeniería:", 13, y2 + 17);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(51, 65, 85);
+    
+    const recArr = [
+      "- Se sugiere calendarizar próximo servicio de mantenimiento preventivo cada 6 meses.",
+      "- Mantener ductos e ingresos de aire limpios para maximizar rendimiento termodinámico.",
+      "- Cambio preventivo de contactores electromecánicos recomendados para el próximo año."
+    ];
+    doc.text(recArr[0], 13, y2 + 20.5);
+    doc.text(recArr[1], 13, y2 + 24);
+    doc.text(recArr[2], 13, y2 + 27.5);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(11, 47, 100);
+    doc.text("Repuestos requeridos:", 13, y2 + 33.5);
+    doc.setFont("helvetica", "normal");
+    doc.text("No se requieren repuestos urgentes por el momento.", 43, y2 + 33.5);
+
+    // Right certification seal card
+    const sealX = 140;
+    doc.setFillColor(240, 253, 250); // soft teal
+    doc.setDrawColor(16, 185, 129);  // green emerald
+    doc.setLineWidth(0.6);
+    doc.roundedRect(sealX, y2 + 5, sealW, sealH, 2, 2, "DF");
+
+    // Circular check icon inside seal
+    doc.setFillColor(16, 185, 129);
+    doc.circle(sealX + sealW / 2, y2 + 12, 4.5, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("✔", sealX + sealW / 2 - 1.5, y2 + 14.5);
+
+    doc.setTextColor(4, 120, 87);
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "bold");
+    doc.text("ESTADO INFORME", sealX + sealW / 2 - 12.5, y2 + 20);
+    doc.setFontSize(7.5);
+    doc.text("EQUIPO CONFORME", sealX + sealW / 2 - 15.5, y2 + 24);
+    doc.setFontSize(5);
+    doc.setFont("helvetica", "normal");
+    doc.text("CONDICIONES OPERATIVAS REGLAMENTARIAS", sealX + 6, y2 + 27);
+
+    // --- REGISTRO FOTOGRÁFICO DE CAMPO ---
+    y2 += sealH + 21;
+    doc.setFillColor(11, 47, 100);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(10, y2, 70, 5, 1, 1, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text("9. REGISTRO FOTOGRÁFICO DE CAMPO", 14, y2 + 3.8);
+
+    y2 += 7;
+    // Draw up to 4 images
+    const activePhotos = galeria.length > 0 ? galeria.slice(0, 4) : [];
+    const photoBoxW = 43;
+    const photoBoxH = 34;
+    const photoGap = 6;
+
+    for (let pIdx = 0; pIdx < 4; pIdx++) {
+      const pX = 10 + (pIdx * (photoBoxW + photoGap));
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(pX, y2, photoBoxW, photoBoxH, "D");
+
+      const photoItem = activePhotos[pIdx];
+      if (photoItem && photoItem.src) {
+        try {
+          doc.addImage(photoItem.src, "JPEG", pX + 1.5, y2 + 1.5, photoBoxW - 3, photoBoxH - 6);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(5.5);
+          doc.setTextColor(71, 85, 105);
+          const pDesc = photoItem.desc || `Evidencia ${pIdx + 1}`;
+          const splitDesc = doc.splitTextToSize(pDesc, photoBoxW - 2);
+          doc.text(splitDesc, pX + 2, y2 + photoBoxH - 1.5);
+        } catch (imgErr) {
+          console.warn("Could not draw image to PDF", imgErr);
+          doc.setTextColor(148, 163, 184);
+          doc.text("Error imagen", pX + 10, y2 + 15);
+        }
+      } else {
+        // empty placeholder
+        doc.setDrawColor(241, 245, 249);
+        doc.line(pX, y2, pX + photoBoxW, y2 + photoBoxH);
+        doc.line(pX + photoBoxW, y2, pX, y2 + photoBoxH);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(5.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text("Sin Evidencia", pX + 14, y2 + 18);
+      }
+    }
+
+    // --- SIGNATURES ZONE ---
+    y2 += photoBoxH + 6;
+    doc.setFillColor(11, 47, 100);
+    doc.roundedRect(10, y2, 60, 5, 1, 1, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text("10. REGISTRO DE CONFORMIDAD Y FIRMAS", 14, y2 + 3.8);
+
+    y2 += 7;
+    const signBoxW = 92;
+    const signBoxH = 26;
+
+    // Left Signature
+    doc.setFillColor(252, 253, 254);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(10, y2, signBoxW, signBoxH, 1, 1, "DF");
+    
+    // Draw signature image if present
+    const sigTecVal = canvasTecRef.current?.toDataURL();
+    if (sigTecVal) {
+      try {
+        doc.addImage(sigTecVal, 'PNG', 12, y2 + 2, signBoxW - 4, signBoxH - 10);
+      } catch (errSig) {
+        console.warn(errSig);
+      }
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`Firma Técnico: ${generalData.tecnico || 'Carlos López'}`, 14, y2 + signBoxH - 5);
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Instalador Electromecánico HVAC", 14, y2 + signBoxH - 2);
+
+    // Right Signature
+    doc.setFillColor(252, 253, 254);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(10 + signBoxW + colGap, y2, signBoxW, signBoxH, 1, 1, "DF");
+
+    const sigCliVal = canvasCliRef.current?.toDataURL();
+    if (sigCliVal) {
+      try {
+        doc.addImage(sigCliVal, 'PNG', 10 + signBoxW + colGap + 2, y2 + 2, signBoxW - 4, signBoxH - 10);
+      } catch (errSig2) {
+        console.warn(errSig2);
+      }
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text("Firma Cliente de Conformidad: Gonzalo Bravo", 10 + signBoxW + colGap + 4, y2 + signBoxH - 5);
+    doc.setFontSize(5.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Jefe de Operaciones e Infraestructura", 10 + signBoxW + colGap + 4, y2 + signBoxH - 2);
+
+    // FOOTER PAGE 2
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Documento de Uso Técnico Oficial CLIMASOL - Folio ${reportFolio}`, 10, 287);
+    doc.text("Página 2 de 2", 185, 287);
+
+    return doc;
+  };
+
+  // Export PDF Wrapper
+  const handleExportPDF = async () => {
+    const doc = await generateClimasolPDF();
+    doc.save(`Informe_Climasol_${machineData.tag}_${generalData.fecha}.pdf`);
   };
 
   // Export Excel
@@ -883,6 +1576,467 @@ export default function EditorInforme() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Informe");
     XLSX.writeFile(wb, `Informe_${machineData.tag}.xlsx`);
+  };
+
+  const renderIndustrialPreview = () => {
+    const clientName = clients.find(c => c.uuid_sync === generalData.cliente || c.id === generalData.cliente)?.nombre || generalData.cliente || "EECOL ELECTRIC";
+    const selectedSuc = branches.find(b => b.uuid_sync === generalData.sucursal || b.id === generalData.sucursal);
+    const branchAddress = selectedSuc?.direccion || "Av. Vitacura 2670, Santiago, Chile";
+    const reportFolio = generalData.folio || "INF-2026-X";
+
+    const interiorItems = [
+      { name: "Estado general del equipo", idx: 0 },
+      { name: "Limpieza de filtros de aire", idx: 1 },
+      { name: "Instalación filtros desecl.", idx: 2 },
+      { name: "Evaporador de unidad", idx: 3 },
+      { name: "Bandejas condensado / drenes", idx: 5 },
+      { name: "Bomba de condensado", idx: 6 },
+      { name: "Chequeo de desagüe", idx: 7 },
+      { name: "Controles y termostatos", idx: 23 }
+    ];
+
+    const exteriorItems = [
+      { name: "Limpieza de condensador", idx: 4 },
+      { name: "Revisión ventilador exterior", idx: 8 },
+      { name: "Verificación de correas", idx: 9 },
+      { name: "Lubricación de rodamientos", idx: 10 },
+      { name: "Revisión de compresores", idx: 21 },
+      { name: "Fugas de refrigerante", idx: 20 }
+    ];
+
+    const electricItems = [
+      { name: "Conexiones eléctricas", idx: 11 },
+      { name: "Medición de consumos", idx: 12 },
+      { name: "Tensión de alimentación", idx: 13 },
+      { name: "Relés y contactores", idx: 22 },
+      { name: "Alarmas y protecciones", idx: 25 }
+    ];
+
+    const operationalItems = [
+      { name: "Encendido / Apagado", idx: 26 },
+      { name: "Cambio de modos", idx: 18 },
+      { name: "Flujo de aire", idx: 0 },
+      { name: "Válvula de expansión", idx: 18 },
+      { name: "Prueba de Presión", idx: 24 }
+    ];
+
+    const refrigeracionItems = [
+      { name: "Presiones de refrigerante", idx: 15 },
+      { name: "Nivel de refrigerante", idx: 19 },
+      { name: "Fugas de refrigerante", idx: 20 },
+      { name: "Temperaturas de trabajo", idx: 17 },
+      { name: "Carga complementaria", idx: 16 }
+    ];
+
+    const renderBadge = (statusVal?: string) => {
+      switch (statusVal) {
+        case 'ok':
+          return <span className="inline-flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 uppercase">✔ OK</span>;
+        case 'obs':
+          return <span className="inline-flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 uppercase">⚠ OB</span>;
+        case 'falla':
+          return <span className="inline-flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 uppercase">✖ NG</span>;
+        default:
+          return <span className="inline-flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase">➖ NA</span>;
+      }
+    };
+
+    return (
+      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
+        {/* Banner Informative */}
+        <div className="bg-blue-50 border border-blue-200 rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-4 text-blue-900 shadow-sm">
+          <div className="p-3 bg-blue-600 text-white rounded-2xl">
+            <ClipboardCheck className="w-6 h-6" />
+          </div>
+          <div className="flex-1 text-center sm:text-left">
+            <h4 className="font-black uppercase text-sm tracking-wide">Vista Previa Norma Climasol</h4>
+            <p className="text-xs text-blue-700 mt-1">Este panel reproduce fielmente la estructura visual reglamentaria e industrial requerida en los informes técnicos de climatización oficiales.</p>
+          </div>
+          <button onClick={handleExportPDF} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 shadow-md transition-all shrink-0">
+            Exportar PDF Climasol
+          </button>
+        </div>
+
+        {/* PAGE 1 WORKSPACE PREVIEW */}
+        <div className="bg-white border-2 border-slate-200 rounded-[32px] shadow-2xl overflow-hidden p-6 md:p-12 relative min-h-[1100px] flex flex-col justify-between">
+          <div>
+            {/* Header Plate */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b-2 border-[#0B2F64] gap-4">
+              <div className="flex items-center gap-3">
+                {/* Snowflake or custom corporate logo */}
+                {appLogo ? (
+                  <img src={appLogo} className="w-10 h-10 rounded-xl object-contain shadow-md shadow-blue-900/10" alt="Logo" />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0B2F64] to-blue-800 flex items-center justify-center text-white font-extrabold shadow-md shadow-blue-900/20">
+                    ❄
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-black text-[#0B2F64] tracking-tight leading-none">CLIMASOL</h3>
+                  <span className="text-[8px] text-slate-400 font-extrabold tracking-widest uppercase">Soluciones en Climatización</span>
+                </div>
+              </div>
+              <div className="text-left md:text-center">
+                <h4 className="text-sm font-black text-[#0B2F64] tracking-wider uppercase">Informe de Mantenimiento</h4>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Aire Acondicionado</p>
+              </div>
+              <div className="flex items-stretch gap-2">
+                <div className="bg-[#0B2F64] px-4 py-2 rounded-xl text-white text-center">
+                  <span className="block text-[8px] font-black uppercase text-blue-200 tracking-widest">N° Informe</span>
+                  <span className="font-mono text-xs font-black">{reportFolio}</span>
+                </div>
+                <div className="bg-slate-100 px-4 py-2 rounded-xl text-slate-700 text-center border border-slate-200">
+                  <span className="block text-[8px] font-black uppercase text-slate-400 tracking-widest">Fecha</span>
+                  <span className="font-mono text-xs font-bold">{generalData.fecha || "PENDIENTE"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 1 General Information */}
+            <div className="mt-8">
+              <div className="inline-block bg-[#0B2F64] text-white px-6 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-3">
+                1. INFORMACIÓN GENERAL
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 text-xs text-slate-700">
+                <div className="space-y-2">
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Cliente</strong> <span className="text-slate-950 font-black">{clientName}</span></p>
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Dirección</strong> <span className="text-slate-950 font-medium">{branchAddress}</span></p>
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Contacto</strong> <span className="text-slate-950 font-medium">+56 9 1234 5678</span></p>
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Correo de Envío</strong> <span className="text-slate-950 font-medium">contacto@eecol.cl</span></p>
+                </div>
+                <div className="space-y-2">
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Técnico Responsable</strong> <span className="text-slate-950 font-black">{generalData.tecnico || "Carlos López"}</span></p>
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Marca / Modelo</strong> <span className="text-slate-950 font-medium">{machineData.marca || "LG"} / {machineData.modelo || "S12ET"}</span></p>
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Tipo de Equipo</strong> <span className="text-slate-950 font-medium">{machineData.tipo || "Split Muro"}</span></p>
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">N° Serie / TAG</strong> <span className="text-slate-950 font-mono font-bold text-blue-900">{machineData.tag || "812KALB123456"}</span></p>
+                  <p><strong className="text-slate-400 uppercase tracking-wider text-[10px] block">Capacidad</strong> <span className="text-slate-950 font-medium">{machineData.capacidad || "12.000 BTU"}</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Side-by-side Units Inspections (2 & 3) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+              {/* Unit 1 */}
+              <div>
+                <div className="bg-[#0B2F64] text-white px-4 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase mb-3">
+                  2. INSPECCIÓN UNIDAD INTERIOR
+                </div>
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-black tracking-widest text-[#0B2F64] uppercase border-b border-slate-200">
+                        <th className="py-2.5 px-4">ITEM</th>
+                        <th className="py-2.5 px-4 text-right">ESTADO</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {interiorItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2 px-4 text-[11px] font-medium text-slate-700">{item.name}</td>
+                          <td className="py-2 px-4 text-right">{renderBadge(checklist[item.idx]?.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="p-3 bg-slate-50 border-t border-slate-100">
+                    <span className="block text-[8px] font-black uppercase text-slate-400 tracking-wider">Obervaciones Unidad Interior:</span>
+                    <p className="text-[10px] text-slate-600 mt-1 font-medium italic">
+                      {interiorItems.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ") || "Unidad interior en buen estado general. Filtros limpios y sin acumulación de polvo."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Unit 2 */}
+              <div>
+                <div className="bg-[#0B2F64] text-white px-4 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase mb-3">
+                  3. INSPECCIÓN UNIDAD EXTERIOR
+                </div>
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-black tracking-widest text-[#0B2F64] uppercase border-b border-slate-200">
+                        <th className="py-2.5 px-4">ITEM</th>
+                        <th className="py-2.5 px-4 text-right">ESTADO</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {exteriorItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2 px-4 text-[11px] font-medium text-slate-700">{item.name}</td>
+                          <td className="py-2 px-4 text-right">{renderBadge(checklist[item.idx]?.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="p-3 bg-slate-50 border-t border-slate-100">
+                    <span className="block text-[8px] font-black uppercase text-slate-400 tracking-wider">Obervaciones Unidad Exterior:</span>
+                    <p className="text-[10px] text-slate-600 mt-1 font-medium italic">
+                      {exteriorItems.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ") || "Condensador soplado y desincrustado, libre de obstrucciones de aire."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Three column systems inspections */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+              {/* Col 1 */}
+              <div>
+                <div className="bg-[#0B2F64] text-white px-3 py-1 rounded-full text-[9px] font-black tracking-wider uppercase mb-3 text-center">
+                  4. REVISIÓN ELÉCTRICA
+                </div>
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                  <div className="divide-y divide-slate-100 px-3 py-2">
+                    {electricItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center py-2 text-[10px]">
+                        <span className="text-slate-600 font-medium">{item.name}</span>
+                        {renderBadge(checklist[item.idx]?.status)}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-2 bg-slate-50 border-t border-slate-100 text-[10px]">
+                    <span className="block text-[8px] font-bold text-[#0B2F64]">Obs:</span>
+                    <p className="text-[10px] text-slate-500 italic mt-0.5">
+                      {electricItems.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ") || "Instalación e interruptores de poder dentro de rango nominal."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Col 2 */}
+              <div>
+                <div className="bg-[#0B2F64] text-white px-3 py-1 rounded-full text-[9px] font-black tracking-wider uppercase mb-3 text-center">
+                  5. REVISIÓN OPERACIONAL
+                </div>
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                  <div className="divide-y divide-slate-100 px-3 py-2">
+                    {operationalItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center py-2 text-[10px]">
+                        <span className="text-slate-600 font-medium">{item.name}</span>
+                        {renderBadge(checklist[item.idx]?.status)}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-2 bg-slate-50 border-t border-slate-100 text-[10px]">
+                    <span className="block text-[8px] font-bold text-[#0B2F64]">Obs:</span>
+                    <p className="text-[10px] text-slate-500 italic mt-0.5">
+                      {operationalItems.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ") || "Ciclo de control operando de manera idónea, respuesta normal."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Col 3 */}
+              <div>
+                <div className="bg-[#0B2F64] text-white px-3 py-1 rounded-full text-[9px] font-black tracking-wider uppercase mb-3 text-center">
+                  6. REFRIGERACIÓN
+                </div>
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                  <div className="divide-y divide-slate-100 px-3 py-2">
+                    {refrigeracionItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center py-2 text-[10px]">
+                        <span className="text-slate-600 font-medium">{item.name}</span>
+                        {renderBadge(checklist[item.idx]?.status)}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-2 bg-slate-50 border-t border-slate-100 text-[10px]">
+                    <span className="block text-[8px] font-bold text-[#0B2F64]">Obs:</span>
+                    <p className="text-[10px] text-slate-500 italic mt-0.5">
+                      {refrigeracionItems.map(it => checklist[it.idx]?.findings).filter(Boolean).join(", ") || "Estabilidad de presiones de refrigerante confirmada."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-4 mt-8 flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+            <span>Uso Técnico Oficial CLIMASOL - Folio {reportFolio}</span>
+            <span>Página 1 de 2</span>
+          </div>
+        </div>
+
+        {/* PAGE 2 WORKSPACE PREVIEW */}
+        <div className="bg-white border-2 border-slate-200 rounded-[32px] shadow-2xl overflow-hidden p-6 md:p-12 relative min-h-[1100px] flex flex-col justify-between">
+          <div>
+            {/* Header Plate Page 2 */}
+            <div className="flex justify-between items-center pb-6 border-b-2 border-[#0B2F64]">
+              <div className="flex items-center gap-2">
+                {appLogo ? (
+                  <img src={appLogo} className="w-6 h-6 object-contain rounded shadow-sm shadow-blue-900/10" alt="Logo" />
+                ) : (
+                  <div className="text-[#0B2F64] font-extrabold text-lg">❄</div>
+                )}
+                <span className="text-sm font-black text-[#0B2F64]">CLIMASOL</span>
+              </div>
+              <span className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase">INFORME DE MANTENIMIENTO TÉCNICO COMPLEMENTARIO - FOLIO: {reportFolio}</span>
+            </div>
+
+            {/* Section 7 Technical Measurements */}
+            <div className="mt-8">
+              <div className="inline-block bg-[#0B2F64] text-white px-6 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-3">
+                7. MEDICIONES TÉCNICAS
+              </div>
+              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-[10px] font-black tracking-widest text-[#0B2F64] uppercase border-b border-slate-200">
+                      <th className="py-3 px-6">PARÁMETRO TÉCNICO</th>
+                      <th className="py-3 px-6">VALOR REGISTRADO</th>
+                      <th className="py-3 px-6">UNIDAD DE MEDIDA</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Voltaje de alimentación</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{machineData.voltaje || "220 V"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">Volt [V]</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 bg-slate-50/30">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Amperaje de operación (L1)</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{circuits[0]?.compressors[0]?.r || "5.2 A"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">Amperios [A]</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Amperaje de operación (L2)</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{circuits[0]?.compressors[0]?.s || "5.1 A"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">Amperios [A]</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 bg-slate-50/30">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Amperaje de operación (L3)</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{circuits[0]?.compressors[0]?.t || "5.1 A"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">Amperios [A]</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Presión de Alta (Lado Descarga)</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{circuits[0]?.pa || "315 psi"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">psi (libra/pulg²)</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 bg-slate-50/30">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Presión de Baja (Lado Aspiración)</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{circuits[0]?.pb || "118 psi"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">psi (libra/pulg²)</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Temperatura de Evaporación</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{circuits[0]?.te || "6.5 °C"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">Grados Celsius [°C]</td>
+                    </tr>
+                    <tr className="hover:bg-slate-50/50 bg-slate-50/30">
+                      <td className="py-2.5 px-6 font-medium text-slate-700">Temperatura de Condensación</td>
+                      <td className="py-2.5 px-6 font-mono font-bold text-blue-900">{circuits[0]?.tc || "42.3 °C"}</td>
+                      <td className="py-2.5 px-6 text-slate-500">Grados Celsius [°C]</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Section 8 Recommendations & Diagnostic with conformity seal */}
+            <div className="mt-8">
+              <div className="inline-block bg-[#0B2F64] text-white px-6 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-3">
+                8. RECOMENDACIONES Y DIAGNÓSTICO
+              </div>
+              <div className="flex flex-col md:flex-row gap-6 mt-1">
+                <div className="flex-1 bg-slate-50 border border-slate-200 rounded-3xl p-6 space-y-4">
+                  <div>
+                    <strong className="text-[10px] font-black uppercase text-[#0B2F64] tracking-wider block">Hallazgos observados:</strong>
+                    <p className="text-xs text-slate-600 mt-1">{observaciones || "Equipo en estado operativo óptimo, sin fugas activas ni desbalances de tensión evidentes."}</p>
+                  </div>
+                  <div>
+                    <strong className="text-[10px] font-black uppercase text-[#0B2F64] tracking-wider block">Recomendaciones de ingeniería:</strong>
+                    <p className="text-xs text-slate-600 mt-1">Se sugiere programar la próxima manutención preventiva dentro del ciclo cuatrimestral estándar CLIMASOL para mantener óptimo consumo y flujo de aire.</p>
+                  </div>
+                </div>
+                {/* Conformity seal card */}
+                <div className="w-full md:w-[240px] shrink-0 border-2 border-emerald-500 bg-emerald-50 rounded-3xl p-6 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-emerald-500/20 mb-3">
+                    ✔
+                  </div>
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Estado Informe</span>
+                  <p className="text-sm font-black text-emerald-950 uppercase mt-1">Equipo Conforme</p>
+                  <p className="text-[9px] text-emerald-700 mt-2 font-medium">Cumple condiciones operativas y termodinámicas de seguridad.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 9 Photo gallery */}
+            <div className="mt-8">
+              <div className="inline-block bg-[#0B2F64] text-white px-6 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-3">
+                9. REGISTRO FOTOGRÁFICO DE CAMPO
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-1">
+                {Array.from({ length: 4 }).map((_, i) => {
+                  const photoItem = galeria[i];
+                  return (
+                    <div key={i} className="border border-slate-200 bg-slate-50 rounded-2xl overflow-hidden shadow-sm aspect-video flex flex-col items-center justify-center text-center relative group min-h-[140px]">
+                      {photoItem?.src ? (
+                        <>
+                          <img src={photoItem.src} alt={photoItem.desc || `Evidencia ${i + 1}`} className="w-full h-full object-cover" />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-2 text-white text-[9px] font-medium truncate">
+                            {photoItem.desc || `Evidencia ${i + 1}`}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-4 text-slate-300 flex flex-col items-center">
+                          <span className="text-2xl">📸</span>
+                          <span className="text-[9px] font-bold uppercase mt-1 text-slate-400">Sin Evidencia</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 10 Conformity and signatures */}
+            <div className="mt-8">
+              <div className="inline-block bg-[#0B2F64] text-white px-6 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-3">
+                10. REGISTRO DE CONFORMIDAD Y FIRMAS
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-1">
+                {/* Tech */}
+                <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
+                  <div className="h-16 flex items-center justify-center bg-white border border-slate-100 rounded-xl overflow-hidden p-2">
+                    {canvasTecRef.current?.toDataURL() ? (
+                      <img src={canvasTecRef.current.toDataURL()} alt="Firma Técnico" className="h-full object-contain" />
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-bold italic">Firme en sección firmas</span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xs">
+                    <span className="font-black text-slate-800 block">Firma Técnico: {generalData.tecnico || "Carlos López"}</span>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Instalador Electromecánico HVAC</span>
+                  </div>
+                </div>
+
+                {/* Client */}
+                <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
+                  <div className="h-16 flex items-center justify-center bg-white border border-slate-100 rounded-xl overflow-hidden p-2">
+                    {canvasCliRef.current?.toDataURL() ? (
+                      <img src={canvasCliRef.current.toDataURL()} alt="Firma Cliente" className="h-full object-contain" />
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-bold italic">Firme en sección firmas</span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-xs">
+                    <span className="font-black text-slate-800 block">Firma Cliente: Gonzalo Bravo</span>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase">Jefe de Operaciones e Infraestructura</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-4 mt-8 flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+            <span>Uso Técnico Oficial CLIMASOL - Folio {reportFolio}</span>
+            <span>Página 2 de 2</span>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const isReadOnly = status === 'firmado' || status === 'bloqueado';
@@ -1037,9 +2191,9 @@ export default function EditorInforme() {
          </div>
       </div>
 
-      <div className="flex justify-between items-center bg-white p-2 rounded-2xl border border-slate-200">
+      <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-2 rounded-2xl border border-slate-200 gap-2">
          <span className="text-[10px] font-black tracking-widest text-slate-400 uppercase ml-4 hidden md:block">Vista de Navegación:</span>
-         <div className="flex gap-1 w-full md:w-[300px]">
+         <div className="flex flex-wrap gap-1 w-full md:w-[500px]">
             <button onClick={() => setViewMode('sidebar')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'sidebar' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
                <Layout className="w-4 h-4" /> <span className="hidden md:inline">Lateral</span>
             </button>
@@ -1048,6 +2202,9 @@ export default function EditorInforme() {
             </button>
             <button onClick={() => setViewMode('accordion')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'accordion' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
                <List className="w-4 h-4" /> <span className="hidden md:inline">Cascada</span>
+            </button>
+            <button onClick={() => setViewMode('industrial')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'industrial' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-blue-600 hover:bg-blue-50'}`}>
+               <ClipboardCheck className="w-4 h-4" /> <span className="hidden md:inline">Norma Climasol</span>
             </button>
          </div>
       </div>
@@ -1129,6 +2286,8 @@ export default function EditorInforme() {
            ))}
         </div>
       )}
+
+      {viewMode === 'industrial' && renderIndustrialPreview()}
 
       <AssetSearchModal 
           isOpen={showTagSearch} 

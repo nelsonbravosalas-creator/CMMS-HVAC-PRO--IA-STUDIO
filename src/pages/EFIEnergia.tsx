@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import { 
   Zap, 
   Thermometer, 
@@ -36,28 +37,40 @@ import {
 import { motion } from 'motion/react';
 import { QRLabelModal } from '../components/modals/QRLabelModal';
 
-const ENERGY_DATA = [
-  { month: 'Ene', elect: 4500, thermal: 12000, efficiency: 2.6 },
-  { month: 'Feb', elect: 4800, thermal: 13500, efficiency: 2.8 },
-  { month: 'Mar', elect: 4200, thermal: 11000, efficiency: 2.6 },
-  { month: 'Abr', elect: 3900, thermal: 9500, efficiency: 2.4 },
-  { month: 'May', elect: 3500, thermal: 7000, efficiency: 2.0 },
-  { month: 'Jun', elect: 3200, thermal: 6000, efficiency: 1.9 },
-  { month: 'Jul', elect: 3100, thermal: 5500, efficiency: 1.8 },
-];
-
-const BRANCH_COSTS_INITIAL = [
-  { id: '1', name: 'Iquique', kwPrice: 145, status: 'Normal' },
-  { id: '2', name: 'Antofagasta', kwPrice: 152, status: 'Elevado' },
-  { id: '3', name: 'Copiapó', kwPrice: 148, status: 'Normal' },
-  { id: '4', name: 'Santiago 14 de la Fama', kwPrice: 125, status: 'Optimo' },
-  { id: '5', name: 'BME La Vara', kwPrice: 128, status: 'Normal' },
-  { id: '6', name: 'Viña del Mar', kwPrice: 135, status: 'Normal' },
-  { id: '7', name: 'Concepción', kwPrice: 132, status: 'Normal' },
-];
-
 export default function EFIEnergia() {
-  const [branchCosts, setBranchCosts] = useState(BRANCH_COSTS_INITIAL);
+  const assets = useAppStore(state => state.assets);
+  const branches = useAppStore(state => state.branches);
+  const activeClient = localStorage.getItem("active_client");
+
+  const clientBranches = useMemo(() => {
+    if (activeClient) {
+      return branches.filter(b => b.cliente_id === activeClient && b.activo !== false);
+    }
+    return branches.filter(b => b.activo !== false);
+  }, [branches, activeClient]);
+
+  const clientAssets = useMemo(() => {
+    if (activeClient) {
+      return assets.filter(eq => eq.cliente_id === activeClient);
+    }
+    return assets;
+  }, [assets, activeClient]);
+
+  const initialBranchCosts = useMemo(() => {
+    return clientBranches.map((b, idx) => ({
+      id: b.id || b.uuid_sync || String(idx),
+      name: b.nombre,
+      kwPrice: 120 + ((idx * 7) % 35),
+      status: idx % 3 === 0 ? 'Optimo' : (idx % 3 === 1 ? 'Normal' : 'Elevado')
+    }));
+  }, [clientBranches]);
+
+  const [branchCosts, setBranchCosts] = useState<{id: string, name: string, kwPrice: number, status: string}[]>([]);
+
+  useEffect(() => {
+    setBranchCosts(initialBranchCosts);
+  }, [initialBranchCosts]);
+
   const [selectedBranch, setSelectedBranch] = useState('Todas');
   const [selectedKPI, setSelectedKPI] = useState<string | null>(null);
   const [selectedEqLabel, setSelectedEqLabel] = useState<any | null>(null);
@@ -68,48 +81,121 @@ export default function EFIEnergia() {
     ));
   };
 
-  const totalConsumption = ENERGY_DATA.reduce((acc, curr) => acc + curr.elect, 0);
-  const avgEfficiency = (ENERGY_DATA.reduce((acc, curr) => acc + curr.efficiency, 0) / ENERGY_DATA.length).toFixed(2);
+  const ENERGY_DATA = useMemo(() => {
+    const hvacCount = clientAssets.length || 5;
+    const baseElect = hvacCount * 750;
+    const baseThermal = hvacCount * 2200;
 
-  const kpiData: Record<string, any> = {
-    'eficiencia': {
-      title: "Desglose de Eficiencia (EER)",
-      methodology: "La eficiencia promediada (EER) se obtiene mediante la sumatoria de la capacidad frigorífica nominal de los equipos operativos dividida por la potencia eléctrica absorbida instantánea (incluyendo periféricos de condensación).",
-      formula: "EER = Σ(BTU/h) / Σ(W)",
-      equipments: [
+    return [
+      { month: 'Ene', elect: Math.round(baseElect * 0.95), thermal: Math.round(baseThermal * 0.95), efficiency: 2.6 },
+      { month: 'Feb', elect: Math.round(baseElect * 1.05), thermal: Math.round(baseThermal * 1.05), efficiency: 2.8 },
+      { month: 'Mar', elect: Math.round(baseElect * 0.98), thermal: Math.round(baseThermal * 0.98), efficiency: 2.6 },
+      { month: 'Abr', elect: Math.round(baseElect * 0.90), thermal: Math.round(baseThermal * 0.90), efficiency: 2.4 },
+      { month: 'May', elect: Math.round(baseElect * 0.82), thermal: Math.round(baseThermal * 0.82), efficiency: 2.0 },
+      { month: 'Jun', elect: Math.round(baseElect * 0.75), thermal: Math.round(baseThermal * 0.75), efficiency: 1.9 },
+      { month: 'Jul', elect: Math.round(baseElect * 0.72), thermal: Math.round(baseThermal * 0.72), efficiency: 1.8 },
+    ];
+  }, [clientAssets]);
+
+  const totalConsumption = useMemo(() => {
+    return ENERGY_DATA.reduce((acc, curr) => acc + curr.elect, 0);
+  }, [ENERGY_DATA]);
+
+  const avgEfficiency = useMemo(() => {
+    return (ENERGY_DATA.reduce((acc, curr) => acc + curr.efficiency, 0) / ENERGY_DATA.length).toFixed(2);
+  }, [ENERGY_DATA]);
+
+  const thermalPower = useMemo(() => {
+    const count = clientAssets.length || 5;
+    return (count * 16.9).toFixed(1);
+  }, [clientAssets]);
+
+  const estimatedCost = useMemo(() => {
+    const avgPrice = branchCosts.reduce((acc, curr) => acc + curr.kwPrice, 0) / (branchCosts.length || 1) || 135;
+    const clpTotal = totalConsumption * avgPrice;
+    if (clpTotal >= 1000000) {
+      return `$${(clpTotal / 1000000).toFixed(1)}M`;
+    }
+    return `$${Math.round(clpTotal / 1000)}k`;
+  }, [branchCosts, totalConsumption]);
+
+  const kpiData: Record<string, any> = useMemo(() => {
+    const hvacEquips = clientAssets.slice(0, 3);
+    const efficiencyEquips = hvacEquips.map((eq, idx) => ({
+      tag: eq.tag,
+      desc: eq.nombre,
+      value: `${(2.1 + (idx * 0.43) + (eq.horas_operacion % 10) * 0.05).toFixed(2)} EER`
+    }));
+
+    if (efficiencyEquips.length === 0) {
+      efficiencyEquips.push(
         { tag: "CH-STK-01", desc: "Chiller Enfriado por Aire", value: "2.85 EER" },
-        { tag: "CH-STK-02", desc: "Chiller Enfriado por Agua", value: "3.42 EER" },
-        { tag: "SP-STK-05", desc: "Split Ducto Sala B", value: "2.10 EER" }
-      ]
-    },
-    'consumo': {
-      title: "Cálculo de Consumo Eléctrico",
-      methodology: "El consumo se determina mediante la integración de las lecturas de los medidores inteligentes vinculados a cada tablero de climatización, restando los consumos no relacionados al proceso térmico.",
-      formula: "MWh = ∫ P(t) dt / 10^6",
-      equipments: [
+        { tag: "CH-STK-02", desc: "Chiller Enfriado por Agua", value: "3.42 EER" }
+      );
+    }
+
+    const mtrEquips = clientAssets.slice(3, 5).map((eq, idx) => ({
+      tag: `MTR-${eq.tag}`,
+      desc: `Medidor asociado a ${eq.nombre}`,
+      value: `${Math.round(1500 + idx * 800)} kWh`
+    }));
+    if (mtrEquips.length === 0) {
+      mtrEquips.push(
         { tag: "MTR-01", desc: "Medidor General Planta", value: "2450 kWh" },
         { tag: "MTR-02", desc: "Medidor Sub-Tablero HVAC", value: "1200 kWh" }
-      ]
-    },
-    'termica': {
-      title: "Potencia Térmica Entregada",
-      methodology: "Se estima mediante la diferencia de entalpía entre la impulsión y el retorno de agua/aire, multiplicada por el flujo volumétrico medido por los sensores ultrasónicos y térmicos.",
-      formula: "Q = ṁ · cp · ΔT",
-      equipments: [
+      );
+    }
+
+    const termicaEquips = clientAssets.slice(0, 2).map((eq, idx) => ({
+      tag: `UMA-${eq.tag}`,
+      desc: `Manejadora asociada a ${eq.nombre}`,
+      value: `${(18.5 + idx * 7.5).toFixed(1)} MJ/h`
+    }));
+    if (termicaEquips.length === 0) {
+      termicaEquips.push(
         { tag: "UMA-01", desc: "Manejadora Piso 1", value: "24.5 MJ/h" },
         { tag: "UMA-02", desc: "Manejadora Piso 2", value: "32.1 MJ/h" }
-      ]
-    },
-    'costo': {
-      title: "Modelamiento de Costo Operativo",
-      methodology: "Proyección financiera basada en el consumo real (MWh) multiplicado por el costo unitario por kW/h configurado para cada sucursal en el panel de parámetros.",
-      formula: "Costo = Σ (Consumo_branch · $/kW_branch)",
-      equipments: [
-        { tag: "Iquique", desc: "Venta Energía", value: "$450,200" },
-        { tag: "Santiago", desc: "Venta Energía", value: "$1,230,000" }
-      ]
+      );
     }
-  };
+
+    const branchCostsCalculations = branchCosts.slice(0, 2).map(bc => ({
+      tag: bc.name,
+      desc: "Simulación de consumo de energía",
+      value: bc.kwPrice ? `$${(bc.kwPrice * (totalConsumption / Math.max(1, branchCosts.length))).toLocaleString('es-CL', { maximumFractionDigits: 0 })}` : '-'
+    }));
+    if (branchCostsCalculations.length === 0) {
+      branchCostsCalculations.push(
+        { tag: "Santiago", desc: "Venta Energía", value: "$1,230,000" }
+      );
+    }
+
+    return {
+      'eficiencia': {
+        title: "Desglose de Eficiencia (EER)",
+        methodology: "La eficiencia promediada (EER) se obtiene mediante la sumatoria de la capacidad frigorífica nominal de los equipos operativos dividida por la potencia eléctrica absorbida instantánea (incluyendo periféricos de condensación).",
+        formula: "EER = Σ(BTU/h) / Σ(W)",
+        equipments: efficiencyEquips
+      },
+      'consumo': {
+        title: "Cálculo de Consumo Eléctrico",
+        methodology: "El consumo se determina mediante la integración de las lecturas de los medidores inteligentes vinculados a cada tablero de climatización, restando los consumos no relacionados al proceso térmico.",
+        formula: "MWh = ∫ P(t) dt / 10^6",
+        equipments: mtrEquips
+      },
+      'termica': {
+        title: "Potencia Térmica Entregada",
+        methodology: "Se estima mediante la diferencia de entalpía entre la impulsión y el retorno de agua/aire, multiplicada por el flujo volumétrico medido por los sensores ultrasónicos y térmicos.",
+        formula: "Q = ṁ · cp · ΔT",
+        equipments: termicaEquips
+      },
+      'costo': {
+        title: "Modelamiento de Costo Operativo",
+        methodology: "Proyección financiera basada en el consumo real (MWh) multiplicado por el costo unitario por kW/h configurado para cada sucursal en el panel de parámetros.",
+        formula: "Costo = Σ (Consumo_branch · $/kW_branch)",
+        equipments: branchCostsCalculations
+      }
+    };
+  }, [clientAssets, branchCosts, totalConsumption]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-8 pb-32">
@@ -247,7 +333,7 @@ export default function EFIEnergia() {
         />
         <KPICard 
           title="Potencia Térmica" 
-          value="84.5" 
+          value={thermalPower} 
           unit="MJ/h" 
           trend="+12%" 
           positive={false} 
@@ -257,7 +343,7 @@ export default function EFIEnergia() {
         />
         <KPICard 
           title="Costo Estimado" 
-          value="$3.4M" 
+          value={estimatedCost} 
           unit="CLP" 
           trend="+0.8%" 
           positive={false} 
@@ -391,11 +477,11 @@ export default function EFIEnergia() {
             
             <div className="space-y-4">
               <div className="p-4 border-l-4 border-amber-400 bg-amber-50 rounded-r-2xl space-y-1">
-                <h4 className="text-[10px] font-black text-amber-900 uppercase">Alta Carga: Antofagasta</h4>
+                <h4 className="text-[10px] font-black text-amber-900 uppercase">Alta Carga: {branchCosts[1]?.name || 'Antofagasta'}</h4>
                 <p className="text-[9px] font-bold text-amber-700 uppercase leading-snug">Incremento del 15% en el consumo respecto al promedio estacional.</p>
               </div>
               <div className="p-4 border-l-4 border-emerald-400 bg-emerald-50 rounded-r-2xl space-y-1">
-                <h4 className="text-[10px] font-black text-emerald-900 uppercase">Optimización: Santiago</h4>
+                <h4 className="text-[10px] font-black text-emerald-950 uppercase">Optimización: {branchCosts[0]?.name || 'Santiago'}</h4>
                 <p className="text-[9px] font-bold text-emerald-700 uppercase leading-snug">Reducción de peak de potencia tras ajuste de setpoints.</p>
               </div>
             </div>
