@@ -25,6 +25,38 @@ export default function InformesHVAC() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [, setLocation] = useLocation();
 
+  const handleCreateInforme = async () => {
+    const borradosCount = rawReports.filter(inf => {
+      const state = inf.data?.estado;
+      return state === 'borrador';
+    }).length;
+
+    if (borradosCount >= 5) {
+      alert("No puedes tener más de 5 informes en estado de borrador.");
+      return;
+    }
+
+    const newUuid = crypto.randomUUID();
+    const shortId = `INF-PENDIENTE-${newUuid.substring(0, 6).toUpperCase()}`;
+
+    // Create draft in Dexie DB so it appears in the list immediately
+    await db.reports.put({
+      uuid_sync: newUuid,
+      id: shortId,
+      updated_at: Date.now(),
+      sync_status: 'pending_insert',
+      data: {
+        estado: 'borrador',
+        generalData: {
+          fecha: new Date().toISOString().split('T')[0],
+          tecnico: 'Nelson Bravo'
+        }
+      }
+    });
+
+    setLocation(`/informes/${newUuid}`);
+  };
+
   const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
   const activeClientUid = localStorage.getItem("active_client");
 
@@ -69,7 +101,7 @@ export default function InformesHVAC() {
             <ScanLine className="w-4 h-4" /> Escanear QR
           </button>
           <button 
-            onClick={() => setLocation("/informes/nuevo")}
+            onClick={handleCreateInforme}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
           >
             <Plus className="w-4 h-4" /> Crear Informe

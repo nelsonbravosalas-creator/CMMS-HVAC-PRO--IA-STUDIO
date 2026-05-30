@@ -24,11 +24,6 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
     // Resize canvas to match its rotated container's actual screen pixels
     const resizeCanvas = () => {
       if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      
-      // Because we rotate the content by 90deg, the visual width is the DOM height, 
-      // but the actual canvas layout matches the rotated dimensions.
-      // Easiest is to set canvas width/height to its clientWidth/clientHeight
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
       
@@ -43,35 +38,65 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
     setTimeout(resizeCanvas, 50);
     window.addEventListener('resize', resizeCanvas);
 
-    let drawing = false;
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
 
-    const move = (e: PointerEvent) => {
-      if (!drawing) return;
+    const getPos = (e: MouseEvent | TouchEvent) => {
+      const r = canvas.getBoundingClientRect();
+      if ('touches' in e) {
+        return {
+          x: e.touches[0].clientX - r.left,
+          y: e.touches[0].clientY - r.top
+        };
+      }
+      return {
+        x: (e as MouseEvent).clientX - r.left,
+        y: (e as MouseEvent).clientY - r.top
+      };
+    };
+
+    const start = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
+      isDrawing = true;
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
     };
 
-    const start = (e: PointerEvent) => {
-      drawing = true;
+    const move = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const pos = getPos(e);
       ctx.beginPath();
-      ctx.moveTo(e.offsetX, e.offsetY);
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x;
+      lastY = pos.y;
     };
 
-    const end = () => drawing = false;
+    const end = (e: MouseEvent | TouchEvent | Event) => {
+      e.preventDefault();
+      isDrawing = false;
+    };
 
-    // Use PointerEvents which inherently support CSS transforms in offsetX/Y
-    canvas.addEventListener('pointerdown', start);
-    canvas.addEventListener('pointermove', move, { passive: false });
-    window.addEventListener('pointerup', end);
-    // Add touch events explicitly to ensure compatibility
-    canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', end, { passive: false });
 
     return () => {
-      window.removeEventListener('pointerup', end);
-      canvas.removeEventListener('pointerdown', start);
-      canvas.removeEventListener('pointermove', move);
       window.removeEventListener('resize', resizeCanvas);
+      canvas.removeEventListener('mousedown', start);
+      canvas.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+      canvas.removeEventListener('touchstart', start);
+      canvas.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
     };
   }, [isOpen]);
 

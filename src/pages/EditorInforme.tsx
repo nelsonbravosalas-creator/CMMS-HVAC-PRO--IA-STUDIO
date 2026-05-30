@@ -50,6 +50,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
+import { db } from "../db/database";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -135,8 +136,6 @@ export default function EditorInforme() {
 
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
-
-  const DRAFT_KEY = id === "nuevo" ? "hvac_draft_new" : `hvac_draft_${id}`;
 
   const SECTIONS = [
     { id: 'general', label: 'Datos Generales', icon: <Info className="w-4 h-4" /> },
@@ -677,49 +676,47 @@ export default function EditorInforme() {
   const [observaciones, setObservaciones] = useState("");
   const [galeria, setGaleria] = useState<{src: string, desc: string}[]>([]);
 
-  // Load Draft from LocalStorage
+  // Load Draft from DB
   useEffect(() => {
-    const saved = localStorage.getItem(DRAFT_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        setGeneralData(data.generalData);
-        setMachineData(data.machineData);
-        setCircuits(data.circuits);
-        setChecklist(data.checklist);
-        setObservaciones(data.observaciones);
-        setGaleria(data.galeria);
-        if (data.status) setStatus(data.status);
-      } catch (e) {
-        console.error("Error loading draft", e);
+    if (!id || id === 'nuevo') return;
+    
+    db.reports.get({ uuid_sync: id }).then(dbReport => {
+      if (dbReport && dbReport.data) {
+        setGeneralData(prev => ({ ...prev, ...dbReport.data.generalData }));
+        if (dbReport.data.machineData) setMachineData(dbReport.data.machineData);
+        if (dbReport.data.circuits) setCircuits(dbReport.data.circuits);
+        if (dbReport.data.checklist) setChecklist(dbReport.data.checklist);
+        if (dbReport.data.observaciones) setObservaciones(dbReport.data.observaciones);
+        if (dbReport.data.galeria) setGaleria(dbReport.data.galeria);
+        if (dbReport.data.estado) setStatus(dbReport.data.estado);
+      } else {
+        const activeClient = localStorage.getItem("active_client");
+        if (activeClient) {
+          setGeneralData(prev => ({ ...prev, cliente: activeClient }));
+        }
       }
-    } else if (informe) {
-      // Load from mock if relative found (and no draft exists)
-      setGeneralData({ ...generalData, ...informe });
-      setMachineData({ ...machineData, tag: informe.tag || '' });
-    } else {
-      const activeClient = localStorage.getItem("active_client");
-      if (activeClient) {
-        setGeneralData(prev => ({ ...prev, cliente: activeClient }));
-      }
-    }
+    }).catch(console.error);
   }, [id]);
 
-  // Persist Changes to LocalStorage
+  // Persist Changes to DB
   useEffect(() => {
-    if (status === 'firmado' || status === 'bloqueado') return;
+    if (!id || id === 'nuevo' || status === 'firmado' || status === 'bloqueado') return;
     
-    const draft = {
+    const draftData = {
+      estado: status,
       generalData,
       machineData,
       circuits,
       checklist,
       observaciones,
-      galeria,
-      status
+      galeria
     };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, DRAFT_KEY]);
+    
+    db.reports.where('uuid_sync').equals(id).modify(r => {
+      r.data = draftData;
+      r.updated_at = Date.now();
+    }).catch(console.error);
+  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, id]);
   
   // Handle Finalize & Sync (Auto-numbering assignment)
   const handleSyncAndFinalize = async () => {
@@ -769,9 +766,6 @@ export default function EditorInforme() {
     setStatus('firmado');
     setIsSyncing(false);
     
-    // Clear draft storage for this report as it's now saved
-    localStorage.removeItem(DRAFT_KEY);
-
     // Export PDF via Email Automáticamente
     try {
       const doc = new jsPDF('p', 'mm', 'a4');
