@@ -103,6 +103,16 @@ export interface LocalSucursal extends LocalBase {
   activo?: boolean;
 }
 
+export interface LocalProveedor extends LocalBase {
+  id: string;
+  nombre: string;
+  rut?: string;
+  contacto?: string;
+  email?: string;
+  telefono?: string;
+  activo?: boolean;
+}
+
 export interface LocalInforme extends LocalBase {
   id: string;
   data: any;
@@ -178,10 +188,11 @@ export class CMMSDatabase extends Dexie {
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
   blobs!: Table<LocalBlob>;
+  providers!: Table<LocalProveedor>;
 
   constructor() {
-    super('CMMS_LocalDB_v10');
-    this.version(10).stores({
+    super('CMMS_LocalDB_v11');
+    this.version(11).stores({
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at, estado',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
       preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at, estado',
@@ -195,7 +206,8 @@ export class CMMSDatabase extends Dexie {
       events: 'uuid_sync, id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp',
       audit_logs: '++id, action, userId, timestamp',
-      blobs: 'uuid_sync, created_at'
+      blobs: 'uuid_sync, created_at',
+      providers: 'uuid_sync, id, sync_status, updated_at'
     });
     
     this.on('populate', async () => {
@@ -212,6 +224,13 @@ export class CMMSDatabase extends Dexie {
         { uuid_sync: crypto.randomUUID(), codigo: 'EB', descripcion: 'Equipo de Bodega', activo: true, updated_at: now, sync_status: 'synced' },
         { uuid_sync: crypto.randomUUID(), codigo: 'GO', descripcion: 'Grúa horquilla', activo: true, updated_at: now, sync_status: 'synced' },
         { uuid_sync: crypto.randomUUID(), codigo: 'XX', descripcion: 'Otros Activos', activo: true, updated_at: now, sync_status: 'synced' },
+      ]);
+      // Default providers
+      await this.providers.bulkAdd([
+        { uuid_sync: crypto.randomUUID(), id: 'PROV-001', nombre: 'Hvac Clima SpA', rut: '76.543.210-K', contacto: 'Juan Eduardo Ortiz', email: 'contacto@hvacclima.cl', telefono: '+56 9 8888 7777', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'PROV-002', nombre: 'Servicios Generales FrigoMax', rut: '77.123.456-7', contacto: 'Nelson Lagos', email: 'nlagos@frigomax.cl', telefono: '+56 9 7777 6666', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'PROV-003', nombre: 'Electra Santiago', rut: '76.987.654-3', contacto: 'Andrés Cáceres', email: 'soporte@electra.cl', telefono: '+56 9 6666 5555', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'PROV-004', nombre: 'Ingetec Limitada', rut: '75.888.999-5', contacto: 'Sergio Soto', email: 'ssoto@ingetec.cl', telefono: '+56 9 5555 4444', activo: true, updated_at: now, sync_status: 'synced' },
       ]);
     });
   }

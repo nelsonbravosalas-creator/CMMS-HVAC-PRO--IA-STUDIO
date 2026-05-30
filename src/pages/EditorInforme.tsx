@@ -137,6 +137,38 @@ export default function EditorInforme() {
 
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
+  const users = useAppStore(state => state.users);
+
+  const techOptions = React.useMemo<{ value: string, label: string, subtitle?: string }[]>(() => {
+    const techUsers = users.filter(u => {
+      const r = (u.rol || '').toLowerCase();
+      return r.includes('tecn') || r.includes('técn') || r.includes('adm') || r.includes('super');
+    });
+
+    const optionsRecord: Record<string, { value: string, label: string, subtitle?: string }> = {};
+    
+    const mockFields = [
+      { value: "Nelson Bravo", label: "Nelson Bravo", subtitle: "Tech Lead" },
+      { value: "Gonzalo Bravo", label: "Gonzalo Bravo", subtitle: "Técnico HVAC" },
+      { value: "Carlos López", label: "Carlos López", subtitle: "Técnico Eléctrico" },
+      { value: "Juan Pérez", label: "Juan Pérez", subtitle: "Técnico Climatización" },
+      { value: "Sebastián Muñoz", label: "Sebastián Muñoz", subtitle: "Técnico Supervisor" }
+    ];
+
+    mockFields.forEach(t => {
+      optionsRecord[t.value] = t;
+    });
+
+    techUsers.forEach(u => {
+      optionsRecord[u.nombre] = {
+        value: u.nombre,
+        label: u.nombre,
+        subtitle: u.rol.toUpperCase()
+      };
+    });
+
+    return Object.values(optionsRecord);
+  }, [users]);
 
   const SECTIONS = [
     { id: 'general', label: 'Datos Generales', icon: <Info className="w-4 h-4" /> },
@@ -220,7 +252,17 @@ export default function EditorInforme() {
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
                    />
                 </div>
-                <InputField label="Técnico Responsable" value={generalData.tecnico} onChange={(val) => setGeneralData({...generalData, tecnico: val})} readOnly={isReadOnly} />
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Técnico Responsable</label>
+                    <SearchableSelect
+                      options={techOptions}
+                      value={generalData.tecnico}
+                      onChange={(val) => setGeneralData({...generalData, tecnico: val})}
+                      disabled={isReadOnly}
+                      placeholder="Seleccione técnico..."
+                      allowCreate={true}
+                    />
+                 </div>
                 <InputField label="Folio Correlativo" value={generalData.folio || 'Pnd. Sincronización'} readOnly={true} />
                 <InputField label="Fecha del Servicio" value={generalData.fecha} type="date" onChange={(val) => setGeneralData({...generalData, fecha: val})} readOnly={isReadOnly} />
                 <div className="space-y-1">

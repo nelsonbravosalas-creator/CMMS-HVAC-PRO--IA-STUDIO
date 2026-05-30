@@ -33,8 +33,9 @@ import {
   Menu as MenuIcon,
   Building2,
   Fingerprint,
+  Search,
 } from "lucide-react";
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -147,7 +148,6 @@ interface LayoutProps {
 import { syncEngine } from '../sync/syncEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
-import ClientSelectorWidget from "./ClientSelectorWidget";
 
 export default function Layout({ children }: LayoutProps) {
   /** Dynamic active client name */
@@ -163,6 +163,18 @@ export default function Layout({ children }: LayoutProps) {
     const clients = await db.clients.toArray();
     return clients.filter(c => c.activo !== false);
   }) || [];
+
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [clientToSwitch, setClientToSwitch] = useState<any | null>(null);
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearchQuery.trim()) return activeClients;
+    return activeClients.filter(c => 
+      c.nombre.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
+      (c.rut && c.rut.toLowerCase().includes(clientSearchQuery.toLowerCase()))
+    );
+  }, [activeClients, clientSearchQuery]);
 
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -409,14 +421,98 @@ export default function Layout({ children }: LayoutProps) {
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Active Client Badge (Simple Capsule) */}
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black tracking-wider uppercase ${
-              isDarkMode 
-                ? 'bg-slate-900/60 border-slate-800 text-slate-300' 
-                : 'bg-white/80 border-slate-200 text-slate-700 shadow-sm'
-            }`}>
-              <Database className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <span className="max-w-[120px] sm:max-w-[180px] truncate">{activeClientName}</span>
+            {/* Active Client Dropdown Selector */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black tracking-wider uppercase cursor-pointer hover:opacity-90 active:scale-95 transition-all outline-none ${
+                  isDarkMode 
+                    ? 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800' 
+                    : 'bg-white/80 border-slate-200 text-slate-700 shadow-sm hover:bg-slate-50'
+                }`}
+              >
+                <Database className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                <span className="max-w-[120px] sm:max-w-[180px] truncate">{activeClientName}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
+
+              {isClientDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsClientDropdownOpen(false)} />
+                  <div className={`absolute right-0 mt-2 w-72 rounded-2xl border p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 ${
+                    isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+                  }`}>
+                    {/* Search Field */}
+                    <div className="relative mb-3">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={clientSearchQuery}
+                        onChange={(e) => setClientSearchQuery(e.target.value)}
+                        placeholder="Buscar cliente..."
+                        className={`w-full pl-9 pr-4 py-2 text-xs font-bold rounded-xl outline-none border transition-colors ${
+                          isDarkMode 
+                            ? 'bg-slate-950 border-slate-800 focus:border-blue-500 text-white placeholder-slate-500' 
+                            : 'bg-slate-50 border-slate-100 focus:border-blue-500 text-slate-800 placeholder-slate-400'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar">
+                      {/* Entorno General Option */}
+                      <button
+                        onClick={() => {
+                          setIsClientDropdownOpen(false);
+                          if (activeClientId) {
+                            setClientToSwitch({ uuid_sync: "", nombre: "Entorno General" });
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between p-2.5 rounded-xl text-[10px] font-bold uppercase transition-all text-left ${
+                          !activeClientId 
+                            ? (isDarkMode ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'bg-blue-50 text-blue-700 border border-blue-100')
+                            : (isDarkMode ? 'hover:bg-slate-800/50 text-slate-400 border border-transparent' : 'hover:bg-slate-50 text-slate-500 border border-transparent')
+                        }`}
+                      >
+                        <span className="truncate">Entorno General</span>
+                        {!activeClientId && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                      </button>
+
+                      {filteredClients.map((client) => {
+                        const isActive = activeClientId === client.uuid_sync;
+                        return (
+                          <button
+                            key={client.uuid_sync}
+                            onClick={() => {
+                              setIsClientDropdownOpen(false);
+                              if (activeClientId !== client.uuid_sync) {
+                                setClientToSwitch(client);
+                              }
+                            }}
+                            className={`w-full flex flex-col p-2.5 rounded-xl text-left transition-all border ${
+                              isActive 
+                                ? (isDarkMode ? 'bg-blue-600/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-100')
+                                : (isDarkMode ? 'hover:bg-slate-800/50 text-slate-300 border-transparent' : 'hover:bg-slate-50 text-slate-700 border-transparent')
+                            }`}
+                          >
+                            <span className="text-[10px] font-black uppercase truncate leading-tight">{client.nombre}</span>
+                            {client.rut && (
+                              <span className="text-[8px] font-bold text-slate-400 mt-0.5">{client.rut}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+
+                      {filteredClients.length === 0 && clientSearchQuery.trim() !== "" && (
+                        <div className="text-center py-4 text-[10px] font-black uppercase text-slate-400">
+                          No se encontraron clientes
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Profile Badge */}
@@ -590,8 +686,69 @@ export default function Layout({ children }: LayoutProps) {
         </>
       )}
 
-      {/* Floating Draggable Client Selector Widget */}
-      <ClientSelectorWidget isDarkMode={isDarkMode} />
+      {/* Session Switch Confirmation Dialog */}
+      <AnimatePresence>
+        {clientToSwitch && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-[1000]"
+              onClick={() => setClientToSwitch(null)}
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 250 }}
+              className={`fixed inset-x-4 top-[25vh] md:top-[30vh] md:max-w-md md:mx-auto z-[1010] p-6 rounded-[32px] border shadow-2xl flex flex-col text-center ${
+                isDarkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}
+            >
+              <div className="w-14 h-14 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-5 animate-pulse">
+                <AlertTriangle className="w-7 h-7" />
+              </div>
+              
+              <h3 className="text-lg font-black uppercase tracking-tight mb-2 leading-snug">
+                ¿Confirmar Cambio de Cliente?
+              </h3>
+              
+              <p className={`text-xs font-semibold leading-relaxed mb-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                Está a punto de cerrar la sesión de trabajo activa en <span className="font-extrabold text-blue-500">{activeClientName}</span> para cargar de manera segura los registros y parámetros correspondientes a <span className="font-extrabold text-blue-500">{clientToSwitch.nombre}</span>.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <button
+                  onClick={() => setClientToSwitch(null)}
+                  className={`py-3.5 rounded-xl font-bold uppercase tracking-widest text-[9px] border transition-all active:scale-95 ${
+                    isDarkMode 
+                      ? 'bg-slate-800 border-slate-700 hover:bg-slate-700/50 text-slate-300' 
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-transparent'
+                  }`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    if (clientToSwitch.uuid_sync) {
+                      localStorage.setItem("active_client", clientToSwitch.uuid_sync);
+                    } else {
+                      localStorage.removeItem("active_client");
+                    }
+                    window.location.href = "/";
+                  }}
+                  className="py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold uppercase tracking-widest text-[9px] shadow-lg shadow-blue-600/20 transition-all active:scale-95"
+                >
+                  Sí, Cambiar
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

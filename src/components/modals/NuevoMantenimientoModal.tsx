@@ -9,6 +9,7 @@ import { AssetSearchModal } from './AssetSearchModal';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
+import { SearchableSelect } from '../SearchableSelect';
 
 interface NuevoMantenimientoModalProps {
   onClose: () => void;
@@ -39,6 +40,39 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
   const [showAssetSearch, setShowAssetSearch] = useState(false);
+
+  const users = useLiveQuery(() => db.users.toArray()) || [];
+  
+  const techOptions = React.useMemo<{ value: string, label: string, subtitle?: string }[]>(() => {
+    const techUsers = users.filter(u => {
+      const r = (u.rol || '').toLowerCase();
+      return r.includes('tecn') || r.includes('técn') || r.includes('adm') || r.includes('super');
+    });
+
+    const optionsRecord: Record<string, { value: string, label: string, subtitle?: string }> = {};
+    
+    const mockFields = [
+      { value: "Nelson Bravo", label: "Nelson Bravo", subtitle: "Tech Lead" },
+      { value: "Gonzalo Bravo", label: "Gonzalo Bravo", subtitle: "Técnico HVAC" },
+      { value: "Carlos López", label: "Carlos López", subtitle: "Técnico Eléctrico" },
+      { value: "Juan Pérez", label: "Juan Pérez", subtitle: "Técnico Climatización" },
+      { value: "Sebastián Muñoz", label: "Sebastián Muñoz", subtitle: "Técnico Supervisor" }
+    ];
+
+    mockFields.forEach(t => {
+      optionsRecord[t.value] = t;
+    });
+
+    techUsers.forEach(u => {
+      optionsRecord[u.nombre] = {
+        value: u.nombre,
+        label: u.nombre,
+        subtitle: u.rol.toUpperCase()
+      };
+    });
+
+    return Object.values(optionsRecord);
+  }, [users]);
 
   const captureGPS = () => {
     setGpsLoading(true);
@@ -247,7 +281,22 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
              <Field label="Fecha" type="date" value={fechaActual} onChange={(e) => setFechaActual(e.target.value)} icon={<Calendar className="w-3 h-3" />} />
-             <Field label="Técnico" type="text" value={tecnico} onChange={(e) => setTecnico(e.target.value)} icon={<User className="w-3 h-3" />} />
+             <div className="space-y-1">
+                <div className="flex items-center gap-1.5 ml-1">
+                   <div className="text-slate-300"><User className="w-3 h-3" /></div>
+                   <label className="text-[9px] font-black uppercase text-slate-400">Técnico</label>
+                </div>
+                <SearchableSelect
+                  options={techOptions}
+                  value={tecnico}
+                  onChange={(val) => {
+                    setTecnico(val);
+                    setHasChanges(true);
+                  }}
+                  placeholder="Seleccionar técnico..."
+                  allowCreate={true}
+                />
+             </div>
              <Field label="Duración (Min)" type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} icon={<Clock className="w-3 h-3" />} />
              <Field label="Costo Materiales" type="number" value={costoMateriales} onChange={(e) => setCostoMateriales(e.target.value)} icon={<DollarSign className="w-3 h-3" />} />
           </div>

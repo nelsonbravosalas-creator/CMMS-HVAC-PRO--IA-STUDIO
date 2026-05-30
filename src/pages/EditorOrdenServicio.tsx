@@ -60,6 +60,38 @@ export default function EditorOrdenServicio() {
   
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
+  const users = useAppStore(state => state.users);
+
+  const techOptions = React.useMemo<{ value: string, label: string, subtitle?: string }[]>(() => {
+    const techUsers = users.filter(u => {
+      const r = (u.rol || '').toLowerCase();
+      return r.includes('tecn') || r.includes('técn') || r.includes('adm') || r.includes('super');
+    });
+
+    const optionsRecord: Record<string, { value: string, label: string, subtitle?: string }> = {};
+    
+    const mockFields = [
+      { value: "Nelson Bravo", label: "Nelson Bravo", subtitle: "Tech Lead" },
+      { value: "Gonzalo Bravo", label: "Gonzalo Bravo", subtitle: "Técnico HVAC" },
+      { value: "Carlos López", label: "Carlos López", subtitle: "Técnico Eléctrico" },
+      { value: "Juan Pérez", label: "Juan Pérez", subtitle: "Técnico Climatización" },
+      { value: "Sebastián Muñoz", label: "Sebastián Muñoz", subtitle: "Técnico Supervisor" }
+    ];
+
+    mockFields.forEach(t => {
+      optionsRecord[t.value] = t;
+    });
+
+    techUsers.forEach(u => {
+      optionsRecord[u.nombre] = {
+        value: u.nombre,
+        label: u.nombre,
+        subtitle: u.rol.toUpperCase()
+      };
+    });
+
+    return Object.values(optionsRecord);
+  }, [users]);
 
   const OS_DRAFT_KEY = `OS_DRAFT_${uuid}`;
 
@@ -842,7 +874,14 @@ export default function EditorOrdenServicio() {
                </div>
                <div>
                   <label className="text-[10px] font-black uppercase text-slate-400">Técnico Responsable</label>
-                  <input type="text" value={generalData.tecnico} onChange={e => handleGeneralChange('tecnico', e.target.value)} disabled={isReadOnly} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mt-1 outline-none focus:ring-2 focus:ring-blue-500/20" />
+                  <SearchableSelect
+                     options={techOptions}
+                     value={generalData.tecnico}
+                     onChange={val => handleGeneralChange('tecnico', val)}
+                     disabled={isReadOnly}
+                     placeholder="Seleccione técnico..."
+                     allowCreate={true}
+                   />
                </div>
                <div>
                   <label className="text-[10px] font-black uppercase text-slate-400">Nombre Cliente</label>
