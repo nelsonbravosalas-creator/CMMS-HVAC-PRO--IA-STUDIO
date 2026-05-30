@@ -200,7 +200,11 @@ export default function EditorInforme() {
                           }))
                       ]}
                       value={generalData.sucursal}
-                      onChange={val => setGeneralData({...generalData, sucursal: val})}
+                      onChange={val => {
+                        const selectedSuc = branches.find(b => b.uuid_sync === val);
+                        const regionVal = selectedSuc?.region || '';
+                        setGeneralData({...generalData, sucursal: val, region: regionVal});
+                      }}
                       disabled={isReadOnly || !generalData.cliente}
                       placeholder="Seleccione una sucursal..."
                     />

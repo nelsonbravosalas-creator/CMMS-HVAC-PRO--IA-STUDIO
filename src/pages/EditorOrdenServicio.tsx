@@ -15,7 +15,9 @@ import {
   MapPin,
   Search,
   Maximize,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown,
+  Plus
 } from "lucide-react";
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import DictationTextarea from "../components/DictationTextarea";
@@ -26,6 +28,23 @@ import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatu
 import { db } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAppStore } from "../store/useAppStore";
+
+export interface ChecklistItemData {
+  status?: 'ok' | 'obs' | 'falla';
+  findings: string;
+  photos: string[];
+  expanded?: boolean;
+}
+
+const OS_CHECKLIST_ITEMS = [
+  { key: "inspeccionVisual", label: "Inspección visual general" },
+  { key: "limpiezaExterior", label: "Limpieza Exterior" },
+  { key: "tomaDatos", label: "Toma de datos de condicion" },
+  { key: "revisionFuncionamiento", label: "Revision de funcionamiento" },
+  { key: "conexionesElectricas", label: "Conexiones eléctricas" },
+  { key: "medicionConsumos", label: "Medición de consumos" },
+  { key: "funcionamientoGeneral", label: "Funcionamiento general" }
+];
 
 type Section = 'general' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -46,6 +65,7 @@ export default function EditorOrdenServicio() {
   const [status, setStatus] = useState<'borrador'|'firmada'|'enviada'>('borrador');
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
   const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('tecnico');
+  const [activePhotoField, setActivePhotoField] = useState<string | null>(null);
 
   const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -93,14 +113,14 @@ export default function EditorOrdenServicio() {
     tipoServicio: "Preventivo",
   });
 
-  const [checklist, setChecklist] = useState({
-    inspeccionVisual: "",
-    limpiezaExterior: "",
-    tomaDatos: "",
-    revisionFuncionamiento: "",
-    conexionesElectricas: "",
-    medicionConsumos: "",
-    funcionamientoGeneral: ""
+  const [checklist, setChecklist] = useState<Record<string, ChecklistItemData>>({
+    inspeccionVisual: { findings: "", photos: [] },
+    limpiezaExterior: { findings: "", photos: [] },
+    tomaDatos: { findings: "", photos: [] },
+    revisionFuncionamiento: { findings: "", photos: [] },
+    conexionesElectricas: { findings: "", photos: [] },
+    medicionConsumos: { findings: "", photos: [] },
+    funcionamientoGeneral: { findings: "", photos: [] }
   });
 
   const [hallazgos, setHallazgos] = useState({
@@ -113,7 +133,32 @@ export default function EditorOrdenServicio() {
 
   const [galeria, setGaleria] = useState<{src: string, desc: string}[]>([]);
 
-  // Load from local storage draft
+  const normalizeChecklist = (rawChecklist: any) => {
+    const normalized: Record<string, ChecklistItemData> = {};
+    const keys = ['inspeccionVisual', 'limpiezaExterior', 'tomaDatos', 'revisionFuncionamiento', 'conexionesElectricas', 'medicionConsumos', 'funcionamientoGeneral'];
+    keys.forEach(k => {
+      const rawVal = rawChecklist?.[k];
+      if (!rawVal) {
+        normalized[k] = { findings: "", photos: [] };
+      } else if (typeof rawVal === 'string') {
+        let status: 'ok' | 'obs' | 'falla' | undefined = undefined;
+        if (rawVal === 'OK') status = 'ok';
+        else if (rawVal === 'NOK') status = 'falla';
+        else if (rawVal === 'N/A') status = 'obs';
+        normalized[k] = { status, findings: "", photos: [] };
+      } else {
+        normalized[k] = {
+          status: rawVal.status,
+          findings: rawVal.findings || "",
+          photos: rawVal.photos || [],
+          expanded: rawVal.expanded || false
+        };
+      }
+    });
+    return normalized;
+  };
+
+  // Load from local storage draft or DB
   useEffect(() => {
     if (isNew) {
       const saved = localStorage.getItem(OS_DRAFT_KEY);
@@ -121,7 +166,7 @@ export default function EditorOrdenServicio() {
         try {
           const data = JSON.parse(saved);
           if (data.generalData) setGeneralData(data.generalData);
-          if (data.checklist) setChecklist(data.checklist);
+          if (data.checklist) setChecklist(normalizeChecklist(data.checklist));
           if (data.hallazgos) setHallazgos(data.hallazgos);
           if (data.galeria) setGaleria(data.galeria);
           if (data.status) setStatus(data.status);
@@ -135,8 +180,20 @@ export default function EditorOrdenServicio() {
           setGeneralData(prev => ({ ...prev, cliente: activeClient }));
         }
       }
+    } else if (uuid) {
+      db.ordenes_servicio.get(uuid).then(existing => {
+        if (existing && existing.data) {
+          const data = existing.data;
+          if (data.generalData) setGeneralData(data.generalData);
+          if (data.checklist) setChecklist(normalizeChecklist(data.checklist));
+          if (data.hallazgos) setHallazgos(data.hallazgos);
+          if (data.galeria) setGaleria(data.galeria);
+          if (existing.estado) setStatus(existing.estado as any);
+          if (data.ubicacionGeografica) setUbicacionGeografica(data.ubicacionGeografica);
+        }
+      }).catch(console.error);
     }
-  }, [isNew]);
+  }, [isNew, uuid]);
 
   // Save to local storage auto
   useEffect(() => {
@@ -285,7 +342,7 @@ export default function EditorOrdenServicio() {
     setGeneralData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleChecklistChange = (field: string, value: string) => {
+  const handleChecklistChange = (field: string, value: ChecklistItemData) => {
     setChecklist(prev => ({ ...prev, [field]: value }));
   };
 
@@ -334,7 +391,12 @@ export default function EditorOrdenServicio() {
                         }))
                     ]}
                     value={generalData.sucursal}
-                    onChange={val => handleGeneralChange('sucursal', val)}
+                    onChange={val => {
+                      const selectedSuc = branches.find(b => b.uuid_sync === val);
+                      const regionVal = selectedSuc?.region || '';
+                      handleGeneralChange('sucursal', val);
+                      handleGeneralChange('region', regionVal);
+                    }}
                     disabled={isReadOnly || !generalData.cliente}
                     placeholder="Seleccione una sucursal..."
                   />
@@ -439,14 +501,141 @@ export default function EditorOrdenServicio() {
         return (
           <SectionBox title="Checklist de Inspección">
              <div className="space-y-4">
-                <ChecklistItem label="Inspección visual general" value={checklist.inspeccionVisual} onChange={v => handleChecklistChange('inspeccionVisual', v)} readonly={isReadOnly} />
-                <ChecklistItem label="Limpieza Exterior" value={checklist.limpiezaExterior} onChange={v => handleChecklistChange('limpiezaExterior', v)} readonly={isReadOnly} />
-                <ChecklistItem label="Toma de datos de condicion" value={checklist.tomaDatos} onChange={v => handleChecklistChange('tomaDatos', v)} readonly={isReadOnly} />
-                <ChecklistItem label="Revision de funcionamiento" value={checklist.revisionFuncionamiento} onChange={v => handleChecklistChange('revisionFuncionamiento', v)} readonly={isReadOnly} />
-                <ChecklistItem label="Conexiones eléctricas" value={checklist.conexionesElectricas} onChange={v => handleChecklistChange('conexionesElectricas', v)} readonly={isReadOnly} />
-                <ChecklistItem label="Medición de consumos" value={checklist.medicionConsumos} onChange={v => handleChecklistChange('medicionConsumos', v)} readonly={isReadOnly} />
-                <ChecklistItem label="Funcionamiento general" value={checklist.funcionamientoGeneral} onChange={v => handleChecklistChange('funcionamientoGeneral', v)} readonly={isReadOnly} />
+                {OS_CHECKLIST_ITEMS.map((item) => {
+                  const key = item.key;
+                  const currentItem = checklist[key] || { findings: '', photos: [] };
+                  return (
+                    <div key={key} className="space-y-2">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group transition-all hover:bg-slate-100 gap-4">
+                         <div className="flex flex-col xl:flex-row xl:items-center gap-4 flex-1">
+                            <span className="text-xs font-black uppercase text-slate-700 min-w-[200px]">{item.label}</span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                               <button 
+                                 type="button"
+                                 disabled={isReadOnly}
+                                 onClick={() => setChecklist({...checklist, [key]: {...currentItem, status: 'ok'}})}
+                                 className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${
+                                   currentItem.status === 'ok' 
+                                     ? 'bg-emerald-500 text-white border-emerald-600 shadow-md shadow-emerald-500/20' 
+                                     : 'bg-white text-slate-400 border-slate-200 hover:border-emerald-300 hover:text-emerald-500'
+                                 }`}
+                               >
+                                 Ok
+                               </button>
+                               <button 
+                                 type="button"
+                                 disabled={isReadOnly}
+                                 onClick={() => setChecklist({...checklist, [key]: {...currentItem, status: 'obs', expanded: true}})}
+                                 className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${
+                                   currentItem.status === 'obs' 
+                                     ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20' 
+                                     : 'bg-white text-slate-400 border-slate-200 hover:border-amber-300 hover:text-amber-500'
+                                 }`}
+                               >
+                                 Observación
+                               </button>
+                               <button 
+                                 type="button"
+                                 disabled={isReadOnly}
+                                 onClick={() => setChecklist({...checklist, [key]: {...currentItem, status: 'falla', expanded: true}})}
+                                 className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all border ${
+                                   currentItem.status === 'falla' 
+                                     ? 'bg-rose-500 text-white border-rose-600 shadow-md shadow-rose-500/20' 
+                                     : 'bg-white text-slate-400 border-slate-200 hover:border-rose-300 hover:text-rose-500'
+                                 }`}
+                               >
+                                 Falla
+                               </button>
+                            </div>
+                         </div>
+                         <button type="button" onClick={() => setChecklist({...checklist, [key]: {...currentItem, expanded: !currentItem.expanded}})} className="p-2 w-full md:w-auto hover:bg-white rounded-xl transition-all shadow-sm md:ml-4 flex justify-center">
+                            <ChevronDown className={`w-4 h-4 transition-transform duration-300 text-slate-400 ${currentItem.expanded ? 'rotate-180 text-blue-600' : ''}`} />
+                         </button>
+                      </div>
+                      {currentItem.expanded && (
+                        <div className="p-4 md:p-6 bg-white border border-slate-100 rounded-3xl mx-2 shadow-inner space-y-4 animate-in slide-in-from-top-2 duration-200">
+                           <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-blue-600 tracking-widest">Hallazgos y Observaciones</label>
+                              <DictationTextarea 
+                                value={currentItem.findings || ''}
+                                onChange={(v) => setChecklist({...checklist, [key]: {...currentItem, findings: v}})}
+                                placeholder="Detalle el estado o anomalía detectada..."
+                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 pr-12 text-slate-800" 
+                                rows={3} 
+                                disabled={isReadOnly}
+                              />
+                           </div>
+                           <div>
+                              <label className="text-[10px] font-black uppercase text-blue-600 tracking-widest block mb-2">Evidencias Focalizadas</label>
+                              <div className="flex flex-wrap gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                 {currentItem.photos?.map((img, picIdx) => (
+                                   <div key={picIdx} className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden relative group shrink-0">
+                                      <img src={img} alt={`Focalizada ${picIdx}`} className="w-full h-full object-cover" />
+                                      {!isReadOnly && (
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            const updatedPhotos = currentItem.photos.filter((_, pIdx) => pIdx !== picIdx);
+                                            setChecklist({ ...checklist, [key]: { ...currentItem, photos: updatedPhotos } });
+                                          }}
+                                          className="absolute inset-0 bg-red-500/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                   </div>
+                                 ))}
+                                 {!isReadOnly && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        setActivePhotoField(key);
+                                        setTimeout(() => {
+                                          document.getElementById('checklist_photo_input')?.click();
+                                        }, 50);
+                                      }}
+                                      className="min-w-[80px] h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"
+                                    >
+                                       <Plus className="w-4 h-4" />
+                                       <span className="text-[9px] font-black uppercase mt-1">Cámara</span>
+                                    </button>
+                                 )}
+                              </div>
+                           </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
              </div>
+             <input 
+               id="checklist_photo_input" 
+               type="file" 
+               accept="image/*" 
+               className="hidden" 
+               onChange={async (e) => {
+                 const file = e.target.files?.[0];
+                 if (!file || !activePhotoField) return;
+                 const reader = new FileReader();
+                 const base64Promise = new Promise<string>((resolve) => {
+                   reader.onload = () => resolve(reader.result as string);
+                   reader.readAsDataURL(file);
+                 });
+                 const base64 = await base64Promise;
+                 
+                 setChecklist(prev => {
+                   const item = prev[activePhotoField] || { findings: "", photos: [] };
+                   return {
+                     ...prev,
+                     [activePhotoField]: {
+                       ...item,
+                       photos: [...(item.photos || []), base64]
+                     }
+                   };
+                 });
+                 e.target.value = '';
+               }} 
+             />
           </SectionBox>
         );
       case 'hallazgos':
@@ -701,27 +890,7 @@ function SectionBox({ title, children }: { title: string, children: React.ReactN
   );
 }
 
-function ChecklistItem({ label, value, onChange, readonly }: { label: string, value: string, onChange: (v:string)=>void, readonly: boolean }) {
-  return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-      <span className="text-sm font-bold text-slate-700">{label}</span>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-2 cursor-pointer">
-           <input type="radio" value="OK" checked={value === 'OK'} disabled={readonly} onChange={() => onChange('OK')} className="peer sr-only" />
-           <div className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-slate-200 text-slate-500 peer-checked:bg-emerald-500 peer-checked:text-white peer-checked:border-emerald-500 transition-all">OK</div>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-           <input type="radio" value="NOK" checked={value === 'NOK'} disabled={readonly} onChange={() => onChange('NOK')} className="peer sr-only" />
-           <div className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-slate-200 text-slate-500 peer-checked:bg-red-500 peer-checked:text-white peer-checked:border-red-500 transition-all">NOK</div>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-           <input type="radio" value="N/A" checked={value === 'N/A'} disabled={readonly} onChange={() => onChange('N/A')} className="peer sr-only" />
-           <div className="px-4 py-2 text-xs font-bold uppercase rounded-lg border border-slate-200 text-slate-500 peer-checked:bg-slate-700 peer-checked:text-white peer-checked:border-slate-700 transition-all">N/A</div>
-        </label>
-      </div>
-    </div>
-  );
-}
+
 
 // Simple canvas setup for drawing signatures
 function setupCanvas(canvas: HTMLCanvasElement | null) {
