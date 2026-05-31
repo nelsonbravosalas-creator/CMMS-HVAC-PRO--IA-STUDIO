@@ -27,7 +27,26 @@ const requireCliente = (req: any, res: any, next: any) => {
 };
 
 // DATABASE INITIALIZATION //
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
+
+let aiInstance: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY environment variable is required");
+    }
+    aiInstance = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiInstance;
+}
 
 async function ensureTables() {
   try {
@@ -687,22 +706,26 @@ async function startServer() {
       const mimeType = req.body.mimeType;
       if (!imageBase64) return res.status(400).json({ error: 'imageBase64 requerido' });
       
-      const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      const model = ai.getGenerativeModel({ model: 'gemini-3.1-flash' });
-      
+      const client = getGeminiClient();
       const prompt = "Extrae de esta placa HVAC o similares: Marca, Modelo, N Serie, Refrigerante, Voltaje, Amperaje Nominal y Capacidad. REGLA: Si la capacidad esta en kW convierte: 1kW=3412 BTU. Si en Toneladas: 1TR=12000 BTU. Devuelve SOLO un objeto JSON con estas keys: {'marca':'','modelo':'','n_serie':'','refrigerante':'','capacidad_btu':'','voltaje':'','amperaje':''}";
       
-      const result = await model.generateContent({
-        contents: [{
-          role: 'user',
-          parts: [
-            { text: prompt },
-            { inlineData: { data: imageBase64, mimeType: mimeType || 'image/jpeg' } }
-          ]
-        }]
+      const imagePart = {
+        inlineData: {
+          mimeType: mimeType || 'image/jpeg',
+          data: imageBase64,
+        },
+      };
+
+      const textPart = {
+        text: prompt,
+      };
+
+      const result = await client.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: { parts: [imagePart, textPart] },
       });
 
-      const text = result.response.text();
+      const text = result.text || "";
       const jsonMatch = text.match(/\{[\s\S]*?\}/);
       if (jsonMatch) {
          res.json({ success: true, data: JSON.parse(jsonMatch[0]) });
