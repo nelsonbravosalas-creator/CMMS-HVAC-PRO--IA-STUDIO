@@ -206,13 +206,24 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
      }
   };
 
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+
+  const discardChanges = () => {
+    localStorage.removeItem(PM_DRAFT_KEY);
+    setShowExitPrompt(false);
+    onClose();
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(PM_DRAFT_KEY);
+    onClose();
+  };
+
   const handleClose = () => {
     if (hasChanges) {
-      if (confirm("Hay cambios sin guardar. ¿Desea descartar los cambios?")) {
-        onClose();
-      }
+      setShowExitPrompt(true);
     } else {
-      onClose();
+      clearDraft();
     }
   };
 
@@ -386,13 +397,13 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
               </div>
           )}
 
-          <div className="flex gap-4 mt-6">
-             <button type="submit" disabled={isSaving} className="flex-1 py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2 disabled:opacity-50">
+          <div className="flex gap-4 mt-6 pb-24 lg:pb-8 flex-col sm:flex-row">
+             <button type="button" onClick={handleClose} className="px-10 py-5 bg-slate-100 text-slate-400 text-xs font-black uppercase tracking-widest rounded-[32px] hover:bg-slate-200 transition-all flex-[1]">
+                Cancelar
+             </button>
+             <button type="submit" disabled={isSaving} className="flex-[2] py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2 disabled:opacity-50">
                 {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
                 {isSaving ? "Guardando..." : "Finalizar y Guardar Registro"}
-             </button>
-             <button type="button" onClick={handleClose} className="px-10 py-5 bg-slate-100 text-slate-400 text-xs font-black uppercase tracking-widest rounded-[32px] hover:bg-slate-200 transition-all">
-                Cancelar
              </button>
           </div>
         </form>
@@ -406,6 +417,35 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
             setShowAssetSearch(false);
           }}
         />
+      )}
+
+      {/* Exit Prompt */}
+      {showExitPrompt && (
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+           <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+             </div>
+             <h3 className="text-xl font-black text-slate-900 text-center mb-3">¿Cerrar sin guardar?</h3>
+             <p className="text-xs text-slate-500 text-center mb-8 px-4">
+                Tienes cambios sin guardar. Si sales ahora, se perderán y el autoguardado será limpiado.
+             </p>
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={discardChanges}
+                  className="w-full py-4 bg-red-50 text-red-600 hover:bg-red-100 font-black uppercase tracking-widest text-xs rounded-2xl transition-all"
+                >
+                   Sí, descartar cambios
+                </button>
+                <button 
+                  onClick={() => setShowExitPrompt(false)}
+                  className="w-full py-4 bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all"
+                >
+                   Continuar Editando
+                </button>
+             </div>
+           </div>
+        </div>
       )}
     </div>
   );

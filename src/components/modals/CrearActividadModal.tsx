@@ -41,7 +41,25 @@ export function CrearActividadModal({ isOpen, onClose, onSave }: CrearActividadM
   const [supervisorEmail, setSupervisorEmail] = useState("supervisor.zona@empresa.com");
   const [clientEmail, setClientEmail] = useState("contacto.cliente@empresa.com");
 
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+
   const ACTIVITY_DRAFT_KEY = "cmms_activity_draft";
+
+  const handleCloseIntent = () => {
+    if (hasChanges) {
+      setShowExitPrompt(true);
+    } else {
+      localStorage.removeItem(ACTIVITY_DRAFT_KEY);
+      onClose();
+    }
+  };
+
+  const discardChanges = () => {
+    localStorage.removeItem(ACTIVITY_DRAFT_KEY);
+    setShowExitPrompt(false);
+    onClose();
+  };
 
   React.useEffect(() => {
     const draft = localStorage.getItem(ACTIVITY_DRAFT_KEY);
@@ -72,6 +90,7 @@ export function CrearActividadModal({ isOpen, onClose, onSave }: CrearActividadM
         title, type, tech, assistant, selectedResourceId, startDate, startTime, duration, details, techEmail, supervisorEmail, clientEmail
       };
       localStorage.setItem(ACTIVITY_DRAFT_KEY, JSON.stringify(draft));
+      setHasChanges(true);
     }
   }, [title, type, tech, assistant, selectedResourceId, startDate, startTime, duration, details, techEmail, supervisorEmail, clientEmail, isOpen]);
 
@@ -187,7 +206,7 @@ Sincronizado vía AI Studio CMMS Framework.`;
                 <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mt-0.5">Asignación técnica e integración con Google Calendar</p>
               </div>
               <button 
-                onClick={onClose}
+                onClick={handleCloseIntent}
                 className="p-1.5 text-slate-400 hover:text-white transition font-bold"
               >
                 ✕
@@ -195,7 +214,7 @@ Sincronizado vía AI Studio CMMS Framework.`;
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1">
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 pb-24 lg:pb-6">
               
               {/* Title & Type */}
               <div className="grid grid-cols-3 gap-4">
@@ -370,7 +389,7 @@ Sincronizado vía AI Studio CMMS Framework.`;
               <div className="flex justify-end gap-3 border-t border-slate-100 pt-4 mt-6">
                 <button 
                   type="button" 
-                  onClick={onClose}
+                  onClick={handleCloseIntent}
                   className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold uppercase transition"
                 >
                   Cancelar
@@ -385,6 +404,35 @@ Sincronizado vía AI Studio CMMS Framework.`;
               </div>
             </form>
           </motion.div>
+          
+          {/* Exit Prompt */}
+          {showExitPrompt && (
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+               <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                 <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <AlertCircle className="w-8 h-8 text-amber-600" />
+                 </div>
+                 <h3 className="text-xl font-black text-slate-900 text-center mb-3">¿Cerrar sin guardar?</h3>
+                 <p className="text-xs text-slate-500 text-center mb-8 px-4">
+                    Tienes cambios sin guardar. Si sales ahora, se perderán y el autoguardado será limpiado.
+                 </p>
+                 <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={discardChanges}
+                      className="w-full py-4 bg-red-50 text-red-600 hover:bg-red-100 font-black uppercase tracking-widest text-xs rounded-2xl transition-all"
+                    >
+                       Sí, descartar cambios
+                    </button>
+                    <button 
+                      onClick={() => setShowExitPrompt(false)}
+                      className="w-full py-4 bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all"
+                    >
+                       Continuar Editando
+                    </button>
+                 </div>
+               </div>
+            </div>
+          )}
         </div>
       )}
     </AnimatePresence>

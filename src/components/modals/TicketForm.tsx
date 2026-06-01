@@ -36,7 +36,25 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [imagePreviews, setImagePreviews] = useState<{id: string, url: string}[]>([]);
   const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
 
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+
   const TICKET_DRAFT_KEY = "cmms_ticket_draft";
+
+  const handleCloseIntent = () => {
+    if (hasChanges) {
+      setShowExitPrompt(true);
+    } else {
+      localStorage.removeItem(TICKET_DRAFT_KEY);
+      onClose();
+    }
+  };
+
+  const discardChanges = () => {
+    localStorage.removeItem(TICKET_DRAFT_KEY);
+    setShowExitPrompt(false);
+    onClose();
+  };
 
   React.useEffect(() => {
     const draft = localStorage.getItem(TICKET_DRAFT_KEY);
@@ -66,6 +84,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
       tag, equipoDesc, cliente, sucursal, titulo, descripcion, prioridad, tipoIncidencia, asignadoA, imagenes, imagePreviews, ubicacionGeografica
     };
     localStorage.setItem(TICKET_DRAFT_KEY, JSON.stringify(draft));
+    setHasChanges(true);
   }, [tag, equipoDesc, cliente, sucursal, titulo, descripcion, prioridad, tipoIncidencia, asignadoA, imagenes, imagePreviews, ubicacionGeografica]);
 
   
@@ -275,7 +294,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Nuevo Ticket de Soporte</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Vincule un activo para mayor precisión en la trazabilidad</p>
             </div>
-            <button onClick={onClose} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
+            <button type="button" onClick={handleCloseIntent} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
@@ -476,13 +495,55 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
               </div>
             )}
 
-            <button disabled={isSaving} type="submit" className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 mt-4 flex items-center justify-center gap-3 disabled:opacity-50">
-              {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5" />}
-              {isSaving ? "Guardando..." : "Emitir y Guardar Ticket"}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 mt-6 pb-24 lg:pb-8">
+              <button 
+                type="button" 
+                onClick={handleCloseIntent} 
+                className="flex-[1] py-5 bg-slate-100 text-slate-400 text-xs font-black uppercase tracking-widest rounded-[32px] hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+              >
+                Cancelar
+              </button>
+              <button 
+                disabled={isSaving} 
+                type="submit" 
+                className="flex-[2] py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5" />}
+                {isSaving ? "Guardando..." : "Emitir y Guardar Ticket"}
+              </button>
+            </div>
           </form>
         </div>
       </div>
+
+      {/* Exit Prompt */}
+      {showExitPrompt && (
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+           <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+             </div>
+             <h3 className="text-xl font-black text-slate-900 text-center mb-3">¿Cerrar sin guardar?</h3>
+             <p className="text-xs text-slate-500 text-center mb-8 px-4">
+                Tienes cambios sin guardar. Si sales ahora, se perderán y el autoguardado será limpiado.
+             </p>
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={discardChanges}
+                  className="w-full py-4 bg-red-50 text-red-600 hover:bg-red-100 font-black uppercase tracking-widest text-xs rounded-2xl transition-all"
+                >
+                   Sí, descartar cambios
+                </button>
+                <button 
+                  onClick={() => setShowExitPrompt(false)}
+                  className="w-full py-4 bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all"
+                >
+                   Continuar Editando
+                </button>
+             </div>
+           </div>
+        </div>
+      )}
 
       <AssetSearchModal 
         isOpen={showAssetSearch}

@@ -65,6 +65,9 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [showTagPreview, setShowTagPreview] = useState(false);
   const tagRef = useRef<HTMLDivElement>(null);
 
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+
   const ASSET_DRAFT_KEY = "cmms_asset_draft";
 
   useEffect(() => {
@@ -86,6 +89,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   useEffect(() => {
     const draft = { tagData, voltaje, corriente, ultimoMantenimiento, frecuenciaMantenimiento };
     localStorage.setItem(ASSET_DRAFT_KEY, JSON.stringify(draft));
+    setHasChanges(true);
   }, [tagData, voltaje, corriente, ultimoMantenimiento, frecuenciaMantenimiento]);
 
   const activeClient = localStorage.getItem("active_client");
@@ -195,6 +199,21 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleCloseIntent = () => {
+    if (hasChanges) {
+      setShowExitPrompt(true);
+    } else {
+      localStorage.removeItem(ASSET_DRAFT_KEY);
+      onClose();
+    }
+  };
+
+  const discardChanges = () => {
+    localStorage.removeItem(ASSET_DRAFT_KEY);
+    setShowExitPrompt(false);
+    onClose();
   };
 
   const [isSaving, setIsSaving] = useState(false);
@@ -578,10 +597,10 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                 </div>
              </div>
 
-             <div className="flex flex-col sm:flex-row gap-4 pt-4">
+             <div className="flex flex-col sm:flex-row gap-4 pt-4 pb-24 lg:pb-8">
                 <button 
                   type="button" 
-                  onClick={onClose}
+                  onClick={handleCloseIntent}
                   className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-black uppercase tracking-widest rounded-[32px] transition-all flex items-center justify-center gap-3 active:scale-95"
                 >
                    <ChevronLeft className="w-5 h-5" /> 
@@ -599,6 +618,35 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
           </form>
         </div>
       </div>
+
+      {/* Exit Prompt */}
+      {showExitPrompt && (
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+           <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+             </div>
+             <h3 className="text-xl font-black text-slate-900 text-center mb-3">¿Cerrar sin guardar?</h3>
+             <p className="text-xs text-slate-500 text-center mb-8 px-4">
+                Tienes cambios sin guardar. Si sales ahora, se perderán y el autoguardado será limpiado.
+             </p>
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={discardChanges}
+                  className="w-full py-4 bg-red-50 text-red-600 hover:bg-red-100 font-black uppercase tracking-widest text-xs rounded-2xl transition-all"
+                >
+                   Sí, descartar cambios
+                </button>
+                <button 
+                  onClick={() => setShowExitPrompt(false)}
+                  className="w-full py-4 bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all"
+                >
+                   Continuar Editando
+                </button>
+             </div>
+           </div>
+        </div>
+      )}
     </div>
     {isCodificacionModalOpen && (
       <CodificacionModal isOpen={isCodificacionModalOpen} onClose={() => setIsCodificacionModalOpen(false)} />
