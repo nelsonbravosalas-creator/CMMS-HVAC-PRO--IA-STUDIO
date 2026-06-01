@@ -102,30 +102,47 @@ export default function Dashboard() {
   const assets = useAppStore(state => state.assets);
   const work_orders = useAppStore(state => state.work_orders);
   const branches = useAppStore(state => state.branches);
+  const clients = useAppStore(state => state.clients);
   const loading = useAppStore(state => state.isLoading);
 
   const activeClient = localStorage.getItem("active_client");
 
+  const currentClient = useMemo(() => {
+    if (!activeClient) return null;
+    return clients.find(c => c.uuid_sync === activeClient || c.id === activeClient);
+  }, [clients, activeClient]);
+
   const clientBranches = useMemo(() => {
     if (activeClient) {
-      return branches.filter(b => b.cliente_id === activeClient && b.activo !== false);
+      return branches.filter(b => 
+        (b.cliente_id === activeClient || 
+         (currentClient && (b.cliente_id === currentClient.uuid_sync || b.cliente_id === currentClient.id))) && 
+        b.activo !== false && 
+        !b.deleted_at
+      );
     }
-    return branches.filter(b => b.activo !== false);
-  }, [branches, activeClient]);
+    return branches.filter(b => b.activo !== false && !b.deleted_at);
+  }, [branches, activeClient, currentClient]);
 
   const clientAssets = useMemo(() => {
     if (activeClient) {
-      return assets.filter(eq => eq.cliente_id === activeClient);
+      return assets.filter(eq => 
+        eq.cliente_id === activeClient || 
+        (currentClient && (eq.cliente_id === currentClient.uuid_sync || eq.cliente_id === currentClient.id))
+      );
     }
     return assets;
-  }, [assets, activeClient]);
+  }, [assets, activeClient, currentClient]);
 
   const clientWorkOrders = useMemo(() => {
     if (activeClient) {
-      return work_orders.filter(wo => wo.cliente_id === activeClient);
+      return work_orders.filter(wo => 
+        wo.cliente_id === activeClient || 
+        (currentClient && (wo.cliente_id === currentClient.uuid_sync || wo.cliente_id === currentClient.id))
+      );
     }
     return work_orders;
-  }, [work_orders, activeClient]);
+  }, [work_orders, activeClient, currentClient]);
 
   const DATA_MONTHLY = useMemo(() => {
     const baseCost = clientAssets.length * 120 || 3200;
@@ -194,11 +211,23 @@ export default function Dashboard() {
    */
   const filteredEquipos = useMemo(() => {
     return clientAssets.filter(eq => {
-      const matchAlmacen = almacen ? eq.tag.startsWith(almacen) : true;
+      let matchAlmacen = true;
+      if (almacen) {
+        // Find if any branch matches the selected value
+        const targetBranch = clientBranches.find(b => (b.codigo || b.id) === almacen || b.id === almacen || b.uuid_sync === almacen);
+        if (targetBranch) {
+          const branchCode = targetBranch.codigo || targetBranch.id;
+          matchAlmacen = eq.tag.startsWith(branchCode) || 
+                         eq.sucursal_id === targetBranch.id || 
+                         eq.sucursal_id === targetBranch.uuid_sync;
+        } else {
+          matchAlmacen = eq.tag.startsWith(almacen);
+        }
+      }
       const matchEstado = estado ? eq.estado === estado : true;
       return matchAlmacen && matchEstado;
     });
-  }, [clientAssets, almacen, estado]);
+  }, [clientAssets, almacen, estado, clientBranches]);
 
   const kpis = useMemo(() => {
     const total = filteredEquipos.length;
