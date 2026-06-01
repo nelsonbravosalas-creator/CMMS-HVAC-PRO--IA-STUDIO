@@ -22,6 +22,10 @@ interface SubLocation {
   direccion: string;
   codigo: string;
   region: string;
+  contacto_nombre?: string;
+  contacto_correo?: string;
+  contacto_cargo?: string;
+  repeats_client?: boolean;
 }
 
 export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps) {
@@ -44,7 +48,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion, codigo: s.codigo || 'MATR', region: region })));
       }
     }
-  }, [sinSucursales, direccion, region]);
+  }, [sinSucursales]);
 
   useEffect(() => {
     if (editingClient && isOpen) {
@@ -56,15 +60,27 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoCargo(editingClient.client.contacto_cargo || '');
       setContactoEmail(editingClient.client.email || '');
 
-      const loadedSubs = editingClient.branches.map(b => ({
-        id: b.id,
-        uuid_sync: b.uuid_sync,
-        tipo: 'Tienda',
-        nombre: b.nombre,
-        direccion: b.direccion || '',
-        codigo: b.codigo,
-        region: b.region || '',
-      }));
+      const loadedSubs = editingClient.branches.map(b => {
+        const hasContact = !!(b.contacto_nombre || b.contacto_correo || b.contacto_cargo);
+        const isSame = hasContact && 
+          (b.contacto_nombre === (editingClient.client.contacto_nombre || '')) &&
+          (b.contacto_correo === (editingClient.client.contacto_correo || editingClient.client.email || '')) &&
+          (b.contacto_cargo === (editingClient.client.contacto_cargo || ''));
+
+        return {
+          id: b.id,
+          uuid_sync: b.uuid_sync,
+          tipo: 'Tienda',
+          nombre: b.nombre,
+          direccion: b.direccion || '',
+          codigo: b.codigo,
+          region: b.region || '',
+          contacto_nombre: b.contacto_nombre || '',
+          contacto_correo: b.contacto_correo || '',
+          contacto_cargo: b.contacto_cargo || '',
+          repeats_client: isSame || (!hasContact && !!editingClient.client.contacto_nombre),
+        };
+      });
       setSubs(loadedSubs);
       
       // Auto-detect if it's "sin sucursales" format
@@ -172,6 +188,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           region,
           contacto_nombre: contactoNombre,
           contacto_cargo: contactoCargo,
+          contacto_correo: contactoEmail,
           email: contactoEmail,
         };
         await clientRepo.update(editingClient.client.uuid_sync, updatedClient);
@@ -180,6 +197,10 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         const existingBranchMap = new Map(editingClient.branches.map(b => [b.uuid_sync, b]));
         
         for (const sub of subs) {
+          const sName = sub.repeats_client ? contactoNombre : (sub.contacto_nombre || '');
+          const sCorreo = sub.repeats_client ? contactoEmail : (sub.contacto_correo || '');
+          const sCargo = sub.repeats_client ? contactoCargo : (sub.contacto_cargo || '');
+
           if (sub.uuid_sync && existingBranchMap.has(sub.uuid_sync)) {
             // Update
             const existing = existingBranchMap.get(sub.uuid_sync)!;
@@ -188,9 +209,12 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
               id: getBranchId(sub.codigo),
               nombre: sub.nombre,
               codigo: sub.codigo,
-              descripcion: sub.direccion,
-              direccion: sub.direccion,
-              region: sub.region || region || ''
+              descripcion: sinSucursales ? direccion : sub.direccion,
+              direccion: sinSucursales ? direccion : sub.direccion,
+              region: sinSucursales ? region : (sub.region || region || ''),
+              contacto_nombre: sName,
+              contacto_correo: sCorreo,
+              contacto_cargo: sCargo,
             };
             await branchRepo.update(sub.uuid_sync, updatedBranch);
             existingBranchMap.delete(sub.uuid_sync); // Mark as processed
@@ -202,10 +226,13 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
               cliente_id: editingClient.client.uuid_sync,
               codigo: sub.codigo,
               nombre: sub.nombre,
-              direccion: sub.direccion,
+              direccion: sinSucursales ? direccion : sub.direccion,
               ciudad: '',
-              region: sub.region || region || '',
-              activo: true
+              region: sinSucursales ? region : (sub.region || region || ''),
+              activo: true,
+              contacto_nombre: sName,
+              contacto_correo: sCorreo,
+              contacto_cargo: sCargo,
             };
             await branchRepo.create(newBranch);
           }
@@ -236,6 +263,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           region,
           contacto_nombre: contactoNombre,
           contacto_cargo: contactoCargo,
+          contacto_correo: contactoEmail,
           email: contactoEmail,
           telefono: '',
           activo: true
@@ -245,16 +273,23 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
         // Create branches
         for (const sub of subs) {
+          const sName = sub.repeats_client ? contactoNombre : (sub.contacto_nombre || '');
+          const sCorreo = sub.repeats_client ? contactoEmail : (sub.contacto_correo || '');
+          const sCargo = sub.repeats_client ? contactoCargo : (sub.contacto_cargo || '');
+
           const newBranchId = getBranchId(sub.codigo);
           const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
             id: newBranchId,
             cliente_id: clientId!,
             codigo: sub.codigo,
             nombre: sub.nombre,
-            direccion: sub.direccion,
+            direccion: sinSucursales ? direccion : sub.direccion,
             ciudad: '',
-            region: sub.region || region || '',
-            activo: true
+            region: sinSucursales ? region : (sub.region || region || ''),
+            activo: true,
+            contacto_nombre: sName,
+            contacto_correo: sCorreo,
+            contacto_cargo: sCargo,
           };
           await branchRepo.create(newBranch);
         }
@@ -272,11 +307,26 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   };
 
   const addSub = () => {
-    setSubs([...subs, { id: Math.random().toString(), tipo: 'Tienda', nombre: '', direccion: '', codigo: '', region: region || '' }]);
+    setSubs([...subs, { 
+      id: Math.random().toString(), 
+      tipo: 'Tienda', 
+      nombre: '', 
+      direccion: '', 
+      codigo: '', 
+      region: region || '',
+      contacto_nombre: '',
+      contacto_correo: '',
+      contacto_cargo: '',
+      repeats_client: false
+    }]);
   };
 
-  const updateSub = (id: string, field: keyof SubLocation, value: string) => {
+  const updateSub = (id: string, field: keyof SubLocation, value: any) => {
     setSubs(subs.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  const updateSubPartial = (id: string, partial: Partial<SubLocation>) => {
+    setSubs(subs.map(s => s.id === id ? { ...s, ...partial } : s));
   };
 
   const removeSub = (id: string) => {
@@ -419,6 +469,69 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                                    <option key={r.value} value={r.value}>{r.label}</option>
                                 ))}
                              </select>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-2 md:col-span-4 border-t border-slate-100 pt-3">
+                             <input 
+                                type="checkbox" 
+                                id={`repeats_client_${sub.id}`}
+                                checked={!!sub.repeats_client}
+                                onChange={e => {
+                                   const isChecked = e.target.checked;
+                                   if (isChecked) {
+                                      updateSubPartial(sub.id, { 
+                                         repeats_client: true,
+                                         contacto_nombre: contactoNombre,
+                                         contacto_cargo: contactoCargo,
+                                         contacto_correo: contactoEmail
+                                      });
+                                   } else {
+                                      updateSubPartial(sub.id, { 
+                                         repeats_client: false
+                                      });
+                                   }
+                                }}
+                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                             />
+                             <label htmlFor={`repeats_client_${sub.id}`} className="text-[10px] font-black uppercase text-indigo-600 tracking-wider cursor-pointer">
+                                ¿Mismos datos de contacto del cliente?
+                             </label>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:col-span-4">
+                             <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400">Persona de Contacto del Sitio</label>
+                                <input 
+                                   disabled={sub.repeats_client}
+                                   type="text" 
+                                   placeholder="Ej. Pedro Pérez" 
+                                   value={sub.repeats_client ? contactoNombre : sub.contacto_nombre || ''} 
+                                   onChange={e => updateSub(sub.id, 'contacto_nombre', e.target.value)} 
+                                   className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" 
+                                />
+                             </div>
+                             <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400">Cargo de Contacto</label>
+                                <input 
+                                   disabled={sub.repeats_client}
+                                   type="text" 
+                                   placeholder="Ej. Jefe de Local" 
+                                   value={sub.repeats_client ? contactoCargo : sub.contacto_cargo || ''} 
+                                   onChange={e => updateSub(sub.id, 'contacto_cargo', e.target.value)} 
+                                   className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" 
+                                />
+                             </div>
+                             <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400">Correo de Contacto</label>
+                                <input 
+                                   disabled={sub.repeats_client}
+                                   type="email" 
+                                   placeholder="contacto@sucursal.com" 
+                                   value={sub.repeats_client ? contactoEmail : sub.contacto_correo || ''} 
+                                   onChange={e => updateSub(sub.id, 'contacto_correo', e.target.value)} 
+                                   className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500 lowercase" 
+                                />
+                             </div>
                           </div>
                        </div>
                     </div>

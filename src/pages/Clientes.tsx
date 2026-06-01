@@ -134,9 +134,14 @@ export default function Clientes() {
                        <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Sucursales</span>
                        <span className="text-xl font-black text-slate-900">{clientBranches.length}</span>
                      </div>
-                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                       <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Estado Contractual</span>
-                       <span className="text-[10px] font-black text-emerald-650 uppercase">Activo</span>
+                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                       <div>
+                         <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Contacto del Cliente</span>
+                         <span className="text-xs font-extrabold text-slate-800 block truncate">{c.contacto_nombre || "No registrado"}</span>
+                       </div>
+                       {c.contacto_cargo && (
+                         <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest block truncate mt-1">{c.contacto_cargo}</span>
+                       )}
                      </div>
                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                        <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Dirección Central</span>
@@ -151,20 +156,44 @@ export default function Clientes() {
                    {/* Listed sucursales asignadas */}
                    {clientBranches.length > 0 && (
                      <div className="mt-5 pt-4 border-t border-slate-100 px-2 text-left">
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2.5">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">
                          Sucursales Asignadas ({clientBranches.length}):
                        </span>
-                       <div className="flex flex-wrap gap-2">
-                         {clientBranches.map(b => (
-                           <span 
-                             key={b.uuid_sync || b.id} 
-                             className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 hover:bg-slate-100 text-slate-705 text-[10px] font-semibold rounded-lg border border-slate-100 transition-colors"
-                           >
-                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                             <strong className="uppercase text-slate-500 font-extrabold">{b.codigo || b.id}:</strong>
-                             <span className="text-slate-600">{b.nombre}</span>
-                           </span>
-                         ))}
+                       <div className="overflow-x-auto rounded-xl border border-slate-200">
+                         <table className="w-full text-left border-collapse bg-slate-50/30">
+                           <thead>
+                             <tr className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 border-b border-slate-100">
+                               <th className="px-4 py-3">Código & Nombre</th>
+                               <th className="px-4 py-3">Dirección & Región</th>
+                               <th className="px-4 py-3">Contacto del Sitio</th>
+                               <th className="px-4 py-3">Cargo</th>
+                               <th className="px-4 py-3">Correo</th>
+                             </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-600">
+                             {clientBranches.map(b => (
+                               <tr key={b.uuid_sync || b.id} className="hover:bg-slate-50/50 transition-colors">
+                                 <td className="px-4 py-3">
+                                   <div className="font-extrabold text-slate-800 uppercase">{b.codigo || b.id}</div>
+                                   <div className="text-[10px] text-slate-400 uppercase font-black">{b.nombre}</div>
+                                 </td>
+                                 <td className="px-4 py-3">
+                                   <div className="truncate max-w-[180px]" title={b.direccion}>{b.direccion || "No registrada"}</div>
+                                   <div className="text-[10px] text-indigo-600 font-bold">{b.region || "Metropolitana de Santiago"}</div>
+                                 </td>
+                                 <td className="px-4 py-3 font-extrabold text-slate-700">
+                                   {b.contacto_nombre || <span className="text-slate-300 font-normal">No establecido</span>}
+                                 </td>
+                                 <td className="px-4 py-3 uppercase text-[10px] font-black text-slate-400 tracking-wider">
+                                   {b.contacto_cargo || <span className="text-slate-300 font-normal">—</span>}
+                                 </td>
+                                 <td className="px-4 py-3 font-mono lowercase text-indigo-600">
+                                   {b.contacto_correo || <span className="text-slate-300 font-normal">—</span>}
+                                 </td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
                        </div>
                      </div>
                    )}

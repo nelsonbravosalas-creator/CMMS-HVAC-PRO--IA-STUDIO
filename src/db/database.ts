@@ -78,6 +78,7 @@ export interface LocalCliente extends LocalBase {
   telefono: string;
   direccion: string;
   contacto_nombre?: string;
+  contacto_correo?: string;
   contacto_cargo?: string;
   region?: string;
   activo?: boolean;
@@ -102,6 +103,9 @@ export interface LocalSucursal extends LocalBase {
   ciudad: string;
   region: string;
   activo?: boolean;
+  contacto_nombre?: string;
+  contacto_correo?: string;
+  contacto_cargo?: string;
 }
 
 export interface LocalInforme extends LocalBase {

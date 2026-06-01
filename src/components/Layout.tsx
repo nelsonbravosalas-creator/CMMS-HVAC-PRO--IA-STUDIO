@@ -34,7 +34,9 @@ import {
   Building2,
   Fingerprint,
   Package,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "motion/react";
@@ -152,6 +154,14 @@ import { db } from '../db/database';
 import ClientSelectorWidget from "./ClientSelectorWidget";
 
 export default function Layout({ children }: LayoutProps) {
+  const { logout } = useAuth();
+  const [, setLocation] = useLocation();
+
+  const handleHeaderLogout = () => {
+    logout();
+    setLocation("/login");
+  };
+
   /** Dynamic active client name */
   const activeClientId = localStorage.getItem("active_client");
   const activeClientName = useLiveQuery(async () => {
@@ -437,6 +447,21 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-sm"></div>
               </div>
             </div>
+
+            {/* Logout Button */}
+            <button 
+              id="logout_btn_header"
+              onClick={handleHeaderLogout}
+              className={`p-2.5 rounded-xl border shrink-0 flex items-center gap-1.5 text-[10px] font-black uppercase transition-all duration-300 group cursor-pointer active:scale-95 shadow-sm ${
+                isDarkMode 
+                  ? 'bg-red-500/10 border-red-500/20 hover:border-red-500/40 text-red-500 hover:bg-red-500/20 shadow-red-950/20' 
+                  : 'bg-red-50 border-red-100 hover:border-red-200 text-red-650 hover:bg-red-100/65 shadow-red-100/10'
+              }`}
+              title="Cerrar Sesión de la Aplicación"
+            >
+              <LogOut className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              <span className="hidden xl:inline">Cerrar Sesión</span>
+            </button>
           </div>
         </header>
 
@@ -583,6 +608,17 @@ export default function Layout({ children }: LayoutProps) {
                   <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Biometría</span>
                 </div>
               </Link>
+
+              <div 
+                onClick={() => {
+                  setIsMoreDrawerOpen(false);
+                  handleHeaderLogout();
+                }}
+                className="flex items-center gap-4 p-5 bg-red-950/20 border border-red-900/30 rounded-3xl active:scale-95 transition-all cursor-pointer"
+              >
+                <div className="w-12 h-12 bg-red-600/20 rounded-2xl flex items-center justify-center text-red-400"><LogOut className="w-6 h-6" /></div>
+                <span className="text-xs font-black text-red-400 uppercase tracking-widest">Cerrar Sesión</span>
+              </div>
             </div>
 
             <button 
