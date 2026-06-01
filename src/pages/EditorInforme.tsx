@@ -892,14 +892,6 @@ export default function EditorInforme() {
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
-    const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
-    const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
-    const eqSucursal = eq.tag.split('.')[0];
-    const matchSucursal = searchSucursal ? eqSucursal === searchSucursal : true;
-    return matchTag && matchDesc && matchSucursal;
-  });
-
   const handleAutoFill = (eq: any) => {
     const sucursalCode = eq.tag.split('.')[0];
     const sucursalName = ALMACEN_LABELS[sucursalCode] || sucursalCode;
@@ -2402,8 +2394,6 @@ export default function EditorInforme() {
           setSucursal={setSearchSucursal}
           descripcion={searchDescription}
           setDescripcion={setSearchDescription}
-          clients={ALMACEN_LABELS}
-          results={filteredEquipos}
        />
        {showAssetConfig && <CreateAssetModal onClose={() => setShowAssetConfig(false)} />}
        <FullscreenSignatureModal

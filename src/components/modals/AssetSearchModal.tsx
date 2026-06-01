@@ -82,13 +82,21 @@ export function AssetSearchModal({
         return false;
       }
       // Enforce tenant isolation
-      if (activeClientUuid && eq.cliente_id !== activeClientUuid) {
-        return false;
+      if (activeClientUuid) {
+        if (eq.cliente_id !== activeClientUuid) {
+          // Fallback check against storeClients to see if there's an id/uuid_sync drift
+          const activeClientObj = (storeClients || []).find(c => c.uuid_sync === activeClientUuid || c.id === activeClientUuid);
+          if (!activeClientObj || (eq.cliente_id !== activeClientObj.uuid_sync && eq.cliente_id !== activeClientObj.id)) {
+            return false;
+          }
+        }
       }
       
       // Apply filters if they exist
-      if (actualTag && !eq.tag.toLowerCase().includes(actualTag.toLowerCase())) {
-        return false;
+      if (actualTag) {
+        if (!eq.tag || !eq.tag.toLowerCase().includes(actualTag.toLowerCase())) {
+          return false;
+        }
       }
       if (actualCliente) {
         const clientObj = (storeClients || []).find(c => c.nombre === actualCliente || c.uuid_sync === actualCliente || c.id === actualCliente);
@@ -97,13 +105,24 @@ export function AssetSearchModal({
         }
       }
       if (actualSucursal) {
-        const branchObj = (storeBranches || []).find(b => b.nombre === actualSucursal || b.uuid_sync === actualSucursal);
-        if (branchObj && eq.sucursal_id !== branchObj.uuid_sync) {
+        let branchObjs = (storeBranches || []).filter(b => b.nombre === actualSucursal || b.uuid_sync === actualSucursal);
+        if (actualCliente) {
+          const clientObj = (storeClients || []).find(c => c.nombre === actualCliente || c.uuid_sync === actualCliente || c.id === actualCliente);
+          if (clientObj) {
+            branchObjs = branchObjs.filter(b => b.cliente_id === clientObj.uuid_sync || b.cliente_id === clientObj.id);
+          }
+        }
+        if (branchObjs.length > 0) {
+          const matchesAny = branchObjs.some(b => eq.sucursal_id === b.uuid_sync || eq.sucursal_id === b.id);
+          if (!matchesAny) return false;
+        } else {
           return false;
         }
       }
-      if (actualDescripcion && !eq.nombre.toLowerCase().includes(actualDescripcion.toLowerCase())) {
-        return false;
+      if (actualDescripcion) {
+        if (!eq.nombre || !eq.nombre.toLowerCase().includes(actualDescripcion.toLowerCase())) {
+          return false;
+        }
       }
       return true;
     });
@@ -179,7 +198,7 @@ export function AssetSearchModal({
                           <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                           <input 
                             type="text"
-                            value={actualTag}
+                            value={actualTag || ""}
                             onChange={(e) => actualSetTag(e.target.value)}
                             placeholder="Buscar TAG..."
                             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
@@ -247,7 +266,7 @@ export function AssetSearchModal({
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                           <input 
                             type="text"
-                            value={actualDescripcion}
+                            value={actualDescripcion || ""}
                             onChange={(e) => actualSetDescripcion(e.target.value)}
                             placeholder="Chiller, Split..."
                             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"

@@ -146,14 +146,6 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = localAssets.filter(eq => {
-    const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
-    const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
-    const branchObj = storeBranches ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
-    const matchSucursal = searchSucursal ? eq.sucursal_id === searchSucursal || (branchObj && branchObj.nombre === searchSucursal) : true;
-    return matchTag && matchDesc && matchSucursal;
-  });
-
   const handleSelectAsset = (eq: any) => {
     setTag(eq.tag);
     setEquipoDesc(eq.nombre);
@@ -554,11 +546,9 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
         cliente={searchClient}
         setCliente={setSearchClient}
         sucursal={searchSucursal}
-        setSucursal={setSucursal}
+        setSucursal={setSearchSucursal}
         descripcion={searchDescription}
         setDescripcion={setSearchDescription}
-        clients={ALMACEN_LABELS}
-        results={filteredEquipos}
       />
     </>
   );
