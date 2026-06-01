@@ -2386,6 +2386,313 @@ function resolveTable(name: string): string | null {
     }
   });
 
+  app.post("/api/admin/clone-production-db", express.json(), async (req, res) => {
+    try {
+      const sourceUrl = req.body.prodUrl || process.env.PROD_DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
+      const mode = req.body.mode || 'merge'; // 'merge' or 'overwrite'
+      
+      if (!sourceUrl) {
+         return res.status(400).json({ 
+           success: false, 
+           error: "Debe proporcionar el Connection String (DATABASE_URL) de la base de datos de producción como 'prodUrl' en el cuerpo de la solicitud o configurar la variable de entorno PROD_DATABASE_URL." 
+         });
+      }
+
+      if (!sourceUrl.startsWith('postgres')) {
+         return res.status(400).json({ 
+           success: false, 
+           error: "El Connection String de la base de datos de producción debe comenzar con 'postgres://' o 'postgresql://'." 
+         });
+      }
+
+      const targetSql = getSql();
+      const sourceSql = neon(sourceUrl);
+
+      // Verify source database by listing tables or doing simple select
+      let schemaTables;
+      try {
+        schemaTables = await sourceSql`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public'
+        `;
+      } catch (err: any) {
+         return res.status(450).json({ 
+           success: false, 
+           error: `Error de conexión a la base de datos de producción: ${err.message}` 
+         });
+      }
+
+      const sourceTableNames = schemaTables.map((r: any) => r.table_name);
+      
+      // Migrate target database first to verify it matches
+      await ensureTables();
+      
+      // Order of syncing to respect foreign key constraints
+      const orderedSyncTables = [
+        'clientes',
+        'clients',
+        'sucursales',
+        'branches',
+        'users',
+        'assets',
+        'preventive_maintenance',
+        'work_orders',
+        'reports',
+        'events',
+        'catalog_asset_types',
+        'settings',
+        'ordenes_servicio',
+        'inventory',
+        'audit_logs'
+      ];
+
+      // If mode is 'overwrite', truncate target tables first (safely cascading)
+      if (mode === 'overwrite') {
+        console.log("Emptying target tables for clean overwrite...");
+        for (const t of [...orderedSyncTables].reverse()) {
+          try {
+            await (targetSql as any)(`TRUNCATE TABLE "${t}" CASCADE`);
+          } catch(e) {}
+        }
+      }
+
+      const syncStats: Record<string, { fetched: number, upserted: number, error?: string }> = {};
+
+      for (const table of orderedSyncTables) {
+        // Find if this table or its aliases exist in the source db
+        if (!sourceTableNames.includes(table)) {
+          continue;
+        }
+
+        try {
+          // Fetch production data from source db
+          const queryStr = `SELECT * FROM "${table}" LIMIT 5000`;
+          const sourceRows = await (sourceSql as any)(queryStr);
+          syncStats[table] = { fetched: sourceRows.length, upserted: 0 };
+          
+          if (sourceRows.length === 0) {
+            continue;
+          }
+
+          let upsertedCount = 0;
+          for (const row of sourceRows) {
+            try {
+              if (table === 'clientes') {
+                await targetSql`
+                  INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.id}, ${row.uuid_sync}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (id) DO UPDATE SET
+                    uuid_sync = EXCLUDED.uuid_sync,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'clients') {
+                await targetSql`
+                  INSERT INTO clients (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'sucursales') {
+                await targetSql`
+                  INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.id}, ${row.cliente_id}, ${row.uuid_sync}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (id) DO UPDATE SET
+                    cliente_id = EXCLUDED.cliente_id,
+                    uuid_sync = EXCLUDED.uuid_sync,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'branches') {
+                await targetSql`
+                  INSERT INTO branches (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'users') {
+                await targetSql`
+                  INSERT INTO users (uuid_sync, id, nombre, correo, perfil, pin, activo, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.nombre}, ${row.correo}, ${row.perfil}, ${row.pin}, ${row.activo}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    nombre = EXCLUDED.nombre,
+                    correo = EXCLUDED.correo,
+                    perfil = EXCLUDED.perfil,
+                    pin = EXCLUDED.pin,
+                    activo = EXCLUDED.activo,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'assets') {
+                await targetSql`
+                  INSERT INTO assets (
+                    uuid_sync, tag, nombre, tipo, marca, modelo, serie, 
+                    ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, 
+                    vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, 
+                    horas_operacion, tecnicos, notas, cliente_id, sucursal_id, 
+                    latitud, longitud, updated_at, created_at, deleted_at
+                  )
+                  VALUES (
+                    ${row.uuid_sync}, ${row.tag}, ${row.nombre}, ${row.tipo}, ${row.marca}, ${row.modelo}, ${row.serie},
+                    ${row.ubicacion}, ${row.area}, ${row.capacidad}, ${row.voltaje}, ${row.corriente}, ${row.refrigerante}, ${row.fecha_instalacion},
+                    ${row.vida_util}, ${row.estado}, ${row.ultimo_mantenimiento}, ${row.proximo_mantenimiento},
+                    ${row.horas_operacion}, ${row.tecnicos}, ${row.notas}, ${row.cliente_id}, ${row.sucursal_id},
+                    ${row.latitud}, ${row.longitud}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at}
+                  )
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    tag = EXCLUDED.tag,
+                    nombre = EXCLUDED.nombre,
+                    tipo = EXCLUDED.tipo,
+                    marca = EXCLUDED.marca,
+                    modelo = EXCLUDED.modelo,
+                    serie = EXCLUDED.serie,
+                    ubicacion = EXCLUDED.ubicacion,
+                    area = EXCLUDED.area,
+                    capacidad = EXCLUDED.capacidad,
+                    voltaje = EXCLUDED.voltaje,
+                    corriente = EXCLUDED.corriente,
+                    refrigerante = EXCLUDED.refrigerante,
+                    fecha_instalacion = EXCLUDED.fecha_instalacion,
+                    vida_util = EXCLUDED.vida_util,
+                    estado = EXCLUDED.estado,
+                    ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento,
+                    proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
+                    horas_operacion = EXCLUDED.horas_operacion,
+                    tecnicos = EXCLUDED.tecnicos,
+                    notas = EXCLUDED.notas,
+                    cliente_id = EXCLUDED.cliente_id,
+                    sucursal_id = EXCLUDED.sucursal_id,
+                    latitud = EXCLUDED.latitud,
+                    longitud = EXCLUDED.longitud,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'preventive_maintenance') {
+                await targetSql`
+                  INSERT INTO preventive_maintenance (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'work_orders') {
+                await targetSql`
+                  INSERT INTO work_orders (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'reports') {
+                await targetSql`
+                  INSERT INTO reports (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'events') {
+                await targetSql`
+                  INSERT INTO events (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'catalog_asset_types') {
+                await targetSql`
+                  INSERT INTO catalog_asset_types (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'settings') {
+                await targetSql`
+                  INSERT INTO settings (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'ordenes_servicio') {
+                await targetSql`
+                  INSERT INTO ordenes_servicio (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'inventory') {
+                await targetSql`
+                  INSERT INTO inventory (uuid_sync, id, data, updated_at, created_at, deleted_at)
+                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
+                  ON CONFLICT (uuid_sync) DO UPDATE SET
+                    id = EXCLUDED.id,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    deleted_at = EXCLUDED.deleted_at;
+                `;
+              } else if (table === 'audit_logs') {
+                await targetSql`
+                  INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp)
+                  VALUES (${row.id}, ${row.action}, ${row.entity_type}, ${row.entity_id}, ${row.user_id}, ${row.payload}, ${row.timestamp})
+                  ON CONFLICT (id) DO UPDATE SET
+                    action = EXCLUDED.action,
+                    entity_type = EXCLUDED.entity_type,
+                    entity_id = EXCLUDED.entity_id,
+                    user_id = EXCLUDED.user_id,
+                    payload = EXCLUDED.payload,
+                    timestamp = EXCLUDED.timestamp;
+                `;
+              }
+              upsertedCount++;
+            } catch (err: any) {
+              console.error(`Error inserting row in table ${table}:`, err.message);
+            }
+          }
+          syncStats[table].upserted = upsertedCount;
+        } catch (tableErr: any) {
+          syncStats[table] = { fetched: 0, upserted: 0, error: tableErr.message };
+        }
+      }
+
+      res.json({
+        success: true,
+        message: "Clonación y sincronización de base de datos de producción completada.",
+        mode,
+        stats: syncStats
+      });
+    } catch (e: any) {
+       res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

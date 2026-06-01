@@ -59,7 +59,7 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
         id: `SUB-${Date.now()}`,
         nombre: sucursalNombre,
         codigo: sucursalCodigo,
-        cliente_id: 'default', // Para efectos de esta versión
+        cliente_id: localStorage.getItem("active_client") || 'default', // Asocia la sucursal al cliente activo
         direccion: sucursalDireccion,
         ciudad: '',
         region: sucursalRegion,

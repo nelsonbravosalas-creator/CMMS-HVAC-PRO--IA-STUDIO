@@ -85,8 +85,8 @@ export function AssetSearchModal({
         return false;
       }
       if (actualCliente) {
-        const clientObj = (storeClients || []).find(c => c.nombre === actualCliente || c.uuid_sync === actualCliente);
-        if (clientObj && eq.cliente_id !== clientObj.uuid_sync) {
+        const clientObj = (storeClients || []).find(c => c.nombre === actualCliente || c.uuid_sync === actualCliente || c.id === actualCliente);
+        if (clientObj && eq.cliente_id !== clientObj.uuid_sync && eq.cliente_id !== clientObj.id) {
           return false;
         }
       }
@@ -206,9 +206,10 @@ export function AssetSearchModal({
                            { value: "", label: "Todas las Sucursales" },
                            ...(storeBranches || [])
                              .filter((b: any) => {
-                               if (!actualCliente) return true;
-                               const clientObj = storeClients.find(c => c.nombre === actualCliente || c.uuid_sync === actualCliente);
-                               return clientObj ? clientObj.nombre === actualCliente || clientObj.uuid_sync === actualCliente : false;
+                               const targetClient = actualCliente || activeClientUuid;
+                               if (!targetClient) return true;
+                               const clientObj = storeClients.find(c => c.nombre === targetClient || c.uuid_sync === targetClient || c.id === targetClient);
+                               return clientObj ? (b.cliente_id === clientObj.uuid_sync || b.cliente_id === clientObj.id) : false;
                              })
                              .map((b: any) => ({
                                value: b.nombre,

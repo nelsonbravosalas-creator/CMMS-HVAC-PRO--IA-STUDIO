@@ -117,6 +117,27 @@ export default function Equipos() {
   
   const assets = useAppStore(state => state.assets);
   const loading = useAppStore(state => state.isLoading);
+  const branches = useAppStore(state => state.branches);
+  const clients = useAppStore(state => state.clients);
+
+  const activeClientUid = localStorage.getItem("active_client");
+
+  const currentClient = useMemo(() => {
+    if (!activeClientUid) return null;
+    return clients.find(c => c.uuid_sync === activeClientUid || c.id === activeClientUid);
+  }, [clients, activeClientUid]);
+
+  const clientBranches = useMemo(() => {
+    if (activeClientUid) {
+      return branches.filter(b => 
+        (b.cliente_id === activeClientUid || 
+         (currentClient && (b.cliente_id === currentClient.uuid_sync || b.cliente_id === currentClient.id))) && 
+        b.activo !== false && 
+        !b.deleted_at
+      );
+    }
+    return branches.filter(b => b.activo !== false && !b.deleted_at);
+  }, [branches, activeClientUid, currentClient]);
 
   const [filters, setFilters] = useState<FilterState>(() => {
     const saved = localStorage.getItem("equipos_filters");
@@ -219,8 +240,8 @@ export default function Equipos() {
                 onChange={(e) => setFilters({...filters, almacen: e.target.value})}
               >
                  <option value="">Todas las Sucursales</option>
-                 {Object.entries(ALMACEN_LABELS).map(([k, v]) => (
-                   <option key={k} value={k}>{v} ({k})</option>
+                 {clientBranches.map((b) => (
+                   <option key={b.id || b.uuid_sync} value={b.codigo || b.id}>{b.nombre} ({b.codigo || b.id})</option>
                  ))}
               </select>
               <select 

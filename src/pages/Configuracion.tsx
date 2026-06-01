@@ -31,6 +31,57 @@ export default function Configuracion() {
   const { isSyncing, pendingCount, lastSync, isOnline } = useSyncStore();
   const [syncStatus, setSyncStatus] = useState<string>("");
 
+  const [prodUrl, setProdUrl] = useState(() => localStorage.getItem("prod_db_url") || "");
+  const [cloneMode, setCloneMode] = useState<'merge' | 'overwrite'>('merge');
+  const [isCloning, setIsCloning] = useState(false);
+  const [cloneMessage, setCloneMessage] = useState("");
+
+  const handleCloneProductionDb = async () => {
+    if (!prodUrl) {
+      alert("Por favor ingrese el Connection String de la base de datos de producción.");
+      return;
+    }
+    
+    if (cloneMode === 'overwrite') {
+      if (!confirm("⚠️ ADVERTENCIA: Has seleccionado el modo REEMPLAZO TOTAL. Esto vaciará todas las tablas locales de desarrollo antes de insertar los datos de producción. ¿Está completamente seguro?")) {
+        return;
+      }
+    } else {
+      if (!confirm("Esto sincronizará (fusionará) los registros de producción en la base de datos de desarrollo. ¿Desea continuar?")) {
+        return;
+      }
+    }
+
+    setIsCloning(true);
+    setCloneMessage("Conectando y sincronizando tablas...");
+    
+    try {
+      const response = await fetch("/api/admin/clone-production-db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prodUrl, mode: cloneMode })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Error al sincronizar base de datos.");
+      }
+
+      localStorage.setItem("prod_db_url", prodUrl);
+      setCloneMessage("¡Sincronización de Producción Exitosa!");
+      alert("✅ Datos de producción sincronizados con éxito en el entorno de desarrollo.");
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      setCloneMessage(`Error: ${err.message}`);
+      alert(`❌ Error al importar desde producción: ${err.message}`);
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
   const handleManualSync = async () => {
     if (!isOnline) {
       alert("Error: Dispositivo fuera de línea. Active su conexión a Internet.");
@@ -256,6 +307,66 @@ export default function Configuracion() {
                   {syncStatus && (
                      <p className="text-[9px] font-black text-center text-emerald-400 uppercase tracking-widest animate-pulse mt-1">
                         {syncStatus}
+                     </p>
+                  )}
+               </div>
+            </SectionBox>
+
+            <SectionBox title="Clonar Prod a Desarrollo" icon={<Database className="w-4 h-4" />} variant="dark">
+               <div className="space-y-4 text-left">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-white/60 tracking-widest block mb-2">
+                       DATABASE_URL Producción
+                    </label>
+                    <input 
+                      type="password"
+                      placeholder="postgres://user:pass@ep.neon.tech/neondb"
+                      value={prodUrl}
+                      onChange={(e) => setProdUrl(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs font-semibold text-emerald-400 placeholder:text-white/20 outline-none focus:border-emerald-500 transition-all font-mono"
+                    />
+                  </div>
+
+                  <div>
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest block mb-1.5">Método de Sincronización</span>
+                     <div className="grid grid-cols-2 gap-2">
+                        <button 
+                           type="button"
+                           onClick={() => setCloneMode('merge')}
+                           className={`py-2 px-3 rounded-xl text-[10px] font-black uppercase transition-all border ${
+                              cloneMode === 'merge' 
+                              ? "bg-blue-600 text-white border-blue-600 animate-in fade-in" 
+                              : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10"
+                           }`}
+                        >
+                           Fusionar (Upsert)
+                        </button>
+                        <button 
+                           type="button"
+                           onClick={() => setCloneMode('overwrite')}
+                           className={`py-2 px-3 rounded-xl text-[10px] font-black uppercase transition-all border ${
+                              cloneMode === 'overwrite' 
+                              ? "bg-red-650 text-white border-red-650 animate-in fade-in" 
+                              : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10"
+                           }`}
+                        >
+                           Reemplazar Todo
+                        </button>
+                     </div>
+                  </div>
+
+                  <button 
+                     onClick={handleCloneProductionDb}
+                     disabled={isCloning || !prodUrl}
+                     className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.3)] disabled:opacity-50 cursor-pointer"
+                  >
+                     <RefreshCw className={`w-4 h-4 ${isCloning ? 'animate-spin' : ''}`} />
+                     {isCloning ? 'Sincronizando...' : 'Clonar Base de Datos'}
+                  </button>
+
+                  {cloneMessage && (
+                     <p className={`text-[9px] font-extrabold text-center uppercase tracking-widest ${cloneMessage.startsWith('Error') ? 'text-red-450' : 'text-indigo-400'} animate-pulse mt-1`}>
+                        {cloneMessage}
                      </p>
                   )}
                </div>

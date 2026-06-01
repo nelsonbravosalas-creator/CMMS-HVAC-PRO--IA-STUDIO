@@ -47,8 +47,34 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [showTagPreview, setShowTagPreview] = useState(false);
   const tagRef = useRef<HTMLDivElement>(null);
 
-  const localSucursales = useLiveQuery(() => db.branches.toArray()) || [];
+  const activeClient = localStorage.getItem("active_client");
+  const clients = useLiveQuery(() => db.clients.toArray()) || [];
+  const rawBranches = useLiveQuery(() => db.branches.toArray()) || [];
+
+  const currentClient = React.useMemo(() => {
+    if (!activeClient) return null;
+    return clients.find(c => c.uuid_sync === activeClient || c.id === activeClient);
+  }, [clients, activeClient]);
+
+  const localSucursales = React.useMemo(() => {
+    if (activeClient) {
+      return rawBranches.filter(b => 
+        (b.cliente_id === activeClient || 
+         (currentClient && (b.cliente_id === currentClient.uuid_sync || b.cliente_id === currentClient.id))) && 
+        b.activo !== false && 
+        !b.deleted_at
+      );
+    }
+    return rawBranches.filter(b => b.activo !== false && !b.deleted_at);
+  }, [rawBranches, activeClient, currentClient]);
+
   const localCatalogAssetTypes = useLiveQuery(() => db.catalog_asset_types.toArray()) || [];
+
+  useEffect(() => {
+    if (localSucursales.length > 0 && (!tagData.almacen || !localSucursales.some(s => (s.codigo || s.id) === tagData.almacen))) {
+      setTagData(prev => ({ ...prev, almacen: localSucursales[0].codigo || localSucursales[0].id }));
+    }
+  }, [localSucursales, tagData.almacen]);
 
   useEffect(() => {
     const matches = EQUIPOS_DATA.filter(eq => {
