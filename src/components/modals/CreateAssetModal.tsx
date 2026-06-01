@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import LoadingIndicator from '../LoadingIndicator';
 import { SearchableSelect } from '../SearchableSelect';
 import * as htmlToImage from 'html-to-image';
@@ -22,7 +22,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [tagData, setTagData] = useState({
     almacen: '21-STK',
     tipo: 'AC',
-    correlativo: '001',
+    correlativo: '',
     nombreEquipo: 'Compresor de Aire Industrial',
     marca: '',
     modelo: '',
@@ -33,6 +33,24 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
    * Al estar en Vercel, window.location.origin detectará automáticamente el dominio de producción. 
    */
   const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "https://cmms-hvac-pro-ia-studio.vercel.app/scanner");
+
+  const correlativoMostrado = useMemo(() => {
+    if (tagData.correlativo) {
+      return tagData.correlativo;
+    }
+    // Buscar el máximo correlativo actual para esta sucursal y tipo
+    const matches = EQUIPOS_DATA.filter(eq => {
+      const parts = eq.tag.split('.');
+      return parts[0] === tagData.almacen && parts[1] === tagData.tipo;
+    });
+
+    if (matches.length > 0) {
+      const correlatives = matches.map(m => parseInt(m.tag.split('.')[2] || '0', 10));
+      const max = Math.max(...correlatives);
+      return (max + 1).toString().padStart(3, '0');
+    }
+    return '001';
+  }, [tagData.almacen, tagData.tipo, tagData.correlativo]);
   
   const [voltaje, setVoltaje] = useState<number>(220);
   const [corriente, setCorriente] = useState<number>(10);
@@ -76,23 +94,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     }
   }, [localSucursales, tagData.almacen]);
 
-  useEffect(() => {
-    const matches = EQUIPOS_DATA.filter(eq => {
-      const parts = eq.tag.split('.');
-      return parts[0] === tagData.almacen && parts[1] === tagData.tipo;
-    });
-
-    if (matches.length > 0) {
-      const correlatives = matches.map(m => parseInt(m.tag.split('.')[2] || '0', 10));
-      const max = Math.max(...correlatives);
-      const next = (max + 1).toString().padStart(3, '0');
-      setTagData(prev => ({ ...prev, correlativo: next }));
-    } else {
-      setTagData(prev => ({ ...prev, correlativo: '001' }));
-    }
-  }, [tagData.almacen, tagData.tipo]);
-
-  const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
+  const fullTag = `${tagData.almacen}.${tagData.tipo}.${correlativoMostrado.padStart(3, '0')}`;
   const qrUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}tag=${encodeURIComponent(fullTag)}`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 
@@ -337,7 +339,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                           <p className="text-[7px] font-black text-slate-400 mb-0.5 uppercase tracking-widest">Tag Identificador</p>
                           <div className="text-[18px] lg:text-[22px] font-mono font-black text-black leading-[0.9] tracking-tighter italic">
                               {tagData.almacen} -<br/>
-                              {tagData.tipo}.{tagData.correlativo.padStart(3, '0')}
+                              {tagData.tipo}.{correlativoMostrado.padStart(3, '0')}
                           </div>
                       </div>
 
@@ -454,7 +456,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                       type="text" 
                       maxLength={3}
                       className="w-full px-4 py-3 bg-blue-50/50 border border-blue-100 rounded-2xl text-sm font-black text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                      value={tagData.correlativo}
+                      value={correlativoMostrado}
                       onChange={(e) => setTagData({...tagData, correlativo: e.target.value.replace(/\D/g, '').slice(0, 3)})}
                    />
                 </div>
