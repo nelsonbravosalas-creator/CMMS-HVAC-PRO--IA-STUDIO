@@ -40,6 +40,43 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
   const [gpsError, setGpsError] = useState("");
   const [showAssetSearch, setShowAssetSearch] = useState(false);
 
+  const PM_DRAFT_KEY = "cmms_pm_draft";
+
+  React.useEffect(() => {
+    const draft = localStorage.getItem(PM_DRAFT_KEY);
+    if (draft && !initialTag) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.frecuencia) setFrecuencia(parsed.frecuencia);
+        if (parsed.fechaActual) setFechaActual(parsed.fechaActual);
+        if (parsed.proximaMantencion) setProximaMantencion(parsed.proximaMantencion);
+        if (parsed.tipoServicio) setTipoServicio(parsed.tipoServicio);
+        if (parsed.estadoFinal) setEstadoFinal(parsed.estadoFinal);
+        if (parsed.descripcion) setDescripcion(parsed.descripcion);
+        if (parsed.equipoTag) setEquipoTag(parsed.equipoTag);
+        if (parsed.tecnico) setTecnico(parsed.tecnico);
+        if (parsed.duracion) setDuracion(parsed.duracion);
+        if (parsed.costoMateriales) setCostoMateriales(parsed.costoMateriales);
+        if (parsed.hallazgos) setHallazgos(parsed.hallazgos);
+        if (parsed.recomendaciones) setRecomendaciones(parsed.recomendaciones);
+        if (parsed.repuestos) setRepuestos(parsed.repuestos);
+        if (parsed.ubicacionGeografica) setUbicacionGeografica(parsed.ubicacionGeografica);
+      } catch (e) {
+        console.error("Failed to parse PM draft", e);
+      }
+    }
+  }, [initialTag]);
+
+  React.useEffect(() => {
+    if (hasChanges) {
+      const draft = {
+        frecuencia, fechaActual, proximaMantencion, tipoServicio, estadoFinal, descripcion, 
+        equipoTag, tecnico, duracion, costoMateriales, hallazgos, recomendaciones, repuestos, ubicacionGeografica
+      };
+      localStorage.setItem(PM_DRAFT_KEY, JSON.stringify(draft));
+    }
+  }, [frecuencia, fechaActual, proximaMantencion, tipoServicio, estadoFinal, descripcion, equipoTag, tecnico, duracion, costoMateriales, hallazgos, recomendaciones, repuestos, ubicacionGeografica, hasChanges]);
+
   const captureGPS = () => {
     setGpsLoading(true);
     setGpsError("");
@@ -159,6 +196,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
            }
         }
         
+        localStorage.removeItem(PM_DRAFT_KEY);
         onClose();
      } catch (error) {
         console.error("Error guardando mantenimiento", error);

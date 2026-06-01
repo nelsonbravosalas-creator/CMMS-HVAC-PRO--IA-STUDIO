@@ -32,6 +32,42 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [prioridad, setPrioridad] = useState("Media");
   const [tipoIncidencia, setTipoIncidencia] = useState("Falla Técnica");
   const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
+  const [imagenes, setImagenes] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<{id: string, url: string}[]>([]);
+  const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
+
+  const TICKET_DRAFT_KEY = "cmms_ticket_draft";
+
+  React.useEffect(() => {
+    const draft = localStorage.getItem(TICKET_DRAFT_KEY);
+    if (draft && !initialTag) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.tag) setTag(parsed.tag);
+        if (parsed.equipoDesc) setEquipoDesc(parsed.equipoDesc);
+        if (parsed.cliente) setCliente(parsed.cliente);
+        if (parsed.sucursal) setSucursal(parsed.sucursal);
+        if (parsed.titulo) setTitulo(parsed.titulo);
+        if (parsed.descripcion) setDescripcion(parsed.descripcion);
+        if (parsed.prioridad) setPrioridad(parsed.prioridad);
+        if (parsed.tipoIncidencia) setTipoIncidencia(parsed.tipoIncidencia);
+        if (parsed.asignadoA) setAsignadoA(parsed.asignadoA);
+        if (parsed.imagenes) setImagenes(parsed.imagenes);
+        if (parsed.imagePreviews) setImagePreviews(parsed.imagePreviews);
+        if (parsed.ubicacionGeografica) setUbicacionGeografica(parsed.ubicacionGeografica);
+      } catch (e) {
+        console.error("Failed to parse ticket draft", e);
+      }
+    }
+  }, [initialTag]);
+
+  React.useEffect(() => {
+    const draft = {
+      tag, equipoDesc, cliente, sucursal, titulo, descripcion, prioridad, tipoIncidencia, asignadoA, imagenes, imagePreviews, ubicacionGeografica
+    };
+    localStorage.setItem(TICKET_DRAFT_KEY, JSON.stringify(draft));
+  }, [tag, equipoDesc, cliente, sucursal, titulo, descripcion, prioridad, tipoIncidencia, asignadoA, imagenes, imagePreviews, ubicacionGeografica]);
+
   
   const storeClients = useAppStore(state => state.clients);
   const storeBranches = useAppStore(state => state.branches);
@@ -57,7 +93,6 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     }
   }, [tag, localAssets, storeBranches]);
   
-  const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
 
@@ -117,8 +152,6 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   };
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [imagenes, setImagenes] = useState<string[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<{id: string, url: string}[]>([]);
 
   const handleImageCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -220,6 +253,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
         imagenes,
       });
       
+      localStorage.removeItem(TICKET_DRAFT_KEY);
       onClose();
     } catch (e) {
       console.error("Ticket save error:", e);

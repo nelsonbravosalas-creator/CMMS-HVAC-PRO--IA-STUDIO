@@ -41,6 +41,40 @@ export function CrearActividadModal({ isOpen, onClose, onSave }: CrearActividadM
   const [supervisorEmail, setSupervisorEmail] = useState("supervisor.zona@empresa.com");
   const [clientEmail, setClientEmail] = useState("contacto.cliente@empresa.com");
 
+  const ACTIVITY_DRAFT_KEY = "cmms_activity_draft";
+
+  React.useEffect(() => {
+    const draft = localStorage.getItem(ACTIVITY_DRAFT_KEY);
+    if (draft && isOpen) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.title) setTitle(parsed.title);
+        if (parsed.type) setType(parsed.type);
+        if (parsed.tech) setTech(parsed.tech);
+        if (parsed.assistant) setAssistant(parsed.assistant);
+        if (parsed.selectedResourceId) setSelectedResourceId(parsed.selectedResourceId);
+        if (parsed.startDate) setStartDate(parsed.startDate);
+        if (parsed.startTime) setStartTime(parsed.startTime);
+        if (parsed.duration) setDuration(parsed.duration);
+        if (parsed.details) setDetails(parsed.details);
+        if (parsed.techEmail) setTechEmail(parsed.techEmail);
+        if (parsed.supervisorEmail) setSupervisorEmail(parsed.supervisorEmail);
+        if (parsed.clientEmail) setClientEmail(parsed.clientEmail);
+      } catch (e) {
+        console.error("Failed to parse act. draft", e);
+      }
+    }
+  }, [isOpen]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const draft = {
+        title, type, tech, assistant, selectedResourceId, startDate, startTime, duration, details, techEmail, supervisorEmail, clientEmail
+      };
+      localStorage.setItem(ACTIVITY_DRAFT_KEY, JSON.stringify(draft));
+    }
+  }, [title, type, tech, assistant, selectedResourceId, startDate, startTime, duration, details, techEmail, supervisorEmail, clientEmail, isOpen]);
+
   // Fetch available resources from inventory Dexie table
   const availableResources = useLiveQuery(async () => {
     const list = await db.inventory.toArray();
@@ -129,6 +163,7 @@ Sincronizado vía AI Studio CMMS Framework.`;
       end: endDateTime
     };
 
+    localStorage.removeItem(ACTIVITY_DRAFT_KEY);
     onSave(newActivity);
   };
 

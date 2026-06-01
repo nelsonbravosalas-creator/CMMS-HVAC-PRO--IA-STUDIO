@@ -65,6 +65,29 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [showTagPreview, setShowTagPreview] = useState(false);
   const tagRef = useRef<HTMLDivElement>(null);
 
+  const ASSET_DRAFT_KEY = "cmms_asset_draft";
+
+  useEffect(() => {
+    const draft = localStorage.getItem(ASSET_DRAFT_KEY);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.tagData) setTagData(parsed.tagData);
+        if (parsed.voltaje) setVoltaje(parsed.voltaje);
+        if (parsed.corriente) setCorriente(parsed.corriente);
+        if (parsed.ultimoMantenimiento) setUltimoMantenimiento(parsed.ultimoMantenimiento);
+        if (parsed.frecuenciaMantenimiento) setFrecuenciaMantenimiento(parsed.frecuenciaMantenimiento);
+      } catch (e) {
+        console.error("Failed to parse asset draft", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const draft = { tagData, voltaje, corriente, ultimoMantenimiento, frecuenciaMantenimiento };
+    localStorage.setItem(ASSET_DRAFT_KEY, JSON.stringify(draft));
+  }, [tagData, voltaje, corriente, ultimoMantenimiento, frecuenciaMantenimiento]);
+
   const activeClient = localStorage.getItem("active_client");
   const clients = useLiveQuery(() => db.clients.toArray()) || [];
   const rawBranches = useLiveQuery(() => db.branches.toArray()) || [];
@@ -252,6 +275,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         sucursal_id: branch.uuid_sync
       });
       
+      localStorage.removeItem(ASSET_DRAFT_KEY);
       onClose();
     } catch (error: any) {
       console.error("Error guardando activo:", error);
