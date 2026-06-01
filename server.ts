@@ -295,6 +295,7 @@ async function ensureTables() {
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS created_at BIGINT`;
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
           await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS data JSONB`;
+          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS cliente_id TEXT`;
         } else if (t === 'catalog_asset_types') {
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
           await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
@@ -1330,6 +1331,19 @@ function resolveTable(name: string): string | null {
       const latVal = d.latitud !== undefined ? parseFloat(d.latitud) : (d.lat !== undefined ? parseFloat(d.lat) : (d.ubicacionGeografica?.lat !== undefined ? parseFloat(d.ubicacionGeografica.lat) : null));
       const lngVal = d.longitud !== undefined ? parseFloat(d.longitud) : (d.lng !== undefined ? parseFloat(d.lng) : (d.ubicacionGeografica?.lng !== undefined ? parseFloat(d.ubicacionGeografica.lng) : null));
 
+      let final_cliente_id = req.clienteId || 'cliente-eecol-default-001';
+      let final_sucursal_id = branch_id || 'default-sucursal';
+
+      const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
+      if (!clientExists || clientExists.length === 0) {
+        final_cliente_id = 'cliente-eecol-default-001';
+      }
+
+      const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
+      if (!branchExists || branchExists.length === 0) {
+        final_sucursal_id = 'default-sucursal';
+      }
+
       await sql`
         INSERT INTO assets (
           tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
@@ -1342,7 +1356,7 @@ function resolveTable(name: string): string | null {
           ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
           ${d.vida_util || 10}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
           ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
-          ${uuid_sync}, ${updated_at}, ${updated_at}, ${req.clienteId}, ${branch_id}, ${latVal}, ${lngVal}
+          ${uuid_sync}, ${updated_at}, ${updated_at}, ${final_cliente_id}, ${final_sucursal_id}, ${latVal}, ${lngVal}
         )
       `;
       res.status(201).json({ success: true, uuid_sync });
@@ -1714,6 +1728,20 @@ function resolveTable(name: string): string | null {
         const d = payload;
         const latVal = d.latitud !== undefined ? parseFloat(d.latitud) : (d.lat !== undefined ? parseFloat(d.lat) : null);
         const lngVal = d.longitud !== undefined ? parseFloat(d.longitud) : (d.lng !== undefined ? parseFloat(d.lng) : null);
+
+        let final_cliente_id = clienteId || 'cliente-eecol-default-001';
+        let final_sucursal_id = d.sucursal_id || 'default-sucursal';
+
+        const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
+        if (!clientExists || clientExists.length === 0) {
+          final_cliente_id = 'cliente-eecol-default-001';
+        }
+
+        const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
+        if (!branchExists || branchExists.length === 0) {
+          final_sucursal_id = 'default-sucursal';
+        }
+
         await sql`
           INSERT INTO assets (
             tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
@@ -1726,7 +1754,7 @@ function resolveTable(name: string): string | null {
             ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
             ${d.vida_util || 10}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
             ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
-            ${uuid_sync}, ${updated_at}, ${created_at}, ${clienteId}, ${d.sucursal_id || 'default-sucursal'}, ${latVal}, ${lngVal}
+            ${uuid_sync}, ${updated_at}, ${created_at}, ${final_cliente_id}, ${final_sucursal_id}, ${latVal}, ${lngVal}
           ) ON CONFLICT (uuid_sync) DO UPDATE SET
             tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, updated_at = EXCLUDED.updated_at;
         `;
@@ -1774,6 +1802,20 @@ function resolveTable(name: string): string | null {
         const d = payload;
         const latVal = d.latitud !== undefined ? parseFloat(d.latitud) : (d.lat !== undefined ? parseFloat(d.lat) : null);
         const lngVal = d.longitud !== undefined ? parseFloat(d.longitud) : (d.lng !== undefined ? parseFloat(d.lng) : null);
+
+        let final_cliente_id = clienteId || 'cliente-eecol-default-001';
+        let final_sucursal_id = d.sucursal_id || 'default-sucursal';
+
+        const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
+        if (!clientExists || clientExists.length === 0) {
+          final_cliente_id = 'cliente-eecol-default-001';
+        }
+
+        const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
+        if (!branchExists || branchExists.length === 0) {
+          final_sucursal_id = 'default-sucursal';
+        }
+
         await sql`
           UPDATE assets SET
             tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
@@ -1782,7 +1824,8 @@ function resolveTable(name: string): string | null {
             fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util || 10}, estado = ${d.estado || 'operativo'},
             ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, proximo_mantenimiento = ${d.proximo_mantenimiento || null},
             horas_operacion = ${d.horas_operacion || 0}, notas = ${d.notas || d.notes || ''},
-            sucursal_id = ${d.sucursal_id || 'default-sucursal'}, latitud = ${latVal}, longitud = ${lngVal},
+            cliente_id = ${final_cliente_id},
+            sucursal_id = ${final_sucursal_id}, latitud = ${latVal}, longitud = ${lngVal},
             updated_at = ${updated_at}
           WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${clienteId};
         `;
@@ -1939,6 +1982,19 @@ function resolveTable(name: string): string | null {
           }
           if (table === 'assets') {
             const d = data;
+            let final_cliente_id = d.cliente_id || 'cliente-eecol-default-001';
+            let final_sucursal_id = d.sucursal_id || 'default-sucursal';
+
+            const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
+            if (!clientExists || clientExists.length === 0) {
+              final_cliente_id = 'cliente-eecol-default-001';
+            }
+
+            const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
+            if (!branchExists || branchExists.length === 0) {
+              final_sucursal_id = 'default-sucursal';
+            }
+
             await sql`
               INSERT INTO assets (
                 tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
@@ -1951,7 +2007,7 @@ function resolveTable(name: string): string | null {
                 ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
                 ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
                 ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
-                ${uuid_sync}, ${updated_at}, ${updated_at}, ${d.cliente_id || ''}, ${d.sucursal_id || ''}
+                ${uuid_sync}, ${updated_at}, ${updated_at}, ${final_cliente_id}, ${final_sucursal_id}
               ) ON CONFLICT (uuid_sync) DO UPDATE SET
                 tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
                 serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
@@ -1972,8 +2028,17 @@ function resolveTable(name: string): string | null {
               case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
               case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
               case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
-              case 'clients': await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`; break;
-              case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`; break;
+              case 'clients': {
+                await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`;
+                await sql`INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clientes.updated_at OR clientes.updated_at IS NULL`;
+                break;
+              }
+              case 'branches': {
+                const cliente_id = data.cliente_id || 'cliente-eecol-default-001';
+                await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${cliente_id}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`;
+                await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${cliente_id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL`;
+                break;
+              }
               case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
               case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
               case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
@@ -2016,6 +2081,19 @@ function resolveTable(name: string): string | null {
           }
           if (table === 'assets') {
              const d = data;
+             let final_cliente_id = d.cliente_id || 'cliente-eecol-default-001';
+             let final_sucursal_id = d.sucursal_id || 'default-sucursal';
+
+             const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
+             if (!clientExists || clientExists.length === 0) {
+               final_cliente_id = 'cliente-eecol-default-001';
+             }
+
+             const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
+             if (!branchExists || branchExists.length === 0) {
+               final_sucursal_id = 'default-sucursal';
+             }
+
              await sql`
               UPDATE assets SET
                 tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
@@ -2024,7 +2102,7 @@ function resolveTable(name: string): string | null {
                 fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util || 0}, estado = ${d.estado || 'operativo'},
                 ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, proximo_mantenimiento = ${d.proximo_mantenimiento || null},
                 horas_operacion = ${d.horas_operacion || 0}, notas = ${d.notas || ''},
-                cliente_id = ${d.cliente_id || ''}, sucursal_id = ${d.sucursal_id || ''},
+                cliente_id = ${final_cliente_id}, sucursal_id = ${final_sucursal_id},
                 updated_at = ${updated_at}
               WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL);
             `;
@@ -2037,8 +2115,17 @@ function resolveTable(name: string): string | null {
               case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'clients': await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'branches': await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'clients': {
+                await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
+                await sql`UPDATE clientes SET data = ${strData}::jsonb, updated_at = ${updated_at} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`;
+                break;
+              }
+              case 'branches': {
+                const cliente_id = data.cliente_id || 'cliente-eecol-default-001';
+                await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${cliente_id} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
+                await sql`UPDATE sucursales SET data = ${strData}::jsonb, updated_at = ${updated_at}, cliente_id = ${cliente_id} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`;
+                break;
+              }
               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
@@ -2073,8 +2160,16 @@ function resolveTable(name: string): string | null {
             case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-            case 'clients': await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-            case 'branches': await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'clients': {
+              await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`;
+              await sql`UPDATE clientes SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${del.uuid_sync} OR uuid_sync = ${del.uuid_sync}`;
+              break;
+            }
+            case 'branches': {
+              await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`;
+              await sql`UPDATE sucursales SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${del.uuid_sync} OR uuid_sync = ${del.uuid_sync}`;
+              break;
+            }
             case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'settings': await sql`UPDATE settings SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;

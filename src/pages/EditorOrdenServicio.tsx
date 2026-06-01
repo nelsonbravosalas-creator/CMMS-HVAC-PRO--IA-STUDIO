@@ -794,7 +794,14 @@ export default function EditorOrdenServicio() {
                   <SearchableSelect
                     options={[
                       { value: "", label: "Seleccione un cliente..." },
-                      ...clients.filter(c => !c.deleted_at).map(c => ({
+                      ...(() => {
+                        const activeClientId = localStorage.getItem("active_client");
+                        const filteredClients = clients.filter(c => !c.deleted_at);
+                        if (activeClientId) {
+                          return filteredClients.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
+                        }
+                        return filteredClients;
+                      })().map(c => ({
                         value: c.uuid_sync,
                         label: c.nombre
                       }))

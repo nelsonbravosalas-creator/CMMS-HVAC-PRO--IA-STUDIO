@@ -50,7 +50,7 @@ import LoadingIndicator from "../components/LoadingIndicator";
 import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
-import { db } from "../db/database";
+import { db, SyncStatus } from "../db/database";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -176,7 +176,14 @@ export default function EditorInforme() {
                    <SearchableSelect
                       options={[
                         { value: "", label: "Seleccione un cliente..." },
-                        ...clients.filter(c => !c.deleted_at).map(c => ({
+                        ...(() => {
+                          const activeClientId = localStorage.getItem("active_client");
+                          const filteredClients = clients.filter(c => !c.deleted_at);
+                          if (activeClientId) {
+                            return filteredClients.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
+                          }
+                          return filteredClients;
+                        })().map(c => ({
                           value: c.uuid_sync,
                           label: c.nombre
                         }))
@@ -681,11 +688,63 @@ export default function EditorInforme() {
   const [observaciones, setObservaciones] = useState("");
   const [galeria, setGaleria] = useState<{src: string, desc: string}[]>([]);
 
+  // Redirect to new draft if accessing "/informes/nuevo"
+  useEffect(() => {
+    if (id === 'nuevo') {
+      const newUuid = crypto.randomUUID();
+      const shortId = `INF-PENDIENTE-${newUuid.substring(0, 6).toUpperCase()}`;
+      
+      const newDraft = {
+        uuid_sync: newUuid,
+        id: shortId,
+        updated_at: Date.now(),
+        sync_status: 'pending_insert' as SyncStatus,
+        data: {
+          estado: 'borrador',
+          generalData: {
+            cliente: localStorage.getItem("active_client") || '',
+            sucursal: '',
+            region: '',
+            direccion: '',
+            fecha: new Date().toISOString().split('T')[0],
+            tecnico: 'Nelson Bravo',
+            tipoServicio: 'Preventivo',
+            folio: ''
+          },
+          machineData: {
+            tipo: '',
+            tag: '',
+            marca: '',
+            modelo: '',
+            serie: '',
+            refrigerante: '',
+            capacidad: '',
+            voltaje: ''
+          },
+          circuits: [
+            {
+              numCompressors: 1,
+              pb: '', pa: '', te: '', tc: '', tsub: '', tsob: '',
+              compressors: [{ rla: '', r: '', s: '', t: '' }]
+            }
+          ],
+          checklist: {},
+          observaciones: '',
+          galeria: []
+        }
+      };
+
+      db.reports.put(newDraft).then(() => {
+        setLocation(`/informes/${newUuid}`);
+      }).catch(console.error);
+    }
+  }, [id, setLocation]);
+
   // Load Draft from DB
   useEffect(() => {
     if (!id || id === 'nuevo') return;
     
-    db.reports.get({ uuid_sync: id }).then(dbReport => {
+    db.reports.get(id).then(dbReport => {
       if (dbReport && dbReport.data) {
         setGeneralData(prev => ({ ...prev, ...dbReport.data.generalData }));
         if (dbReport.data.machineData) setMachineData(dbReport.data.machineData);
@@ -703,7 +762,7 @@ export default function EditorInforme() {
     }).catch(console.error);
   }, [id]);
 
-  // Persist Changes to DB
+  // Persist Changes to DB (Autosave - LOCAL ONLY, do not enqueue sync queue here to prevent spamming the server/queue)
   useEffect(() => {
     if (!id || id === 'nuevo' || status === 'firmado' || status === 'bloqueado') return;
     
@@ -717,12 +776,64 @@ export default function EditorInforme() {
       galeria
     };
     
-    db.reports.where('uuid_sync').equals(id).modify(r => {
-      r.data = draftData;
-      r.updated_at = Date.now();
+    db.reports.get(id).then(existing => {
+      const record = {
+        uuid_sync: id,
+        id: generalData.folio || existing?.id || `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`,
+        updated_at: Date.now(),
+        sync_status: existing?.sync_status || 'pending_insert' as SyncStatus,
+        data: draftData
+      };
+      db.reports.put(record).catch(console.error);
     }).catch(console.error);
   }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, id]);
   
+  // Main Save / Publish / Sync Function
+  const saveReport = async (finalStatus: 'borrador' | 'firmado' | 'bloqueado' | 'offline_draft') => {
+    // Generate folio if not exists
+    const currentFolio = generalData.folio || (finalStatus === 'firmado' ? `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}` : `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`);
+
+    const existing = await db.reports.get(id);
+
+    const reportData = {
+      id: currentFolio,
+      uuid_sync: id,
+      updated_at: Date.now(),
+      sync_status: (existing ? 'pending_update' : 'pending_insert') as SyncStatus,
+      data: {
+        estado: finalStatus,
+        status: finalStatus,
+        generalData: { ...generalData, folio: currentFolio, ubicacionGeografica },
+        machineData,
+        circuits,
+        checklist,
+        observaciones,
+        galeria,
+        firmas: finalStatus === 'firmado' ? {
+          tecnico: canvasTecRef.current?.toDataURL() || '',
+          cliente: canvasCliRef.current?.toDataURL() || ''
+        } : existing?.data?.firmas,
+        fechaSincronizacionLocal: new Date().toISOString()
+      }
+    };
+
+    // 1. Guardar local y encolar sync_queue usando reportsRepo
+    await reportsRepo.save(reportData as any);
+    
+    setGeneralData(prev => ({ ...prev, folio: currentFolio }));
+    setStatus(finalStatus);
+
+    // 2. Trigger sync background task if online
+    try {
+      const { syncEngine } = await import('../sync/syncEngine');
+      await syncEngine.triggerSync();
+    } catch(e) {
+      console.warn("Sync engine trigger failed:", e);
+    }
+
+    return currentFolio;
+  };
+
   // Handle Finalize & Sync (Auto-numbering assignment)
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
@@ -741,55 +852,34 @@ export default function EditorInforme() {
       return;
     }
 
-    // Si ya existe un folio (edicion), lo usamos, si no, uno nuevo
-    const currentFolio = generalData.folio || `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const currentFolio = await saveReport('firmado');
+      setIsSyncing(false);
 
-    const reportData = {
-      id: currentFolio,
-      uuid_sync: id || currentFolio, // UUID para db
-      estado: 'firmado',
-      data: {
-        generalData: { ...generalData, folio: currentFolio, ubicacionGeografica },
-        machineData,
-        circuits,
-        checklist,
-        observaciones,
-        galeria,
-        firmas: {
-          tecnico: canvasTecRef.current?.toDataURL() || '',
-          cliente: canvasCliRef.current?.toDataURL() || ''
-        },
-        status: 'firmado',
-        fechaSincronizacionLocal: new Date().toISOString()
+      // Export PDF via Email Automáticamente
+      try {
+        const doc = await generateClimasolPDF(currentFolio);
+        const pdfBase64 = doc.output('datauristring');
+        
+        const { DocumentExportService } = await import('../lib/DocumentExportService');
+        
+        const exportResult = await DocumentExportService.exportDocument({
+          documentId: currentFolio,
+          documentType: 'efficiency_report',
+          method: 'email',
+          clientName: generalData.cliente,
+          assetTag: machineData.tag,
+          pdfBase64
+        });
+        alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\n${exportResult.message}`);
+      } catch (exportError: any) {
+        console.warn("Exportación fallida", exportError);
+        alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\nNota: No se pudo enviar el correo: ${exportError.message}`);
       }
-    };
-
-    // 1. Guardado Local y Encolado en Dexie
-    await reportsRepo.save(reportData as any);
-    
-    setGeneralData(prev => ({ ...prev, folio: currentFolio }));
-    setStatus('firmado');
-    setIsSyncing(false);
-    
-     // Export PDF via Email Automáticamente
-     try {
-       const doc = await generateClimasolPDF();
-       const pdfBase64 = doc.output('datauristring');
-      
-      const { DocumentExportService } = await import('../lib/DocumentExportService');
-      
-      const exportResult = await DocumentExportService.exportDocument({
-        documentId: currentFolio,
-        documentType: 'efficiency_report',
-        method: 'email',
-        clientName: generalData.cliente,
-        assetTag: machineData.tag,
-        pdfBase64
-      });
-      alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\n${exportResult.message}`);
-    } catch (exportError: any) {
-      console.warn("Exportación fallida", exportError);
-      alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\nNota: No se pudo enviar el correo: ${exportError.message}`);
+    } catch (saveError: any) {
+      console.error(saveError);
+      alert(`Error al finalizar e iniciar sincronización: ${saveError.message}`);
+      setIsSyncing(false);
     }
   };
 
@@ -840,7 +930,7 @@ export default function EditorInforme() {
   const canvasCliRef = useRef<HTMLCanvasElement>(null);
 
   // Generador de Informe Premium con Estructura Climasol
-  const generateClimasolPDF = async () => {
+  const generateClimasolPDF = async (forcedFolio?: string) => {
     const doc = new jsPDF('p', 'mm', 'a4');
     
     // Resolve dynamic labels
@@ -848,7 +938,7 @@ export default function EditorInforme() {
     const selectedSuc = branches.find(b => b.uuid_sync === generalData.sucursal || b.id === generalData.sucursal);
     const branchName = selectedSuc?.nombre || generalData.sucursal || "Vitacura Base";
     const branchAddress = selectedSuc?.direccion || "Av. Vitacura 2670, Santiago, Chile";
-    const reportFolio = generalData.folio || `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const reportFolio = forcedFolio || generalData.folio || `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const docDate = generalData.fecha || new Date().toLocaleDateString('es-CL');
     
     // Helper to draw status circle
@@ -2162,7 +2252,18 @@ export default function EditorInforme() {
          <div className="flex flex-wrap items-stretch md:items-center gap-2 w-full xl:w-auto mt-2 xl:mt-0">
             {!isReadOnly && (
               <>
-                 <button onClick={() => setLocation("/informes")} className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-200 transition-colors">
+                 <button 
+                    onClick={async () => {
+                      try {
+                        await saveReport('borrador');
+                        alert("Borrador guardado exitosamente en base de datos local y encolado para sincronización.");
+                        setLocation("/informes");
+                      } catch (err: any) {
+                        alert("Error al guardar borrador: " + err.message);
+                      }
+                    }} 
+                    className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-200 transition-colors"
+                 >
                     <Save className="w-4 h-4 shrink-0" /> Guardar
                  </button>
                  <button 

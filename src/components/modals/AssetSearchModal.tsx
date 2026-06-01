@@ -48,6 +48,12 @@ export function AssetSearchModal({
   const storeClients = useAppStore(state => state.clients);
   const storeBranches = useAppStore(state => state.branches);
 
+  const activeClientUuid = localStorage.getItem("active_client");
+  const currentActiveClient = React.useMemo(() => {
+    if (!activeClientUuid) return null;
+    return (storeClients || []).find(c => c.uuid_sync === activeClientUuid || c.id === activeClientUuid);
+  }, [storeClients, activeClientUuid]);
+
   // Fallbacks for inputs and setters 
   const [localTag, setLocalTag] = useState("");
   const [localCliente, setLocalCliente] = useState("");
@@ -57,7 +63,8 @@ export function AssetSearchModal({
   const actualTag = setTag ? tag : localTag;
   const actualSetTag = setTag || setLocalTag;
 
-  const actualCliente = setCliente ? cliente : localCliente;
+  const rawCliente = setCliente ? cliente : localCliente;
+  const actualCliente = (activeClientUuid && currentActiveClient) ? currentActiveClient.nombre : rawCliente;
   const actualSetCliente = setCliente || setLocalCliente;
 
   const actualSucursal = setSucursal ? sucursal : localSucursal;
@@ -67,7 +74,6 @@ export function AssetSearchModal({
   const actualSetDescripcion = setDescripcion || setLocalDescripcion;
 
   const storeAssets = useAppStore(state => state.assets);
-  const activeClientUuid = localStorage.getItem("active_client");
 
   const computedResults = React.useMemo(() => {
     return storeAssets.filter(eq => {
@@ -183,20 +189,32 @@ export function AssetSearchModal({
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Cliente</label>
                        <SearchableSelect
-                         options={[
-                           { value: "", label: "Todos los Clientes" },
-                           ...(storeClients || []).map((c: any) => ({
-                             value: c.nombre,
-                             label: c.nombre
-                           }))
-                         ]}
+                         options={
+                           activeClientUuid && currentActiveClient
+                             ? [
+                                 {
+                                   value: currentActiveClient.nombre,
+                                   label: currentActiveClient.nombre
+                                 }
+                               ]
+                             : [
+                                 { value: "", label: "Todos los Clientes" },
+                                 ...(storeClients || []).map((c: any) => ({
+                                   value: c.nombre,
+                                   label: c.nombre
+                                 }))
+                               ]
+                         }
                          value={actualCliente}
                          onChange={(val) => {
-                           actualSetCliente(val);
-                           actualSetSucursal("");
+                           if (!activeClientUuid) {
+                             actualSetCliente(val);
+                             actualSetSucursal("");
+                           }
                          }}
-                         placeholder="Todos los Clientes"
+                         placeholder={activeClientUuid && currentActiveClient ? currentActiveClient.nombre : "Todos los Clientes"}
                          icon={<Users className="w-4 h-4" />}
+                         disabled={!!activeClientUuid}
                        />
                     </div>
                     <div className="space-y-2">

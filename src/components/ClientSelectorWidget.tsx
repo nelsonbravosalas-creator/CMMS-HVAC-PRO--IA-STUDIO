@@ -12,8 +12,12 @@ export default function ClientSelectorWidget({ isDarkMode }: ClientSelectorWidge
   
   const activeClients = useLiveQuery(async () => {
     const clients = await db.clients.toArray();
-    return clients.filter(c => c.activo !== false);
-  }) || [];
+    const filtered = clients.filter(c => c.activo !== false);
+    if (activeClientId) {
+      return filtered.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
+    }
+    return filtered;
+  }, [activeClientId]) || [];
 
   const activeClientName = useLiveQuery(async () => {
     if (!activeClientId) return null;

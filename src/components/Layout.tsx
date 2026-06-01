@@ -163,8 +163,12 @@ export default function Layout({ children }: LayoutProps) {
   /** Fetch active clients list for responsive dropdown selection */
   const activeClients = useLiveQuery(async () => {
     const clients = await db.clients.toArray();
-    return clients.filter(c => c.activo !== false);
-  }) || [];
+    const filtered = clients.filter(c => c.activo !== false);
+    if (activeClientId) {
+      return filtered.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
+    }
+    return filtered;
+  }, [activeClientId]) || [];
 
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

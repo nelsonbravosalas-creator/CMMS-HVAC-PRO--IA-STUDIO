@@ -22,7 +22,11 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
   const [isSaving, setIsSaving] = useState(false);
 
   const clients = useAppStore(state => state.clients);
-  const activeClients = clients.filter(c => c.activo !== false);
+  const activeClientId = localStorage.getItem("active_client");
+  const activeClients = clients.filter(c => 
+    c.activo !== false && 
+    (!activeClientId || c.uuid_sync === activeClientId || c.id === activeClientId)
+  );
 
   useEffect(() => {
     if (editingUser) {
