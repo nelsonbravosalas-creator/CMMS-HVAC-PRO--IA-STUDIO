@@ -15,7 +15,7 @@ export default async function handler(req: any, res: any) {
       const id = d.id || `C-${Date.now()}`;
       const now = Date.now();
       await sql`
-        INSERT INTO clients (client_id, nombre, empresa, rut, email, telefono, direccion, plan, activo, uuid_sync, updated_at, data)
+        INSERT INTO clients (id, nombre, empresa, rut, email, telefono, direccion, plan, activo, uuid_sync, updated_at, data)
         VALUES (${id}, ${d.nombre||''}, ${d.empresa||d.nombre||''}, ${d.rut||''},
           ${d.email||''}, ${d.telefono||''}, ${d.direccion||''}, ${d.plan||'basico'},
           ${d.activo !== false}, ${d.uuid_sync||id}, ${d.updated_at||now}, ${JSON.stringify(d)})

@@ -226,3 +226,34 @@
 .dark textarea::placeholder {
   color: #64748b !important;
 }
+
+/* 
+   RESPONSIVE MOBILE GRAPHIC & VIEWPORT CUSTOMIZATION (§4)
+   Applies high-definition aspect ratios for images and polished device-like 
+   rounded borders for the main application viewport on mobile screens.
+*/
+@media (max-width: 1024px) {
+  /* Guard aspect ratios and premium borders for all images on mobile viewports */
+  img:not(.leaflet-marker-icon):not(.qr-code-img) {
+    aspect-ratio: 4 / 3 !important;
+    object-fit: cover !important;
+    border-radius: 1rem !important;
+    border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  }
+
+  /* Exclude technical components like canvas drawing/signature containers */
+  canvas {
+    border-radius: 0.75rem !important;
+  }
+
+  /* Turn the entire main application frame on mobile into a polished native app frame with rounded borders */
+  main {
+    border-radius: 1.5rem !important;
+    border: 2px solid var(--cmms-border) !important;
+    margin: 0.75rem !important;
+    padding: 1.25rem !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    background-color: var(--cmms-bg-card) !important;
+    overflow-y: auto !important;
+  }
+}
