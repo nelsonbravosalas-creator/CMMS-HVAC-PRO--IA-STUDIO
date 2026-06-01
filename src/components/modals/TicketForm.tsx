@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History, MapPin
+  X, Camera, Trash2, Tag, AlertTriangle, AlertCircle, User, MessageSquare, Save, Search, Building2, History, MapPin
 } from 'lucide-react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { AssetSearchModal } from './AssetSearchModal';

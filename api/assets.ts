@@ -22,7 +22,8 @@ export default async function handler(req: any, res: any) {
 
     if (method === 'POST') {
       const d = body;
-      if (!d.tag) return res.status(400).json({ error: 'Falta tag' });
+      if (!d.tag) return res.status(400).json({ error: 'El campo tag es obligatorio' });
+      if (!d.nombre) return res.status(400).json({ error: 'El campo nombre es obligatorio' });
       
       const cliente_id = d.cliente_id || 'cliente_defecto';
       const sucursal_id = d.sucursal_id || 'sucursal_defecto';

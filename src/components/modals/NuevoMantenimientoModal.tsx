@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User, Search, MapPin
+  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, AlertCircle, Calendar, Clock, DollarSign, ListChecks, Wrench, User, Search, MapPin
 } from 'lucide-react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 

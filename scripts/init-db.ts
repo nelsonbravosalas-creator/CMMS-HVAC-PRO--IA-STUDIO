@@ -103,8 +103,51 @@ async function initDb() {
       )
     `;
 
+    // Tabla de Movimientos de Inventario
+    console.log("- Criando tabla: movimientos_inventario");
+    await sql`
+      CREATE TABLE IF NOT EXISTS movimientos_inventario (
+        id TEXT PRIMARY KEY,
+        uuid_sync TEXT UNIQUE,
+        repuesto_id TEXT,
+        tipo TEXT,
+        cantidad INTEGER,
+        fecha BIGINT,
+        motivo TEXT,
+        tecnico TEXT,
+        cliente_id TEXT,
+        data JSONB,
+        updated_at BIGINT,
+        created_at BIGINT,
+        modificado_en BIGINT,
+        creado_en BIGINT,
+        uuid_sincro TEXT
+      )
+    `;
+
+    // Tabla de Logs de Sincronización
+    console.log("- Criando tabla: sync_log");
+    await sql`
+      CREATE TABLE IF NOT EXISTS sync_log (
+        id TEXT PRIMARY KEY,
+        uuid_sync TEXT UNIQUE,
+        table_name TEXT,
+        record_id TEXT,
+        operation TEXT,
+        status TEXT,
+        error TEXT,
+        timestamp BIGINT,
+        data JSONB,
+        updated_at BIGINT,
+        created_at BIGINT,
+        modificado_en BIGINT,
+        creado_en BIGINT,
+        uuid_sincro TEXT
+      )
+    `;
+
     console.log("- Verificando columnas en todas las tablas");
-    const allTables = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales'];
+    const allTables = ['activos', 'usuarios', 'mantenimientos', 'tickets', 'informes', 'eventos', 'clientes', 'sucursales', 'movimientos_inventario', 'sync_log'];
     for (const table of allTables) {
       try {
         await (sql as any)(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS modificado_en BIGINT`);
