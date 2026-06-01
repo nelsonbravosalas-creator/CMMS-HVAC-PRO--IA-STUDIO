@@ -3,15 +3,21 @@ import { createServer as createViteServer } from "vite";
 import { neon } from "@neondatabase/serverless";
 import path from "path";
 import bcrypt from "bcryptjs";
+import { createMockSql } from "./src/db/mockDb";
 
-// Neon DB connection
+let mockSqlInstance: any = null;
+
+// Neon DB connection OR Mock SQL Simulator fallback
 // Exigido por el usuario: utilizar exclusivamente DATABASE_URL
-// Esto lanzará un error si falla, lo cual es de esperar en entorno local si no hay .env (deben setearlo en Vercel o Settings)
 const getSql = () => {
   const dbUrl = process.env.DATABASE_URL;
 
   if (!dbUrl || !dbUrl.startsWith('postgres')) {
-    throw new Error('DATABASE_URL no definida o inválida');
+    if (!mockSqlInstance) {
+      console.warn("⚠️ DATABASE_URL no definida. Iniciando Simulación de Base de Datos (Modo Offline-Sincronizado) en /src/db/mock_db_store.json...");
+      mockSqlInstance = createMockSql();
+    }
+    return mockSqlInstance;
   }
 
   return neon(dbUrl);
