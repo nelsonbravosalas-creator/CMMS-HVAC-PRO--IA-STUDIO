@@ -145,10 +145,26 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         }
       }
 
+      // Format helpers
+      const formatClientId = (name: string) => {
+        return name
+          .toUpperCase()
+          .trim()
+          .replace(/[^A-Z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+      };
+
+      const getBranchId = (code: string) => {
+        const cleanSiglas = (code || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+        return `000000${cleanSiglas}`;
+      };
+
       if (editingClient) {
         // Update client
         const updatedClient = {
           ...editingClient.client,
+          id: formatClientId(nombre),
           nombre,
           empresa: nombre,
           rut,
@@ -169,6 +185,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
             const existing = existingBranchMap.get(sub.uuid_sync)!;
             const updatedBranch = {
               ...existing,
+              id: getBranchId(sub.codigo),
               nombre: sub.nombre,
               codigo: sub.codigo,
               descripcion: sub.direccion,
@@ -179,7 +196,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
             existingBranchMap.delete(sub.uuid_sync); // Mark as processed
           } else {
             // Create new
-            const newBranchId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            const newBranchId = getBranchId(sub.codigo);
             const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
               id: newBranchId,
               cliente_id: editingClient.client.uuid_sync,
@@ -209,7 +226,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
       } else {
         // Create new client
-        const newClientId = `CLI-${Date.now()}`;
+        const newClientId = formatClientId(nombre);
         const newClient: Omit<LocalCliente, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
           id: newClientId,
           nombre,
@@ -228,7 +245,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
         // Create branches
         for (const sub of subs) {
-          const newBranchId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          const newBranchId = getBranchId(sub.codigo);
           const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
             id: newBranchId,
             cliente_id: clientId!,

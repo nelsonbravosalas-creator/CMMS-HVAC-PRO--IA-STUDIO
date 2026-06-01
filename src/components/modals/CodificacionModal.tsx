@@ -54,9 +54,10 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
     setIsSaving(true);
     try {
       const uuid_sync = crypto.randomUUID();
+      const cleanSiglas = sucursalCodigo.toUpperCase().replace(/[^A-Z0-9]/g, '');
       const newSucursal = {
         uuid_sync,
-        id: `SUB-${Date.now()}`,
+        id: `000000${cleanSiglas}`,
         nombre: sucursalNombre,
         codigo: sucursalCodigo,
         cliente_id: localStorage.getItem("active_client") || 'default', // Asocia la sucursal al cliente activo
