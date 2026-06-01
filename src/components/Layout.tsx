@@ -303,69 +303,68 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Drawer Navigation */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
-            />
-            
-            {/* Drawer */}
-            <motion.aside
-              initial={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`fixed top-0 ${menuPosition === 'right' ? 'right-0' : 'left-0'} h-full w-[320px] z-[110] lg:hidden shadow-2xl flex flex-col ${
-                isDarkMode ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
-              } border-x overflow-hidden`}
-            >
-              <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-200'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                    <span className="text-[10px] text-white font-black">HV</span>
-                  </div>
-                  <span className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Menu Principal</span>
+          <motion.div 
+            key="mobile-menu-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+          />
+        )}
+        {isMobileMenuOpen && (
+          <motion.aside
+            key="mobile-menu-aside"
+            initial={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className={`fixed top-0 ${menuPosition === 'right' ? 'right-0' : 'left-0'} h-full w-[320px] z-[110] lg:hidden shadow-2xl flex flex-col ${
+              isDarkMode ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
+            } border-x overflow-hidden`}
+          >
+            <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-200'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                  <span className="text-[10px] text-white font-black">HV</span>
                 </div>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
-                    isDarkMode ? 'bg-white/5 border-[#39FF14] shadow-[0_0_15px_rgba(57,255,20,0.3)] text-[#39FF14]' : 'bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
-                >
-                  <X className="w-6 h-6" />
-                </button>
+                <span className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Menu Principal</span>
               </div>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
+                  isDarkMode ? 'bg-white/5 border-[#39FF14] shadow-[0_0_15px_rgba(57,255,20,0.3)] text-[#39FF14]' : 'bg-slate-100 border-slate-200 text-slate-600'
+                }`}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-              <nav className="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
-                {NAV_ITEMS.map((item) => (
-                  <NavItem 
-                    key={item.href}
-                    isDarkMode={isDarkMode} 
-                    variant="large" 
-                    href={item.href} 
-                    icon={item.icon} 
-                    label={item.label} 
-                    badge={item.badgeKey ? (stats as any)[item.badgeKey] : undefined}
-                    badgeColor={item.badgeColor}
-                    onClick={() => setIsMobileMenuOpen(false)} 
-                  />
-                ))}
-              </nav>
+            <nav className="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
+              {NAV_ITEMS.map((item) => (
+                <NavItem 
+                  key={item.href}
+                  isDarkMode={isDarkMode} 
+                  variant="large" 
+                  href={item.href} 
+                  icon={item.icon} 
+                  label={item.label} 
+                  badge={item.badgeKey ? (stats as any)[item.badgeKey] : undefined}
+                  badgeColor={item.badgeColor}
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                />
+              ))}
+            </nav>
 
-              <div className={`p-6 border-t ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white border-slate-100'} backdrop-blur-md`}>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-[24px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
-                >
-                  Continuar
-                </button>
-              </div>
-            </motion.aside>
-          </>
+            <div className={`p-6 border-t ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white border-slate-100'} backdrop-blur-md`}>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-[24px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+              >
+                Continuar
+              </button>
+            </div>
+          </motion.aside>
         )}
       </AnimatePresence>
 
