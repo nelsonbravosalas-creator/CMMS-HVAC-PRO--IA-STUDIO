@@ -33,6 +33,7 @@ import {
   Menu as MenuIcon,
   Building2,
   Fingerprint,
+  Package,
 } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
@@ -58,6 +59,7 @@ const NAV_ITEMS = [
   { href: "/equipos", icon: Box, label: "Equipos", badgeKey: 'equiposTotal', badgeColor: "bg-purple-600" },
   { href: "/mapa", icon: MapPin, label: "Mapa" },
   { href: "/clientes", icon: Building2, label: "Clientes" },
+  { href: "/inventario", icon: Package, label: "Inventario Interno" },
   { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
   { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio", badgeKey: 'ordenesServicioTotal', badgeColor: "bg-indigo-500" },

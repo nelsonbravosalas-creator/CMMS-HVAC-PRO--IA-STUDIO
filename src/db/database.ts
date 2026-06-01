@@ -66,6 +66,7 @@ export interface LocalMantenimiento extends LocalBase {
   descripcion?: string; // Originally acciones
   repuestos: string;
   ubicacionGeografica?: { lat: number, lng: number };
+  cliente_id?: string;
 }
 
 export interface LocalCliente extends LocalBase {
@@ -119,11 +120,27 @@ export interface LocalCatalogAssetType extends LocalBase {
   activo: boolean;
 }
 
+export interface LocalInventario extends LocalBase {
+  id: string;
+  categoria: 'maquinas' | 'instrumentos' | 'vehiculos' | 'insumos' | 'materiales_repuestos';
+  codigo: string;
+  nombre: string;
+  stock: number;
+  unidad: string;
+  cliente_id: string;
+  marca?: string;
+  modelo?: string;
+  estado?: string;
+  asignado_a?: string;
+  data?: any;
+}
+
 export interface LocalOrdenServicio extends LocalBase {
   id: string;
   estado: string;
   draft_key: string;
   data: any;
+  cliente_id?: string;
 }
 
 export interface LocalSetting {
@@ -153,6 +170,7 @@ export interface AuditLog {
   userId: string;
   details: string;
   timestamp: number;
+  cliente_id?: string;
 }
 
 export interface LocalBlob {
@@ -175,28 +193,33 @@ export class CMMSDatabase extends Dexie {
   settings!: Table<LocalSetting>;
   reports!: Table<LocalInforme>;
   events!: Table<LocalEvento>;
+  inventory!: Table<LocalInventario>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
   blobs!: Table<LocalBlob>;
 
   constructor() {
-    super('CMMS_LocalDB_v10');
-    this.version(10).stores({
+    super('CMMS_LocalDB_v11');
+    const schema = {
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at, estado',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
-      preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at, estado',
+      preventive_maintenance: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
       clients: 'uuid_sync, id, sync_status, updated_at',
       users: 'uuid_sync, id, email, sync_status, updated_at',
       branches: 'uuid_sync, id, codigo, cliente_id, sync_status, updated_at',
       catalog_asset_types: 'uuid_sync, codigo, sync_status, updated_at',
-      ordenes_servicio: 'uuid_sync, id, draft_key, sync_status, updated_at',
+      ordenes_servicio: 'uuid_sync, id, draft_key, cliente_id, sync_status, updated_at',
       settings: 'key, sync_status, updated_at',
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
+      inventory: 'uuid_sync, id, categoria, cliente_id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp',
-      audit_logs: '++id, action, userId, timestamp',
+      audit_logs: '++id, action, userId, cliente_id, timestamp',
       blobs: 'uuid_sync, created_at'
-    });
+    };
+    
+    this.version(10).stores(schema);
+    this.version(11).stores(schema);
     
     this.on('populate', async () => {
       const now = Date.now();

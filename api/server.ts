@@ -13,6 +13,69 @@ const getSql = () => {
   return neon(dbUrl);
 };
 
+const requireCliente = async (req: any, res: any, next: any) => {
+  try {
+    const clienteId = req.params.cliente_id || req.headers['x-client-id'] || req.headers['x-cliente-id'] || req.query.clienteId || req.query.cliente_id || 'cliente-eecol-default-001';
+    if (!clienteId) {
+      return res.status(403).json({ success: false, error: 'Tenant (cliente_id) es obligatorio y requerido.' });
+    }
+    
+    req.clienteId = clienteId;
+
+    // Verificar asociacion del usuario autenticado si se pasa cabecera de autenticacion
+    const userHeader = req.headers['x-user-email'] || req.headers['authorization'];
+    if (userHeader) {
+      const sql = getSql();
+      const email = userHeader.replace('Bearer ', '').trim().toLowerCase();
+      const queryRes = await sql`SELECT * FROM users WHERE LOWER(correo) = ${email} OR LOWER(data->>'email') = ${email}`;
+      if (queryRes.length > 0) {
+        const u = queryRes[0];
+        const uClienteId = u.cliente_id || (u.data && (u.data.cliente_id || u.data.tenantId));
+        if (uClienteId && uClienteId !== clienteId) {
+          return res.status(403).json({ 
+            success: false, 
+            error: `Acceso Denegado: Su usuario (${email}) esta asignado al cliente ${uClienteId} y no coincide con el tenant solicitado (${clienteId}).` 
+          });
+        }
+      }
+    }
+
+    next();
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const validateWorkOrderPayload = (data: any) => {
+  if (!data) return;
+  
+  // Extraer el objeto de datos si viene anidado (tipo sync payload)
+  let target = data;
+  if (data.data && typeof data.data === 'object') {
+    target = data.data;
+  } else if (data.data && typeof data.data === 'string') {
+    try {
+      target = JSON.parse(data.data);
+    } catch (e) {}
+  }
+  
+  const estado = String(target.estado || target.status || '').toLowerCase();
+  if (['cerrado', 'cerrada', 'firmado', 'firmada'].includes(estado)) {
+    const checklist = target.checklist || target.checklists || target.checklist_items;
+    const hasChecklist = Array.isArray(checklist) && checklist.length > 0;
+    
+    const signature = target.firma || target.firma_conformidad_base64 || (target.payload && target.payload.firma_conformidad_base64);
+    const hasSignature = signature && String(signature).trim().length > 0;
+    
+    if (!hasSignature) {
+      throw new Error("Transacción bloqueada por validación de QA: No es posible pasar a un estado de cierre ('Cerrado'/'Firmada') sin registrar la firma de conformidad (firma_conformidad_base64).");
+    }
+    if (!hasChecklist) {
+      throw new Error("Transacción bloqueada por validación de QA: Se requiere completar y registrar los checklists de verificación técnica antes del cierre de la OT.");
+    }
+  }
+};
+
 // DATABASE INITIALIZATION //
 import { GoogleGenAI } from "@google/genai";
 
@@ -76,6 +139,7 @@ async function ensureTables() {
     await sql`CREATE TABLE IF NOT EXISTS catalog_asset_types (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS settings (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS ordenes_servicio (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
+    await sql`CREATE TABLE IF NOT EXISTS inventory (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS audit_logs (id TEXT PRIMARY KEY, action TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, user_id TEXT NOT NULL, payload JSONB, timestamp BIGINT NOT NULL)`;
 
     // 2. Migration for existing tables - ensure columns exist
@@ -124,7 +188,11 @@ async function ensureTables() {
       { table: 'ordenes_servicio', col: 'uuid_sync', type: 'TEXT' },
       { table: 'ordenes_servicio', col: 'updated_at', type: 'BIGINT' },
       { table: 'ordenes_servicio', col: 'created_at', type: 'BIGINT' },
-      { table: 'ordenes_servicio', col: 'data', type: 'JSONB' }
+      { table: 'ordenes_servicio', col: 'data', type: 'JSONB' },
+      { table: 'inventory', col: 'uuid_sync', type: 'TEXT' },
+      { table: 'inventory', col: 'updated_at', type: 'BIGINT' },
+      { table: 'inventory', col: 'created_at', type: 'BIGINT' },
+      { table: 'inventory', col: 'data', type: 'JSONB' }
     ];
 
     for (const m of columnMigrations) {
@@ -215,6 +283,7 @@ async function ensureTables() {
     try { await sql`UPDATE catalog_asset_types SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE settings SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
     try { await sql`UPDATE ordenes_servicio SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
+    try { await sql`UPDATE inventory SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
 
     // 4. Ensure UNIQUE constraint for uuid_sync on all tables for ON CONFLICT
     const tryUnique = async (query: any) => {
@@ -237,6 +306,7 @@ async function ensureTables() {
     await tryUnique(sql`ALTER TABLE catalog_asset_types ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE settings ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE ordenes_servicio ADD UNIQUE (uuid_sync)`);
+    await tryUnique(sql`ALTER TABLE inventory ADD UNIQUE (uuid_sync)`);
     await tryUnique(sql`ALTER TABLE audit_logs ADD UNIQUE (id)`);
     await tryUnique(sql`ALTER TABLE assets ADD UNIQUE (tag)`);
 
@@ -353,7 +423,7 @@ ensureTables().catch(console.error);
   const ALLOWED_TABLES = [
     'assets', 'users', 'preventive_maintenance', 'work_orders', 
     'reports', 'events', 'clients', 'branches', 
-    'catalog_asset_types', 'settings', 'ordenes_servicio', 'audit_logs'
+    'catalog_asset_types', 'settings', 'ordenes_servicio', 'audit_logs', 'inventory'
   ];
 
 const TABLE_ALIAS_MAP: Record<string, string> = {
@@ -364,7 +434,8 @@ const TABLE_ALIAS_MAP: Record<string, string> = {
   'informes': 'reports',
   'eventos': 'events',
   'clientes': 'clients',
-  'sucursales': 'branches'
+  'sucursales': 'branches',
+  'inventario': 'inventory'
 };
 
 function resolveTable(name: string): string | null {
@@ -402,6 +473,7 @@ function resolveTable(name: string): string | null {
         case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
         case 'settings': rows = await sql`SELECT * FROM settings WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
         case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'inventory': rows = await sql`SELECT * FROM inventory WHERE (updated_at > ${since} OR updated_at IS NULL) AND deleted_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
         default: rows = [];
       }
       res.json({ success: true, data: rows });
@@ -502,6 +574,277 @@ function resolveTable(name: string): string | null {
     }
   });
 
+  // --- ENDPOINTS REGISTRADOS DE LA VERSIÓN MULTI-TENANT VERCEL SERVERLESS V1 ---
+
+  // 1. Activos (assets)
+  app.get("/api/v1/:cliente_id/assets", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM assets WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
+      res.json({ success: true, data: rows });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/v1/:cliente_id/assets/:uuid_sync", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM assets WHERE cliente_id = ${req.clienteId} AND uuid_sync = ${req.params.uuid_sync} AND deleted_at IS NULL`;
+      if (rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Activo no encontrado o pertenece a otro tenant" });
+      }
+      res.json({ success: true, data: rows[0] });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 2. Inventario (inventory)
+  app.get("/api/v1/:cliente_id/inventory", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM inventory WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
+      res.json({ success: true, data: rows });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/v1/:cliente_id/inventory/:uuid_sync", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM inventory WHERE cliente_id = ${req.clienteId} AND uuid_sync = ${req.params.uuid_sync} AND deleted_at IS NULL`;
+      if (rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Elemento de inventario no encontrado" });
+      }
+      res.json({ success: true, data: rows[0] });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 3. Planificación (planning)
+  app.get("/api/v1/:cliente_id/planning", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
+      res.json({ success: true, data: rows });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/v1/:cliente_id/planning/:uuid_sync", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${req.clienteId} AND uuid_sync = ${req.params.uuid_sync} AND deleted_at IS NULL`;
+      if (rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Planteación de mantenimiento no encontrada" });
+      }
+      res.json({ success: true, data: rows[0] });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 4. Órdenes de Trabajo (work-orders)
+  app.get("/api/v1/:cliente_id/work-orders", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM work_orders WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
+      res.json({ success: true, data: rows });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/v1/:cliente_id/work-orders/:uuid_sync", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM work_orders WHERE cliente_id = ${req.clienteId} AND uuid_sync = ${req.params.uuid_sync} AND deleted_at IS NULL`;
+      if (rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Orden de trabajo no encontrada" });
+      }
+      res.json({ success: true, data: rows[0] });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 5. Auditoría (audit-logs)
+  app.get("/api/v1/:cliente_id/audit-logs", requireCliente, async (req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const rows = await sql`SELECT * FROM audit_logs WHERE cliente_id = ${req.clienteId} ORDER BY timestamp DESC LIMIT 200`;
+      res.json({ success: true, data: rows });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // POST/PUT/DELETE para todos los recursos de v1 con validación estricta de orden de trabajo (Vercel Serverless)
+  app.post("/api/v1/:cliente_id/:resource", requireCliente, async (req: any, res: any) => {
+    try {
+      const resource = req.params.resource;
+      const sql = getSql();
+      const payload = req.body;
+      const clienteId = req.clienteId;
+
+      let targetTable = '';
+      if (resource === 'assets') targetTable = 'assets';
+      else if (resource === 'inventory') targetTable = 'inventory';
+      else if (resource === 'planning') targetTable = 'preventive_maintenance';
+      else if (resource === 'work-orders') targetTable = 'work_orders';
+      else if (resource === 'audit-logs') targetTable = 'audit_logs';
+      else return res.status(400).json({ success: false, error: `Recurso inválido: ${resource}` });
+
+      // Validar reglas de negocio QA para Órdenes de Servicio
+      if (targetTable === 'work_orders') {
+        validateWorkOrderPayload(payload);
+      }
+
+      const uuid_sync = payload.uuid_sync || crypto.randomUUID();
+      const id = payload.id || uuid_sync;
+      const updated_at = payload.updated_at || Date.now();
+      const created_at = payload.created_at || updated_at;
+      const strData = JSON.stringify(payload);
+
+      if (targetTable === 'assets') {
+        const d = payload;
+        await sql`
+          INSERT INTO assets (
+            tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, 
+            voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, 
+            ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, notas,
+            uuid_sync, updated_at, created_at, cliente_id, sucursal_id
+          ) VALUES (
+            ${d.tag}, ${d.nombre}, ${d.tipo || ''}, ${d.marca || ''}, ${d.modelo || ''}, 
+            ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
+            ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
+            ${d.vida_util || 0}, ${d.estado || 'operativo'}, ${d.ultimo_mantenimiento || null}, 
+            ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notes || d.notas || ''},
+            ${uuid_sync}, ${updated_at}, ${created_at}, ${clienteId}, ${d.sucursal_id || ''}
+          ) ON CONFLICT (uuid_sync) DO UPDATE SET
+            tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca, modelo = EXCLUDED.modelo,
+            serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion, area = EXCLUDED.area, capacidad = EXCLUDED.capacidad,
+            voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
+            fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
+            ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
+            horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id,
+            updated_at = EXCLUDED.updated_at;
+        `;
+      } else if (targetTable === 'audit_logs') {
+        await sql`
+          INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp, cliente_id)
+          VALUES (${id}, ${payload.action}, ${payload.entity_type}, ${payload.entity_id}, ${payload.user_id}, ${strData}, ${payload.timestamp || updated_at}, ${clienteId})
+          ON CONFLICT (id) DO NOTHING;
+        `;
+      } else {
+        const str_create = typeof created_at === 'number' ? String(created_at) : created_at;
+        const query = `
+          INSERT INTO ${targetTable} (id, data, uuid_sync, updated_at, created_at, cliente_id)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (uuid_sync) DO UPDATE SET
+            id = EXCLUDED.id,
+            data = EXCLUDED.data,
+            updated_at = EXCLUDED.updated_at,
+            cliente_id = EXCLUDED.cliente_id;
+        `;
+        await (sql as any)(query, [id, strData, uuid_sync, updated_at, str_create, clienteId]);
+      }
+
+      res.status(200).json({ success: true, uuid_sync, resolved_id: id });
+    } catch (error: any) {
+      console.error("[V1 POST ERROR]:", error.message);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  app.put("/api/v1/:cliente_id/:resource/:uuid_sync", requireCliente, async (req: any, res: any) => {
+    try {
+      const resource = req.params.resource;
+      const uuid_sync = req.params.uuid_sync;
+      const sql = getSql();
+      const payload = req.body;
+      const clienteId = req.clienteId;
+
+      let targetTable = '';
+      if (resource === 'assets') targetTable = 'assets';
+      else if (resource === 'inventory') targetTable = 'inventory';
+      else if (resource === 'planning') targetTable = 'preventive_maintenance';
+      else if (resource === 'work-orders') targetTable = 'work_orders';
+      else if (resource === 'audit-logs') targetTable = 'audit_logs';
+      else return res.status(400).json({ success: false, error: `Recurso inválido: ${resource}` });
+
+      // Validar reglas de negocio QA para Órdenes de Servicio
+      if (targetTable === 'work_orders') {
+        validateWorkOrderPayload(payload);
+      }
+
+      const updated_at = payload.updated_at || Date.now();
+      const strData = JSON.stringify(payload);
+
+      if (targetTable === 'assets') {
+        const d = payload;
+        await sql`
+          UPDATE assets SET
+            tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
+            serie = ${d.serie || ''}, ubicacion = ${d.ubicacion || ''}, area = ${d.area || ''}, capacidad = ${d.capacidad || ''},
+            voltaje = ${d.voltaje || ''}, corriente = ${d.corriente || ''}, refrigerante = ${d.refrigerante || ''},
+            fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util || 0}, estado = ${d.estado || 'operativo'},
+            ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, proximo_mantenimiento = ${d.proximo_mantenimiento || null},
+            horas_operacion = ${d.horas_operacion || 0}, notas = ${d.notes || d.notas || ''},
+            sucursal_id = ${d.sucursal_id || ''},
+            updated_at = ${updated_at}
+          WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${clienteId};
+        `;
+      } else {
+        const query = `
+          UPDATE ${targetTable} SET
+            data = $1,
+            updated_at = $2
+          WHERE uuid_sync = $3 AND cliente_id = $4;
+        `;
+        await (sql as any)(query, [strData, updated_at, uuid_sync, clienteId]);
+      }
+
+      res.json({ success: true, message: "Registro actualizado exitosamente en el tenant." });
+    } catch (error: any) {
+      console.error("[V1 PUT ERROR]:", error.message);
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  app.delete("/api/v1/:cliente_id/:resource/:uuid_sync", requireCliente, async (req: any, res: any) => {
+    try {
+      const resource = req.params.resource;
+      const uuid_sync = req.params.uuid_sync;
+      const sql = getSql();
+      const clienteId = req.clienteId;
+
+      let targetTable = '';
+      if (resource === 'assets') targetTable = 'assets';
+      else if (resource === 'inventory') targetTable = 'inventory';
+      else if (resource === 'planning') targetTable = 'preventive_maintenance';
+      else if (resource === 'work-orders') targetTable = 'work_orders';
+      else return res.status(400).json({ success: false, error: `Recurso inválido: ${resource}` });
+
+      const ts = Date.now();
+      const query = `
+        UPDATE ${targetTable} SET
+          deleted_at = $1,
+          updated_at = $2
+        WHERE uuid_sync = $3 AND cliente_id = $4;
+      `;
+      await (sql as any)(query, [ts, ts, uuid_sync, clienteId]);
+
+      res.json({ success: true, message: "Registro dado de baja exitosamente en el tenant." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // NEW GLOBAL SYNC ENDPOINT
   app.post('/api/sync', async (req, res) => {
     try {
@@ -594,6 +937,7 @@ function resolveTable(name: string): string | null {
               case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
               case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
               case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
+              case 'inventory': await sql`INSERT INTO inventory (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL`; break;
               case 'audit_logs':
                 await sql`
                   INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp) 
@@ -685,6 +1029,7 @@ function resolveTable(name: string): string | null {
               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'inventory': await sql`UPDATE inventory SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
             }
           }
           results.updates.push({ uuid_sync, success: true });
@@ -716,6 +1061,7 @@ function resolveTable(name: string): string | null {
                case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
                case 'settings': await sql`UPDATE settings SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
                case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
+               case 'inventory': await sql`UPDATE inventory SET deleted_at = ${Date.now()} WHERE uuid_sync = ${del.uuid_sync}`; break;
              }
              results.deletes.push({ uuid_sync: del.uuid_sync, success: true });
            } catch (postgresError: any) {
@@ -742,6 +1088,7 @@ function resolveTable(name: string): string | null {
               case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
               case 'settings': rows = await sql`SELECT * FROM settings WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break; // settings NO deleted_at by schema
               case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
+              case 'inventory': rows = await sql`SELECT * FROM inventory WHERE (updated_at > ${lastSync} OR updated_at IS NULL) AND deleted_at IS NULL LIMIT 200`; break;
               case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE timestamp > ${lastSync} LIMIT 200`; break; // audit_logs has NO deleted_at
             }
             if (rows && rows.length > 0) {

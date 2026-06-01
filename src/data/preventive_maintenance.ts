@@ -2,9 +2,9 @@
 export interface Mantenimiento {
   id: string;
   tag: string;
-  tipo: 'preventivo' | 'correctivo' | 'inspeccion' | 'instalacion';
+  tipo: 'Preventivo' | 'Correctivo' | 'Inspeccion' | 'Instalacion';
   fecha: string;
-  estado: 'programado' | 'ejecutado' | 'realizado' | 're-programado'| 'anulado' | 'atrasado';
+  estado: 'Programado' | 'Ejecutado' | 'Cerrado' | 'Re-programado'| 'Anulado' | 'Atrasado';
   sucursal: string;
   tecnico: string;
   descripcion: string;
@@ -12,23 +12,24 @@ export interface Mantenimiento {
 
 export const MANTENIMIENTOS_MOCK: Mantenimiento[] = [
   {
-    id: 'M-001',
+    id: 'PM-201',
     tag: '21-STK.AC.001',
-    tipo: 'preventivo',
-    fecha: '2026-04-20',
-    estado: 'realizado',
-    sucursal: 'Santiago B01',
+    tipo: 'Preventivo',
+    fecha: '2026-04-15',
+    estado: 'Ejecutado',
+    sucursal: '21-STK',
     tecnico: 'Nelson Bravo',
-    descripcion: 'Limpieza de filtros y revisión de presiones.'
+    descripcion: 'Mantenimiento preventivo trimestral de aire acondicionado central.'
   },
   {
-    id: 'M-002',
-    tag: 'Planta-STK.AC.001',
-    tipo: 'correctivo',
-    fecha: '2026-04-25',
-    estado: 'programado',
-    sucursal: 'Santiago B01',
+    id: 'PM-202',
+    tag: 'Planta-STK.AC.005',
+    tipo: 'Correctivo',
+    fecha: '2026-03-24',
+    estado: 'Ejecutado',
+    sucursal: 'Planta-STK',
     tecnico: 'Gonzalo Bravo',
-    descripcion: 'Recarga de refrigerante por fuga menor.'
+    descripcion: 'Cambio de rodamientos de compresor por desgaste.'
   }
 ];
+

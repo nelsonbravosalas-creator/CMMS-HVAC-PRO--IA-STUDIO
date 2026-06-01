@@ -432,10 +432,10 @@ export default function ScannerQR() {
                    <div 
                      id="printable-tag-preview" 
                      ref={tagRef}
-                     className="w-full aspect-[2/1] bg-white rounded-[24px] shadow-[0_40px_80px_rgba(0,0,0,0.4)] flex relative border border-slate-200 select-none mx-auto overflow-hidden min-h-[250px]"
+                     className="w-full aspect-[2/1] bg-white rounded-[16px] sm:rounded-[24px] shadow-[0_40px_80px_rgba(0,0,0,0.4)] flex relative border border-slate-200 select-none mx-auto overflow-hidden min-h-[160px] sm:min-h-[250px] max-w-[500px]"
                    >
-                     <div className="w-[45%] flex flex-col items-center justify-center p-6 border-r border-slate-100 bg-white">
-                        <div className="w-full max-w-[160px] aspect-square flex items-center justify-center">
+                     <div className="w-[45%] flex flex-col items-center justify-center p-3 sm:p-6 border-r border-slate-100 bg-white flex-shrink-0">
+                        <div className="w-full max-w-[80px] sm:max-w-[160px] aspect-square flex items-center justify-center">
                            <img 
                              src={qrImageUrl} 
                              alt="Generated QR" 
@@ -443,28 +443,28 @@ export default function ScannerQR() {
                              className="w-full h-full mix-blend-multiply"
                            />
                         </div>
-                        <p className="mt-3 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Escaneo Directo CMMS</p>
+                        <p className="mt-1 sm:mt-3 text-[6px] sm:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Escaneo Directo CMMS</p>
                      </div>
 
-                     <div className="flex-1 p-8 flex flex-col justify-between bg-white text-slate-900 text-left">
+                     <div className="flex-1 p-3 sm:p-8 flex flex-col justify-between bg-white text-slate-900 text-left min-w-0">
                         <div className="flex justify-end">
-                           <div className="bg-black text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
-                              <span className="text-[12px] font-black italic tracking-tighter">NβyB</span>
-                              <span className="text-[8px] font-bold opacity-80">SPA</span>
+                           <div className="bg-black text-white px-1.5 py-0.5 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg flex items-center gap-1 sm:gap-1.5 shadow-md sm:shadow-lg">
+                              <span className="text-[9px] sm:text-[12px] font-black italic tracking-tighter">NβyB</span>
+                              <span className="text-[6px] sm:text-[8px] font-bold opacity-80">SPA</span>
                            </div>
                         </div>
 
                         <div className="space-y-1">
-                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Tag Identificador</p>
-                           <div className="text-[24px] lg:text-[28px] font-mono font-black text-slate-950 tracking-tighter leading-[0.9] italic">
+                           <p className="text-[6px] sm:text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Tag Identificador</p>
+                           <div className="text-[12px] sm:text-[24px] lg:text-[28px] font-mono font-black text-slate-950 tracking-tighter leading-[0.9] italic truncate">
                              {tagData.almacen} -<br />
                              {tagData.tipo}.{tagData.correlativo.padStart(3, '0')}
                            </div>
                         </div>
 
-                        <div className="space-y-1 pt-4 border-t border-slate-50 text-left">
-                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Descripción de Activo</p>
-                           <p className="text-[11px] font-black text-slate-800 uppercase leading-snug line-clamp-2 italic">
+                        <div className="space-y-0.5 sm:space-y-1 pt-1.5 sm:pt-4 border-t border-slate-50 text-left">
+                           <p className="text-[6px] sm:text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Descripción de Activo</p>
+                           <p className="text-[8px] sm:text-[11px] font-black text-slate-800 uppercase leading-snug line-clamp-2 italic">
                              {tagData.nombreEquipo}
                            </p>
                         </div>

@@ -35,6 +35,7 @@ import Login from "./pages/Login";
 import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
+import InventarioInterno from "./pages/InventarioInterno";
 import { CLIENTS } from "./data/clients";
 import { syncEngine } from "./sync/syncEngine";
 import { useAppStore } from "./store/useAppStore";
@@ -192,6 +193,7 @@ function App() {
               <Route path="/tickets" component={Tickets} />
               <Route path="/reportes" component={Reportes} />
               <Route path="/eficiencia" component={EFIEnergia} />
+              <Route path="/inventario" component={InventarioInterno} />
               <Route path="/administracion" component={Administracion} />
               <Route path="/clientes" component={Clientes} />
               <Route path="/biometria" component={Biometria} />
