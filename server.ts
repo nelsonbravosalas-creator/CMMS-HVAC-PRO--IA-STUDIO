@@ -146,6 +146,7 @@ async function ensureTables() {
 
     // 1. Eliminar de forma segura todas las tablas cmms_* obsoletas
     const obsoleteTables = [
+      'clients', 'branches',
       'cmms_usuarios_clientes', 
       'cmms_informes_mantenimiento', 'cmms_sla_config', 'cmms_pm_planes', 
       'cmms_pm_plantillas', 'cmms_checklist_plantillas', 'cmms_push_subscriptions', 
@@ -245,8 +246,6 @@ async function ensureTables() {
     await sql`CREATE TABLE IF NOT EXISTS work_orders (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS reports (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS events (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS clients (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS branches (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS catalog_asset_types (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS settings (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS ordenes_servicio (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
@@ -341,58 +340,6 @@ async function ensureTables() {
       await sql`UPDATE calendar SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
       await sql`UPDATE users SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
     } catch(e) {}
-
-    // ─── MIGRACIÓN EXTRA-ESTRICTA CLIENTS a CLIENTES (QA Enterprise) ──────
-    // Al unificar clients -> clientes debemos migrar registros legacy, redirigir
-    // su fk_cliente_id de forma limpia y marcar la tabla clients como sólo lectura.
-    try {
-      console.log('🔄 Ejecutando migración de datos de "clients" a "clientes"...');
-
-      // 1. Mover registros legacy que estén presentes en clients y ausentes en clientes
-      const legacyClients = await sql`SELECT * FROM clients`;
-      for (const req of legacyClients) {
-        const id = req.id || req.uuid_sync;
-        if (!id) continue;
-        
-        // Comprobar si ya existe en la tabla de verdad (clientes)
-        const exists = await sql`SELECT 1 FROM clientes WHERE id = ${id}`;
-        if (exists.length === 0) {
-          console.log(`Migrando cliente legacy ID: ${id}`);
-          const dataJSON = typeof req.data === 'string' ? JSON.parse(req.data) : req.data;
-          await sql`
-            INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at)
-            VALUES (${id}, ${req.uuid_sync}, ${JSON.stringify(dataJSON)}::jsonb, ${req.updated_at || Date.now()}, ${req.created_at || Date.now()})
-            ON CONFLICT (id) DO NOTHING
-          `;
-        }
-      }
-
-      // 2. Repuntar o Corregir las FKs internas de tablas cruzadas hacia clientes(id)
-      // de forma preventiva para que no apunten a ids inexistentes.
-      const syncReferences = [
-        'work_orders', 'reports', 'preventive_maintenance', 'inventory', 
-        'catalog_asset_types', 'settings', 'ordenes_servicio'
-      ];
-
-      for (const table of syncReferences) {
-        try {
-          // Si hay algún registro apuntando a un cliente_id que no existe en 'clientes', redirigir al default
-          await sql.unsafe(`
-            UPDATE ${table}
-            SET cliente_id = 'cliente-default-001'
-            WHERE cliente_id IS NOT NULL 
-              AND cliente_id != '' 
-              AND cliente_id NOT IN (SELECT id FROM clientes)
-          `);
-        } catch (fkErr: any) {
-          console.log(`[FK Recovery Info] No se pudo depurar FK en tabla ${table}:`, fkErr.message);
-        }
-      }
-
-      console.log('✅ Migración de consistencia mitigada correctamente.');
-    } catch (migrError: any) {
-      console.error('❌ Error ejecutando migración clients -> clientes:', migrError.message);
-    }
 
     console.log("✅ [MIGRACIÓN QA SENIOR COMBO SUCCESS] - Database Schema integrity check completed successfully.");
   } catch (error: any) {
@@ -542,7 +489,7 @@ async function startServer() {
 
   const ALLOWED_TABLES = [
     'assets', 'users', 'preventive_maintenance', 'work_orders', 
-    'reports', 'events', 'clients', 'branches', 
+    'reports', 'events', 
     'catalog_asset_types', 'settings', 'ordenes_servicio', 'audit_logs', 'inventory', 'calendar', 'clientes', 'sucursales'
   ];
 
@@ -752,16 +699,10 @@ function resolveTable(name: string): string | null {
       const updated_at = req.body.updated_at || Date.now();
       const strData = typeof data === 'object' ? JSON.stringify(data) : (data || '{}');
 
-      // Insert both clients and clientes tables
       await sql`
         INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at)
         VALUES (${finalId}, ${finalUuid}, ${strData}::jsonb, ${updated_at}, ${updated_at})
         ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
-      `;
-      await sql`
-        INSERT INTO clients (id, uuid_sync, data, updated_at, created_at)
-        VALUES (${finalId}, ${finalUuid}, ${strData}::jsonb, ${updated_at}, ${updated_at})
-        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
       `;
 
       res.status(201).json({ success: true, id: finalId, uuid_sync: finalUuid });
@@ -783,11 +724,6 @@ function resolveTable(name: string): string | null {
         SET data = ${strData}::jsonb, updated_at = ${updated_at}
         WHERE id = ${client_id};
       `;
-      await sql`
-        UPDATE clients 
-        SET data = ${strData}::jsonb, updated_at = ${updated_at}
-        WHERE id = ${client_id} OR uuid_sync = ${client_id};
-      `;
 
       res.json({ success: true, message: "Cliente actualizado con éxito" });
     } catch (error: any) {
@@ -802,7 +738,6 @@ function resolveTable(name: string): string | null {
       const ts = Date.now();
 
       await sql`UPDATE clientes SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${client_id}`;
-      await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${client_id} OR uuid_sync = ${client_id}`;
 
       res.json({ success: true, message: "Cliente dado de baja" });
     } catch (error: any) {
@@ -1521,7 +1456,7 @@ function resolveTable(name: string): string | null {
       const clienteId = req.clienteId;
 
       // Allow mapping from short name or specific cmms_* resource name
-      const allowedResources = ['cmms_equipos', 'cmms_tickets', 'cmms_mantenimientos', 'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_informes_mantenimiento', 'cmms_clientes', 'cmms_users'];
+      const allowedResources = ['cmms_equipos', 'cmms_tickets', 'cmms_mantenimientos', 'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_informes_mantenimiento', 'cmms_users'];
       
       let targetTable = resource.startsWith('cmms_') ? resource : `cmms_${resource}`;
       // Map old plural to cmms_* explicitly if needed
@@ -1680,18 +1615,12 @@ function resolveTable(name: string): string | null {
               case 'clientes':
               case 'clients': {
                 await sql`INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clientes.updated_at OR clientes.updated_at IS NULL`;
-                try {
-                  await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`;
-                } catch (e) {}
                 break;
               }
               case 'sucursales':
               case 'branches': {
                 const cliente_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
                 await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${cliente_id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL`;
-                try {
-                  await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${cliente_id}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`;
-                } catch (e) {}
                 break;
               }
               case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
@@ -1779,18 +1708,12 @@ function resolveTable(name: string): string | null {
               case 'clientes':
               case 'clients': {
                 await sql`UPDATE clientes SET data = ${strData}::jsonb, updated_at = ${updated_at} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`;
-                try {
-                  await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
-                } catch (e) {}
                 break;
               }
               case 'sucursales':
               case 'branches': {
                 const cliente_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
                 await sql`UPDATE sucursales SET data = ${strData}::jsonb, updated_at = ${updated_at}, cliente_id = ${cliente_id} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`;
-                try {
-                  await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${cliente_id} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
-                } catch (e) {}
                 break;
               }
               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
@@ -1830,17 +1753,11 @@ function resolveTable(name: string): string | null {
             case 'calendar': await sql`UPDATE calendar SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'clientes':
             case 'clients': {
-              try {
-                await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`;
-              } catch(e) {}
               await sql`UPDATE clientes SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${del.uuid_sync} OR uuid_sync = ${del.uuid_sync}`;
               break;
             }
             case 'sucursales':
             case 'branches': {
-              try {
-                await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`;
-              } catch(e) {}
               await sql`UPDATE sucursales SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${del.uuid_sync} OR uuid_sync = ${del.uuid_sync}`;
               break;
             }
@@ -1923,8 +1840,8 @@ function resolveTable(name: string): string | null {
             case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
             case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
             case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'clients': await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
-            case 'branches': await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
+            case 'clientes': await sql`UPDATE clientes SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync} OR id = ${record.uuid_sync}`; break;
+            case 'sucursales': await sql`UPDATE sucursales SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync} OR id = ${record.uuid_sync}`; break;
             case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
             case 'settings': await sql`UPDATE settings SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
             case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${record.uuid_sync}`; break;
@@ -2035,10 +1952,14 @@ function resolveTable(name: string): string | null {
           switch (table) {
             case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at`; break;
             case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at`; break;
-            case 'clients': await sql`INSERT INTO clients (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at`; break;
+            case 'clientes': await sql`INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at) VALUES (${record.id || uuid_sync}, ${uuid_sync}, ${data}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clientes.updated_at`; break;
             case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > users.updated_at`; break;
             case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at`; break;
-            case 'branches': await sql`INSERT INTO branches (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at`; break;
+            case 'sucursales': {
+              const cliente_id = record.cliente_id || 'cliente-default-001';
+              await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${record.id || uuid_sync}, ${cliente_id}, ${uuid_sync}, ${data}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > sucursales.updated_at`; 
+              break;
+            }
             case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at) VALUES (${id}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at`; break;
             case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, draft_key, data, uuid_sync, updated_at) VALUES (${id}, ${record.draft_key || ''}, ${data}, ${uuid_sync}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, draft_key = EXCLUDED.draft_key, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at`; break;
           }
@@ -2094,7 +2015,7 @@ function resolveTable(name: string): string | null {
 
          let email = null;
          if (clientId) {
-            const cliRes = await sql`SELECT data FROM clients WHERE id = ${clientId} OR uuid_sync = ${clientId}`;
+            const cliRes = await sql`SELECT data FROM clientes WHERE id = ${clientId} OR uuid_sync = ${clientId}`;
             if (cliRes.length > 0) {
                email = cliRes[0].data?.email || cliRes[0].data?.contacto_email;
             }
@@ -2203,9 +2124,7 @@ function resolveTable(name: string): string | null {
       // Order of syncing to respect foreign key constraints
       const orderedSyncTables = [
         'clientes',
-        'clients',
         'sucursales',
-        'branches',
         'users',
         'assets',
         'preventive_maintenance',
@@ -2260,16 +2179,6 @@ function resolveTable(name: string): string | null {
                     updated_at = EXCLUDED.updated_at,
                     deleted_at = EXCLUDED.deleted_at;
                 `;
-              } else if (table === 'clients') {
-                await targetSql`
-                  INSERT INTO clients (uuid_sync, id, data, updated_at, created_at, deleted_at)
-                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
-                  ON CONFLICT (uuid_sync) DO UPDATE SET
-                    id = EXCLUDED.id,
-                    data = EXCLUDED.data,
-                    updated_at = EXCLUDED.updated_at,
-                    deleted_at = EXCLUDED.deleted_at;
-                `;
               } else if (table === 'sucursales') {
                 await targetSql`
                   INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at, deleted_at)
@@ -2277,16 +2186,6 @@ function resolveTable(name: string): string | null {
                   ON CONFLICT (id) DO UPDATE SET
                     cliente_id = EXCLUDED.cliente_id,
                     uuid_sync = EXCLUDED.uuid_sync,
-                    data = EXCLUDED.data,
-                    updated_at = EXCLUDED.updated_at,
-                    deleted_at = EXCLUDED.deleted_at;
-                `;
-              } else if (table === 'branches') {
-                await targetSql`
-                  INSERT INTO branches (uuid_sync, id, data, updated_at, created_at, deleted_at)
-                  VALUES (${row.uuid_sync}, ${row.id}, ${row.data}, ${row.updated_at}, ${row.created_at}, ${row.deleted_at})
-                  ON CONFLICT (uuid_sync) DO UPDATE SET
-                    id = EXCLUDED.id,
                     data = EXCLUDED.data,
                     updated_at = EXCLUDED.updated_at,
                     deleted_at = EXCLUDED.deleted_at;

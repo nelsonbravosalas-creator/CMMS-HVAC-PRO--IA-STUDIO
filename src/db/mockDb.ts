@@ -14,8 +14,6 @@ interface MockSchema {
   work_orders: any[];
   reports: any[];
   events: any[];
-  clients: any[];
-  branches: any[];
   catalog_asset_types: any[];
   settings: any[];
   ordenes_servicio: any[];
@@ -35,8 +33,6 @@ let mockData: MockSchema = {
   work_orders: [],
   reports: [],
   events: [],
-  clients: [],
-  branches: [],
   catalog_asset_types: [],
   settings: [],
   ordenes_servicio: [],
@@ -67,7 +63,7 @@ export const loadMockData = () => {
       const content = fs.readFileSync(MOCK_DB_PATH, 'utf8');
       mockData = JSON.parse(content);
       // Double check all tables exist in loaded data
-      const defaultKeys = ['clientes', 'sucursales', 'assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'clients', 'branches', 'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'audit_logs', 'cmms_auth_failures', 'cmms_idempotency_keys', 'calendar'];
+      const defaultKeys = ['clientes', 'sucursales', 'assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'audit_logs', 'cmms_auth_failures', 'cmms_idempotency_keys', 'calendar'];
       for (const key of defaultKeys) {
         if (!mockData[key as keyof MockSchema]) {
           (mockData as any)[key] = [];
@@ -107,7 +103,6 @@ export const loadMockData = () => {
     updated_at: now,
     created_at: now
   };
-  mockData.clients = [defaultClient];
   mockData.clientes = [defaultClient];
 
   // Default Sucursal & Sucursales
@@ -120,7 +115,6 @@ export const loadMockData = () => {
     updated_at: now,
     created_at: now
   };
-  mockData.branches = [defaultBranch];
   mockData.sucursales = [defaultBranch];
 
   // Default Assets
@@ -391,22 +385,6 @@ export const createMockSql = () => {
         } else {
           targetTable.push(record);
         }
-
-        // Keep clients and clientes synchronous
-        if (tableName === 'clients') {
-          const clientsIdIdx = mockData.clientes.findIndex(row => row.id === id || row.uuid_sync === uuid_sync);
-          const mirrored = { id, uuid_sync, data, updated_at, created_at };
-          if (clientsIdIdx >= 0) mockData.clientes[clientsIdIdx] = mirrored;
-          else mockData.clientes.push(mirrored);
-        }
-        // Keep branches and sucursales synchronous
-        if (tableName === 'branches') {
-          const branchIdIdx = mockData.sucursales.findIndex(row => row.id === id || row.uuid_sync === uuid_sync);
-          const cliente_id = values[5] || 'cliente-eecol-default-001';
-          const mirrored = { id, uuid_sync, cliente_id, data, updated_at, created_at };
-          if (branchIdIdx >= 0) mockData.sucursales[branchIdIdx] = mirrored;
-          else mockData.sucursales.push(mirrored);
-        }
       }
 
       saveMockData();
@@ -480,19 +458,6 @@ export const createMockSql = () => {
         const idx = targetTable.findIndex(row => row.uuid_sync === uuid_sync || row.id === uuid_sync);
         if (idx >= 0) {
           targetTable[idx] = { ...targetTable[idx], id, data, updated_at };
-        }
-
-        // Keep clients / branches mirrors synchronous on updates
-        if (tableName === 'clients') {
-          const clientsIdIdx = mockData.clientes.findIndex(row => row.id === id || row.uuid_sync === uuid_sync);
-          const mirrored = { id, uuid_sync, data, updated_at };
-          if (clientsIdIdx >= 0) mockData.clientes[clientsIdIdx] = { ...mockData.clientes[clientsIdIdx], ...mirrored };
-        }
-        if (tableName === 'branches') {
-          const branchIdIdx = mockData.sucursales.findIndex(row => row.id === id || row.uuid_sync === uuid_sync);
-          const cliente_id = values[4] || 'cliente-eecol-default-001';
-          const mirrored = { id, uuid_sync, cliente_id, data, updated_at };
-          if (branchIdIdx >= 0) mockData.sucursales[branchIdIdx] = { ...mockData.sucursales[branchIdIdx], ...mirrored };
         }
       }
 

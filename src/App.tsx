@@ -36,7 +36,6 @@ import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
 import InventarioInterno from "./pages/InventarioInterno";
-import { CLIENTS } from "./data/clients";
 import { syncEngine } from "./sync/syncEngine";
 import { useAppStore } from "./store/useAppStore";
 import { useSyncStore } from "./store/useSyncStore";
@@ -77,6 +76,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [hasClientSelected, setHasClientSelected] = useState<boolean>(false);
   const [location, setLocation] = useLocation();
+  const clients = useAppStore(state => state.clients);
 
   useEffect(() => {
     // 1. Hidratar datos locales (IndexedDB -> Zustand)
@@ -163,7 +163,7 @@ function App() {
       return;
     }
 
-    if (auth && !client && CLIENTS.length > 0 && location !== "/client-selector") {
+    if (auth && !client && clients.length > 0 && location !== "/client-selector") {
       setLocation("/client-selector");
     }
   }, [location, setLocation]);
@@ -172,7 +172,7 @@ function App() {
     <AuthProvider>
       {(!isAuthenticated && location === "/login") ? (
         <Login />
-      ) : (isAuthenticated && !hasClientSelected && CLIENTS.length > 0) ? (
+      ) : (isAuthenticated && !hasClientSelected && clients.length > 0) ? (
         <ClientSelector />
       ) : (
         <>

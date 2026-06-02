@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     const { method, body } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT * FROM clients WHERE deleted_at IS NULL ORDER BY nombre ASC`;
+      const rows = await sql`SELECT * FROM clientes WHERE deleted_at IS NULL`;
       return res.json({ success: true, data: rows });
     }
 
@@ -14,15 +14,14 @@ export default async function handler(req: any, res: any) {
       const d = body;
       const id = d.id || `C-${Date.now()}`;
       const now = Date.now();
+      const strData = JSON.stringify(d);
+
       await sql`
-        INSERT INTO clients (id, nombre, empresa, rut, email, telefono, direccion, plan, activo, uuid_sync, updated_at, data)
-        VALUES (${id}, ${d.nombre||''}, ${d.empresa||d.nombre||''}, ${d.rut||''},
-          ${d.email||''}, ${d.telefono||''}, ${d.direccion||''}, ${d.plan||'basico'},
-          ${d.activo !== false}, ${d.uuid_sync||id}, ${d.updated_at||now}, ${JSON.stringify(d)})
+        INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at)
+        VALUES (${id}, ${d.uuid_sync||id}, ${strData}::jsonb, ${d.updated_at||now}, ${d.created_at||now})
         ON CONFLICT (id) DO UPDATE SET
-          nombre = EXCLUDED.nombre, empresa = EXCLUDED.empresa, email = EXCLUDED.email,
-          telefono = EXCLUDED.telefono, updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
-        WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL
+          data = EXCLUDED.data,
+          updated_at = EXCLUDED.updated_at
       `;
       return res.json({ success: true, data: { id } });
     }
