@@ -1,3 +1,8 @@
+// CMMS HVAC PRO — maintenance API
+// Consolida: api/maintenance.ts + api/maintenance/[id].ts + api/maintenance/[id]/execute.ts + api/preventive_maintenance.ts
+// Vercel function: /api/maintenance
+// Tablas Neon: preventive_maintenance
+
 import { getDb } from './_db.js';
 import { requireRole } from './_auth.js';
 
@@ -54,35 +59,61 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, query, body } = req;
+    const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 
     if (method === 'GET') {
+      if (id) {
+        const rows = await sql`
+          SELECT * FROM preventive_maintenance 
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND deleted_at IS NULL
+        `;
+        if (rows.length === 0) {
+          return res.status(404).json({ success: false, message: 'Mantenimiento no encontrado' });
+        }
+        return res.json({ success: true, data: mapToDexie(rows[0]) });
+      }
+
       const tag = query.tag || query.equipo_tag;
       if (tag) {
         const rows = await sql`SELECT * FROM preventive_maintenance WHERE equipo_tag = ${tag} AND deleted_at IS NULL ORDER BY fecha DESC`;
         return res.json({ success: true, data: rows.map(mapToDexie) });
       }
+
       const rows = await sql`SELECT * FROM preventive_maintenance WHERE deleted_at IS NULL ORDER BY fecha DESC LIMIT 500`;
       return res.json({ success: true, data: rows.map(mapToDexie) });
     }
 
     if (method === 'POST') {
+      const action = query.action;
+      if (action === 'execute') {
+        if (!id) {
+          return res.status(400).json({ error: 'Falta identificador (id)' });
+        }
+        const now = Date.now();
+        await sql`
+          UPDATE preventive_maintenance 
+          SET updated_at = ${now},
+              data = jsonb_set(coalesce(data, '{}'::jsonb), '{estado}', '"ejecutado"')
+          WHERE id = ${id} OR uuid_sync = ${id}
+        `;
+        return res.json({ success: true, message: 'Mantenimiento ejecutado con éxito.' });
+      }
+
       const mapped = mapToNeon(body);
-      
-      // Validación del campo equipo_tag obligatorio (PROBLEMA 4)
       if (!mapped.equipo_tag) {
         return res.status(400).json({ success: false, error: 'El campo equipo_tag es obligatorio para registrar un mantenimiento' });
       }
 
-      const id = mapped.id || `MNT-${Date.now()}`;
+      const finalId = mapped.id || `MNT-${Date.now()}`;
       const now = Date.now();
 
       await sql`
         INSERT INTO preventive_maintenance (id, equipo_tag, tecnico_id, tipo, fecha,
           hallazgos, acciones, repuestos, uuid_sync, updated_at, data)
         VALUES (
-          ${id}, ${mapped.equipo_tag}, ${mapped.tecnico_id || ''}, ${mapped.tipo || ''},
+          ${finalId}, ${mapped.equipo_tag}, ${mapped.tecnico_id || ''}, ${mapped.tipo || ''},
           ${mapped.fecha || new Date().toISOString()}, ${mapped.hallazgos || ''}, ${mapped.acciones || ''},
-          ${mapped.repuestos || ''}, ${mapped.uuid_sync || id}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
+          ${mapped.repuestos || ''}, ${mapped.uuid_sync || finalId}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
         )
         ON CONFLICT (id) DO UPDATE SET
           hallazgos = EXCLUDED.hallazgos, acciones = EXCLUDED.acciones,
@@ -90,7 +121,42 @@ export default async function handler(req: any, res: any) {
           data = EXCLUDED.data
         WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL
       `;
-      return res.json({ success: true, data: { id } });
+      return res.json({ success: true, data: { id: finalId } });
+    }
+
+    if (method === 'PUT') {
+      if (!id) {
+        return res.status(400).json({ success: false, error: 'Falta identificador de mantenimiento' });
+      }
+      const d = body;
+      const now = Date.now();
+      await sql`
+        UPDATE preventive_maintenance SET
+          equipo_tag = ${d.equipo_tag || d.equipoTag || ''},
+          tecnico_id = ${d.tecnico_id || d.tecnicoId || ''},
+          tipo = ${d.tipo || ''},
+          fecha = ${d.fecha || new Date().toISOString()},
+          hallazgos = ${d.hallazgos || ''},
+          acciones = ${d.descripcion || d.acciones || ''},
+          repuestos = ${d.repuestos || ''},
+          updated_at = ${now},
+          data = ${JSON.stringify(d)}
+        WHERE id = ${id} OR uuid_sync = ${id}
+      `;
+      return res.json({ success: true, message: 'Mantenimiento actualizado' });
+    }
+
+    if (method === 'DELETE') {
+      if (!id) {
+        return res.status(400).json({ success: false, error: 'Falta identificador de mantenimiento' });
+      }
+      const now = Date.now();
+      await sql`
+        UPDATE preventive_maintenance 
+        SET deleted_at = ${now}, updated_at = ${now} 
+        WHERE id = ${id} OR uuid_sync = ${id}
+      `;
+      return res.json({ success: true, message: 'Mantenimiento eliminado' });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

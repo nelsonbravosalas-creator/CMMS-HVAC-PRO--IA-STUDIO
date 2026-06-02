@@ -1,3 +1,8 @@
+// CMMS HVAC PRO — assets API
+// Consolida: api/assets.ts + api/assets/[id].ts
+// Vercel function: /api/assets
+// Tablas Neon: assets
+
 import { getDb } from './_db.js';
 import { requireRole } from './_auth.js';
 
@@ -8,13 +13,29 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, query, body } = req;
-    const tag = query.tag || body?.tag;
+    const id = query.id || query.tag || query.uuid || body?.uuid_sync || body?.tag;
 
     if (method === 'GET') {
+      if (id) {
+        const rows = await sql`
+          SELECT * FROM assets 
+          WHERE (uuid_sync = ${id} OR tag = ${id}) AND deleted_at IS NULL
+        `;
+        if (rows.length === 0) {
+          return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
+        }
+        return res.json({ success: true, data: rows[0] });
+      }
+      const tag = query.tag;
       if (tag) {
         const rows = await sql`SELECT * FROM assets WHERE tag = ${tag} AND deleted_at IS NULL`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
         return res.json({ success: true, data: rows[0] });
+      }
+      const cliente_id = query.cliente_id;
+      if (cliente_id) {
+        const rows = await sql`SELECT * FROM assets WHERE cliente_id = ${cliente_id} AND deleted_at IS NULL ORDER BY tag ASC LIMIT 1000`;
+        return res.json({ success: true, data: rows });
       }
       const rows = await sql`SELECT * FROM assets WHERE deleted_at IS NULL ORDER BY tag ASC LIMIT 1000`;
       return res.json({ success: true, data: rows });
@@ -27,8 +48,8 @@ export default async function handler(req: any, res: any) {
       
       const cliente_id = d.cliente_id || 'cliente_defecto';
       const sucursal_id = d.sucursal_id || 'sucursal_defecto';
-      
       const now = Date.now();
+      
       await sql`
         INSERT INTO assets (tag, nombre, tipo, marca, modelo, serie, ubicacion, area,
           capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util,
@@ -40,7 +61,7 @@ export default async function handler(req: any, res: any) {
           ${d.capacidad || ''}, ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''},
           ${d.fecha_instalacion || ''}, ${d.vida_util || 0}, ${d.estado || 'operativo'},
           ${d.ultimo_mantenimiento || ''}, ${d.proximo_mantenimiento || ''},
-          ${d.horas_operacion || 0}, ${JSON.stringify(d.tecnicos || [])}, ${d.notas || ''},
+          ${d.horas_operacion || 0}, ${JSON.stringify(d.tecnicos || [])}, ${d.notes || d.notas || ''},
           ${cliente_id}, ${sucursal_id},
           ${d.uuid_sync || d.tag}, ${d.updated_at || now}, ${now}
         )
@@ -60,11 +81,48 @@ export default async function handler(req: any, res: any) {
       return res.json({ success: true, data: { tag: d.tag } });
     }
 
-    if (method === 'DELETE') {
-      if (!tag) return res.status(400).json({ error: 'Falta tag' });
+    if (method === 'PUT') {
+      if (!id) return res.status(400).json({ error: 'Falta identificador (id/tag)' });
+      const d = body;
       const now = Date.now();
-      await sql`UPDATE assets SET deleted_at = ${now}, estado = 'baja', updated_at = ${now} WHERE tag = ${tag}`;
-      return res.json({ success: true });
+      await sql`
+        UPDATE assets SET
+          nombre = ${d.nombre || ''},
+          tipo = ${d.tipo || ''},
+          marca = ${d.marca || ''},
+          modelo = ${d.modelo || ''},
+          serie = ${d.serie || ''},
+          ubicacion = ${d.ubicacion || ''},
+          area = ${d.area || ''},
+          capacidad = ${d.capacidad || ''},
+          voltaje = ${d.voltaje || ''},
+          corriente = ${d.corriente || ''},
+          refrigerante = ${d.refrigerante || ''},
+          fecha_instalacion = ${d.fecha_instalacion || ''},
+          vida_util = ${d.vida_util || 0},
+          estado = ${d.estado || 'operativo'},
+          ultimo_mantenimiento = ${d.ultimo_mantenimiento || ''},
+          proximo_mantenimiento = ${d.proximo_mantenimiento || ''},
+          horas_operacion = ${d.horas_operacion || 0},
+          tecnicos = ${JSON.stringify(d.tecnicos || [])},
+          notas = ${d.notes || d.notas || ''},
+          cliente_id = ${d.cliente_id || 'cliente_defecto'},
+          sucursal_id = ${d.sucursal_id || 'sucursal_defecto'},
+          updated_at = ${d.updated_at || now}
+        WHERE uuid_sync = ${id} OR tag = ${id}
+      `;
+      return res.json({ success: true, message: 'Equipo actualizado' });
+    }
+
+    if (method === 'DELETE') {
+      if (!id) return res.status(400).json({ error: 'Falta identificador (id/tag)' });
+      const now = Date.now();
+      await sql`
+        UPDATE assets 
+        SET deleted_at = ${now}, estado = 'baja', updated_at = ${now} 
+        WHERE uuid_sync = ${id} OR tag = ${id}
+      `;
+      return res.json({ success: true, message: 'Equipo eliminado/dado de baja' });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

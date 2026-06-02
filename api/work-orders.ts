@@ -1,3 +1,8 @@
+// CMMS HVAC PRO — work-orders API
+// Consolida: api/work-orders.ts + api/work-orders/[id].ts + api/work-orders/[id]/complete.ts + api/work_orders.ts
+// Vercel function: /api/work-orders
+// Tablas Neon: work_orders
+
 import { getDb } from './_db.js';
 
 function mapToNeon(frontData: any) {
@@ -47,16 +52,45 @@ export default async function handler(req: any, res: any) {
   try {
     const sql = getDb();
     const { method, body, query } = req;
+    const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 
     if (method === 'GET') {
+      if (id) {
+        const rows = await sql`
+          SELECT * FROM work_orders 
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND deleted_at IS NULL
+        `;
+        if (rows.length === 0) {
+          return res.status(404).json({ success: false, message: 'Orden de trabajo no encontrada' });
+        }
+        return res.json({ success: true, data: mapToDexie(rows[0]) });
+      }
+
       const rows = await sql`SELECT * FROM work_orders WHERE deleted_at IS NULL ORDER BY fecha_creacion DESC LIMIT 500`;
       const mapped = rows.map(mapToDexie);
       return res.json({ success: true, data: mapped });
     }
 
     if (method === 'POST') {
+      const action = query.action;
+      if (action === 'complete') {
+        if (!id) {
+          return res.status(400).json({ error: 'Falta identificador (id)' });
+        }
+        const now = Date.now();
+        await sql`
+          UPDATE work_orders 
+          SET estado = 'cerrado', 
+              fecha_cierre = ${new Date().toISOString()},
+              updated_at = ${now},
+              data = jsonb_set(coalesce(data, '{}'::jsonb), '{estado}', '"cerrado"')
+          WHERE id = ${id} OR uuid_sync = ${id}
+        `;
+        return res.json({ success: true, message: 'Orden de trabajo completada y guardada con éxito.' });
+      }
+
       const mapped = mapToNeon(body);
-      const id = mapped.id || `TK-${Date.now()}`;
+      const finalId = mapped.id || `TK-${Date.now()}`;
       const now = Date.now();
 
       await sql`
@@ -64,10 +98,10 @@ export default async function handler(req: any, res: any) {
           equipo_tag, cliente_id, creado_por, asignado_a, fecha_creacion,
           uuid_sync, updated_at, data)
         VALUES (
-          ${id}, ${mapped.titulo || ''}, ${mapped.descripcion || ''}, ${mapped.prioridad || 'media'},
+          ${finalId}, ${mapped.titulo || ''}, ${mapped.descripcion || ''}, ${mapped.prioridad || 'media'},
           ${mapped.estado || 'abierto'}, ${mapped.equipo_tag || ''}, ${mapped.cliente_id || ''},
           ${mapped.creado_por || ''}, ${mapped.asignado_a || ''}, ${mapped.fecha_creacion || new Date().toISOString()},
-          ${mapped.uuid_sync || id}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
+          ${mapped.uuid_sync || finalId}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
         )
         ON CONFLICT (id) DO UPDATE SET
           titulo = EXCLUDED.titulo, descripcion = EXCLUDED.descripcion,
@@ -76,15 +110,39 @@ export default async function handler(req: any, res: any) {
           updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
         WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL
       `;
-      return res.json({ success: true, data: { id } });
+      return res.json({ success: true, data: { id: finalId } });
+    }
+
+    if (method === 'PUT') {
+      if (!id) {
+        return res.status(400).json({ success: false, error: 'Falta identificador de orden de trabajo' });
+      }
+      const d = body;
+      const now = Date.now();
+      await sql`
+        UPDATE work_orders SET
+          titulo = ${d.titulo || ''},
+          descripcion = ${d.descripcion || ''},
+          prioridad = ${d.prioridad || 'media'},
+          estado = ${d.estado || 'abierto'},
+          equipo_tag = ${d.equipo_tag || d.equipoTag || ''},
+          asignado_a = ${d.asignado_a || d.asignadoA || ''},
+          updated_at = ${d.updated_at || now},
+          data = ${JSON.stringify(d)}
+        WHERE id = ${id} OR uuid_sync = ${id}
+      `;
+      return res.json({ success: true, message: 'Orden de trabajo actualizada' });
     }
 
     if (method === 'DELETE') {
-      const id = query.id || body?.id;
       if (!id) return res.status(400).json({ error: 'Falta id' });
       const now = Date.now();
-      await sql`UPDATE work_orders SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${id}`;
-      return res.json({ success: true });
+      await sql`
+        UPDATE work_orders 
+        SET deleted_at = ${now}, updated_at = ${now} 
+        WHERE id = ${id} OR uuid_sync = ${id}
+      `;
+      return res.json({ success: true, message: 'Orden de trabajo eliminada' });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
