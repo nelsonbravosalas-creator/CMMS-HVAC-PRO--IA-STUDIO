@@ -25,7 +25,7 @@ const getSql = () => {
 
 const requireCliente = async (req: any, res: any, next: any) => {
   try {
-    const clienteId = req.params.cliente_id || req.headers['x-client-id'] || req.headers['x-cliente-id'] || req.query.clienteId || req.query.cliente_id || 'cliente-eecol-default-001';
+    const clienteId = req.params.cliente_id || req.headers['x-client-id'] || req.headers['x-cliente-id'] || req.query.clienteId || req.query.cliente_id || 'cliente-default-001';
     if (!clienteId) {
       return res.status(403).json({ success: false, error: 'Tenant (cliente_id) es obligatorio y requerido.' });
     }
@@ -38,14 +38,17 @@ const requireCliente = async (req: any, res: any, next: any) => {
     const userIdHeader = req.headers['x-user-id'] || req.headers['x-userid'] || req.query.userId || req.query.user_id;
     if (userIdHeader) {
       const uId = String(userIdHeader).trim();
-      const queryUser = await sql`SELECT * FROM users WHERE id = ${uId} OR uuid_sync = ${uId}`;
+      const queryUser = await sql`
+        SELECT u.uuid_sync, u.cliente_id
+        FROM users u
+        WHERE u.id = ${uId} OR u.uuid_sync = ${uId}
+      `;
       if (queryUser.length > 0) {
-        const u = queryUser[0];
-        const uClienteId = u.cliente_id || (u.data && (u.data.cliente_id || u.data.tenantId));
-        if (uClienteId && uClienteId !== clienteId && uClienteId !== 'cliente-eecol-default-001') {
-          return res.status(403).json({ 
-            success: false, 
-            error: `Acceso No Autorizado: Su usuario con ID ${uId} está asignado al cliente ${uClienteId} y no coincide con el tenant solicitado (${clienteId}).` 
+        const uClienteId = queryUser[0].cliente_id;
+        if (uClienteId && uClienteId !== clienteId && uClienteId !== 'cliente-default-001') {
+          return res.status(403).json({
+            success: false,
+            error: `Acceso no autorizado: usuario ${uId} pertenece al cliente ${uClienteId}, no a ${clienteId}.`
           });
         }
       }
@@ -56,11 +59,11 @@ const requireCliente = async (req: any, res: any, next: any) => {
     if (userHeader) {
       const email = userHeader.replace('Bearer ', '').trim().toLowerCase();
       if (email && !email.includes('mock') && !email.includes('test')) {
-        const queryRes = await sql`SELECT * FROM users WHERE LOWER(correo) = ${email} OR LOWER(data->>'email') = ${email}`;
+        const queryRes = await sql`SELECT uuid_sync, cliente_id FROM users WHERE LOWER(correo) = ${email} OR LOWER(data->>'email') = ${email}`;
         if (queryRes.length > 0) {
           const u = queryRes[0];
-          const uClienteId = u.cliente_id || (u.data && (u.data.cliente_id || u.data.tenantId));
-          if (uClienteId && uClienteId !== clienteId && uClienteId !== 'cliente-eecol-default-001') {
+          const uClienteId = u.cliente_id;
+          if (uClienteId && uClienteId !== clienteId && uClienteId !== 'cliente-default-001') {
             return res.status(403).json({ 
               success: false, 
               error: `Acceso Denegado: Su usuario (${email}) esta asignado al cliente ${uClienteId} y no coincide con el tenant solicitado (${clienteId}).` 
@@ -94,7 +97,15 @@ const validateWorkOrderPayload = (data: any) => {
     const checklist = target.checklist || target.checklists || target.checklist_items;
     const hasChecklist = Array.isArray(checklist) && checklist.length > 0;
     
-    const signature = target.firma || target.firma_conformidad_base64 || (target.payload && target.payload.firma_conformidad_base64);
+    const signature =
+      target.firma
+      || target.firma_conformidad_base64
+      || (target.firmas && (target.firmas.tecnico || target.firmas.cliente))
+      || (target.signatures && target.signatures.technician)
+      || (target.payload && target.payload.firma_conformidad_base64)
+      || (target.data && target.data.firma_conformidad_base64)
+      || (target.data && target.data.firmas && target.data.firmas.tecnico);
+    
     const hasSignature = signature && String(signature).trim().length > 0;
     
     if (!hasSignature) {
@@ -131,22 +142,26 @@ function getGeminiClient(): GoogleGenAI {
 async function ensureTables() {
   try {
     const sql = getSql();
-    console.log("📦 Initializing Database Schema (Sync with Scripts)...");
-    
-    // Rename old tables to new standard names.
-    const renameTables = async () => {
-      try { await sql`ALTER TABLE IF EXISTS activos RENAME TO assets`; } catch (e) {}
-      try { await sql`ALTER TABLE IF EXISTS usuarios RENAME TO users`; } catch (e) {}
-      try { await sql`ALTER TABLE IF EXISTS mantenimientos RENAME TO preventive_maintenance`; } catch (e) {}
-      try { await sql`ALTER TABLE IF EXISTS tickets RENAME TO work_orders`; } catch (e) {}
-      try { await sql`ALTER TABLE IF EXISTS informes RENAME TO reports`; } catch (e) {}
-      try { await sql`ALTER TABLE IF EXISTS eventos RENAME TO events`; } catch (e) {}
-      try { await sql`ALTER TABLE IF EXISTS clientes RENAME TO clients`; } catch (e) {}
-      try { await sql`ALTER TABLE IF EXISTS sucursales RENAME TO branches`; } catch (e) {}
-    }
-    await renameTables();
+    console.log("🧹 [MIGRACIÓN QA SENIOR] - Depurando tablas 'cmms_' inactivas y normalizando base de datos...");
 
-    // 1. Create tables one by one with tagged templates
+    // 1. Eliminar de forma segura todas las tablas cmms_* obsoletas
+    const obsoleteTables = [
+      'cmms_idempotency_keys', 'cmms_auth_failures', 'cmms_usuarios_clientes', 
+      'cmms_informes_mantenimiento', 'cmms_sla_config', 'cmms_pm_planes', 
+      'cmms_pm_plantillas', 'cmms_checklist_plantillas', 'cmms_push_subscriptions', 
+      'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_tickets', 
+      'cmms_mantenimientos', 'cmms_equipos', 'cmms_users', 'cmms_clientes'
+    ];
+
+    for (const table of obsoleteTables) {
+      try {
+        await sql.unsafe(`DROP TABLE IF EXISTS ${table} CASCADE`);
+      } catch (err: any) {
+        console.log(`Info: No se pudo eliminar la tabla obsoleta ${table}:`, err.message);
+      }
+    }
+
+    // 2. Crear las tablas principales de la Aplicación si no existen
     await sql`CREATE TABLE IF NOT EXISTS clientes (
       id TEXT PRIMARY KEY,
       uuid_sync TEXT UNIQUE,
@@ -168,17 +183,46 @@ async function ensureTables() {
     )`;
 
     await sql`CREATE TABLE IF NOT EXISTS assets (
-      uuid_sync TEXT PRIMARY KEY, tag TEXT UNIQUE, nombre TEXT NOT NULL, tipo TEXT, marca TEXT, modelo TEXT, serie TEXT, 
-      ubicacion TEXT, area TEXT, capacidad TEXT, voltaje TEXT, corriente TEXT, refrigerante TEXT, fecha_instalacion TEXT, 
-      vida_util INTEGER DEFAULT 10, estado TEXT DEFAULT 'operativo', ultimo_mantenimiento TEXT, proximo_mantenimiento TEXT, 
-      horas_operacion INTEGER DEFAULT 0, tecnicos JSONB, notas TEXT, cliente_id TEXT, sucursal_id TEXT, 
-      latitud DOUBLE PRECISION, longitud DOUBLE PRECISION,
-      updated_at BIGINT, created_at BIGINT, deleted_at BIGINT
+      uuid_sync TEXT PRIMARY KEY,
+      tag TEXT UNIQUE,
+      nombre TEXT NOT NULL,
+      tipo TEXT,
+      marca TEXT,
+      modelo TEXT,
+      serie TEXT,
+      ubicacion TEXT,
+      area TEXT,
+      capacidad TEXT,
+      voltaje TEXT,
+      corriente TEXT,
+      refrigerante TEXT,
+      fecha_instalacion TEXT,
+      vida_util INTEGER DEFAULT 10,
+      estado TEXT DEFAULT 'operativo',
+      ultimo_mantenimiento TEXT,
+      proximo_mantenimiento TEXT,
+      horas_operacion INTEGER DEFAULT 0,
+      tecnicos JSONB,
+      notas TEXT,
+      latitud DOUBLE PRECISION,
+      longitud DOUBLE PRECISION,
+      updated_at BIGINT,
+      created_at BIGINT,
+      deleted_at BIGINT
     )`;
 
     await sql`CREATE TABLE IF NOT EXISTS users (
-      uuid_sync TEXT PRIMARY KEY, id TEXT UNIQUE, nombre TEXT, correo TEXT UNIQUE, perfil TEXT, pin TEXT, 
-      activo BOOLEAN DEFAULT true, data JSONB, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT
+      uuid_sync TEXT PRIMARY KEY,
+      id TEXT UNIQUE,
+      nombre TEXT,
+      correo TEXT UNIQUE,
+      perfil TEXT,
+      pin TEXT,
+      activo BOOLEAN DEFAULT true,
+      data JSONB,
+      updated_at BIGINT,
+      created_at BIGINT,
+      deleted_at BIGINT
     )`;
 
     await sql`CREATE TABLE IF NOT EXISTS preventive_maintenance (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
@@ -191,604 +235,100 @@ async function ensureTables() {
     await sql`CREATE TABLE IF NOT EXISTS settings (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS ordenes_servicio (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
     await sql`CREATE TABLE IF NOT EXISTS inventory (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
-    await sql`CREATE TABLE IF NOT EXISTS audit_logs (id TEXT PRIMARY KEY, action TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, user_id TEXT NOT NULL, payload JSONB, timestamp BIGINT NOT NULL)`;
+    await sql`CREATE TABLE IF NOT EXISTS calendar (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
+    
+    await sql`CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY, 
+      action TEXT NOT NULL, 
+      entity_type TEXT NOT NULL, 
+      entity_id TEXT NOT NULL, 
+      user_id TEXT NOT NULL, 
+      payload JSONB, 
+      timestamp BIGINT NOT NULL
+    )`;
 
-    // 2. Migration for existing tables - ensure columns exist
-    const columnMigrations = [
-      { table: 'assets', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'assets', col: 'updated_at', type: 'BIGINT' },
-      { table: 'assets', col: 'created_at', type: 'BIGINT' },
-      { table: 'assets', col: 'cliente_id', type: 'TEXT' },
-      { table: 'assets', col: 'sucursal_id', type: 'TEXT' },
-      { table: 'users', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'users', col: 'updated_at', type: 'BIGINT' },
-      { table: 'users', col: 'created_at', type: 'BIGINT' },
-      { table: 'users', col: 'data', type: 'JSONB' },
-      { table: 'preventive_maintenance', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'preventive_maintenance', col: 'updated_at', type: 'BIGINT' },
-      { table: 'preventive_maintenance', col: 'created_at', type: 'BIGINT' },
-      { table: 'preventive_maintenance', col: 'data', type: 'JSONB' },
-      { table: 'work_orders', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'work_orders', col: 'updated_at', type: 'BIGINT' },
-      { table: 'work_orders', col: 'created_at', type: 'BIGINT' },
-      { table: 'work_orders', col: 'data', type: 'JSONB' },
-      { table: 'reports', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'reports', col: 'updated_at', type: 'BIGINT' },
-      { table: 'reports', col: 'created_at', type: 'BIGINT' },
-      { table: 'reports', col: 'data', type: 'JSONB' },
-      { table: 'events', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'events', col: 'updated_at', type: 'BIGINT' },
-      { table: 'events', col: 'created_at', type: 'BIGINT' },
-      { table: 'events', col: 'data', type: 'JSONB' },
-      { table: 'clients', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'clients', col: 'updated_at', type: 'BIGINT' },
-      { table: 'clients', col: 'created_at', type: 'BIGINT' },
-      { table: 'clients', col: 'data', type: 'JSONB' },
-      { table: 'branches', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'branches', col: 'updated_at', type: 'BIGINT' },
-      { table: 'branches', col: 'created_at', type: 'BIGINT' },
-      { table: 'branches', col: 'data', type: 'JSONB' },
-      { table: 'catalog_asset_types', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'catalog_asset_types', col: 'updated_at', type: 'BIGINT' },
-      { table: 'catalog_asset_types', col: 'created_at', type: 'BIGINT' },
-      { table: 'catalog_asset_types', col: 'data', type: 'JSONB' },
-      { table: 'settings', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'settings', col: 'updated_at', type: 'BIGINT' },
-      { table: 'settings', col: 'created_at', type: 'BIGINT' },
-      { table: 'settings', col: 'data', type: 'JSONB' },
-      { table: 'ordenes_servicio', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'ordenes_servicio', col: 'updated_at', type: 'BIGINT' },
-      { table: 'ordenes_servicio', col: 'created_at', type: 'BIGINT' },
-      { table: 'ordenes_servicio', col: 'data', type: 'JSONB' },
-      { table: 'inventory', col: 'uuid_sync', type: 'TEXT' },
-      { table: 'inventory', col: 'updated_at', type: 'BIGINT' },
-      { table: 'inventory', col: 'created_at', type: 'BIGINT' },
-      { table: 'inventory', col: 'data', type: 'JSONB' }
-    ];
+    // 3. Agregar cliente_id como columna real con llave foránea en tablas operacionales:
+    try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE calendar ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e) {}
 
-    for (const m of columnMigrations) {
-      try {
-        // We use a safe way to add columns one by one
-        const t = m.table;
-        if (t === 'assets') {
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cliente_id TEXT`;
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS sucursal_id TEXT`;
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS latitud DOUBLE PRECISION`;
-          await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS longitud DOUBLE PRECISION`;
-        } else if (t === 'users') {
-          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS data JSONB`;
-        } else if (t === 'preventive_maintenance') {
-          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS data JSONB`;
-        } else if (t === 'work_orders') {
-          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS data JSONB`;
-        } else if (t === 'reports') {
-          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS data JSONB`;
-        } else if (t === 'events') {
-          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS data JSONB`;
-        } else if (t === 'clients') {
-          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE clients ADD COLUMN IF NOT EXISTS data JSONB`;
-        } else if (t === 'branches') {
-          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS data JSONB`;
-          await sql`ALTER TABLE branches ADD COLUMN IF NOT EXISTS cliente_id TEXT`;
-        } else if (t === 'catalog_asset_types') {
-          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS data JSONB`;
-          await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-        } else if (t === 'settings') {
-          await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
-        } else if (t === 'ordenes_servicio') {
-          await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS uuid_sync TEXT`;
-          await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS updated_at BIGINT`;
-          await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS created_at BIGINT`;
-          await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS deleted_at BIGINT`;
+    // 4. Agregar sucursal_id real con llave foránea en assets
+    try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS sucursal_id TEXT REFERENCES sucursales(id) ON DELETE RESTRICT`; } catch (e) {}
+    try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS latitud DOUBLE PRECISION`; } catch (e) {}
+    try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS longitud DOUBLE PRECISION`; } catch (e) {}
+
+    // 5. Garantizar llaves UNIQUE de sincronización
+    const tryUnique = async (idx_name: string, q: any) => {
+      try { await q; } catch (e: any) {
+        if (!e.message.includes('already exists') && !e.message.includes('duplicado')) {
+          console.error(`Error unique index ${idx_name}:`, e.message);
         }
-      } catch (e: any) {
-        // Ignore "already exists"
       }
-    }
-
-    // 3. Populate uuid_sync if empty
-    try { await sql`UPDATE assets SET uuid_sync = tag WHERE uuid_sync IS NULL AND tag IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE users SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE preventive_maintenance SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE work_orders SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE reports SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE events SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE clients SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE branches SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE catalog_asset_types SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE settings SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE ordenes_servicio SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-    try { await sql`UPDATE inventory SET uuid_sync = id WHERE uuid_sync IS NULL AND id IS NOT NULL`; } catch(e){}
-
-    // 4. Ensure UNIQUE constraint for uuid_sync on all tables for ON CONFLICT
-    const tryUnique = async (query: any) => {
-        try { await query; } catch(e: any) { 
-           // Ignore if it's "already exists", but log if "could not create unique index"
-           if (!e.message.includes('already exists')) {
-               console.error('Unique constraint error:', e.message); 
-           }
-        }
     };
-    // Sometimes a table was created before the constraint, or the unique index is not picked up by ON CONFLICT.
-    await tryUnique(sql`ALTER TABLE assets ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE users ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE preventive_maintenance ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE work_orders ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE reports ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE events ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE clients ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE branches ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE catalog_asset_types ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE settings ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE ordenes_servicio ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE inventory ADD UNIQUE (uuid_sync)`);
-    await tryUnique(sql`ALTER TABLE audit_logs ADD UNIQUE (id)`);
-    await tryUnique(sql`ALTER TABLE assets ADD UNIQUE (tag)`);
+    await tryUnique('assets_sync_uq', sql`ALTER TABLE assets ADD UNIQUE (uuid_sync)`);
+    await tryUnique('users_sync_uq', sql`ALTER TABLE users ADD UNIQUE (uuid_sync)`);
+    await tryUnique('pm_sync_uq', sql`ALTER TABLE preventive_maintenance ADD UNIQUE (uuid_sync)`);
+    await tryUnique('wo_sync_uq', sql`ALTER TABLE work_orders ADD UNIQUE (uuid_sync)`);
+    await tryUnique('rep_sync_uq', sql`ALTER TABLE reports ADD UNIQUE (uuid_sync)`);
+    await tryUnique('inv_sync_uq', sql`ALTER TABLE inventory ADD UNIQUE (uuid_sync)`);
+    await tryUnique('cal_sync_uq', sql`ALTER TABLE calendar ADD UNIQUE (uuid_sync)`);
 
-    // --- INTEGRACIÓN MULTI-TENANT ESTRICTA (REQUERIMIENTO ARQUITECTO QA) ---
-    await tryUnique(sql`ALTER TABLE clients ADD UNIQUE (id)`);
-    await tryUnique(sql`ALTER TABLE clientes ADD UNIQUE (id)`);
-    await tryUnique(sql`ALTER TABLE sucursales ADD UNIQUE (id)`);
-
-    // Sincronizar datos existentes de clients a clientes
-    try {
-      await sql`INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at, deleted_at)
-                VALUES ('cliente-eecol-default-001', 'cliente-eecol-default-001', '{"nombre": "EECOL Default", "empresa": "EECOL"}'::jsonb, 0, 0, NULL)
-                ON CONFLICT (id) DO NOTHING`;
-      await sql`
-        INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at, deleted_at)
-        SELECT COALESCE(id, uuid_sync), uuid_sync, data, updated_at, created_at, deleted_at FROM clients
-        ON CONFLICT (id) DO NOTHING
-      `;
-    } catch (e: any) {
-      console.log('Error syncing to clientes:', e.message);
-    }
-
-    // Sincronizar datos existentes de branches a sucursales
-    try {
-      await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at, deleted_at)
-                VALUES ('default-sucursal', 'cliente-eecol-default-001', 'default-sucursal', '{"nombre": "Sucursal Default"}'::jsonb, 0, 0, NULL)
-                ON CONFLICT (id) DO NOTHING`;
-      await sql`
-        INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at, deleted_at)
-        SELECT COALESCE(id, uuid_sync), COALESCE(NULLIF(cliente_id, ''), 'cliente-eecol-default-001'), uuid_sync, data, updated_at, created_at, deleted_at FROM branches
-        ON CONFLICT (id) DO NOTHING
-      `;
-    } catch(e: any) {
-      console.log('Error syncing to sucursales:', e.message);
-    }
-
-    // Asegurar integridad de referencias en assets
-    try {
-      await sql`UPDATE assets SET cliente_id = 'cliente-eecol-default-001' WHERE cliente_id IS NULL OR cliente_id = '' OR cliente_id NOT IN (SELECT id FROM clientes)`;
-      await sql`UPDATE assets SET sucursal_id = 'default-sucursal' WHERE sucursal_id IS NULL OR sucursal_id = '' OR sucursal_id NOT IN (SELECT id FROM sucursales)`;
-    } catch (e: any) {
-      console.log('Error cleaning empty asset keys:', e.message);
-    }
-
-    // Aplicar las llaves foráneas estrictas ON DELETE RESTRICT exigidas por QA
-    try { await sql`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_cliente`; } catch (e) {}
-    try { await sql`ALTER TABLE assets ADD CONSTRAINT fk_assets_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT`; } catch (e: any) { console.log('Err FK assets-cliente:', e.message); }
-
-    try { await sql`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_sucursal`; } catch (e) {}
-    try { await sql`ALTER TABLE assets ADD CONSTRAINT fk_assets_sucursal FOREIGN KEY (sucursal_id) REFERENCES sucursales(id) ON DELETE RESTRICT`; } catch (e: any) { console.log('Err FK assets-sucursal:', e.message); }
-
-    // Crear tabla calendar para de forma segura el índice
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS calendar (
-        uuid_sync TEXT PRIMARY KEY,
-        id TEXT UNIQUE,
-        cliente_id TEXT,
-        data JSONB NOT NULL,
-        updated_at BIGINT,
-        created_at BIGINT,
-        deleted_at BIGINT
-      )`;
-    } catch (e) {}
-
-    // Agregar cliente_id como referencia en las tablas operacionales si no existen
-    try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clients(id)`; } catch (e) {}
-    try { await sql`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clients(id)`; } catch (e) {}
-    try { await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clients(id)`; } catch (e) {}
-    try { await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clients(id)`; } catch (e) {}
-    try { await sql`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clients(id)`; } catch (e) {}
-    try { await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clients(id)`; } catch (e) {}
-
-    // Crear Índices Compuestos e Índices de Tenant exigidos por el usuario
+    // 6. Crear índices compuestos de tenant de alto rendimiento (Estrategia QA Senior)
     try { await sql`CREATE INDEX IF NOT EXISTS idx_sucursales_tenant ON sucursales (cliente_id, id)`; } catch(e){}
     try { await sql`CREATE INDEX IF NOT EXISTS idx_assets_tenant_search ON assets (cliente_id, sucursal_id, uuid_sync)`; } catch(e){}
+    try { await sql`CREATE INDEX IF NOT EXISTS idx_work_orders_tenant_search ON work_orders (cliente_id, uuid_sync)`; } catch(e){}
     try { await sql`CREATE INDEX IF NOT EXISTS idx_inventory_tenant_search ON inventory (cliente_id, uuid_sync)`; } catch(e){}
     try { await sql`CREATE INDEX IF NOT EXISTS idx_calendar_tenant_search ON calendar (cliente_id, uuid_sync)`; } catch(e){}
-    try { await sql`CREATE INDEX IF NOT EXISTS idx_work_orders_tenant_search ON work_orders (cliente_id, uuid_sync)`; } catch(e){}
-    try { await sql`CREATE INDEX IF NOT EXISTS idx_logs_tenant_search ON audit_logs (cliente_id, timestamp)`; } catch(e){}
 
-    try { await sql`CREATE INDEX IF NOT EXISTS idx_assets_client ON assets (cliente_id, uuid_sync)`; } catch (e) {}
-    try { await sql`CREATE INDEX IF NOT EXISTS idx_inventory_client ON inventory (cliente_id, uuid_sync)`; } catch (e) {}
-    try { await sql`CREATE INDEX IF NOT EXISTS idx_work_orders_client ON work_orders (cliente_id, uuid_sync)`; } catch (e) {}
-    try { await sql`CREATE INDEX IF NOT EXISTS idx_logs_client ON audit_logs (cliente_id, timestamp)`; } catch (e) {}
-    try { await sql`CREATE INDEX IF NOT EXISTS idx_prev_maint_client ON preventive_maintenance (cliente_id, uuid_sync)`; } catch (e) {}
+    // 7. COOP RECOVERY SECTOR: Asegurar inquilino por defecto y sucursal por defecto para evitar Check Constraints
+    await sql`
+      INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at)
+      VALUES (
+        'cliente-default-001', 
+        'cliente-default-001', 
+        '{"nombre": "Cliente Internacional", "empresa": "Client Corp", "activo": true}'::jsonb, 
+        0, 
+        0
+      )
+      ON CONFLICT (id) DO NOTHING
+    `;
 
-    // --- QA SENIOR MIGRATIONS & COMPATIBILITY LAYER ---
-    // STEP 0.2: Prevent ghost/empty tenant keys from causing check constraint violations
-    try {
-      await sql`UPDATE assets SET cliente_id='cliente-eecol-default-001' WHERE cliente_id = '' OR cliente_id IS NULL`;
-    } catch (e: any) {}
+    await sql`
+      INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at)
+      VALUES (
+        'sucursal-default-001', 
+        'cliente-default-001', 
+        'sucursal-default-001', 
+        '{"nombre": "Sede Central", "ciudad": "Santiago"}'::jsonb, 
+        0, 
+        0
+      )
+      ON CONFLICT (id) DO NOTHING
+    `;
 
-    // STEP 1 & 7: Create compatibility schema and security tracking tables
+    // 8. Auto-migrar datos huérfanos antes de activar constraints estrictos
     try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_clientes (
-        id TEXT PRIMARY KEY,
-        nombre TEXT NOT NULL,
-        creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
-      )`;
-    } catch (e: any) {}
+      await sql`UPDATE assets SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
+      await sql`UPDATE assets SET sucursal_id = 'sucursal-default-001' WHERE sucursal_id IS NULL OR sucursal_id = ''`;
+      await sql`UPDATE work_orders SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
+      await sql`UPDATE preventive_maintenance SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
+      await sql`UPDATE inventory SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
+      await sql`UPDATE calendar SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
+      await sql`UPDATE users SET cliente_id = 'cliente-default-001' WHERE cliente_id IS NULL OR cliente_id = ''`;
+    } catch(e) {}
 
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_users (
-        id TEXT PRIMARY KEY,
-        nombre TEXT,
-        correo TEXT UNIQUE,
-        perfil TEXT,
-        pin TEXT,
-        activo BOOLEAN DEFAULT true,
-        creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_equipos (
-        tag TEXT PRIMARY KEY,
-        nombre TEXT NOT NULL,
-        cliente_id TEXT NOT NULL,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_tickets (
-        id TEXT PRIMARY KEY,
-        cliente_id TEXT NOT NULL,
-        tag TEXT,
-        solicitante_id TEXT,
-        asignado_user_id TEXT,
-        supervisor_id TEXT,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_mantenimientos (
-        id TEXT PRIMARY KEY,
-        cliente_id TEXT NOT NULL,
-        tag TEXT,
-        ot_id TEXT,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    // STEP 1: Unify Event and Comment IDs with auto-increment sequences
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_ot_eventos (
-        id SERIAL PRIMARY KEY,
-        ticket_id TEXT,
-        cliente_id TEXT NOT NULL,
-        tipo TEXT NOT NULL,
-        actor_user_id TEXT NOT NULL DEFAULT '',
-        actor_nombre TEXT NOT NULL DEFAULT '',
-        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_ot_comentarios (
-        id SERIAL PRIMARY KEY,
-        ticket_id TEXT,
-        cliente_id TEXT NOT NULL,
-        autor_user_id TEXT NOT NULL DEFAULT '',
-        autor_nombre TEXT NOT NULL DEFAULT '',
-        texto TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    // STEP 7: Create Idempotency keys & Auth brute-force block lists tables
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_idempotency_keys (
-        key            text NOT NULL,
-        user_id        text NOT NULL,
-        status_code    int  NOT NULL,
-        response_body  jsonb NOT NULL,
-        expires_at     timestamptz NOT NULL,
-        created_at     timestamptz NOT NULL DEFAULT now(),
-        PRIMARY KEY (key, user_id)
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_auth_failures (
-        id            bigserial PRIMARY KEY,
-        email         text NOT NULL,
-        ip            text NOT NULL,
-        attempted_at  timestamptz NOT NULL DEFAULT now()
-      )`;
-    } catch (e: any) {}
-
-    // Additional schemas to ensure foreign key setup succeeds perfectly
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_usuarios_clientes (
-        user_id TEXT NOT NULL,
-        cliente_id TEXT NOT NULL,
-        PRIMARY KEY (user_id, cliente_id)
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_informes_mantenimiento (
-        id TEXT PRIMARY KEY,
-        cliente_id TEXT NOT NULL,
-        equipo_tag TEXT NOT NULL,
-        tecnico_user_id TEXT,
-        firmado_por_user_id TEXT,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_sla_config (
-        id TEXT PRIMARY KEY,
-        cliente_id TEXT NOT NULL,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_pm_planes (
-        id TEXT PRIMARY KEY,
-        cliente_id TEXT NOT NULL,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_pm_plantillas (
-        id TEXT PRIMARY KEY,
-        cliente_id TEXT NOT NULL,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_checklist_plantillas (
-        id TEXT PRIMARY KEY,
-        cliente_id TEXT NOT NULL,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_push_subscriptions (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        deleted_at TIMESTAMPTZ
-      )`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE TABLE IF NOT EXISTS cmms_one_shot_migrations (
-        key text PRIMARY KEY,
-        created_at timestamptz NOT NULL DEFAULT now()
-      )`;
-    } catch (e: any) {}
-
-    // STEP 2: Add soft delete indices and column definitions across tables
-    try {
-      await sql`ALTER TABLE cmms_equipos                ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
-      await sql`ALTER TABLE cmms_equipos                ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-      await sql`ALTER TABLE cmms_mantenimientos         ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-      await sql`ALTER TABLE cmms_tickets                ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-      await sql`ALTER TABLE cmms_ot_eventos             ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-      await sql`ALTER TABLE cmms_ot_comentarios         ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-      await sql`ALTER TABLE cmms_informes_mantenimiento ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-      await sql`ALTER TABLE cmms_clientes               ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-      await sql`ALTER TABLE cmms_users                  ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1`;
-    } catch (e: any) {}
-
-    try {
-      await sql`ALTER TABLE cmms_mantenimientos         ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_tickets                ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_ot_eventos             ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_ot_comentarios         ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_informes_mantenimiento ADD COLUMN IF NOT EXISTS deleted_at timestamptz`;
-    } catch (e: any) {}
-
-    try {
-      await sql`CREATE INDEX IF NOT EXISTS cmms_equipos_active_idx ON cmms_equipos (cliente_id) WHERE deleted_at IS NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`CREATE INDEX IF NOT EXISTS cmms_mantenimientos_active_idx ON cmms_mantenimientos (cliente_id) WHERE deleted_at IS NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`CREATE INDEX IF NOT EXISTS cmms_tickets_active_idx ON cmms_tickets (cliente_id) WHERE deleted_at IS NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`CREATE INDEX IF NOT EXISTS cmms_informes_active_idx ON cmms_informes_mantenimiento (cliente_id) WHERE deleted_at IS NULL`;
-    } catch (e: any) {}
-
-    // STEP 3: Add Foreign Key constraints safely
-    try {
-      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_equipo FOREIGN KEY (tag) REFERENCES cmms_equipos(tag)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_solicitante FOREIGN KEY (solicitante_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_asignado FOREIGN KEY (asignado_user_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_tickets ADD CONSTRAINT fk_tickets_supervisor FOREIGN KEY (supervisor_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_equipos ADD CONSTRAINT fk_equipos_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_mantenimientos ADD CONSTRAINT fk_mant_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_mantenimientos ADD CONSTRAINT fk_mant_equipo FOREIGN KEY (tag) REFERENCES cmms_equipos(tag)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_mantenimientos ADD CONSTRAINT fk_mant_ot FOREIGN KEY (ot_id) REFERENCES cmms_tickets(id) ON DELETE SET NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_ot_eventos ADD CONSTRAINT fk_oteventos_ticket FOREIGN KEY (ticket_id) REFERENCES cmms_tickets(id) ON DELETE CASCADE`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_ot_eventos ADD CONSTRAINT fk_oteventos_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_ot_comentarios ADD CONSTRAINT fk_otcom_ticket FOREIGN KEY (ticket_id) REFERENCES cmms_tickets(id) ON DELETE CASCADE`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_ot_comentarios ADD CONSTRAINT fk_otcom_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_usuarios_clientes ADD CONSTRAINT fk_uc_user FOREIGN KEY (user_id) REFERENCES cmms_users(id) ON DELETE CASCADE`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_usuarios_clientes ADD CONSTRAINT fk_uc_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id) ON DELETE CASCADE`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_usuarios_clientes ADD CONSTRAINT uq_uc_user_cliente UNIQUE (user_id, cliente_id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_equipo FOREIGN KEY (equipo_tag) REFERENCES cmms_equipos(tag)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_tecnico FOREIGN KEY (tecnico_user_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_informes_mantenimiento ADD CONSTRAINT fk_inf_firmadopor FOREIGN KEY (firmado_por_user_id) REFERENCES cmms_users(id) ON DELETE SET NULL`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_sla_config ADD CONSTRAINT fk_sla_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id) ON DELETE CASCADE`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_pm_planes ADD CONSTRAINT fk_pmpl_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_pm_plantillas ADD CONSTRAINT fk_pmpt_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_checklist_plantillas ADD CONSTRAINT fk_chkp_cliente FOREIGN KEY (cliente_id) REFERENCES cmms_clientes(id)`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_push_subscriptions ADD CONSTRAINT fk_push_user FOREIGN KEY (user_id) REFERENCES cmms_users(id) ON DELETE CASCADE`;
-    } catch (e: any) {}
-
-    try {
-      await sql`INSERT INTO cmms_one_shot_migrations(key) VALUES ('foreign-keys-strict-2026-05') ON CONFLICT DO NOTHING`;
-    } catch (e: any) {}
-
-    // STEP 4: Remove Empty/Null clients constraint
-    try {
-      await sql`ALTER TABLE cmms_equipos ADD CONSTRAINT chk_cmms_equipos_cliente_nonempty CHECK (cliente_id <> '')`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE assets ADD CONSTRAINT chk_assets_cliente_nonempty CHECK (cliente_id <> '')`;
-    } catch (e: any) {}
-
-    // STEP 5: Migrate any existing timestamp values to timestamptz (UTC mapping check)
-    try {
-      await sql`
-        DO $$
-        DECLARE r record;
-        BEGIN
-          FOR r IN
-            SELECT table_name, column_name FROM information_schema.columns
-            WHERE table_schema='public' AND data_type='timestamp without time zone'
-          LOOP
-            EXECUTE format(
-              'ALTER TABLE %I ALTER COLUMN %I TYPE timestamptz USING %I AT TIME ZONE ''UTC''',
-              r.table_name, r.column_name, r.column_name
-            );
-          END LOOP;
-        END $$;
-      `;
-    } catch (e: any) {}
-
-    // STEP 6: Convert creado_en format text to timestamptz timezone
-    try {
-      await sql`ALTER TABLE cmms_users ALTER COLUMN creado_en TYPE timestamptz USING creado_en::timestamptz`;
-    } catch (e: any) {}
-    try {
-      await sql`ALTER TABLE cmms_clientes ALTER COLUMN creado_en TYPE timestamptz USING creado_en::timestamptz`;
-    } catch (e: any) {}
-
-    // Sincronizar secuencias
-    try {
-      await sql`SELECT setval('cmms_ot_eventos_id_seq', COALESCE((SELECT MAX(id) FROM cmms_ot_eventos), 1))`;
-      await sql`SELECT setval('cmms_ot_comentarios_id_seq', COALESCE((SELECT MAX(id) FROM cmms_ot_comentarios), 1))`;
-    } catch (e: any) {}
-
-    console.log("✅ Database Schema integrity check completed");
-  } catch (error) {
-    console.error("❌ Error initializing database:", error);
+    console.log("✅ [MIGRACIÓN QA SENIOR COMBO SUCCESS] - Database Schema integrity check completed successfully.");
+  } catch (error: any) {
+    console.error("❌ Error inicializando base de datos:", error.message || error);
   }
 }
 
@@ -935,7 +475,7 @@ async function startServer() {
   const ALLOWED_TABLES = [
     'assets', 'users', 'preventive_maintenance', 'work_orders', 
     'reports', 'events', 'clients', 'branches', 
-    'catalog_asset_types', 'settings', 'ordenes_servicio', 'audit_logs', 'inventory'
+    'catalog_asset_types', 'settings', 'ordenes_servicio', 'audit_logs', 'inventory', 'calendar'
   ];
 
 const TABLE_ALIAS_MAP: Record<string, string> = {
@@ -947,7 +487,8 @@ const TABLE_ALIAS_MAP: Record<string, string> = {
   'eventos': 'events',
   'clientes': 'clients',
   'sucursales': 'branches',
-  'inventario': 'inventory'
+  'inventario': 'inventory',
+  'calendario': 'calendar'
 };
 
 function resolveTable(name: string): string | null {
@@ -971,21 +512,28 @@ function resolveTable(name: string): string | null {
     try {
       const sql = getSql();
       const since = req.query.since ? Number(req.query.since) : 0;
+      const clienteId = req.query.clienteId 
+        || req.query.cliente_id 
+        || req.headers['x-client-id'] 
+        || req.headers['x-cliente-id'] 
+        || 'cliente-default-001';
+
       let rows;
       
       switch (table) {
-        case 'assets': rows = await sql`SELECT * FROM assets WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'users': rows = await sql`SELECT * FROM users WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'reports': rows = await sql`SELECT * FROM reports WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'events': rows = await sql`SELECT * FROM events WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'clients': rows = await sql`SELECT * FROM clients WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'branches': rows = await sql`SELECT * FROM branches WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'settings': rows = await sql`SELECT * FROM settings WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'inventory': rows = await sql`SELECT * FROM inventory WHERE updated_at > ${since} OR updated_at IS NULL ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'assets': rows = await sql`SELECT * FROM assets WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'users': rows = await sql`SELECT * FROM users WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'reports': rows = await sql`SELECT * FROM reports WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'events': rows = await sql`SELECT * FROM events WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'clients': rows = await sql`SELECT * FROM clients WHERE (id = ${clienteId} OR id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'branches': rows = await sql`SELECT * FROM branches WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'settings': rows = await sql`SELECT * FROM settings WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'inventory': rows = await sql`SELECT * FROM inventory WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'calendar': rows = await sql`SELECT * FROM calendar WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
         default: rows = [];
       }
       res.json({ success: true, data: rows });
@@ -1966,6 +1514,12 @@ function resolveTable(name: string): string | null {
       const sql = getSql();
       const results: any = { inserts: [], updates: [], deletes: [] };
       
+      const clienteIdSync = req.body.clienteId
+        || req.body.cliente_id
+        || req.headers['x-client-id']
+        || req.headers['x-cliente-id']
+        || 'cliente-default-001';
+
       // En entorno serverless de Neon, ejecutamos las operaciones en paralelo por fases
       // para reducir drásticamente el tiempo de ejecución y evitar interrupciones o timeouts HTTP.
       
@@ -1988,12 +1542,12 @@ function resolveTable(name: string): string | null {
           }
           if (table === 'assets') {
             const d = data;
-            let final_cliente_id = d.cliente_id || 'cliente-eecol-default-001';
+            let final_cliente_id = d.cliente_id || clienteIdSync || 'cliente-default-001';
             let final_sucursal_id = d.sucursal_id || 'default-sucursal';
 
             const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
             if (!clientExists || clientExists.length === 0) {
-              final_cliente_id = 'cliente-eecol-default-001';
+              final_cliente_id = 'cliente-default-001';
             }
 
             const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
@@ -2029,30 +1583,31 @@ function resolveTable(name: string): string | null {
             const strData = JSON.stringify(data);
             
             switch (table) {
-              case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL`; break;
-              case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL`; break;
-              case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
-              case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
-              case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
+              case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL`; break;
+              case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL`; break;
+              case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
+              case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
+              case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
+              case 'calendar': await sql`INSERT INTO calendar (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > calendar.updated_at OR calendar.updated_at IS NULL`; break;
               case 'clients': {
-                await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`;
+                await sql`INSERT INTO clients (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > clients.updated_at OR clients.updated_at IS NULL`;
                 await sql`INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clientes.updated_at OR clientes.updated_at IS NULL`;
                 break;
               }
               case 'branches': {
-                const cliente_id = data.cliente_id || 'cliente-eecol-default-001';
-                await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${cliente_id}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`;
+                const cliente_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
+                await sql`INSERT INTO branches (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${cliente_id}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > branches.updated_at OR branches.updated_at IS NULL`;
                 await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${cliente_id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL`;
                 break;
               }
-              case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
-              case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
-              case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
-              case 'inventory': await sql`INSERT INTO inventory (id, data, uuid_sync, updated_at, created_at) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL`; break;
+              case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
+              case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
+              case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
+              case 'inventory': await sql`INSERT INTO inventory (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL`; break;
               case 'audit_logs':
                 await sql`
-                  INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp) 
-                  VALUES (${id}, ${data.action}, ${data.entity_type}, ${data.entity_id}, ${data.user_id}, ${strData}, ${data.timestamp}) 
+                  INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp, cliente_id) 
+                  VALUES (${id}, ${data.action}, ${data.entity_type}, ${data.entity_id}, ${data.user_id}, ${strData}, ${data.timestamp}, ${clienteIdSync}) 
                   ON CONFLICT (id) DO NOTHING
                 `;
                 break;
@@ -2087,12 +1642,12 @@ function resolveTable(name: string): string | null {
           }
           if (table === 'assets') {
              const d = data;
-             let final_cliente_id = d.cliente_id || 'cliente-eecol-default-001';
+             let final_cliente_id = d.cliente_id || clienteIdSync || 'cliente-default-001';
              let final_sucursal_id = d.sucursal_id || 'default-sucursal';
 
              const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
              if (!clientExists || clientExists.length === 0) {
-               final_cliente_id = 'cliente-eecol-default-001';
+               final_cliente_id = 'cliente-default-001';
              }
 
              const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
@@ -2116,26 +1671,27 @@ function resolveTable(name: string): string | null {
             const id = data.id || uuid_sync;
             const strData = JSON.stringify(data);
             switch (table) {
-              case 'users': await sql`UPDATE users SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'users': await sql`UPDATE users SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'calendar': await sql`UPDATE calendar SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'clients': {
-                await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
+                await sql`UPDATE clients SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
                 await sql`UPDATE clientes SET data = ${strData}::jsonb, updated_at = ${updated_at} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`;
                 break;
               }
               case 'branches': {
-                const cliente_id = data.cliente_id || 'cliente-eecol-default-001';
+                const cliente_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
                 await sql`UPDATE branches SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${cliente_id} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`;
                 await sql`UPDATE sucursales SET data = ${strData}::jsonb, updated_at = ${updated_at}, cliente_id = ${cliente_id} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`;
                 break;
               }
-              case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'inventory': await sql`UPDATE inventory SET id = ${id}, data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'inventory': await sql`UPDATE inventory SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
             }
           }
         } catch (err: any) {
@@ -2166,6 +1722,7 @@ function resolveTable(name: string): string | null {
             case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
+            case 'calendar': await sql`UPDATE calendar SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'clients': {
               await sql`UPDATE clients SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`;
               await sql`UPDATE clientes SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${del.uuid_sync} OR uuid_sync = ${del.uuid_sync}`;
@@ -2197,19 +1754,20 @@ function resolveTable(name: string): string | null {
          try {
             let rows: any[] = [];
             switch (table) {
-              case 'assets': rows = await sql`SELECT * FROM assets WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'users': rows = await sql`SELECT * FROM users WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'reports': rows = await sql`SELECT * FROM reports WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'events': rows = await sql`SELECT * FROM events WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'clients': rows = await sql`SELECT * FROM clients WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'branches': rows = await sql`SELECT * FROM branches WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'settings': rows = await sql`SELECT * FROM settings WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'inventory': rows = await sql`SELECT * FROM inventory WHERE updated_at > ${lastSync} OR updated_at IS NULL LIMIT 200`; break;
-              case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE timestamp > ${lastSync} LIMIT 200`; break;
+              case 'assets': rows = await sql`SELECT * FROM assets WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'users': rows = await sql`SELECT * FROM users WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'work_orders': rows = await sql`SELECT * FROM work_orders WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'reports': rows = await sql`SELECT * FROM reports WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'events': rows = await sql`SELECT * FROM events WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'clients': rows = await sql`SELECT * FROM clients WHERE (id = ${clienteIdSync} OR id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'branches': rows = await sql`SELECT * FROM branches WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'catalog_asset_types': rows = await sql`SELECT * FROM catalog_asset_types WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'settings': rows = await sql`SELECT * FROM settings WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'inventory': rows = await sql`SELECT * FROM inventory WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'calendar': rows = await sql`SELECT * FROM calendar WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
+              case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (timestamp > ${lastSync}) LIMIT 200`; break;
             }
             if (rows && rows.length > 0) {
               serverChanges[table] = rows;

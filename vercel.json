@@ -1,24 +1,13 @@
 {
+  "version": 2,
   "rewrites": [
     {
-      "source": "/api/work-orders/:id/complete",
-      "destination": "/api/work-orders/[id]/complete"
-    },
-    {
-      "source": "/api/maintenance/:id/execute",
-      "destination": "/api/maintenance/[id]/execute"
-    },
-    {
-      "source": "/api/parts/:id/adjust",
-      "destination": "/api/parts/[id]/adjust"
-    },
-    {
-      "source": "/api/sync/status",
-      "destination": "/api/sync/status"
+      "source": "/api/(.*)",
+      "destination": "/server.ts"
     },
     {
       "source": "/(.*)",
-      "destination": "/api/server"
+      "destination": "/index.html"
     }
   ]
 }

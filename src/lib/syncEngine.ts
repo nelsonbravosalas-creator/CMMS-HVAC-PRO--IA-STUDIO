@@ -1,17 +1,18 @@
-import { db, SyncStatus } from '../db/database';
+import { db } from '../db/database';
 import { useSyncStore } from '../store/useSyncStore';
 import { useAppStore } from '../store/useAppStore';
 import { logger } from '../lib/logger';
 import { syncQueue } from '../sync/syncQueue';
 import { networkMonitor } from '../sync/networkMonitor';
 
-// Mapeo canónico de entidades de Front (Dexie) a Base de datos (Neon)
+// Mapeo canónico exacto coincidente con ALLOWED_TABLES del backend
 export const ENTITY_TYPE_MAP = {
-  assets:      'equipos',
-  workOrders:  'ordenes_trabajo',
-  maintenance: 'mantenimiento_preventivo',
-  parts:       'repuestos',
-  technicians: 'tecnicos',
+  assets:                 'assets',
+  workOrders:             'work_orders',
+  preventive_maintenance: 'preventive_maintenance',
+  inventory:              'inventory',
+  users:                  'users',
+  calendar:               'calendar',
 } as const;
 
 export class SyncEngine {
@@ -24,12 +25,11 @@ export class SyncEngine {
     networkMonitor.init();
     window.addEventListener('network-reconnected', () => this.fullSync(true));
     
-    // Attempt full sync every 15s in background
+    // Intenta sincronización cada 15s en background
     this.syncTimer = setInterval(() => {
       this.fullSync();
     }, 15000);
     
-    // Read last sync timestamp
     const val = localStorage.getItem('last_sync_timestamp');
     this.lastSync = val ? Number(val) : 0;
 
@@ -61,18 +61,46 @@ export class SyncEngine {
       const updates: any[] = [];
       const deletes: any[] = [];
 
-      for (const item of pendingItems) {
-        // Traducir nombre de tabla local a ENTITY_TYPE_MAP de Neon
-        const tableKey = item.table === 'work_orders' ? 'workOrders' :
-                         item.table === 'preventive_maintenance' ? 'maintenance' :
-                         item.table === 'inventory' ? 'parts' : 
-                         item.table as keyof typeof ENTITY_TYPE_MAP;
+      // Obtener el cliente activo del Auth Store para inyección de Tenant
+      const activeUserStr = localStorage.getItem('cmms_active_user') || localStorage.getItem('user');
+      let activeClienteId = 'cliente-default-001';
+      
+      if (activeUserStr) {
+        try {
+          const parsed = JSON.parse(activeUserStr);
+          if (parsed.cliente_id || parsed.tenantId) {
+             activeClienteId = parsed.cliente_id || parsed.tenantId;
+          }
+        } catch (e) {}
+      }
 
-        const tableMapped = ENTITY_TYPE_MAP[tableKey] || item.table;
+      for (const item of pendingItems) {
+        // Mapear de Dexie a estructura de tabla física en la base de datos de Postgres
+        let tableMapped = item.table;
+        if (item.table === 'work_orders' || item.table === 'ordenes_trabajo') {
+          tableMapped = 'work_orders';
+        } else if (item.table === 'preventive_maintenance' || item.table === 'mantenimiento_preventivo') {
+          tableMapped = 'preventive_maintenance';
+        } else if (item.table === 'inventory' || item.table === 'inventario') {
+          tableMapped = 'inventory';
+        } else if (item.table === 'technicians' || item.table === 'tecnicos' || item.table === 'users') {
+          tableMapped = 'users';
+        }
+
+        // Estructura de payload canónica acordada Front -> server.ts
+        const originalData = item.data || {};
+        const dataPayload = {
+          ...originalData,
+          cliente_id: originalData.cliente_id || activeClienteId
+        };
 
         const mappedItem = {
-          ...item,
-          table: tableMapped
+          id: item.uuid_sync || item.id,
+          uuid_sync: item.uuid_sync,
+          table: tableMapped,
+          data: dataPayload,
+          updated_at: (item as any).updated_at || Date.now(),
+          timestamp: (item as any).updated_at || Date.now()
         };
 
         if (item.operation === 'insert') inserts.push(mappedItem);
@@ -80,16 +108,22 @@ export class SyncEngine {
         else if (item.operation === 'delete') deletes.push(mappedItem);
       }
 
-      logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
+      logger.info('SyncEngine', `Iniciando empuje masivo: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling desde timestamp ${this.lastSync}`);
 
-      const response = await fetch('/api/sync', {
+      const response = await fetch(`/api/sync?clienteId=${activeClienteId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-client-id': activeClienteId,
+          'x-cliente-id': activeClienteId
+        },
         body: JSON.stringify({
           inserts,
           updates,
           deletes,
-          lastSync: this.lastSync
+          lastSync: this.lastSync,
+          clienteId: activeClienteId,
+          cliente_id: activeClienteId
         })
       });
 
@@ -98,20 +132,17 @@ export class SyncEngine {
          try {
            const text = await response.text();
            if (text.trim().startsWith('<')) {
-               errorDetail = 'Server returned HTML (possible 502 Bad Gateway)';
+               errorDetail = 'El servidor devolvió HTML (error proxy Vercel)';
            } else {
                const body = JSON.parse(text);
                if (body && body.error) errorDetail = body.error;
            }
          } catch(e) {}
-         throw new Error(`Sync Error: ${errorDetail || 'Unknown Server Error'} (Status: ${response.status})`);
+         throw new Error(`Error en Sincronización Express: ${errorDetail} (Código: ${response.status})`);
       }
 
       const responseText = await response.text();
-      if (responseText.trim().startsWith('<')) {
-         throw new Error(`Sync Error: Server returned HTML (likely waking up or proxy loading). Retry later.`);
-      }
-      const { success, results, serverChanges } = JSON.parse(responseText);
+      const { success, results, serverChanges, serverTime } = JSON.parse(responseText);
 
       if (success) {
          const resultList = [...(results.inserts || []), ...(results.updates || []), ...(results.deletes || [])];
@@ -135,26 +166,31 @@ export class SyncEngine {
            } else {
               if (table && item.operation !== 'delete') {
                 const isConflict = rStatus === 'conflict';
-                logger.error('SyncEngine', `Row ${item.uuid_sync} failed: ${result?.error}`);
+                logger.error('SyncEngine', `Fila ${item.uuid_sync} rechazada por el servidor: ${result?.error}`);
                 await table.update(item.uuid_sync, {
                   sync_status: isConflict ? 'conflicted' : 'failed',
                   last_synced_at: Date.now()
                 });
               }
-              await syncQueue.markFailed(item.id!, result?.error || 'Unknown error');
+              await syncQueue.markFailed(item.id!, result?.error || 'Rechazo del motor.');
            }
          }
 
          store.setPendingCount(await db.sync_queue.count());
 
+         // Fase pulling: guardar datos del servidor filtrados por cliente_id
          if (serverChanges) {
            for (const [tableName, rows] of Object.entries(serverChanges)) {
-             // Traducir nombre de tabla remota de Neon a Dexie
              let localTableName = tableName;
-             if (tableName === 'equipos') localTableName = 'assets';
-             else if (tableName === 'ordenes_trabajo' || tableName === 'work_orders') localTableName = 'work_orders';
-             else if (tableName === 'mantenimiento_preventivo' || tableName === 'preventive_maintenance') localTableName = 'preventive_maintenance';
-             else if (tableName === 'repuestos' || tableName === 'inventory') localTableName = 'inventory';
+             if (tableName === 'work_orders' || tableName === 'ordenes_trabajo') {
+               localTableName = 'work_orders';
+             } else if (tableName === 'preventive_maintenance' || tableName === 'mantenimiento_preventivo') {
+               localTableName = 'preventive_maintenance';
+             } else if (tableName === 'inventory' || tableName === 'inventario') {
+               localTableName = 'inventory';
+             } else if (tableName === 'users' || tableName === 'tecnicos') {
+               localTableName = 'users';
+             }
 
              const table = db[localTableName as keyof typeof db] as any;
              if (!table) continue;
@@ -166,7 +202,7 @@ export class SyncEngine {
                const local = await table.get(remoteUuid);
                if (!local || (remoteRecord.updated_at || 0) > (local.updated_at || 0)) {
                   let mergedRecord = remoteRecord;
-                  if (localTableName !== 'assets' && remoteRecord.data) {
+                  if (remoteRecord.data) {
                     try {
                       const parsed = typeof remoteRecord.data === 'string' ? JSON.parse(remoteRecord.data) : remoteRecord.data;
                       mergedRecord = { 
@@ -187,7 +223,7 @@ export class SyncEngine {
            }
          }
 
-         this.lastSync = Date.now();
+         this.lastSync = serverTime || Date.now();
          this.cooldownUntil = 0;
          localStorage.setItem('last_sync_timestamp', this.lastSync.toString());
          
@@ -206,12 +242,12 @@ export class SyncEngine {
 
       if (isRateLimit) {
         this.cooldownUntil = Date.now() + 50000;
-        logger.warn('SyncEngine', `Sync throttled (Status: 429). Postponing background requests for 50s.`);
+        logger.warn('SyncEngine', `Límite superado (429). Pospone ciclo sync por 50 segundos.`);
       } else if (isFetchError) {
         this.cooldownUntil = Date.now() + 25000;
-        logger.warn('SyncEngine', `Server unreachable or network offline (Failed to fetch). Postponing background sync for 25s.`);
+        logger.warn('SyncEngine', `Servidor inaccesible. Pospone ciclo sync por 25 segundos.`);
       } else {
-        logger.error('SyncEngine', 'Sync failed with unexpected error', e);
+        logger.error('SyncEngine', 'Sync Engine error no manejado:', e);
       }
     } finally {
       store.setSyncing(false);
