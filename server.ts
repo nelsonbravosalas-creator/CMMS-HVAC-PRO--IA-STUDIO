@@ -146,7 +146,7 @@ async function ensureTables() {
 
     // 1. Eliminar de forma segura todas las tablas cmms_* obsoletas
     const obsoleteTables = [
-      'cmms_idempotency_keys', 'cmms_auth_failures', 'cmms_usuarios_clientes', 
+      'cmms_usuarios_clientes', 
       'cmms_informes_mantenimiento', 'cmms_sla_config', 'cmms_pm_planes', 
       'cmms_pm_plantillas', 'cmms_checklist_plantillas', 'cmms_push_subscriptions', 
       'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_tickets', 
@@ -163,6 +163,21 @@ async function ensureTables() {
     }
 
     // 2. Crear las tablas principales de la Aplicación si no existen
+    await sql`CREATE TABLE IF NOT EXISTS cmms_auth_failures (
+      email TEXT NOT NULL,
+      ip TEXT,
+      attempted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )`;
+
+    await sql`CREATE TABLE IF NOT EXISTS cmms_idempotency_keys (
+      key TEXT,
+      user_id TEXT,
+      status_code INTEGER,
+      response_body JSONB,
+      expires_at TIMESTAMP WITH TIME ZONE,
+      PRIMARY KEY (key, user_id)
+    )`;
+
     await sql`CREATE TABLE IF NOT EXISTS clientes (
       id TEXT PRIMARY KEY,
       uuid_sync TEXT UNIQUE,
@@ -1562,8 +1577,8 @@ function resolveTable(name: string): string | null {
       if (idempotencyKey) {
         try {
           await sql`INSERT INTO cmms_idempotency_keys (key, user_id, status_code, response_body, expires_at) 
-                    VALUES (${idempotencyKey}, ${clienteId || 'system'}, ${statusCode}, ${responseData}, expires_at = NOW() + INTERVAL '24 hours')
-                    ON CONFLICT DO NOTHING`;
+                    VALUES (${idempotencyKey}, ${clienteId || 'system'}, ${statusCode}, ${JSON.stringify(responseData)}::jsonb, NOW() + INTERVAL '24 hours')
+                    ON CONFLICT (key, user_id) DO NOTHING`;
         } catch (e) {}
       }
 
