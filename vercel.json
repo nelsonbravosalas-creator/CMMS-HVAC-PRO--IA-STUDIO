@@ -1,5 +1,37 @@
 {
+  "version": 2,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/server" }
+    { "source": "/api/assets/:id/execute", "destination": "/api/assets.ts" },
+    { "source": "/api/assets/:id", "destination": "/api/assets.ts" },
+    { "source": "/api/assets", "destination": "/api/assets.ts" },
+
+    { "source": "/api/maintenance/:id/execute", "destination": "/api/maintenance.ts" },
+    { "source": "/api/maintenance/:id", "destination": "/api/maintenance.ts" },
+    { "source": "/api/maintenance", "destination": "/api/maintenance.ts" },
+
+    { "source": "/api/work-orders/:id/complete", "destination": "/api/work-orders.ts" },
+    { "source": "/api/work-orders/:id", "destination": "/api/work-orders.ts" },
+    { "source": "/api/work-orders", "destination": "/api/work-orders.ts" },
+
+    { "source": "/api/parts/:id/adjust", "destination": "/api/inventory.ts" },
+    { "source": "/api/parts/:id", "destination": "/api/inventory.ts" },
+    { "source": "/api/parts", "destination": "/api/inventory.ts" },
+    { "source": "/api/inventory", "destination": "/api/inventory.ts" },
+
+    { "source": "/api/branches", "destination": "/api/clients.ts?resource=branches" },
+    { "source": "/api/clients", "destination": "/api/clients.ts" },
+
+    { "source": "/api/sync/push", "destination": "/api/sync.ts" },
+    { "source": "/api/sync/pull", "destination": "/api/sync.ts" },
+    { "source": "/api/sync/status", "destination": "/api/sync.ts" },
+    { "source": "/api/sync/:table", "destination": "/api/sync.ts" },
+    { "source": "/api/sync", "destination": "/api/sync.ts" },
+
+    { "source": "/api/users", "destination": "/api/users.ts" },
+    { "source": "/api/auth", "destination": "/api/auth.ts" },
+    { "source": "/api/import-data", "destination": "/api/import-data.ts" },
+    { "source": "/api/init-db", "destination": "/api/init-db.ts" },
+
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

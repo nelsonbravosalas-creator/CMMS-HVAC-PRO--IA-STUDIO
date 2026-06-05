@@ -25,24 +25,62 @@ export default function InformesHVAC() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [, setLocation] = useLocation();
 
+  const handleCreateInforme = async () => {
+    const borradosCount = rawReports.filter(inf => {
+      const state = inf.data?.estado;
+      return state === 'borrador';
+    }).length;
+
+    if (borradosCount >= 5) {
+      alert("No puedes tener más de 5 informes en estado de borrador.");
+      return;
+    }
+
+    const newUuid = crypto.randomUUID();
+    const shortId = `INF-PENDIENTE-${newUuid.substring(0, 6).toUpperCase()}`;
+
+    // Create draft in Dexie DB so it appears in the list immediately
+    await db.reports.put({
+      uuid_sync: newUuid,
+      id: shortId,
+      updated_at: Date.now(),
+      sync_status: 'pending_insert',
+      data: {
+        estado: 'borrador',
+        generalData: {
+          fecha: new Date().toISOString().split('T')[0],
+          tecnico: 'Nelson Bravo'
+        }
+      }
+    });
+
+    setLocation(`/informes/${newUuid}`);
+  };
+
   const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
+  const activeClientUid = localStorage.getItem("active_client");
 
   const filtered = rawReports.filter(inf => {
     const data = inf.data || {};
+    if (activeClientUid && data.generalData?.cliente !== activeClientUid) {
+      return false;
+    }
     const tg = data.generalData?.equipoTag || "";
     const tec = data.generalData?.tecnico || "";
+    const idStr = inf.id || "";
+    const filterLower = (filter || "").toLowerCase();
     // filter logic
-    return tg.toLowerCase().includes(filter.toLowerCase()) ||
-           tec.toLowerCase().includes(filter.toLowerCase()) ||
-           inf.id.toLowerCase().includes(filter.toLowerCase());
+    return tg.toLowerCase().includes(filterLower) ||
+           tec.toLowerCase().includes(filterLower) ||
+           idStr.toLowerCase().includes(filterLower);
   }).map(inf => ({
     id: inf.id,
-    fecha: inf.data?.generalData?.fecha || new Date(inf.created_at || Date.now()).toISOString().split('T')[0],
+    fecha: inf.data?.generalData?.fecha || new Date(inf.updated_at || Date.now()).toISOString().split('T')[0],
     tag: inf.data?.generalData?.equipoTag || "S/T",
     equipoNombre: inf.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
     tipoServicio: inf.data?.generalData?.tipoMantenimiento || "Preventivo",
     tecnico: inf.data?.generalData?.tecnico || "No Asignado",
-    estado: inf.estado || (inf.data?.status || "borrador")
+    estado: (inf as any).estado || (inf.data?.status || "borrador")
   }));
 
   return (
@@ -63,7 +101,7 @@ export default function InformesHVAC() {
             <ScanLine className="w-4 h-4" /> Escanear QR
           </button>
           <button 
-            onClick={() => setLocation("/informes/nuevo")}
+            onClick={handleCreateInforme}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
           >
             <Plus className="w-4 h-4" /> Crear Informe

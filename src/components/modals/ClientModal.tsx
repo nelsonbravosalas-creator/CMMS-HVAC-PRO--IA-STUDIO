@@ -21,6 +21,11 @@ interface SubLocation {
   nombre: string;
   direccion: string;
   codigo: string;
+  region: string;
+  contacto_nombre?: string;
+  contacto_correo?: string;
+  contacto_cargo?: string;
+  repeats_client?: boolean;
 }
 
 export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps) {
@@ -33,6 +38,17 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   const [contactoCargo, setContactoCargo] = useState('');
   const [contactoEmail, setContactoEmail] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [sinSucursales, setSinSucursales] = useState(false);
+
+  useEffect(() => {
+    if (sinSucursales) {
+      if (subs.length === 0) {
+        setSubs([{ id: Math.random().toString(), tipo: 'Tienda', nombre: 'Casa Matriz', direccion: direccion, codigo: 'MATR', region: region }]);
+      } else {
+        setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion, codigo: s.codigo || 'MATR', region: region })));
+      }
+    }
+  }, [sinSucursales]);
 
   useEffect(() => {
     if (editingClient && isOpen) {
@@ -44,14 +60,35 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoCargo(editingClient.client.contacto_cargo || '');
       setContactoEmail(editingClient.client.email || '');
 
-      setSubs(editingClient.branches.map(b => ({
-        id: b.id,
-        uuid_sync: b.uuid_sync,
-        tipo: 'Tienda',
-        nombre: b.nombre,
-        direccion: b.direccion || '',
-        codigo: b.codigo,
-      })));
+      const loadedSubs = editingClient.branches.map(b => {
+        const hasContact = !!(b.contacto_nombre || b.contacto_correo || b.contacto_cargo);
+        const isSame = hasContact && 
+          (b.contacto_nombre === (editingClient.client.contacto_nombre || '')) &&
+          (b.contacto_correo === (editingClient.client.contacto_correo || editingClient.client.email || '')) &&
+          (b.contacto_cargo === (editingClient.client.contacto_cargo || ''));
+
+        return {
+          id: b.id,
+          uuid_sync: b.uuid_sync,
+          tipo: 'Tienda',
+          nombre: b.nombre,
+          direccion: b.direccion || '',
+          codigo: b.codigo,
+          region: b.region || '',
+          contacto_nombre: b.contacto_nombre || '',
+          contacto_correo: b.contacto_correo || '',
+          contacto_cargo: b.contacto_cargo || '',
+          repeats_client: isSame || (!hasContact && !!editingClient.client.contacto_nombre),
+        };
+      });
+      setSubs(loadedSubs);
+      
+      // Auto-detect if it's "sin sucursales" format
+      if (loadedSubs.length === 1 && loadedSubs[0].nombre === 'Casa Matriz') {
+         setSinSucursales(true);
+      } else {
+         setSinSucursales(false);
+      }
     } else {
       setNombre('');
       setRut('');
@@ -61,6 +98,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoCargo('');
       setContactoEmail('');
       setSubs([]);
+      setSinSucursales(false);
     }
   }, [editingClient, isOpen]);
 
@@ -78,6 +116,35 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       const branchRepo = new BranchRepository();
       let clientId = editingClient?.client.uuid_sync;
 
+      // VALIDATE NO DUPLICATE CLIENT NAME OR RUT
+      const clientsList = useAppStore.getState().clients;
+      const cleanRut = (r: string) => r.replace(/[^0-9kK]/g, '').toUpperCase();
+      const normalizedRut = cleanRut(rut);
+      const normalizedName = nombre.trim().toLowerCase();
+
+      for (const c of clientsList) {
+        if (editingClient && c.uuid_sync === editingClient.client.uuid_sync) {
+          continue;
+        }
+        if (c.deleted_at) {
+          continue;
+        }
+        
+        const cRut = cleanRut(c.rut || "");
+        if (normalizedRut && cRut && normalizedRut === cRut) {
+          alert(`Error: Ya existe un cliente registrado con el RUT ${rut}. No se permiten RUTs duplicados.`);
+          setIsSaving(false);
+          return;
+        }
+
+        const cName = (c.nombre || "").trim().toLowerCase();
+        if (normalizedName && cName && normalizedName === cName) {
+          alert(`Error: Ya existe un cliente con el nombre "${nombre}". No se permiten clientes de nombre idéntico duplicados.`);
+          setIsSaving(false);
+          return;
+        }
+      }
+
       // VALIDATE GLOBAL UNIQUE BRANCH CODES BEFORE SAVING
       const allBranches = await branchRepo.getAll();
       for (const sub of subs) {
@@ -94,10 +161,26 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         }
       }
 
+      // Format helpers
+      const formatClientId = (name: string) => {
+        return name
+          .toUpperCase()
+          .trim()
+          .replace(/[^A-Z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+      };
+
+      const getBranchId = (code: string) => {
+        const cleanSiglas = (code || "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+        return `000000${cleanSiglas}`;
+      };
+
       if (editingClient) {
         // Update client
         const updatedClient = {
           ...editingClient.client,
+          id: formatClientId(nombre),
           nombre,
           empresa: nombre,
           rut,
@@ -105,6 +188,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           region,
           contacto_nombre: contactoNombre,
           contacto_cargo: contactoCargo,
+          contacto_correo: contactoEmail,
           email: contactoEmail,
         };
         await clientRepo.update(editingClient.client.uuid_sync, updatedClient);
@@ -113,29 +197,42 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         const existingBranchMap = new Map(editingClient.branches.map(b => [b.uuid_sync, b]));
         
         for (const sub of subs) {
+          const sName = sub.repeats_client ? contactoNombre : (sub.contacto_nombre || '');
+          const sCorreo = sub.repeats_client ? contactoEmail : (sub.contacto_correo || '');
+          const sCargo = sub.repeats_client ? contactoCargo : (sub.contacto_cargo || '');
+
           if (sub.uuid_sync && existingBranchMap.has(sub.uuid_sync)) {
             // Update
             const existing = existingBranchMap.get(sub.uuid_sync)!;
             const updatedBranch = {
               ...existing,
+              id: getBranchId(sub.codigo),
               nombre: sub.nombre,
               codigo: sub.codigo,
-              descripcion: sub.direccion
+              descripcion: sinSucursales ? direccion : sub.direccion,
+              direccion: sinSucursales ? direccion : sub.direccion,
+              region: sinSucursales ? region : (sub.region || region || ''),
+              contacto_nombre: sName,
+              contacto_correo: sCorreo,
+              contacto_cargo: sCargo,
             };
             await branchRepo.update(sub.uuid_sync, updatedBranch);
             existingBranchMap.delete(sub.uuid_sync); // Mark as processed
           } else {
             // Create new
-            const newBranchId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            const newBranchId = getBranchId(sub.codigo);
             const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
               id: newBranchId,
               cliente_id: editingClient.client.uuid_sync,
               codigo: sub.codigo,
               nombre: sub.nombre,
-              direccion: sub.direccion,
+              direccion: sinSucursales ? direccion : sub.direccion,
               ciudad: '',
-              region: '',
-              activo: true
+              region: sinSucursales ? region : (sub.region || region || ''),
+              activo: true,
+              contacto_nombre: sName,
+              contacto_correo: sCorreo,
+              contacto_cargo: sCargo,
             };
             await branchRepo.create(newBranch);
           }
@@ -156,7 +253,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
       } else {
         // Create new client
-        const newClientId = `CLI-${Date.now()}`;
+        const newClientId = formatClientId(nombre);
         const newClient: Omit<LocalCliente, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
           id: newClientId,
           nombre,
@@ -166,6 +263,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           region,
           contacto_nombre: contactoNombre,
           contacto_cargo: contactoCargo,
+          contacto_correo: contactoEmail,
           email: contactoEmail,
           telefono: '',
           activo: true
@@ -175,16 +273,23 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
         // Create branches
         for (const sub of subs) {
-          const newBranchId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          const sName = sub.repeats_client ? contactoNombre : (sub.contacto_nombre || '');
+          const sCorreo = sub.repeats_client ? contactoEmail : (sub.contacto_correo || '');
+          const sCargo = sub.repeats_client ? contactoCargo : (sub.contacto_cargo || '');
+
+          const newBranchId = getBranchId(sub.codigo);
           const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
             id: newBranchId,
             cliente_id: clientId!,
             codigo: sub.codigo,
             nombre: sub.nombre,
-            direccion: sub.direccion,
+            direccion: sinSucursales ? direccion : sub.direccion,
             ciudad: '',
-            region: '',
-            activo: true
+            region: sinSucursales ? region : (sub.region || region || ''),
+            activo: true,
+            contacto_nombre: sName,
+            contacto_correo: sCorreo,
+            contacto_cargo: sCargo,
           };
           await branchRepo.create(newBranch);
         }
@@ -202,11 +307,26 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   };
 
   const addSub = () => {
-    setSubs([...subs, { id: Math.random().toString(), tipo: 'Tienda', nombre: '', direccion: '', codigo: '' }]);
+    setSubs([...subs, { 
+      id: Math.random().toString(), 
+      tipo: 'Tienda', 
+      nombre: '', 
+      direccion: '', 
+      codigo: '', 
+      region: region || '',
+      contacto_nombre: '',
+      contacto_correo: '',
+      contacto_cargo: '',
+      repeats_client: false
+    }]);
   };
 
-  const updateSub = (id: string, field: keyof SubLocation, value: string) => {
+  const updateSub = (id: string, field: keyof SubLocation, value: any) => {
     setSubs(subs.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  const updateSubPartial = (id: string, partial: Partial<SubLocation>) => {
+    setSubs(subs.map(s => s.id === id ? { ...s, ...partial } : s));
   };
 
   const removeSub = (id: string) => {
@@ -278,9 +398,24 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
              <div className="space-y-6">
                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                     <h4 className="text-xs font-black uppercase text-indigo-600 tracking-widest">Sucursales (SUB)</h4>
-                    <button onClick={addSub} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-indigo-100 transition-colors">
-                       <Plus className="w-3 h-3" /> Agregar SUB
-                    </button>
+                    {!sinSucursales && (
+                      <button onClick={addSub} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-indigo-100 transition-colors">
+                         <Plus className="w-3 h-3" /> Agregar SUB
+                      </button>
+                    )}
+                 </div>
+                 
+                 <div className="flex items-center gap-2 mt-2">
+                    <input 
+                       type="checkbox" 
+                       id="sinSucursales"
+                       checked={sinSucursales}
+                       onChange={e => setSinSucursales(e.target.checked)}
+                       className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                    />
+                    <label htmlFor="sinSucursales" className="text-xs font-bold text-slate-600 cursor-pointer">
+                       El cliente no tiene sucursal, pero la dirección será la sucursal
+                    </label>
                  </div>
                  
                  <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
@@ -292,14 +427,16 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
                  {subs.map((sub, index) => (
                     <div key={sub.id} className="p-4 sm:p-6 bg-slate-50 border border-slate-200 rounded-3xl relative group space-y-4 shadow-sm">
-                       <button onClick={() => removeSub(sub.id)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
-                          <Trash2 className="w-4 h-4" />
-                       </button>
+                       {!sinSucursales && (
+                         <button onClick={() => removeSub(sub.id)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                            <Trash2 className="w-4 h-4" />
+                         </button>
+                       )}
                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">SUB {index + 1}</span>
                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-2">
                           <div className="space-y-1">
                              <label className="text-[9px] font-black uppercase text-slate-400">Tipo</label>
-                             <select value={sub.tipo} onChange={e => updateSub(sub.id, 'tipo', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                             <select disabled={sinSucursales} value={sub.tipo} onChange={e => updateSub(sub.id, 'tipo', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50">
                                 <option value="Tienda">Tienda</option>
                                 <option value="Bodega">Bodega / Almacén</option>
                                 <option value="Proyecto">Proyecto</option>
@@ -308,16 +445,93 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                              </select>
                           </div>
                           <div className="space-y-1">
-                             <label className="text-[9px] font-black uppercase text-slate-400">Codificador (4 Caracteres)</label>
-                             <input type="text" maxLength={4} placeholder="Ej. ST01" value={sub.codigo} onChange={e => updateSub(sub.id, 'codigo', e.target.value.toUpperCase())} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none tracking-widest select-all text-indigo-600" />
+                             <label className="text-[9px] font-black uppercase text-slate-400">Codificador (6 Caracteres)</label>
+                             <input type="text" maxLength={6} placeholder="Ej. 21-STK" value={sub.codigo} onChange={e => updateSub(sub.id, 'codigo', e.target.value.toUpperCase())} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none tracking-widest select-all text-indigo-600" />
                           </div>
                           <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Nombre de la Sucursal</label>
-                             <input type="text" placeholder="Nombre identificador" value={sub.nombre} onChange={e => updateSub(sub.id, 'nombre', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                             <input disabled={sinSucursales} type="text" placeholder="Nombre identificador" value={sub.nombre} onChange={e => updateSub(sub.id, 'nombre', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
                           </div>
-                          <div className="space-y-1 md:col-span-4">
+                          <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Dirección</label>
-                             <input type="text" placeholder="Dirección de la instalación" value={sub.direccion} onChange={e => updateSub(sub.id, 'direccion', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                             <input disabled={sinSucursales} type="text" placeholder="Dirección de la instalación" value={sub.direccion} onChange={e => updateSub(sub.id, 'direccion', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
+                          </div>
+                          <div className="space-y-1 md:col-span-2">
+                             <label className="text-[9px] font-black uppercase text-slate-400">Región de la Sucursal</label>
+                             <select 
+                                disabled={sinSucursales} 
+                                value={sub.region || region || ""} 
+                                onChange={e => updateSub(sub.id, 'region', e.target.value)} 
+                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50"
+                             >
+                                <option value="">Heredar Región ({region || "Metropolitana de Santiago"})</option>
+                                {REGIONES_CHILE.map(r => (
+                                   <option key={r.value} value={r.value}>{r.label}</option>
+                                ))}
+                             </select>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-2 md:col-span-4 border-t border-slate-100 pt-3">
+                             <input 
+                                type="checkbox" 
+                                id={`repeats_client_${sub.id}`}
+                                checked={!!sub.repeats_client}
+                                onChange={e => {
+                                   const isChecked = e.target.checked;
+                                   if (isChecked) {
+                                      updateSubPartial(sub.id, { 
+                                         repeats_client: true,
+                                         contacto_nombre: contactoNombre,
+                                         contacto_cargo: contactoCargo,
+                                         contacto_correo: contactoEmail
+                                      });
+                                   } else {
+                                      updateSubPartial(sub.id, { 
+                                         repeats_client: false
+                                      });
+                                   }
+                                }}
+                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                             />
+                             <label htmlFor={`repeats_client_${sub.id}`} className="text-[10px] font-black uppercase text-indigo-600 tracking-wider cursor-pointer">
+                                ¿Mismos datos de contacto del cliente?
+                             </label>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:col-span-4">
+                             <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400">Persona de Contacto del Sitio</label>
+                                <input 
+                                   disabled={sub.repeats_client}
+                                   type="text" 
+                                   placeholder="Ej. Pedro Pérez" 
+                                   value={sub.repeats_client ? contactoNombre : sub.contacto_nombre || ''} 
+                                   onChange={e => updateSub(sub.id, 'contacto_nombre', e.target.value)} 
+                                   className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" 
+                                />
+                             </div>
+                             <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400">Cargo de Contacto</label>
+                                <input 
+                                   disabled={sub.repeats_client}
+                                   type="text" 
+                                   placeholder="Ej. Jefe de Local" 
+                                   value={sub.repeats_client ? contactoCargo : sub.contacto_cargo || ''} 
+                                   onChange={e => updateSub(sub.id, 'contacto_cargo', e.target.value)} 
+                                   className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" 
+                                />
+                             </div>
+                             <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400">Correo de Contacto</label>
+                                <input 
+                                   disabled={sub.repeats_client}
+                                   type="email" 
+                                   placeholder="contacto@sucursal.com" 
+                                   value={sub.repeats_client ? contactoEmail : sub.contacto_correo || ''} 
+                                   onChange={e => updateSub(sub.id, 'contacto_correo', e.target.value)} 
+                                   className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500 lowercase" 
+                                />
+                             </div>
                           </div>
                        </div>
                     </div>

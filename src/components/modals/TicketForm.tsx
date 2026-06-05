@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Trash2, Tag, AlertTriangle, User, MessageSquare, Save, Search, Building2, History, MapPin
+  X, Camera, Trash2, Tag, AlertTriangle, AlertCircle, User, MessageSquare, Save, Search, Building2, History, MapPin
 } from 'lucide-react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { AssetSearchModal } from './AssetSearchModal';
@@ -8,6 +8,10 @@ import { EQUIPOS_DATA } from '../../data/assets';
 import { ALMACEN_LABELS } from '../../data/branches';
 import { useTickets } from '../../hooks/useTickets';
 import { SearchableSelect } from '../SearchableSelect';
+
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/database';
+import { useAppStore } from '../../store/useAppStore';
 
 interface TicketFormProps {
   onClose: () => void;
@@ -19,7 +23,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [showAssetSearch, setShowAssetSearch] = useState(false);
   const [tag, setTag] = useState(initialTag || "");
   const [equipoDesc, setEquipoDesc] = useState("");
-  const [cliente, setCliente] = useState("");
+  const [cliente, setCliente] = useState(localStorage.getItem("active_client") || "");
   const [sucursal, setSucursal] = useState("");
   
   // Form fields
@@ -28,8 +32,86 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [prioridad, setPrioridad] = useState("Media");
   const [tipoIncidencia, setTipoIncidencia] = useState("Falla Técnica");
   const [asignadoA, setAsignadoA] = useState("Nelson Bravo (Tech Lead)");
-  
+  const [imagenes, setImagenes] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<{id: string, url: string}[]>([]);
   const [ubicacionGeografica, setUbicacionGeografica] = useState<{lat: number, lng: number} | undefined>();
+
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+
+  const TICKET_DRAFT_KEY = "cmms_ticket_draft";
+
+  const handleCloseIntent = () => {
+    if (hasChanges) {
+      setShowExitPrompt(true);
+    } else {
+      localStorage.removeItem(TICKET_DRAFT_KEY);
+      onClose();
+    }
+  };
+
+  const discardChanges = () => {
+    localStorage.removeItem(TICKET_DRAFT_KEY);
+    setShowExitPrompt(false);
+    onClose();
+  };
+
+  React.useEffect(() => {
+    const draft = localStorage.getItem(TICKET_DRAFT_KEY);
+    if (draft && !initialTag) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.tag) setTag(parsed.tag);
+        if (parsed.equipoDesc) setEquipoDesc(parsed.equipoDesc);
+        if (parsed.cliente) setCliente(parsed.cliente);
+        if (parsed.sucursal) setSucursal(parsed.sucursal);
+        if (parsed.titulo) setTitulo(parsed.titulo);
+        if (parsed.descripcion) setDescripcion(parsed.descripcion);
+        if (parsed.prioridad) setPrioridad(parsed.prioridad);
+        if (parsed.tipoIncidencia) setTipoIncidencia(parsed.tipoIncidencia);
+        if (parsed.asignadoA) setAsignadoA(parsed.asignadoA);
+        if (parsed.imagenes) setImagenes(parsed.imagenes);
+        if (parsed.imagePreviews) setImagePreviews(parsed.imagePreviews);
+        if (parsed.ubicacionGeografica) setUbicacionGeografica(parsed.ubicacionGeografica);
+      } catch (e) {
+        console.error("Failed to parse ticket draft", e);
+      }
+    }
+  }, [initialTag]);
+
+  React.useEffect(() => {
+    const draft = {
+      tag, equipoDesc, cliente, sucursal, titulo, descripcion, prioridad, tipoIncidencia, asignadoA, imagenes, imagePreviews, ubicacionGeografica
+    };
+    localStorage.setItem(TICKET_DRAFT_KEY, JSON.stringify(draft));
+    setHasChanges(true);
+  }, [tag, equipoDesc, cliente, sucursal, titulo, descripcion, prioridad, tipoIncidencia, asignadoA, imagenes, imagePreviews, ubicacionGeografica]);
+
+  
+  const storeClients = useAppStore(state => state.clients);
+  const storeBranches = useAppStore(state => state.branches);
+
+  const activeClientUuid = localStorage.getItem("active_client");
+  const localAssets = useLiveQuery(() => {
+    let query = db.assets.filter(a => !a.deleted_at && a.estado !== 'baja');
+    if (activeClientUuid) {
+      return query.and(a => a.cliente_id === activeClientUuid).toArray();
+    }
+    return query.toArray();
+  }, [activeClientUuid]) || [];
+
+  React.useEffect(() => {
+    if (tag && localAssets.length > 0) {
+      const eq = localAssets.find(a => a.tag === tag);
+      if (eq) {
+        setEquipoDesc(eq.nombre || "");
+        setCliente(eq.cliente_id || "");
+        const branchObj = storeBranches && eq.sucursal_id ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+        setSucursal(branchObj ? branchObj.nombre : (eq.ubicacion || ""));
+      }
+    }
+  }, [tag, localAssets, storeBranches]);
+  
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
 
@@ -64,21 +146,95 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const [searchSucursal, setSearchSucursal] = useState("");
   const [searchDescription, setSearchDescription] = useState("");
 
-  const filteredEquipos = EQUIPOS_DATA.filter(eq => {
-    const matchTag = searchQuery ? eq.tag.toLowerCase().includes(searchQuery.toLowerCase()) : true;
-    const matchDesc = searchDescription ? eq.nombre.toLowerCase().includes(searchDescription.toLowerCase()) : true;
-    const eqSucursal = eq.tag.split('.')[0];
-    const matchSucursal = searchSucursal ? eqSucursal === searchSucursal : true;
-    return matchTag && matchDesc && matchSucursal;
-  });
-
   const handleSelectAsset = (eq: any) => {
     setTag(eq.tag);
     setEquipoDesc(eq.nombre);
-    setCliente("Empresa Mandante SPA"); // Simplified for demo
-    const sucursalCode = eq.tag.split('.')[0];
-    setSucursal(ALMACEN_LABELS[sucursalCode] || sucursalCode);
+    
+    // Attempt to resolve names from IDs
+    const clientObj = storeClients && eq.cliente_id ? storeClients.find(c => c.uuid_sync === eq.cliente_id) : null;
+    const clientName = clientObj ? clientObj.nombre : eq.cliente_id;
+    setCliente(eq.cliente_id); 
+    
+    const branchObj = storeBranches && eq.sucursal_id ? storeBranches.find(b => b.uuid_sync === eq.sucursal_id) : null;
+    const branchName = branchObj ? branchObj.nombre : eq.sucursal_id;
+    setSucursal(branchName);
+    
     setShowAssetSearch(false);
+  };
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleImageCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    // Process image: compress and watermark
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = async () => {
+      if (!ctx) return;
+      
+      // Target max width/height
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+      if (width > height && width > MAX_SIZE) {
+        height *= MAX_SIZE / width;
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width *= MAX_SIZE / height;
+        height = MAX_SIZE;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Add watermark
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, height - 60, width, 60);
+      
+      ctx.font = '20px sans-serif';
+      ctx.fillStyle = 'white';
+      const dateStr = new Date().toLocaleString('es-CL');
+      ctx.fillText(`Fecha: ${dateStr}`, 20, height - 35);
+      ctx.fillText(`Usuario: Actual User | TAG: ${tag || 'N/A'}`, 20, height - 10);
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const blobId = crypto.randomUUID();
+        // Save to blob store
+        await db.blobs.put({
+          uuid_sync: blobId,
+          blob: blob,
+          mime_type: 'image/jpeg',
+          created_at: Date.now()
+        });
+        
+        const blobRef = `blob:${blobId}`;
+        setImagenes(prev => [...prev, blobRef]);
+        
+        // Add to preview
+        const reader = new FileReader();
+        reader.onload = () => {
+          setImagePreviews(prev => [...prev, { id: blobRef, url: reader.result as string }]);
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', 0.8);
+    };
+    
+    img.src = URL.createObjectURL(file);
+  };
+
+  const removeImage = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const uuid = id.replace('blob:', '');
+    await db.blobs.delete(uuid);
+    setImagenes(prev => prev.filter(imgId => imgId !== id));
+    setImagePreviews(prev => prev.filter(p => p.id !== id));
   };
 
   const [isSaving, setIsSaving] = useState(false);
@@ -87,6 +243,12 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
     e.preventDefault();
     setIsSaving(true);
     
+    if (tipoIncidencia === 'Falla Técnica' && !tag) {
+       alert("Un ticket de tipo 'Falla Técnica' requiere vincular un activo (TAG) obligatorio.");
+       setIsSaving(false);
+       return;
+    }
+
     try {
       await createTicket({
         titulo: titulo || `FALLA REPORTADA EN ${tag}`,
@@ -99,8 +261,10 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
         asignado_a: asignadoA,
         fecha_creacion: new Date().toISOString(),
         ubicacionGeografica,
+        imagenes,
       });
       
+      localStorage.removeItem(TICKET_DRAFT_KEY);
       onClose();
     } catch (e) {
       console.error("Ticket save error:", e);
@@ -122,7 +286,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Nuevo Ticket de Soporte</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Vincule un activo para mayor precisión en la trazabilidad</p>
             </div>
-            <button onClick={onClose} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
+            <button type="button" onClick={handleCloseIntent} className="p-3 hover:bg-slate-200 rounded-2xl transition-all text-slate-400 hover:text-slate-900"><X className="w-6 h-6" /></button>
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1 min-h-0">
@@ -263,7 +427,12 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
             </div>
 
             <div className="flex gap-4">
-              <button type="button" className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-100/80 transition-all group">
+              <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageCapture} />
+              <button 
+                type="button" 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-[24px] border border-slate-100 flex flex-col items-center justify-center gap-2 hover:bg-slate-100/80 transition-all group"
+              >
                 <Camera className="w-6 h-6 group-hover:text-blue-500 transition-colors" />
                 <span className="text-[9px] font-black uppercase">Adjuntar Evidencia</span>
               </button>
@@ -279,6 +448,23 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
                  </span>
               </button>
             </div>
+
+            {imagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
+                {imagePreviews.map(preview => (
+                  <div key={preview.id} className="relative aspect-square bg-slate-100 rounded-2xl overflow-hidden group">
+                    <img src={preview.url} alt="evidencia" className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={(e) => removeImage(preview.id, e)}
+                      className="absolute top-2 right-2 bg-rose-500 text-white p-1.5 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             
             {gpsError && (
               <p className="text-xs text-rose-500 font-bold">{gpsError}</p>
@@ -301,13 +487,55 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
               </div>
             )}
 
-            <button disabled={isSaving} type="submit" className="w-full py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 mt-4 flex items-center justify-center gap-3 disabled:opacity-50">
-              {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5" />}
-              {isSaving ? "Guardando..." : "Emitir y Guardar Ticket"}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 mt-6 pb-24 lg:pb-8">
+              <button 
+                type="button" 
+                onClick={handleCloseIntent} 
+                className="flex-[1] py-5 bg-slate-100 text-slate-400 text-xs font-black uppercase tracking-widest rounded-[32px] hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+              >
+                Cancelar
+              </button>
+              <button 
+                disabled={isSaving} 
+                type="submit" 
+                className="flex-[2] py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all hover:bg-blue-700 flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Save className="w-5 h-5" />}
+                {isSaving ? "Guardando..." : "Emitir y Guardar Ticket"}
+              </button>
+            </div>
           </form>
         </div>
       </div>
+
+      {/* Exit Prompt */}
+      {showExitPrompt && (
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+           <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+             </div>
+             <h3 className="text-xl font-black text-slate-900 text-center mb-3">¿Cerrar sin guardar?</h3>
+             <p className="text-xs text-slate-500 text-center mb-8 px-4">
+                Tienes cambios sin guardar. Si sales ahora, se perderán y el autoguardado será limpiado.
+             </p>
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={discardChanges}
+                  className="w-full py-4 bg-red-50 text-red-600 hover:bg-red-100 font-black uppercase tracking-widest text-xs rounded-2xl transition-all"
+                >
+                   Sí, descartar cambios
+                </button>
+                <button 
+                  onClick={() => setShowExitPrompt(false)}
+                  className="w-full py-4 bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all"
+                >
+                   Continuar Editando
+                </button>
+             </div>
+           </div>
+        </div>
+      )}
 
       <AssetSearchModal 
         isOpen={showAssetSearch}
@@ -318,11 +546,9 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
         cliente={searchClient}
         setCliente={setSearchClient}
         sucursal={searchSucursal}
-        setSucursal={setSucursal}
+        setSucursal={setSearchSucursal}
         descripcion={searchDescription}
         setDescripcion={setSearchDescription}
-        clients={ALMACEN_LABELS}
-        results={filteredEquipos}
       />
     </>
   );

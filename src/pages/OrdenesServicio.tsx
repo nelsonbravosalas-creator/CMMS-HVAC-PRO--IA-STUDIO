@@ -21,17 +21,23 @@ export default function OrdenesServicio() {
   const [, setLocation] = useLocation();
 
   const rawOrdenes = useLiveQuery(() => db.ordenes_servicio.toArray(), []) || [];
+  const activeClientUid = localStorage.getItem("active_client");
 
   const filtered = rawOrdenes.filter(os => {
     const data = os.data || {};
+    if (activeClientUid && data.generalData?.cliente !== activeClientUid) {
+      return false;
+    }
     const tg = data.generalData?.equipoTag || "";
     const tec = data.generalData?.tecnico || "";
-    return tg.toLowerCase().includes(filter.toLowerCase()) ||
-           tec.toLowerCase().includes(filter.toLowerCase()) ||
-           os.id.toLowerCase().includes(filter.toLowerCase());
+    const idStr = os.id || "";
+    const filterLower = (filter || "").toLowerCase();
+    return tg.toLowerCase().includes(filterLower) ||
+           tec.toLowerCase().includes(filterLower) ||
+           idStr.toLowerCase().includes(filterLower);
   }).map(os => ({
     id: os.id,
-    fecha: os.data?.generalData?.fecha || new Date(os.created_at || Date.now()).toISOString().split('T')[0],
+    fecha: os.data?.generalData?.fecha || new Date(os.updated_at || Date.now()).toISOString().split('T')[0],
     tag: os.data?.generalData?.equipoTag || "S/T",
     equipoNombre: os.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
     tipoServicio: os.data?.generalData?.tipoServicio || "Preventivo",

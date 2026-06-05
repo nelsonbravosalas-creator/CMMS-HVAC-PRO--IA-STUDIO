@@ -24,10 +24,12 @@ import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimiento
 import { MaintenanceCalendar } from "../components/modals/MaintenanceCalendar";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
 import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 export default function Mantenimientos() {
   const { permisos } = useAuth();
   const preventive_maintenance = useAppStore(state => state.preventive_maintenance);
+  const assets = useAppStore(state => state.assets);
   const loading = useAppStore(state => state.isLoading);
   const { createMantenimiento, deleteMantenimiento } = useMantenimientos();
   
@@ -35,13 +37,39 @@ export default function Mantenimientos() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [filter, setFilter] = useState("");
 
-  if (!permisos?.ver_mantenimientos) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
+  if (!permisos?.ver_mantenimientos) {
+    return <AccessDenied requiredPermission="Visualizar Mantenimiento Preventivo" />;
+  }
 
-  const filtered = useMemo(() => preventive_maintenance.filter(m => 
-    m.equipo_tag.toLowerCase().includes(filter.toLowerCase()) || 
-    m.tecnico.toLowerCase().includes(filter.toLowerCase()) ||
-    m.id.toLowerCase().includes(filter.toLowerCase())
-  ), [preventive_maintenance, filter]);
+  const assetToClientMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    assets.forEach(a => {
+      if (a.cliente_id) {
+        map[a.tag] = a.cliente_id;
+      }
+    });
+    return map;
+  }, [assets]);
+
+  const filtered = useMemo(() => {
+    const activeClientUuid = localStorage.getItem("active_client");
+    return preventive_maintenance.filter(m => {
+      if (activeClientUuid) {
+        const client_id = assetToClientMap[m.equipo_tag];
+        if (client_id && client_id !== activeClientUuid) {
+          return false;
+        }
+      }
+      const tagLower = (m.equipo_tag || "").toLowerCase();
+      const tecnicoLower = (m.tecnico || "").toLowerCase();
+      const idLower = (m.id || "").toLowerCase();
+      const searchLower = (filter || "").toLowerCase();
+
+      return tagLower.includes(searchLower) || 
+             tecnicoLower.includes(searchLower) ||
+             idLower.includes(searchLower);
+    });
+  }, [preventive_maintenance, filter, assetToClientMap]);
 
   if (loading && preventive_maintenance.length === 0) {
     return (

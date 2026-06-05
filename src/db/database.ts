@@ -5,7 +5,6 @@ export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pendi
 export interface LocalBase {
   uuid_sync: string;
   updated_at: number;
-  created_at?: number;
   sync_status: SyncStatus;
   version?: number;
   retry_count?: number;
@@ -31,6 +30,7 @@ export interface LocalActivo extends LocalBase {
   estado: 'operativo' | 'falla' | 'mantenimiento' | 'baja';
   ultimo_mantenimiento: string;
   proximo_mantenimiento: string;
+  frecuencia_mantenimiento?: string;
   horas_operacion: number;
   tecnicos: string[];
   notas: string;
@@ -50,19 +50,23 @@ export interface LocalTicket extends LocalBase {
   asignado_a: string;
   fecha_creacion: string;
   ubicacionGeografica?: { lat: number, lng: number };
+  imagenes?: string[];
 }
 
 export interface LocalMantenimiento extends LocalBase {
   id: string;
   equipo_tag: string;
   tecnico: string;
+  tecnico_id?: string;
   tipo: string;
   fecha: string;
+  proxima_fecha?: string;
   estado: string;
   hallazgos: string;
-  acciones: string;
+  descripcion?: string; // Originally acciones
   repuestos: string;
   ubicacionGeografica?: { lat: number, lng: number };
+  cliente_id?: string;
 }
 
 export interface LocalCliente extends LocalBase {
@@ -74,6 +78,7 @@ export interface LocalCliente extends LocalBase {
   telefono: string;
   direccion: string;
   contacto_nombre?: string;
+  contacto_correo?: string;
   contacto_cargo?: string;
   region?: string;
   activo?: boolean;
@@ -86,6 +91,7 @@ export interface LocalUsuario extends LocalBase {
   rol: string;
   pin: string;
   activo: boolean;
+  cliente_id?: string;
 }
 
 export interface LocalSucursal extends LocalBase {
@@ -97,12 +103,14 @@ export interface LocalSucursal extends LocalBase {
   ciudad: string;
   region: string;
   activo?: boolean;
+  contacto_nombre?: string;
+  contacto_correo?: string;
+  contacto_cargo?: string;
 }
 
 export interface LocalInforme extends LocalBase {
   id: string;
   data: any;
-  estado?: string;
 }
 
 export interface LocalEvento extends LocalBase {
@@ -116,11 +124,27 @@ export interface LocalCatalogAssetType extends LocalBase {
   activo: boolean;
 }
 
+export interface LocalInventario extends LocalBase {
+  id: string;
+  categoria: 'maquinas' | 'instrumentos' | 'vehiculos' | 'insumos' | 'materiales_repuestos';
+  codigo: string;
+  nombre: string;
+  stock: number;
+  unidad: string;
+  cliente_id: string;
+  marca?: string;
+  modelo?: string;
+  estado?: string;
+  asignado_a?: string;
+  data?: any;
+}
+
 export interface LocalOrdenServicio extends LocalBase {
   id: string;
   estado: string;
   draft_key: string;
   data: any;
+  cliente_id?: string;
 }
 
 export interface LocalSetting {
@@ -137,6 +161,11 @@ export interface SyncOperation {
   operation: 'insert' | 'update' | 'delete';
   data: any;
   timestamp: number;
+  retry_count?: number;
+  last_error?: string;
+  next_retry_at?: number;
+  locked_at?: number;
+  created_at?: number;
 }
 
 export interface AuditLog {
@@ -145,6 +174,15 @@ export interface AuditLog {
   userId: string;
   details: string;
   timestamp: number;
+  cliente_id?: string;
+}
+
+export interface LocalBlob {
+  uuid_sync: string;
+  blob: Blob;
+  mime_type: string;
+  metadata?: any;
+  created_at: number;
 }
 
 export class CMMSDatabase extends Dexie {
@@ -159,26 +197,33 @@ export class CMMSDatabase extends Dexie {
   settings!: Table<LocalSetting>;
   reports!: Table<LocalInforme>;
   events!: Table<LocalEvento>;
+  inventory!: Table<LocalInventario>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
+  blobs!: Table<LocalBlob>;
 
   constructor() {
-    super('CMMS_LocalDB_v9');
-    this.version(9).stores({
+    super('CMMS_LocalDB_v11');
+    const schema = {
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at, estado',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
-      preventive_maintenance: 'uuid_sync, id, equipo_tag, sync_status, updated_at, estado',
+      preventive_maintenance: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
       clients: 'uuid_sync, id, sync_status, updated_at',
       users: 'uuid_sync, id, email, sync_status, updated_at',
       branches: 'uuid_sync, id, codigo, cliente_id, sync_status, updated_at',
       catalog_asset_types: 'uuid_sync, codigo, sync_status, updated_at',
-      ordenes_servicio: 'uuid_sync, id, draft_key, sync_status, updated_at',
+      ordenes_servicio: 'uuid_sync, id, draft_key, cliente_id, sync_status, updated_at',
       settings: 'key, sync_status, updated_at',
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
+      inventory: 'uuid_sync, id, categoria, cliente_id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp',
-      audit_logs: '++id, action, userId, timestamp'
-    });
+      audit_logs: '++id, action, userId, cliente_id, timestamp',
+      blobs: 'uuid_sync, created_at'
+    };
+    
+    this.version(10).stores(schema);
+    this.version(11).stores(schema);
     
     this.on('populate', async () => {
       const now = Date.now();

@@ -4,7 +4,7 @@ export interface Ticket {
   tag: string;
   titulo: string;
   descripcion: string;
-  tipo: 'falla' | 'inspeccion' | 'consulta';
+  tipo: 'Falla' | 'Inspeccion' | 'Consulta'; 
   prioridad: 'baja' | 'media' | 'alta' | 'critica';
   estado: 'abierto' | 'en_proceso' | 'resuelto' | 're-asignado';
   creador: string;
@@ -19,7 +19,7 @@ export const TICKETS_MOCK: Ticket[] = [
     tag: '21-STK.AC.010',
     titulo: 'Ruido excesivo en unidad exterior',
     descripcion: 'Se reporta ruido metálico al arrancar el compresor.',
-    tipo: 'falla',
+    tipo: 'Falla',
     prioridad: 'alta',
     estado: 'abierto',
     creador: 'Supervisor Planta',

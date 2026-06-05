@@ -31,12 +31,15 @@ import {
   AlertTriangle,
   Zap,
   Menu as MenuIcon,
+  Building2,
+  Fingerprint,
+  Package,
   LogOut,
 } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "motion/react";
-import { useAuth } from "../context/AuthContext";
 
 /**
  * Propiedades del componente NavItem.
@@ -52,29 +55,13 @@ interface NavItemProps {
   isDarkMode?: boolean;
 }
 
-interface NavConfigItem {
-  href: string;
-  icon: any;
-  label: string;
-  badgeKey?: keyof typeof statsShape;
-  badgeColor?: string;
-  section?: string;
-  requiresUserManagement?: boolean;
-}
-
-const statsShape = {
-  ticketsAbiertos: 0,
-  preventive_maintenancePendientes: 0,
-  informesPendientesFirma: 0,
-  equiposTotal: 0,
-  ordenesServicioTotal: 0,
-};
-
-const NAV_ITEMS: NavConfigItem[] = [
+const NAV_ITEMS = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/scanner", icon: ScanLine, label: "Scanner QR" },
   { href: "/equipos", icon: Box, label: "Equipos", badgeKey: 'equiposTotal', badgeColor: "bg-purple-600" },
   { href: "/mapa", icon: MapPin, label: "Mapa" },
+  { href: "/clientes", icon: Building2, label: "Clientes" },
+  { href: "/inventario", icon: Package, label: "Inventario Interno" },
   { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
   { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio", badgeKey: 'ordenesServicioTotal', badgeColor: "bg-indigo-500" },
@@ -82,7 +69,8 @@ const NAV_ITEMS: NavConfigItem[] = [
   { href: "/tickets", icon: Ticket, label: "Tickets", badgeKey: 'ticketsAbiertos' },
   { href: "/reportes", icon: BarChart3, label: "Reportes" },
   { href: "/eficiencia", icon: Zap, label: "Eficiencia Energética" },
-  { href: "/administracion", icon: Users, label: "Administración", section: "Configuración", requiresUserManagement: true },
+  { href: "/administracion", icon: Users, label: "Administración", section: "Configuración" },
+  { href: "/biometria", icon: Fingerprint, label: "Acceso Biométrico", section: "Configuración" },
   { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración" },
   { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración" },
 ];
@@ -160,12 +148,38 @@ interface LayoutProps {
  * @param {LayoutProps} props
  * @returns {JSX.Element} Estructura base con Header, Sidebar y Main Area.
  */
+import { syncEngine } from '../sync/syncEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
+import ClientSelectorWidget from "./ClientSelectorWidget";
 
 export default function Layout({ children }: LayoutProps) {
+  const { logout } = useAuth();
   const [, setLocation] = useLocation();
-  const { user, permisos, logout } = useAuth();
+
+  const handleHeaderLogout = () => {
+    logout();
+    setLocation("/login");
+  };
+
+  /** Dynamic active client name */
+  const activeClientId = localStorage.getItem("active_client");
+  const activeClientName = useLiveQuery(async () => {
+    if (!activeClientId) return null;
+    const client = await db.clients.get(activeClientId);
+    return client ? client.nombre : null;
+  }, [activeClientId]) || "Entorno General";
+
+  /** Fetch active clients list for responsive dropdown selection */
+  const activeClients = useLiveQuery(async () => {
+    const clients = await db.clients.toArray();
+    const filtered = clients.filter(c => c.activo !== false);
+    if (activeClientId) {
+      return filtered.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
+    }
+    return filtered;
+  }, [activeClientId]) || [];
+
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   /** Control del drawer de acciones secundarias (Mobile) */
@@ -173,7 +187,34 @@ export default function Layout({ children }: LayoutProps) {
   /** Estado del tema visual (Inicia en modo claro por defecto) */
   const [isDarkMode, setIsDarkMode] = useState(false);
   /** Visibilidad del banner de Progressive Web App */
-  const [showPWABanner, setShowPWABanner] = useState(true);
+  const [showPWABanner, setShowPWABanner] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // Initial sync
+    syncEngine.triggerSync();
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowPWABanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+         console.log('User accepted the A2HS prompt');
+      }
+      setDeferredPrompt(null);
+      setShowPWABanner(false);
+    }
+  };
+
   /** Posición de los controles móviles para ergonimía (Derecha/Izquierda) */
   const [menuPosition, setMenuPosition] = useState<'left' | 'right'>('right');
 
@@ -213,21 +254,6 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
-  const handleLogout = () => {
-    logout();
-    setIsMobileMenuOpen(false);
-    setIsMoreDrawerOpen(false);
-    setLocation("/login");
-  };
-  const displayName = user?.nombre || "Usuario";
-  const displayRole = user?.perfil || "usuario";
-  const initials = displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "U";
-  const visibleNavItems = NAV_ITEMS.filter((item) => !item.requiresUserManagement || permisos?.gestionar_usuarios);
 
   return (
     <div className={`h-screen w-full flex overflow-hidden font-sans ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
@@ -242,9 +268,9 @@ export default function Layout({ children }: LayoutProps) {
         </div>
         
         <nav className="mt-4 flex-1 flex flex-col overflow-y-auto scrollbar-hide py-2">
-          {visibleNavItems.map((item, idx) => (
+          {NAV_ITEMS.map((item, idx) => (
             <div key={item.href}>
-              {item.section && (idx === 0 || visibleNavItems[idx-1].section !== item.section) && (
+              {item.section && (idx === 0 || NAV_ITEMS[idx-1].section !== item.section) && (
                 <div className={`mt-6 mb-2 px-6 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                   {item.section}
                 </div>
@@ -291,69 +317,68 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Drawer Navigation */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
-            />
-            
-            {/* Drawer */}
-            <motion.aside
-              initial={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className={`fixed top-0 ${menuPosition === 'right' ? 'right-0' : 'left-0'} h-full w-[320px] z-[110] lg:hidden shadow-2xl flex flex-col ${
-                isDarkMode ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
-              } border-x overflow-hidden`}
-            >
-              <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-200'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                    <span className="text-[10px] text-white font-black">HV</span>
-                  </div>
-                  <span className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Menu Principal</span>
+          <motion.div 
+            key="mobile-menu-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+          />
+        )}
+        {isMobileMenuOpen && (
+          <motion.aside
+            key="mobile-menu-aside"
+            initial={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className={`fixed top-0 ${menuPosition === 'right' ? 'right-0' : 'left-0'} h-full w-[320px] z-[110] lg:hidden shadow-2xl flex flex-col ${
+              isDarkMode ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
+            } border-x overflow-hidden`}
+          >
+            <div className={`p-8 border-b flex justify-between items-center ${isDarkMode ? 'bg-slate-900/50 border-white/5' : 'bg-white border-slate-200'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                  <span className="text-[10px] text-white font-black">HV</span>
                 </div>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
-                    isDarkMode ? 'bg-white/5 border-[#39FF14] shadow-[0_0_15px_rgba(57,255,20,0.3)] text-[#39FF14]' : 'bg-slate-100 border-slate-200 text-slate-600'
-                  }`}
-                >
-                  <X className="w-6 h-6" />
-                </button>
+                <span className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Menu Principal</span>
               </div>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
+                  isDarkMode ? 'bg-white/5 border-[#39FF14] shadow-[0_0_15px_rgba(57,255,20,0.3)] text-[#39FF14]' : 'bg-slate-100 border-slate-200 text-slate-600'
+                }`}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-              <nav className="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
-                {visibleNavItems.map((item) => (
-                  <NavItem 
-                    key={item.href}
-                    isDarkMode={isDarkMode} 
-                    variant="large" 
-                    href={item.href} 
-                    icon={item.icon} 
-                    label={item.label} 
-                    badge={item.badgeKey ? (stats as any)[item.badgeKey] : undefined}
-                    badgeColor={item.badgeColor}
-                    onClick={() => setIsMobileMenuOpen(false)} 
-                  />
-                ))}
-              </nav>
+            <nav className="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
+              {NAV_ITEMS.map((item) => (
+                <NavItem 
+                  key={item.href}
+                  isDarkMode={isDarkMode} 
+                  variant="large" 
+                  href={item.href} 
+                  icon={item.icon} 
+                  label={item.label} 
+                  badge={item.badgeKey ? (stats as any)[item.badgeKey] : undefined}
+                  badgeColor={item.badgeColor}
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                />
+              ))}
+            </nav>
 
-              <div className={`p-6 border-t ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white border-slate-100'} backdrop-blur-md`}>
-                <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-[24px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
-                >
-                  Continuar
-                </button>
-              </div>
-            </motion.aside>
-          </>
+            <div className={`p-6 border-t ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white border-slate-100'} backdrop-blur-md`}>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-[24px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+              >
+                Continuar
+              </button>
+            </div>
+          </motion.aside>
         )}
       </AnimatePresence>
 
@@ -399,44 +424,44 @@ export default function Layout({ children }: LayoutProps) {
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Client Selector (Desktop) */}
-            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-all ${
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800 hover:border-slate-500 hover:shadow-sm' : 'bg-white border-slate-300 text-slate-900 hover:bg-slate-50 hover:border-slate-400 hover:shadow-sm'
-            }`}
-            onClick={() => window.location.href = "/client-selector"}>
-              <Database className={`w-3.5 h-3.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              <span className="tracking-widest uppercase">
-                {localStorage.getItem("active_client") || "Entorno General"}
-              </span>
-              <ChevronDown className="w-3 h-3 opacity-50" />
+            {/* Active Client Badge (Simple Capsule) */}
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black tracking-wider uppercase ${
+              isDarkMode 
+                ? 'bg-slate-900/60 border-slate-800 text-slate-300' 
+                : 'bg-white/80 border-slate-200 text-slate-700 shadow-sm'
+            }`}>
+              <Database className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              <span className="max-w-[120px] sm:max-w-[180px] truncate">{activeClientName}</span>
             </div>
 
             {/* Profile Badge */}
             <div className={`flex items-center gap-3 border-l pl-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
               <div className="hidden lg:flex flex-col items-end">
-                <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{displayName}</span>
-                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-tight">{displayRole}</span>
+                <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Nelson Bravo</span>
+                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-tight">Admin</span>
               </div>
               <div className="relative">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-blue-600/30 ring-2 ring-blue-600/20">
-                  {initials}
+                  NB
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full shadow-sm"></div>
               </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                title="Cerrar sesión"
-                aria-label="Cerrar sesión"
-                className={`p-2 rounded border transition-colors ${
-                  isDarkMode
-                    ? 'border-slate-800 hover:bg-red-500/10 hover:border-red-500/40 text-slate-400 hover:text-red-400'
-                    : 'border-slate-200 hover:bg-red-50 hover:border-red-200 text-slate-600 hover:text-red-600'
-                }`}
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
             </div>
+
+            {/* Logout Button */}
+            <button 
+              id="logout_btn_header"
+              onClick={handleHeaderLogout}
+              className={`p-2.5 rounded-xl border shrink-0 flex items-center gap-1.5 text-[10px] font-black uppercase transition-all duration-300 group cursor-pointer active:scale-95 shadow-sm ${
+                isDarkMode 
+                  ? 'bg-red-500/10 border-red-500/20 hover:border-red-500/40 text-red-500 hover:bg-red-500/20 shadow-red-950/20' 
+                  : 'bg-red-50 border-red-100 hover:border-red-200 text-red-650 hover:bg-red-100/65 shadow-red-100/10'
+              }`}
+              title="Cerrar Sesión de la Aplicación"
+            >
+              <LogOut className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+              <span className="hidden xl:inline">Cerrar Sesión</span>
+            </button>
           </div>
         </header>
 
@@ -446,7 +471,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-2">
               <Download className="w-3 h-3" />
               <span>INSTALAR APP PARA ACCESO OFFLINE</span>
-              <button className="ml-4 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/40 transition-colors">INSTALAR</button>
+              <button onClick={handleInstallClick} className="ml-4 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/40 transition-colors">INSTALAR</button>
             </div>
             <X 
               className={`w-3 h-3 cursor-pointer opacity-70 hover:opacity-100 p-0.5 rounded-full border transition-all ${
@@ -474,9 +499,16 @@ export default function Layout({ children }: LayoutProps) {
             {menuPosition === 'right' ? 'R' : 'L'}
           </button>
 
-          <div className={`flex items-center gap-2 p-2 mt-0 -mb-[23px] mr-[1px] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 ${
-            isDarkMode ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-200'
-          } ${menuPosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}>
+          <motion.div 
+            key={menuPosition}
+            drag
+            dragMomentum={false}
+            dragElastic={0.1}
+            whileDrag={{ scale: 1.05, boxShadow: "0px 30px 60px rgba(0,0,0,0.5)" }}
+            className={`flex items-center gap-2 p-2 mt-0 -mb-[23px] mr-[1px] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 cursor-grab active:cursor-grabbing touch-none ${
+              isDarkMode ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-200'
+            } ${menuPosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}
+          >
             
             {/* Secondary Actions (More) */}
             <div 
@@ -509,7 +541,7 @@ export default function Layout({ children }: LayoutProps) {
                 <LayoutDashboard className="w-6 h-6" />
               </div>
             </Link>
-          </div>
+          </motion.div>
         </nav>
       </div>
 
@@ -542,6 +574,13 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </Link>
 
+              <Link href="/clientes" onClick={() => setIsMoreDrawerOpen(false)}>
+                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                  <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400"><Building2 className="w-6 h-6" /></div>
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Clientes</span>
+                </div>
+              </Link>
+
               <Link href="/planificacion" onClick={() => setIsMoreDrawerOpen(false)}>
                 <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
                   <div className="w-12 h-12 bg-cyan-600/20 rounded-2xl flex items-center justify-center text-cyan-400"><CalendarIcon className="w-6 h-6" /></div>
@@ -556,14 +595,30 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </Link>
 
-              {permisos?.gestionar_usuarios && (
-                <Link href="/administracion" onClick={() => setIsMoreDrawerOpen(false)}>
-                  <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
-                    <div className="w-12 h-12 bg-rose-600/20 rounded-2xl flex items-center justify-center text-rose-400"><Users className="w-6 h-6" /></div>
-                    <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Admin</span>
-                  </div>
-                </Link>
-              )}
+              <Link href="/administracion" onClick={() => setIsMoreDrawerOpen(false)}>
+                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                  <div className="w-12 h-12 bg-rose-600/20 rounded-2xl flex items-center justify-center text-rose-400"><Users className="w-6 h-6" /></div>
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Admin</span>
+                </div>
+              </Link>
+
+              <Link href="/biometria" onClick={() => setIsMoreDrawerOpen(false)}>
+                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                  <div className="w-12 h-12 bg-teal-600/20 rounded-2xl flex items-center justify-center text-teal-400"><Fingerprint className="w-6 h-6" /></div>
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Biometría</span>
+                </div>
+              </Link>
+
+              <div 
+                onClick={() => {
+                  setIsMoreDrawerOpen(false);
+                  handleHeaderLogout();
+                }}
+                className="flex items-center gap-4 p-5 bg-red-950/20 border border-red-900/30 rounded-3xl active:scale-95 transition-all cursor-pointer"
+              >
+                <div className="w-12 h-12 bg-red-600/20 rounded-2xl flex items-center justify-center text-red-400"><LogOut className="w-6 h-6" /></div>
+                <span className="text-xs font-black text-red-400 uppercase tracking-widest">Cerrar Sesión</span>
+              </div>
             </div>
 
             <button 
@@ -575,6 +630,9 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </>
       )}
+
+      {/* Floating Draggable Client Selector Widget */}
+      <ClientSelectorWidget isDarkMode={isDarkMode} />
     </div>
   );
 }

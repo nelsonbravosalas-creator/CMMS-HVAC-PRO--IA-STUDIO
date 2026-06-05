@@ -33,6 +33,7 @@ import { SearchableSelect } from "../components/SearchableSelect";
 import { REFRIGERANTES_CHILE } from "../data/refrigerantes";
 import { TicketForm } from "../components/modals/TicketForm";
 import { NuevoMantenimientoModal } from "../components/modals/NuevoMantenimientoModal";
+import { useAuth } from "../context/AuthContext";
 import { db } from "../db/database";
 import { 
   BarChart, 
@@ -52,6 +53,7 @@ import { useAssets } from "../hooks/useAssets";
 type Tab = "info" | "historial" | "historico" | "documentos";
 
 export default function DetalleEquipo() {
+  const { user, permisos } = useAuth();
   const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
   const tag = params ? params.tag : undefined;
   
@@ -106,6 +108,16 @@ export default function DetalleEquipo() {
 
   return (
     <div className="flex flex-col gap-6 text-left pb-12 animate-in fade-in duration-500">
+      {equipo.estado === 'baja' && (
+        <div className="bg-red-50 border border-red-200 rounded-3xl p-6 flex items-start gap-4 text-red-800 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-black uppercase text-xs tracking-wider text-red-900">Activo Dado de Baja</h3>
+            <p className="text-[10px] font-bold mt-1 text-red-700/95 leading-relaxed uppercase">Este equipo ha sido retirado u obsoleto. Las operaciones de mantenimiento, reportes de tickets de falla y ediciones de ficha están completamente deshabilitados.</p>
+          </div>
+        </div>
+      )}
+
       {/* Upper Navigation & Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-4">
@@ -118,6 +130,7 @@ export default function DetalleEquipo() {
              <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">{equipo.nombre}</h1>
                 <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                  equipo.estado === 'baja' ? 'bg-slate-200 text-slate-700' :
                   equipo.estado === 'falla' ? 'bg-red-100 text-red-600' : 
                   equipo.estado === 'mantenimiento' ? 'bg-amber-100 text-amber-600' : 
                   'bg-emerald-100 text-emerald-600'
@@ -129,12 +142,14 @@ export default function DetalleEquipo() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-           <button 
-             onClick={() => isEditing ? handleSave() : setIsEditing(true)} 
-             className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isEditing ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-           >
-              <Plus className="w-4 h-4" /> {isEditing ? 'Guardar Cambios' : 'Editar Ficha'}
-           </button>
+           {permisos?.crear_equipo && equipo.estado !== 'baja' && (
+             <button 
+               onClick={() => isEditing ? handleSave() : setIsEditing(true)} 
+               className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isEditing ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+             >
+                <Plus className="w-4 h-4" /> {isEditing ? 'Guardar Cambios' : 'Editar Ficha'}
+             </button>
+           )}
            {isEditing && (
              <button 
                onClick={() => setIsEditing(false)} 
@@ -288,7 +303,7 @@ export default function DetalleEquipo() {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[10px] font-bold uppercase mt-2">
                              <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Hallazgos</span> <span className="text-slate-700">{m.hallazgos || 'Ninguno'}</span></div>
-                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Acciones Tomadas</span> <span className="text-slate-700">{m.acciones || 'Ninguna'}</span></div>
+                             <div><span className="text-slate-400 block mb-1 uppercase text-[8px] tracking-[0.2em]">Acciones Tomadas</span> <span className="text-slate-700">{m.descripcion || (m as any).acciones || 'Ninguna'}</span></div>
                           </div>
                        </div>
                      ))
@@ -376,18 +391,47 @@ export default function DetalleEquipo() {
               <h3 className="text-xs font-black uppercase tracking-widest opacity-60">Operaciones Rápidas</h3>
               <div className="flex flex-col gap-3">
                  <button 
-                  onClick={() => setShowTicketForm(true)}
-                  className="w-full py-4 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-white/10"
+                  disabled={!permisos?.crear_ticket || equipo.estado === 'baja'} onClick={() => setShowTicketForm(true)}
+                  className="w-full py-4 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
                  >
                     <PenTool className="w-4 h-4" /> Abrir Ticket de Falla
                  </button>
                  <button 
                   onClick={() => setShowMantenimientoForm(true)}
-                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-blue-500"
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-blue-500 disabled:opacity-30 disabled:cursor-not-allowed"
                  >
                     <Wrench className="w-4 h-4" /> Registrar Mantenimiento
                  </button>
-                 <button className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
+                 {permisos?.crear_equipo && equipo.estado !== 'baja' ? (
+                     <button 
+                       onClick={async () => {
+                         if (window.confirm(`¿Está seguro de que desea dar de baja el activo ${equipo.tag}? Esto deshabilitará todas las operaciones rápidas.`)) {
+                           try {
+                             await editAsset(equipo.uuid_sync, { estado: 'baja' });
+                             window.alert("El equipo ha sido dado de baja exitosamente.");
+                           } catch (err) {
+                             console.error(err);
+                             window.alert("Error al intentar dar de baja el equipo.");
+                           }
+                         }
+                       }}
+                       className="w-full py-4 bg-red-500 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2"
+                     >
+                        <Trash2 className="w-4 h-4" /> Dar de Baja Equipo
+                     </button>
+                  ) : equipo.estado === 'baja' ? (
+                     <div className="w-full py-4 bg-red-950/40 text-red-400 text-center text-[10px] font-black uppercase tracking-widest rounded-2xl border border-red-900/40">
+                        Equipo Fuera de Servicio (Baja)
+                     </div>
+                  ) : (
+                     <button 
+                       disabled
+                       className="w-full py-4 bg-red-500/10 text-red-400/40 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/10 cursor-not-allowed"
+                     >
+                        <Trash2 className="w-4 h-4" /> Dar de Baja (Bloqueado)
+                     </button>
+                  )}
+                  <button style={{ display: 'none' }} className="w-full py-4 bg-red-500/20 hover:bg-red-500/40 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-500/20">
                     <Trash2 className="w-4 h-4" /> Revertir Último Cambio
                  </button>
               </div>
@@ -397,7 +441,19 @@ export default function DetalleEquipo() {
            <div className="bg-white p-8 rounded-[40px] border border-slate-200 space-y-6">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Técnicos Asignados</h3>
               <div className="space-y-4">
-                 {equipo.tecnicos && equipo.tecnicos.length > 0 ? equipo.tecnicos.map(t => (
+                 {(() => {
+                    const tecs: any = equipo.tecnicos;
+                    let arr: any[] = [];
+                    if (Array.isArray(tecs)) {
+                      arr = tecs;
+                    } else if (typeof tecs === 'string') {
+                      if (tecs.startsWith('[')) {
+                        try { arr = JSON.parse(tecs); } catch { arr = [tecs]; }
+                      } else {
+                        arr = tecs.split(',');
+                      }
+                    }
+                    return arr.length > 0 ? arr.map((t: string) => (
                    <div key={t} className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
                          {t ? t.split(' ').map(n => n[0]).join('') : ''}
@@ -406,7 +462,8 @@ export default function DetalleEquipo() {
                    </div>
                  )) : (
                    <div className="text-xs text-slate-400 font-medium">Sin técnicos asignados</div>
-                 )}
+                 );
+                 })()}
                  <button className="w-full py-3 bg-slate-50 text-slate-400 hover:text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
                     Gestionar Técnicos
                  </button>

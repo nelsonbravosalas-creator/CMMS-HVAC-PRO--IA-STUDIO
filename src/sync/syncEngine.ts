@@ -4,20 +4,16 @@ import { useAppStore } from '../store/useAppStore';
 import { logger } from '../lib/logger';
 import { syncQueue } from './syncQueue';
 import { networkMonitor } from './networkMonitor';
-import { apiFetch, getAuthToken } from '../lib/apiFetch';
 
 class SyncEngine {
   private processing = false;
   private syncTimer: any = null;
   private lastSync: number = 0;
-  private initialized = false;
+  private cooldownUntil: number = 0;
 
   init() {
-    if (this.initialized) return;
-    this.initialized = true;
     networkMonitor.init();
-    window.addEventListener('network-reconnected', () => this.fullSync());
-    window.addEventListener('auth-token-updated', () => this.fullSync());
+    window.addEventListener('network-reconnected', () => this.fullSync(true));
     
     // Attempt full sync every 15s in background
     this.syncTimer = setInterval(() => {
@@ -31,15 +27,26 @@ class SyncEngine {
     this.fullSync();
   }
 
-  async fullSync() {
+  async fullSync(force: boolean = false) {
     if (this.processing || !networkMonitor.isOnline()) return;
-    if (!getAuthToken()) return;
+    if (!force && this.cooldownUntil && Date.now() < this.cooldownUntil) {
+      // Gracefully postpone syncing during active cooldown to avoid spamming the server/logs
+      return;
+    }
     this.processing = true;
     const store = useSyncStore.getState();
     store.setSyncing(true);
 
     try {
-      const pendingItems = await syncQueue.peekAll();
+      const allPending = await syncQueue.peekAll();
+      const now = Date.now();
+      
+      const pendingItems = allPending.filter((item) => {
+        if ((item.retry_count || 0) >= 3) return false;
+        if (item.next_retry_at && item.next_retry_at > now) return false;
+        return true;
+      });
+
       store.setPendingCount(pendingItems.length);
 
       const inserts: any[] = [];
@@ -54,7 +61,7 @@ class SyncEngine {
 
       logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
 
-      const response = await apiFetch('/api/sync', {
+      const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -81,23 +88,45 @@ class SyncEngine {
 
       const responseText = await response.text();
       if (responseText.trim().startsWith('<')) {
-         throw new Error(`Sync Error: Server returned HTML instead of JSON. Check the API URL or proxy settings.`);
+         throw new Error(`Sync Error: Server returned HTML (likely waking up or proxy loading). Retry later.`);
       }
       const { success, results, serverChanges } = JSON.parse(responseText);
 
       if (success) {
+         // Gather all results
+         const resultList = [...(results.inserts || []), ...(results.updates || []), ...(results.deletes || [])];
+         const resultMap = new Map(resultList.map((r: any) => [r.uuid_sync, r]));
+
          // Resolve processed queue items
          for (const item of pendingItems) {
            const table = db[item.table as keyof typeof db] as any;
-           if (table && item.operation !== 'delete') {
-              // mark as synced
-              await table.update(item.uuid_sync, {
-                sync_status: 'synced',
-                last_synced_at: Date.now(),
-                retry_count: 0
-              });
+           const result = resultMap.get(item.uuid_sync);
+           const rStatus = result ? result.result : 'error';
+           const rSuccess = rStatus === 'applied' || rStatus === 'noop' || (result && result.success);
+
+           if (rSuccess) {
+              if (table && item.operation !== 'delete') {
+                // mark as synced
+                await table.update(item.uuid_sync, {
+                  sync_status: 'synced',
+                  last_synced_at: Date.now(),
+                  retry_count: 0
+                });
+              }
+              await syncQueue.remove(item.id!);
+           } else {
+              // mark as failed locally
+              if (table && item.operation !== 'delete') {
+                const isConflict = rStatus === 'conflict';
+                logger.error('SyncEngine', `Row ${item.uuid_sync} failed: ${result?.error}`);
+                await table.update(item.uuid_sync, {
+                  sync_status: isConflict ? 'conflicted' : 'failed',
+                  last_synced_at: Date.now()
+                });
+              }
+              // mark failed in queue to trigger retry logic
+              await syncQueue.markFailed(item.id!, result?.error || 'Unknown error');
            }
-           await syncQueue.remove(item.id!);
          }
 
          store.setPendingCount(await db.sync_queue.count());
@@ -137,22 +166,46 @@ class SyncEngine {
          }
 
          this.lastSync = Date.now();
+          this.cooldownUntil = 0; // Clear cooldown on success
          localStorage.setItem('last_sync_timestamp', this.lastSync.toString());
          
          // Refresh views
          await useAppStore.getState().hydrate();
       }
 
-    } catch (e) {
-      logger.error('SyncEngine', 'Sync failed', e);
+    } catch (e: any) {
+      const errorMsg = e?.message || String(e);
+      const isRateLimit = errorMsg.includes('429');
+      const isFetchError = errorMsg.toLowerCase().includes('failed to fetch') || 
+                           errorMsg.toLowerCase().includes('networkerror') || 
+                           errorMsg.toLowerCase().includes('load failed') ||
+                           errorMsg.toLowerCase().includes('waking up') ||
+                           errorMsg.toLowerCase().includes('html') ||
+                           errorMsg.toLowerCase().includes('empty response');
+
+      if (isRateLimit) {
+        // Respect server limits - Enforce 50-second backoff cooldown
+        this.cooldownUntil = Date.now() + 50000;
+        logger.warn('SyncEngine', `Sync throttled (Status: 429). Postponing background requests for 50s.`);
+      } else if (isFetchError) {
+        // Enforce 25-second backoff cooldown for network disconnects/failures
+        this.cooldownUntil = Date.now() + 25000;
+        logger.warn('SyncEngine', `Server unreachable or network offline (Failed to fetch). Postponing background sync for 25s.`);
+      } else {
+        // Unexpected fatal errors logged as error
+        logger.error('SyncEngine', 'Sync failed with unexpected error', e);
+      }
     } finally {
       store.setSyncing(false);
       this.processing = false;
     }
   }
 
-  async triggerSync() {
-    return this.fullSync();
+  async triggerSync(force: boolean = false) {
+    if (force) {
+      this.cooldownUntil = 0; // Reset active cooldown upon manual trigger action
+    }
+    return this.fullSync(force);
   }
 }
 

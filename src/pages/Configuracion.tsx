@@ -23,9 +23,80 @@ import {
 import { resetApplicationData } from "../lib/reset";
 import { xmlSyncService } from "../lib/xmlSync";
 import { logger } from "../lib/logger";
+import { syncEngine } from "../sync/syncEngine";
+import { useSyncStore } from "../store/useSyncStore";
 
 export default function Configuracion() {
   const [currency, setCurrency] = useState(() => localStorage.getItem("system_currency") || "CLP");
+  const { isSyncing, pendingCount, lastSync, isOnline } = useSyncStore();
+  const [syncStatus, setSyncStatus] = useState<string>("");
+
+  const [prodUrl, setProdUrl] = useState(() => localStorage.getItem("prod_db_url") || "");
+  const [cloneMode, setCloneMode] = useState<'merge' | 'overwrite'>('merge');
+  const [isCloning, setIsCloning] = useState(false);
+  const [cloneMessage, setCloneMessage] = useState("");
+
+  const handleCloneProductionDb = async () => {
+    if (!prodUrl) {
+      alert("Por favor ingrese el Connection String de la base de datos de producción.");
+      return;
+    }
+    
+    if (cloneMode === 'overwrite') {
+      if (!confirm("⚠️ ADVERTENCIA: Has seleccionado el modo REEMPLAZO TOTAL. Esto vaciará todas las tablas locales de desarrollo antes de insertar los datos de producción. ¿Está completamente seguro?")) {
+        return;
+      }
+    } else {
+      if (!confirm("Esto sincronizará (fusionará) los registros de producción en la base de datos de desarrollo. ¿Desea continuar?")) {
+        return;
+      }
+    }
+
+    setIsCloning(true);
+    setCloneMessage("Conectando y sincronizando tablas...");
+    
+    try {
+      const response = await fetch("/api/admin/clone-production-db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prodUrl, mode: cloneMode })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Error al sincronizar base de datos.");
+      }
+
+      localStorage.setItem("prod_db_url", prodUrl);
+      setCloneMessage("¡Sincronización de Producción Exitosa!");
+      alert("✅ Datos de producción sincronizados con éxito en el entorno de desarrollo.");
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      setCloneMessage(`Error: ${err.message}`);
+      alert(`❌ Error al importar desde producción: ${err.message}`);
+    } finally {
+      setIsCloning(false);
+    }
+  };
+
+  const handleManualSync = async () => {
+    if (!isOnline) {
+      alert("Error: Dispositivo fuera de línea. Active su conexión a Internet.");
+      return;
+    }
+    setSyncStatus("Sincronizando...");
+    try {
+      await syncEngine.fullSync(true);
+      setSyncStatus("¡Sincronización completada!");
+      setTimeout(() => setSyncStatus(""), 3000);
+    } catch (e: any) {
+      setSyncStatus(`Error: ${e.message}`);
+    }
+  };
+
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const xmlInputRef = useRef<HTMLInputElement>(null);
@@ -203,6 +274,104 @@ export default function Configuracion() {
          </div>
 
          <div className="lg:col-span-1 space-y-8">
+            <SectionBox title="Sincronización Nube (Neon)" icon={<Server className="w-4 h-4" />} variant="dark">
+               <div className="space-y-4 text-left">
+                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">Vínculo de Red</span>
+                     <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isOnline ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {isOnline ? 'ONLINE' : 'OFFLINE'}
+                     </span>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">Cola Dexie Local</span>
+                     <span className="text-xs font-black text-white font-mono">{pendingCount} pendientes</span>
+                  </div>
+
+                  <div className="flex flex-col bg-white/5 p-4 rounded-2xl border border-white/10 gap-1 font-mono">
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest">Último Envío Exitoso</span>
+                     <span className="text-xs font-black text-white">
+                        {lastSync ? new Date(lastSync).toLocaleTimeString() : 'Ninguno registrado'}
+                     </span>
+                  </div>
+
+                  <button 
+                     onClick={handleManualSync}
+                     disabled={isSyncing}
+                     className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50 cursor-pointer"
+                  >
+                     <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                     {isSyncing ? 'Sincronizando...' : 'Forzar Sincronización'}
+                  </button>
+
+                  {syncStatus && (
+                     <p className="text-[9px] font-black text-center text-emerald-400 uppercase tracking-widest animate-pulse mt-1">
+                        {syncStatus}
+                     </p>
+                  )}
+               </div>
+            </SectionBox>
+
+            <SectionBox title="Clonar Prod a Desarrollo" icon={<Database className="w-4 h-4" />} variant="dark">
+               <div className="space-y-4 text-left">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-white/60 tracking-widest block mb-2">
+                       DATABASE_URL Producción
+                    </label>
+                    <input 
+                      type="password"
+                      placeholder="postgres://user:pass@ep.neon.tech/neondb"
+                      value={prodUrl}
+                      onChange={(e) => setProdUrl(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs font-semibold text-emerald-400 placeholder:text-white/20 outline-none focus:border-emerald-500 transition-all font-mono"
+                    />
+                  </div>
+
+                  <div>
+                     <span className="text-[10px] font-black uppercase text-white/60 tracking-widest block mb-1.5">Método de Sincronización</span>
+                     <div className="grid grid-cols-2 gap-2">
+                        <button 
+                           type="button"
+                           onClick={() => setCloneMode('merge')}
+                           className={`py-2 px-3 rounded-xl text-[10px] font-black uppercase transition-all border ${
+                              cloneMode === 'merge' 
+                              ? "bg-blue-600 text-white border-blue-600 animate-in fade-in" 
+                              : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10"
+                           }`}
+                        >
+                           Fusionar (Upsert)
+                        </button>
+                        <button 
+                           type="button"
+                           onClick={() => setCloneMode('overwrite')}
+                           className={`py-2 px-3 rounded-xl text-[10px] font-black uppercase transition-all border ${
+                              cloneMode === 'overwrite' 
+                              ? "bg-red-650 text-white border-red-650 animate-in fade-in" 
+                              : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10"
+                           }`}
+                        >
+                           Reemplazar Todo
+                        </button>
+                     </div>
+                  </div>
+
+                  <button 
+                     onClick={handleCloneProductionDb}
+                     disabled={isCloning || !prodUrl}
+                     className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.3)] disabled:opacity-50 cursor-pointer"
+                  >
+                     <RefreshCw className={`w-4 h-4 ${isCloning ? 'animate-spin' : ''}`} />
+                     {isCloning ? 'Sincronizando...' : 'Clonar Base de Datos'}
+                  </button>
+
+                  {cloneMessage && (
+                     <p className={`text-[9px] font-extrabold text-center uppercase tracking-widest ${cloneMessage.startsWith('Error') ? 'text-red-450' : 'text-indigo-400'} animate-pulse mt-1`}>
+                        {cloneMessage}
+                     </p>
+                  )}
+               </div>
+            </SectionBox>
+
             <SectionBox title="Gestión de Datos" icon={<Database className="w-4 h-4" />} variant="dark">
                <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-2 p-4 bg-white/5 rounded-[24px] border border-white/10">

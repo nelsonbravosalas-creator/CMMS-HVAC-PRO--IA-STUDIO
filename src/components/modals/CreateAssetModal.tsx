@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import LoadingIndicator from '../LoadingIndicator';
 import { SearchableSelect } from '../SearchableSelect';
 import * as htmlToImage from 'html-to-image';
@@ -6,7 +6,6 @@ import { useAssets } from '../../hooks/useAssets';
 import { CodificacionModal } from './CodificacionModal';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
-import { apiFetch } from '../../lib/apiFetch';
 
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft, ChevronDown
@@ -23,7 +22,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [tagData, setTagData] = useState({
     almacen: '21-STK',
     tipo: 'AC',
-    correlativo: '001',
+    correlativo: '',
     nombreEquipo: 'Compresor de Aire Industrial',
     marca: '',
     modelo: '',
@@ -34,21 +33,12 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
    * Al estar en Vercel, window.location.origin detectará automáticamente el dominio de producción. 
    */
   const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "https://cmms-hvac-pro-ia-studio.vercel.app/scanner");
-  
-  const [voltaje, setVoltaje] = useState<number>(220);
-  const [corriente, setCorriente] = useState<number>(10);
-  const [isScanning, setIsScanning] = useState(false);
-  const potencia = (voltaje * corriente) / 1000;
-  
-  const [isExporting, setIsExporting] = useState(false);
-  const [isCodificacionModalOpen, setIsCodificacionModalOpen] = useState(false);
-  const [showTagPreview, setShowTagPreview] = useState(false);
-  const tagRef = useRef<HTMLDivElement>(null);
 
-  const localSucursales = useLiveQuery(() => db.branches.toArray()) || [];
-  const localCatalogAssetTypes = useLiveQuery(() => db.catalog_asset_types.toArray()) || [];
-
-  useEffect(() => {
+  const correlativoMostrado = useMemo(() => {
+    if (tagData.correlativo) {
+      return tagData.correlativo;
+    }
+    // Buscar el máximo correlativo actual para esta sucursal y tipo
     const matches = EQUIPOS_DATA.filter(eq => {
       const parts = eq.tag.split('.');
       return parts[0] === tagData.almacen && parts[1] === tagData.tipo;
@@ -57,14 +47,81 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     if (matches.length > 0) {
       const correlatives = matches.map(m => parseInt(m.tag.split('.')[2] || '0', 10));
       const max = Math.max(...correlatives);
-      const next = (max + 1).toString().padStart(3, '0');
-      setTagData(prev => ({ ...prev, correlativo: next }));
-    } else {
-      setTagData(prev => ({ ...prev, correlativo: '001' }));
+      return (max + 1).toString().padStart(3, '0');
     }
-  }, [tagData.almacen, tagData.tipo]);
+    return '001';
+  }, [tagData.almacen, tagData.tipo, tagData.correlativo]);
+  
+  const [voltaje, setVoltaje] = useState<number>(220);
+  const [corriente, setCorriente] = useState<number>(10);
+  const [isScanning, setIsScanning] = useState(false);
+  const potencia = (voltaje * corriente) / 1000;
+  
+  const [ultimoMantenimiento, setUltimoMantenimiento] = useState(new Date().toISOString().split('T')[0]);
+  const [frecuenciaMantenimiento, setFrecuenciaMantenimiento] = useState("Semestral");
+  
+  const [isExporting, setIsExporting] = useState(false);
+  const [isCodificacionModalOpen, setIsCodificacionModalOpen] = useState(false);
+  const [showTagPreview, setShowTagPreview] = useState(false);
+  const tagRef = useRef<HTMLDivElement>(null);
 
-  const fullTag = `${tagData.almacen}.${tagData.tipo}.${tagData.correlativo.padStart(3, '0')}`;
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+
+  const ASSET_DRAFT_KEY = "cmms_asset_draft";
+
+  useEffect(() => {
+    const draft = localStorage.getItem(ASSET_DRAFT_KEY);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.tagData) setTagData(parsed.tagData);
+        if (parsed.voltaje) setVoltaje(parsed.voltaje);
+        if (parsed.corriente) setCorriente(parsed.corriente);
+        if (parsed.ultimoMantenimiento) setUltimoMantenimiento(parsed.ultimoMantenimiento);
+        if (parsed.frecuenciaMantenimiento) setFrecuenciaMantenimiento(parsed.frecuenciaMantenimiento);
+      } catch (e) {
+        console.error("Failed to parse asset draft", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const draft = { tagData, voltaje, corriente, ultimoMantenimiento, frecuenciaMantenimiento };
+    localStorage.setItem(ASSET_DRAFT_KEY, JSON.stringify(draft));
+    setHasChanges(true);
+  }, [tagData, voltaje, corriente, ultimoMantenimiento, frecuenciaMantenimiento]);
+
+  const activeClient = localStorage.getItem("active_client");
+  const clients = useLiveQuery(() => db.clients.toArray()) || [];
+  const rawBranches = useLiveQuery(() => db.branches.toArray()) || [];
+
+  const currentClient = React.useMemo(() => {
+    if (!activeClient) return null;
+    return clients.find(c => c.uuid_sync === activeClient || c.id === activeClient);
+  }, [clients, activeClient]);
+
+  const localSucursales = React.useMemo(() => {
+    if (activeClient) {
+      return rawBranches.filter(b => 
+        (b.cliente_id === activeClient || 
+         (currentClient && (b.cliente_id === currentClient.uuid_sync || b.cliente_id === currentClient.id))) && 
+        b.activo !== false && 
+        !b.deleted_at
+      );
+    }
+    return rawBranches.filter(b => b.activo !== false && !b.deleted_at);
+  }, [rawBranches, activeClient, currentClient]);
+
+  const localCatalogAssetTypes = useLiveQuery(() => db.catalog_asset_types.toArray()) || [];
+
+  useEffect(() => {
+    if (localSucursales.length > 0 && (!tagData.almacen || !localSucursales.some(s => (s.codigo || s.id) === tagData.almacen))) {
+      setTagData(prev => ({ ...prev, almacen: localSucursales[0].codigo || localSucursales[0].id }));
+    }
+  }, [localSucursales, tagData.almacen]);
+
+  const fullTag = `${tagData.almacen}.${tagData.tipo}.${correlativoMostrado.padStart(3, '0')}`;
   const qrUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}tag=${encodeURIComponent(fullTag)}`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 
@@ -82,7 +139,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       });
       const base64Data = await base64Promise;
 
-      const response = await apiFetch('/api/ocr', {
+      const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -144,6 +201,21 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
     window.print();
   };
 
+  const handleCloseIntent = () => {
+    if (hasChanges) {
+      setShowExitPrompt(true);
+    } else {
+      localStorage.removeItem(ASSET_DRAFT_KEY);
+      onClose();
+    }
+  };
+
+  const discardChanges = () => {
+    localStorage.removeItem(ASSET_DRAFT_KEY);
+    setShowExitPrompt(false);
+    onClose();
+  };
+
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,6 +239,38 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
          // ignore error
       }
 
+      const branch = localSucursales.find(s => (s.codigo || s.id) === tagData.almacen);
+      if (!branch) {
+        throw new Error('Debe seleccionar una sucursal válida asociada a un cliente.');
+      }
+      if (!branch.cliente_id) {
+        throw new Error('La sucursal seleccionada no tiene un cliente asociado valid.');
+      }
+
+      let proximoDate = "";
+      try {
+        const lastParts = ultimoMantenimiento.split('-');
+        if (lastParts.length === 3) {
+          const lastD = new Date(parseInt(lastParts[0]), parseInt(lastParts[1]) - 1, parseInt(lastParts[2]));
+          let monthsToAdd = 6;
+          const freq = frecuenciaMantenimiento.toLowerCase();
+          if (freq.includes("mensual")) monthsToAdd = 1;
+          else if (freq.includes("bi") || freq.includes("2")) monthsToAdd = 2;
+          else if (freq.includes("tri") || freq.includes("3") || freq.includes("quarter")) monthsToAdd = 3;
+          else if (freq.includes("cuatri") || freq.includes("4")) monthsToAdd = 4;
+          else if (freq.includes("semes") || freq.includes("6") || freq.includes("half")) monthsToAdd = 6;
+          else if (freq.includes("anual") || freq.includes("12") || freq.includes("year")) monthsToAdd = 12;
+          
+          lastD.setMonth(lastD.getMonth() + monthsToAdd);
+          const y = lastD.getFullYear();
+          const m = String(lastD.getMonth() + 1).padStart(2, '0');
+          const d = String(lastD.getDate()).padStart(2, '0');
+          proximoDate = `${y}-${m}-${d}`;
+        }
+      } catch (err) {
+        console.error("Error setting proximo", err);
+      }
+
       await createAsset({
         uuid_sync: crypto.randomUUID(),
         tag: fullTag || `EQUIPO-${Date.now()}`,
@@ -175,18 +279,22 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         marca: tagData.marca,
         modelo: tagData.modelo,
         serie: tagData.serie,
-        ubicacion: tagData.almacen,
-        area: tagData.almacen,
+        ubicacion: branch.nombre || tagData.almacen,
+        area: branch.nombre || tagData.almacen,
         capacidad: potencia.toString(),
         voltaje: voltaje.toString(),
         corriente: corriente.toString(),
         fecha_instalacion: new Date().toISOString(),
         vida_util: 10,
         estado: "operativo",
-        cliente_id: 'cliente_defecto',
-        sucursal_id: 'sucursal_defecto'
+        ultimo_mantenimiento: ultimoMantenimiento,
+        frecuencia_mantenimiento: frecuenciaMantenimiento,
+        proximo_mantenimiento: proximoDate || new Date().toISOString().split('T')[0],
+        cliente_id: branch.cliente_id,
+        sucursal_id: branch.uuid_sync
       });
       
+      localStorage.removeItem(ASSET_DRAFT_KEY);
       onClose();
     } catch (error: any) {
       console.error("Error guardando activo:", error);
@@ -274,7 +382,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                           <p className="text-[7px] font-black text-slate-400 mb-0.5 uppercase tracking-widest">Tag Identificador</p>
                           <div className="text-[18px] lg:text-[22px] font-mono font-black text-black leading-[0.9] tracking-tighter italic">
                               {tagData.almacen} -<br/>
-                              {tagData.tipo}.{tagData.correlativo.padStart(3, '0')}
+                              {tagData.tipo}.{correlativoMostrado.padStart(3, '0')}
                           </div>
                       </div>
 
@@ -391,7 +499,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                       type="text" 
                       maxLength={3}
                       className="w-full px-4 py-3 bg-blue-50/50 border border-blue-100 rounded-2xl text-sm font-black text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
-                      value={tagData.correlativo}
+                      value={correlativoMostrado}
                       onChange={(e) => setTagData({...tagData, correlativo: e.target.value.replace(/\D/g, '').slice(0, 3)})}
                    />
                 </div>
@@ -456,10 +564,43 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                 </div>
              </div>
 
-             <div className="flex flex-col sm:flex-row gap-4 pt-4">
+             <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-2">
+                   <Calculator className="w-4 h-4 text-emerald-600" />
+                   <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Mantenimiento Preventivo</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Último Mantenimiento Realizado</label>
+                      <input 
+                         type="date" 
+                         value={ultimoMantenimiento} 
+                         onChange={(e) => setUltimoMantenimiento(e.target.value)} 
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:border-emerald-300 transition-all font-mono uppercase text-slate-700" 
+                      />
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400">Frecuencia de Mantenimiento</label>
+                      <select 
+                         value={frecuenciaMantenimiento} 
+                         onChange={(e) => setFrecuenciaMantenimiento(e.target.value)} 
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:border-emerald-300 transition-all text-slate-700 select"
+                      >
+                         <option value="Mensual">Mensual (1 Mes)</option>
+                         <option value="Bi-Mestral">Bi-Mestral (2 Meses)</option>
+                         <option value="Trimestral">Trimestral (3 Meses)</option>
+                         <option value="Cuatrimestral">Cuatrimestral (4 Meses)</option>
+                         <option value="Semestral">Semestral (6 Meses)</option>
+                         <option value="Anual">Anual (12 Meses)</option>
+                      </select>
+                   </div>
+                </div>
+             </div>
+
+             <div className="flex flex-col sm:flex-row gap-4 pt-4 pb-24 lg:pb-8">
                 <button 
                   type="button" 
-                  onClick={onClose}
+                  onClick={handleCloseIntent}
                   className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-black uppercase tracking-widest rounded-[32px] transition-all flex items-center justify-center gap-3 active:scale-95"
                 >
                    <ChevronLeft className="w-5 h-5" /> 
@@ -477,6 +618,35 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
           </form>
         </div>
       </div>
+
+      {/* Exit Prompt */}
+      {showExitPrompt && (
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+           <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+             </div>
+             <h3 className="text-xl font-black text-slate-900 text-center mb-3">¿Cerrar sin guardar?</h3>
+             <p className="text-xs text-slate-500 text-center mb-8 px-4">
+                Tienes cambios sin guardar. Si sales ahora, se perderán y el autoguardado será limpiado.
+             </p>
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={discardChanges}
+                  className="w-full py-4 bg-red-50 text-red-600 hover:bg-red-100 font-black uppercase tracking-widest text-xs rounded-2xl transition-all"
+                >
+                   Sí, descartar cambios
+                </button>
+                <button 
+                  onClick={() => setShowExitPrompt(false)}
+                  className="w-full py-4 bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all"
+                >
+                   Continuar Editando
+                </button>
+             </div>
+           </div>
+        </div>
+      )}
     </div>
     {isCodificacionModalOpen && (
       <CodificacionModal isOpen={isCodificacionModalOpen} onClose={() => setIsCodificacionModalOpen(false)} />

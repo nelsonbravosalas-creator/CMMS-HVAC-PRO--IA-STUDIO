@@ -10,7 +10,9 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Ticket,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Briefcase,
+  Building2
 } from 'lucide-react';
 
 interface ActivityEventModalProps {
@@ -99,10 +101,53 @@ export function ActivityEventModal({ isOpen, onClose, event }: ActivityEventModa
                   <FileText className="w-4 h-4" />
                   <p className="text-xs font-black uppercase tracking-widest">Detalles de Actividad</p>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
                   <p className="text-sm text-slate-700 font-medium">
                     {event.resource?.details || 'Realizar mantenimiento preventivo según pauta del fabricante. Verificar presiones de refrigerante, consumos eléctricos y limpieza de serpentines.'}
                   </p>
+                  {event.resource?.resourceText && (
+                    <div className="text-xs bg-blue-50 border border-blue-100 text-blue-800 p-2 rounded-xl">
+                      <span className="font-bold">Recurso de Inventario reservado:</span> {event.resource.resourceText}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Dynamic Google Calendar Dispatch Panel */}
+              <div className="space-y-3 bg-blue-50/10 border border-blue-100 p-4 rounded-3xl">
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
+                  <CalendarIcon className="w-4 h-4 text-blue-600" />
+                  Enlaces de Notificación Google Calendar (Gmail)
+                </h4>
+                <p className="text-xs text-slate-500">Haga clic sobre los enlaces respectivos para registrar la actividad directamente en el Calendario de la parte interesada:</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                  <a 
+                    href={event.resource?.gcalUrlTech || `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${new Date(event.start).toISOString().replace(/-|:|\.\d\d\d/g, "")}/${new Date(event.end).toISOString().replace(/-|:|\.\d\d\d/g, "")}&details=Mantenimiento%20HVAC%20Programada`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-700 font-bold text-center text-xs rounded-xl flex items-center justify-center gap-2 transition"
+                  >
+                    <Users className="w-4 h-4" />
+                    Técnico Lead
+                  </a>
+                  <a 
+                    href={event.resource?.gcalUrlSupervisor || `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("[Supervisión] " + event.title)}&dates=${new Date(event.start).toISOString().replace(/-|:|\.\d\d\d/g, "")}/${new Date(event.end).toISOString().replace(/-|:|\.\d\d\d/g, "")}&details=Mantenimiento%20HVAC%20Programada`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 bg-white border border-slate-200 hover:border-amber-500 hover:text-amber-600 text-slate-700 font-bold text-center text-xs rounded-xl flex items-center justify-center gap-2 transition"
+                  >
+                    <Briefcase className="w-4 h-4 text-amber-500" />
+                    Supervisor
+                  </a>
+                  <a 
+                    href={event.resource?.gcalUrlClient || `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("[Aviso] Mantenimiento HVAC")}&dates=${new Date(event.start).toISOString().replace(/-|:|\.\d\d\d/g, "")}/${new Date(event.end).toISOString().replace(/-|:|\.\d\d\d/g, "")}&details=Mantenimiento%20HVAC%20Programada`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-3 bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-600 text-slate-700 font-bold text-center text-xs rounded-xl flex items-center justify-center gap-2 transition"
+                  >
+                    <Building2 className="w-4 h-4 text-emerald-500" />
+                    Cliente (Tenant)
+                  </a>
                 </div>
               </div>
 

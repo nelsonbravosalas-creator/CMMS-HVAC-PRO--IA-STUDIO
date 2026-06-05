@@ -33,7 +33,7 @@ interface AssetSearchModalProps {
 }
 
 export function AssetSearchModal({ 
-  isOpen, 
+  isOpen = true, 
   onClose, 
   onSelect, 
   tag, setTag, 
@@ -48,8 +48,90 @@ export function AssetSearchModal({
   const storeClients = useAppStore(state => state.clients);
   const storeBranches = useAppStore(state => state.branches);
 
+  const activeClientUuid = localStorage.getItem("active_client");
+  const currentActiveClient = React.useMemo(() => {
+    if (!activeClientUuid) return null;
+    return (storeClients || []).find(c => c.uuid_sync === activeClientUuid || c.id === activeClientUuid);
+  }, [storeClients, activeClientUuid]);
+
+  // Fallbacks for inputs and setters 
+  const [localTag, setLocalTag] = useState("");
+  const [localCliente, setLocalCliente] = useState("");
+  const [localSucursal, setLocalSucursal] = useState("");
+  const [localDescripcion, setLocalDescripcion] = useState("");
+
+  const actualTag = setTag ? tag : localTag;
+  const actualSetTag = setTag || setLocalTag;
+
+  const rawCliente = setCliente ? cliente : localCliente;
+  const actualCliente = (activeClientUuid && currentActiveClient) ? currentActiveClient.nombre : rawCliente;
+  const actualSetCliente = setCliente || setLocalCliente;
+
+  const actualSucursal = setSucursal ? sucursal : localSucursal;
+  const actualSetSucursal = setSucursal || setLocalSucursal;
+
+  const actualDescripcion = setDescripcion ? descripcion : localDescripcion;
+  const actualSetDescripcion = setDescripcion || setLocalDescripcion;
+
+  const storeAssets = useAppStore(state => state.assets);
+
+  const computedResults = React.useMemo(() => {
+    return storeAssets.filter(eq => {
+      // Filter out deleted or retired (baja) assets
+      if (eq.deleted_at || eq.estado === 'baja') {
+        return false;
+      }
+      // Enforce tenant isolation
+      if (activeClientUuid) {
+        if (eq.cliente_id !== activeClientUuid) {
+          // Fallback check against storeClients to see if there's an id/uuid_sync drift
+          const activeClientObj = (storeClients || []).find(c => c.uuid_sync === activeClientUuid || c.id === activeClientUuid);
+          if (!activeClientObj || (eq.cliente_id !== activeClientObj.uuid_sync && eq.cliente_id !== activeClientObj.id)) {
+            return false;
+          }
+        }
+      }
+      
+      // Apply filters if they exist
+      if (actualTag) {
+        if (!eq.tag || !eq.tag.toLowerCase().includes(actualTag.toLowerCase())) {
+          return false;
+        }
+      }
+      if (actualCliente) {
+        const clientObj = (storeClients || []).find(c => c.nombre === actualCliente || c.uuid_sync === actualCliente || c.id === actualCliente);
+        if (clientObj && eq.cliente_id !== clientObj.uuid_sync && eq.cliente_id !== clientObj.id) {
+          return false;
+        }
+      }
+      if (actualSucursal) {
+        let branchObjs = (storeBranches || []).filter(b => b.nombre === actualSucursal || b.uuid_sync === actualSucursal);
+        if (actualCliente) {
+          const clientObj = (storeClients || []).find(c => c.nombre === actualCliente || c.uuid_sync === actualCliente || c.id === actualCliente);
+          if (clientObj) {
+            branchObjs = branchObjs.filter(b => b.cliente_id === clientObj.uuid_sync || b.cliente_id === clientObj.id);
+          }
+        }
+        if (branchObjs.length > 0) {
+          const matchesAny = branchObjs.some(b => eq.sucursal_id === b.uuid_sync || eq.sucursal_id === b.id);
+          if (!matchesAny) return false;
+        } else {
+          return false;
+        }
+      }
+      if (actualDescripcion) {
+        if (!eq.nombre || !eq.nombre.toLowerCase().includes(actualDescripcion.toLowerCase())) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [storeAssets, activeClientUuid, actualTag, actualCliente, actualSucursal, actualDescripcion, storeClients, storeBranches]);
+
+  const finalResults = results !== undefined ? results : computedResults;
+
   // If sucursal needs to be constrained to selected cliente
-  const filteredBranches = sucursal && Object.keys(storeBranches || {}).length > 0 
+  const filteredBranches = actualSucursal && Object.keys(storeBranches || {}).length > 0 
     ? storeBranches 
     : storeBranches; 
   // We can just use storeBranches for now, filtering by cliente if needed.
@@ -116,8 +198,8 @@ export function AssetSearchModal({
                           <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                           <input 
                             type="text"
-                            value={tag}
-                            onChange={(e) => setTag(e.target.value)}
+                            value={actualTag || ""}
+                            onChange={(e) => actualSetTag(e.target.value)}
                             placeholder="Buscar TAG..."
                             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
                           />
@@ -126,20 +208,32 @@ export function AssetSearchModal({
                     <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase text-slate-400">Cliente</label>
                        <SearchableSelect
-                         options={[
-                           { value: "", label: "Todos los Clientes" },
-                           ...Object.values(storeClients || {}).map((c: any) => ({
-                             value: c.nombre,
-                             label: c.nombre
-                           }))
-                         ]}
-                         value={cliente}
+                         options={
+                           activeClientUuid && currentActiveClient
+                             ? [
+                                 {
+                                   value: currentActiveClient.nombre,
+                                   label: currentActiveClient.nombre
+                                 }
+                               ]
+                             : [
+                                 { value: "", label: "Todos los Clientes" },
+                                 ...(storeClients || []).map((c: any) => ({
+                                   value: c.nombre,
+                                   label: c.nombre
+                                 }))
+                               ]
+                         }
+                         value={actualCliente}
                          onChange={(val) => {
-                           setCliente(val);
-                           setSucursal("");
+                           if (!activeClientUuid) {
+                             actualSetCliente(val);
+                             actualSetSucursal("");
+                           }
                          }}
-                         placeholder="Todos los Clientes"
+                         placeholder={activeClientUuid && currentActiveClient ? currentActiveClient.nombre : "Todos los Clientes"}
                          icon={<Users className="w-4 h-4" />}
+                         disabled={!!activeClientUuid}
                        />
                     </div>
                     <div className="space-y-2">
@@ -147,16 +241,21 @@ export function AssetSearchModal({
                        <SearchableSelect
                          options={[
                            { value: "", label: "Todas las Sucursales" },
-                           ...Object.values(storeBranches || {})
-                             .filter((b: any) => !cliente || (storeClients[b.cliente_id]?.nombre === cliente))
+                           ...(storeBranches || [])
+                             .filter((b: any) => {
+                               const targetClient = actualCliente || activeClientUuid;
+                               if (!targetClient) return true;
+                               const clientObj = storeClients.find(c => c.nombre === targetClient || c.uuid_sync === targetClient || c.id === targetClient);
+                               return clientObj ? (b.cliente_id === clientObj.uuid_sync || b.cliente_id === clientObj.id) : false;
+                             })
                              .map((b: any) => ({
                                value: b.nombre,
                                label: b.nombre,
                                subtitle: b.codigo
                              }))
                          ]}
-                         value={sucursal}
-                         onChange={(val) => setSucursal(val)}
+                         value={actualSucursal}
+                         onChange={(val) => { actualSetSucursal(val); }}
                          placeholder="Todas las Sucursales"
                          icon={<Building2 className="w-4 h-4" />}
                        />
@@ -167,8 +266,8 @@ export function AssetSearchModal({
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                           <input 
                             type="text"
-                            value={descripcion}
-                            onChange={(e) => setDescripcion(e.target.value)}
+                            value={actualDescripcion || ""}
+                            onChange={(e) => actualSetDescripcion(e.target.value)}
                             placeholder="Chiller, Split..."
                             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
                           />
@@ -198,9 +297,9 @@ export function AssetSearchModal({
                  </form>
 
                  <div className="space-y-3 pt-6">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Resultados ({results.length})</label>
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Resultados ({finalResults.length})</label>
                     <div className="grid grid-cols-1 gap-2">
-                       {results.map((eq: any) => (
+                       {finalResults.map((eq: any) => (
                          <button 
                             key={eq.tag}
                             onClick={() => onSelect(eq)}
@@ -221,7 +320,7 @@ export function AssetSearchModal({
                             <ChevronDown className="w-5 h-5 text-slate-300 -rotate-90 group-hover:text-blue-500 transition-all opacity-40" />
                          </button>
                        ))}
-                       {results.length === 0 && (
+                       {finalResults.length === 0 && (
                          <div className="py-20 text-center space-y-4">
                             <Search className="w-12 h-12 text-slate-100 mx-auto" />
                             <p className="text-xs font-black text-slate-300 uppercase italic">No se encontraron activos</p>

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { db } from "../db/database";
 import { 
   Ticket as TicketIcon, 
   AlertCircle, 
@@ -28,6 +29,7 @@ import { useAppStore } from "../store/useAppStore";
 import { useTickets } from "../hooks/useTickets";
 import { useGoogleTasks } from "../hooks/useGoogleTasks";
 import { StatusIndicator } from "../components/StatusIndicator";
+import AccessDenied from "../components/AccessDenied";
 
 export default function Tickets() {
   const { permisos } = useAuth();
@@ -38,13 +40,26 @@ export default function Tickets() {
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("");
 
-  if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
+  if (!permisos?.ver_dashboard) {
+    return <AccessDenied requiredPermission="Visualizar Dashboard" />;
+  }
 
-  const filtered = useMemo(() => work_orders.filter(t => 
-    t.titulo.toLowerCase().includes(filter.toLowerCase()) ||
-    t.equipo_tag?.toLowerCase().includes(filter.toLowerCase()) ||
-    t.id.toLowerCase().includes(filter.toLowerCase())
-  ), [work_orders, filter]);
+  const filtered = useMemo(() => {
+    const activeClientUuid = localStorage.getItem("active_client");
+    return work_orders.filter(t => {
+      if (activeClientUuid && t.cliente_id !== activeClientUuid) {
+        return false;
+      }
+      const tituloLower = (t.titulo || "").toLowerCase();
+      const tagLower = (t.equipo_tag || "").toLowerCase();
+      const idLower = (t.id || "").toLowerCase();
+      const filterLower = (filter || "").toLowerCase();
+
+      return tituloLower.includes(filterLower) ||
+             tagLower.includes(filterLower) ||
+             idLower.includes(filterLower);
+    });
+  }, [work_orders, filter]);
 
   if (loading && work_orders.length === 0) {
     return (
@@ -58,7 +73,7 @@ export default function Tickets() {
   const exportToCSV = () => {
     const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Fecha", "Creador", "Asignado", "Sync"];
     const rows = filtered.map(t => [
-      t.id,
+      t.id || `OT-PENDIENTE-${t.uuid_sync.substring(0,6)}`,
       t.equipo_tag,
       t.titulo,
       t.estado,
@@ -92,6 +107,37 @@ export default function Tickets() {
      } catch (err: any) {
         alert("❌ Hubo un error al sincronizar con Google Tasks: " + err.message);
      }
+  };
+
+  const handleCloseTicket = async (ticket: any) => {
+    await updateTicket(ticket.uuid_sync, { estado: 'cerrado' });
+    
+    // Export PDF via Email Automáticamente
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      doc.setFont("helvetica", "bold");
+      doc.text(`TICKET CERRADO: ${ticket.id}`, 10, 10);
+      doc.setFontSize(10);
+      doc.text(`Título: ${ticket.titulo}`, 10, 20);
+      doc.text(`Equipo: ${ticket.equipo_tag || 'N/A'}`, 10, 25);
+      doc.text(`Asignado a: ${ticket.asignado_a || 'N/A'}`, 10, 30);
+      
+      const pdfBase64 = doc.output('datauristring');
+      const { DocumentExportService } = await import('../lib/DocumentExportService');
+      
+      const exportResult = await DocumentExportService.exportDocument({
+        documentId: ticket.id,
+        documentType: 'ticket',
+        method: 'email',
+        assetTag: ticket.equipo_tag, // Usa el activo para encontrar el cliente en el endpoint
+        pdfBase64
+      });
+      alert(`Ticket cerrado exitosamente.\n${exportResult.message}`);
+    } catch (e: any) {
+      console.warn("Export PDF Error:", e);
+      alert(`Ticket cerrado exitosamente.\nNota: Módulo de notificaciones asíncronas no logró procesar el email: ${e.message}`);
+    }
   };
 
   const statuses = [
@@ -178,6 +224,27 @@ export default function Tickets() {
   );
 }
 
+const TicketImagePreview: React.FC<{ imageRef: string }> = ({ imageRef }) => {
+  const [url, setUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (imageRef.startsWith('blob:')) {
+      const uuid = imageRef.replace('blob:', '');
+      db.blobs.get(uuid).then(b => {
+        if (b && b.blob) {
+          setUrl(URL.createObjectURL(b.blob));
+        }
+      }).catch(console.error);
+    } else {
+      setUrl(imageRef);
+    }
+  }, [imageRef]);
+
+  if (!url) return <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><ImageIcon className="w-3 h-3" /></div>;
+
+  return <img src={url} alt="Evidencia" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />;
+};
+
 const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
   const { updateTicket } = useTickets();
   const priorities: Record<string, string> = {
@@ -205,7 +272,9 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
 
        <div>
           <div className="flex items-center gap-2 mb-1">
-             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{ticket.id}</span>
+             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+               {ticket.id || `OT-PENDIENTE-${ticket.uuid_sync.substring(0,6)}`}
+             </span>
              <div className="w-1 h-1 rounded-full bg-slate-300"></div>
              <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{ticket.equipo_tag}</span>
           </div>
@@ -218,6 +287,20 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
              <div className="w-6 h-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-slate-600">NB</div>
              <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-blue-600">GB</div>
           </div>
+          
+          {ticket.imagenes && ticket.imagenes.length > 0 && (
+            <div className="flex gap-1 ml-auto">
+              {ticket.imagenes.slice(0, 3).map((imgRef: string, idx: number) => (
+                <TicketImagePreview key={idx} imageRef={imgRef} />
+              ))}
+              {ticket.imagenes.length > 3 && (
+                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-[9px] font-black text-slate-500">
+                  +{ticket.imagenes.length - 3}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400">
              <MessageSquare className="w-3 h-3" /> 4 Notas
           </div>

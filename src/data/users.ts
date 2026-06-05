@@ -1,3 +1,6 @@
+import { db } from '../db/database';
+import bcrypt from 'bcryptjs';
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -8,35 +11,47 @@ export interface Usuario {
   pin: string;
 }
 
-export const USUARIOS_MOCK: Usuario[] = [
-  {
-    id: 'U1',
-    nombre: 'Nelson Bravo',
-    correo: 'Nbravo.nbyb@gmail.com',
-    perfil: 'programador',
-    activo: true,
-    puedeEditarMantenimientos: true,
-    pin: '3517'
-  },
-  {
-    id: 'U2',
-    nombre: 'Gonzalo Bravo',
-    correo: 'gbravo.nbyb@gmail.com',
-    perfil: 'administrador',
-    activo: true,
-    puedeEditarMantenimientos: true,
-    pin: '3210'
-  },
-  {
-    id: 'U3',
-    nombre: 'Admin Pruebas',
-    correo: 'a@a.cl',
-    perfil: 'administrador',
-    activo: true,
-    puedeEditarMantenimientos: true,
-    pin: '1234'
+export const validatePin = async (pinIngresado: string, correo?: string) => {
+  if (navigator.onLine) {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: pinIngresado, correo })
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error("Credenciales inválidas");
+    }
+    return data;
+  } else {
+    // Fallback offline seguro contra DB Local
+    if (correo) {
+      const user = await db.users.where('email').equalsIgnoreCase(correo).first();
+      if (!user || !user.activo) {
+        throw new Error("Credenciales inválidas");
+      }
+      const isMatch = user.pin.startsWith('$2')
+        ? bcrypt.compareSync(pinIngresado, user.pin)
+        : user.pin === pinIngresado;
+      if (!isMatch) {
+        throw new Error("Credenciales inválidas");
+      }
+      return user;
+    } else {
+      const allUsers = await db.users.toArray();
+      const user = allUsers.find(u => {
+        if (!u.activo) return false;
+        return u.pin.startsWith('$2')
+          ? bcrypt.compareSync(pinIngresado, u.pin)
+          : u.pin === pinIngresado;
+      });
+      if (!user) {
+        throw new Error("Credenciales inválidas");
+      }
+      return user;
+    }
   }
-];
+};
 
 export interface Cliente {
   id: string;
@@ -57,3 +72,4 @@ export const CLIENTES_MOCK: Cliente[] = [
     usuariosIds: ['U1', 'U2']
   }
 ];
+

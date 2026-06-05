@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { 
-  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, Calendar, Clock, DollarSign, ListChecks, Wrench, User, Search, MapPin
+  X, Camera, Paperclip, Save, RotateCcw, AlertTriangle, AlertCircle, Calendar, Clock, DollarSign, ListChecks, Wrench, User, Search, MapPin
 } from 'lucide-react';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 
 import { useMantenimientos } from '../../hooks/useMantenimientos';
 import { AssetSearchModal } from './AssetSearchModal';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/database';
 
 interface NuevoMantenimientoModalProps {
   onClose: () => void;
@@ -15,15 +18,17 @@ interface NuevoMantenimientoModalProps {
 
 export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = ({ onClose, duplicateId, equipoTag: initialTag }) => {
   const { createMantenimiento } = useMantenimientos();
+  const authUser = useAuthStore(state => state.user);
+  
   const [hasChanges, setHasChanges] = useState(false);
   const [frecuencia, setFrecuencia] = useState("Mensual");
   const [fechaActual, setFechaActual] = useState(new Date().toISOString().split('T')[0]);
   const [proximaMantencion, setProximaMantencion] = useState("");
   const [tipoServicio, setTipoServicio] = useState("Preventivo");
-  const [estadoFinal, setEstadoFinal] = useState("Realizado");
+  const [estadoFinal, setEstadoFinal] = useState("Ejecutado"); // Updated to match valid states 'ejecutado'
   const [descripcion, setDescripcion] = useState("");
   const [equipoTag, setEquipoTag] = useState(initialTag || "");
-  const [tecnico, setTecnico] = useState("Nelson Bravo");
+  const [tecnico, setTecnico] = useState(authUser?.nombre || "Tecnico Desconocido");
   const [duracion, setDuracion] = useState("60");
   const [costoMateriales, setCostoMateriales] = useState("0");
   const [hallazgos, setHallazgos] = useState("");
@@ -34,6 +39,43 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState("");
   const [showAssetSearch, setShowAssetSearch] = useState(false);
+
+  const PM_DRAFT_KEY = "cmms_pm_draft";
+
+  React.useEffect(() => {
+    const draft = localStorage.getItem(PM_DRAFT_KEY);
+    if (draft && !initialTag) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.frecuencia) setFrecuencia(parsed.frecuencia);
+        if (parsed.fechaActual) setFechaActual(parsed.fechaActual);
+        if (parsed.proximaMantencion) setProximaMantencion(parsed.proximaMantencion);
+        if (parsed.tipoServicio) setTipoServicio(parsed.tipoServicio);
+        if (parsed.estadoFinal) setEstadoFinal(parsed.estadoFinal);
+        if (parsed.descripcion) setDescripcion(parsed.descripcion);
+        if (parsed.equipoTag) setEquipoTag(parsed.equipoTag);
+        if (parsed.tecnico) setTecnico(parsed.tecnico);
+        if (parsed.duracion) setDuracion(parsed.duracion);
+        if (parsed.costoMateriales) setCostoMateriales(parsed.costoMateriales);
+        if (parsed.hallazgos) setHallazgos(parsed.hallazgos);
+        if (parsed.recomendaciones) setRecomendaciones(parsed.recomendaciones);
+        if (parsed.repuestos) setRepuestos(parsed.repuestos);
+        if (parsed.ubicacionGeografica) setUbicacionGeografica(parsed.ubicacionGeografica);
+      } catch (e) {
+        console.error("Failed to parse PM draft", e);
+      }
+    }
+  }, [initialTag]);
+
+  React.useEffect(() => {
+    if (hasChanges) {
+      const draft = {
+        frecuencia, fechaActual, proximaMantencion, tipoServicio, estadoFinal, descripcion, 
+        equipoTag, tecnico, duracion, costoMateriales, hallazgos, recomendaciones, repuestos, ubicacionGeografica
+      };
+      localStorage.setItem(PM_DRAFT_KEY, JSON.stringify(draft));
+    }
+  }, [frecuencia, fechaActual, proximaMantencion, tipoServicio, estadoFinal, descripcion, equipoTag, tecnico, duracion, costoMateriales, hallazgos, recomendaciones, repuestos, ubicacionGeografica, hasChanges]);
 
   const captureGPS = () => {
     setGpsLoading(true);
@@ -102,21 +144,59 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
         alert("Error: Falta TAG de Equipo.");
         return;
      }
+     
+     // Validate technically that the asset exists and is active (not deleted)
+     const existingAsset = await db.assets.where('tag').equals(equipoTag).first();
+     if (!existingAsset || existingAsset.deleted_at || existingAsset.estado === 'baja') {
+        setIsSaving(false);
+        alert("Error: El activo asociado no existe o está dado de baja.");
+        return;
+     }
 
      try {
+        const docId = `MANT-${Date.now()}`;
         await createMantenimiento({
-          id: `MANT-${Date.now()}`,
+          id: docId,
           equipo_tag: equipoTag,
-          tipo: tipoServicio,
-          estado: estadoFinal,
+          tipo: tipoServicio.toLowerCase(),
+          estado: estadoFinal.toLowerCase() as 'ejecutado' | 'en_proceso' | 'cancelado' | 'observado',
           fecha: fechaActual,
+          proxima_fecha: proximaMantencion || undefined, // Missing field in original
           tecnico: tecnico,
+          tecnico_id: authUser?.id || "unknown", // Missing field in original
           hallazgos: hallazgos,
-          acciones: descripcion,
-          repuestos: repuestos,
-          ubicacionGeografica
+          descripcion: descripcion,
+          // acciones: descripcion, // Schema says `descripcion` for work done
+          // repuestos: repuestos, // Can stay if needed but base LocalMantenimiento might not have it
         });
         
+        if (estadoFinal.toLowerCase() === 'ejecutado' || estadoFinal.toLowerCase() === 'completado') {
+           try {
+              const { jsPDF } = await import('jspdf');
+              const doc = new jsPDF('p', 'mm', 'a4');
+              doc.setFont("helvetica", "bold");
+              doc.text(`REGISTRO DE MANTENIMIENTO: ${docId}`, 10, 10);
+              doc.setFontSize(10);
+              doc.text(`Técnico: ${tecnico}`, 10, 20);
+              doc.text(`Equipo: ${equipoTag}`, 10, 25);
+              
+              const pdfBase64 = doc.output('datauristring');
+              const { DocumentExportService } = await import('../../lib/DocumentExportService');
+              const exportResult = await DocumentExportService.exportDocument({
+                documentId: docId,
+                documentType: 'maintenance',
+                method: 'email',
+                assetTag: equipoTag,
+                pdfBase64
+              });
+              alert(`Mantenimiento Finalizado.\n${exportResult.message}`);
+           } catch (e: any) {
+              console.warn("Export error", e);
+              alert(`Mantenimiento guardado.\nNota: Módulo de email fallido: ${e.message}`);
+           }
+        }
+        
+        localStorage.removeItem(PM_DRAFT_KEY);
         onClose();
      } catch (error) {
         console.error("Error guardando mantenimiento", error);
@@ -126,13 +206,24 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
      }
   };
 
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+
+  const discardChanges = () => {
+    localStorage.removeItem(PM_DRAFT_KEY);
+    setShowExitPrompt(false);
+    onClose();
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(PM_DRAFT_KEY);
+    onClose();
+  };
+
   const handleClose = () => {
     if (hasChanges) {
-      if (confirm("Hay cambios sin guardar. ¿Desea descartar los cambios?")) {
-        onClose();
-      }
+      setShowExitPrompt(true);
     } else {
-      onClose();
+      clearDraft();
     }
   };
 
@@ -306,13 +397,13 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
               </div>
           )}
 
-          <div className="flex gap-4 mt-6">
-             <button type="submit" disabled={isSaving} className="flex-1 py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2 disabled:opacity-50">
+          <div className="flex gap-4 mt-6 pb-24 lg:pb-8 flex-col sm:flex-row">
+             <button type="button" onClick={handleClose} className="px-10 py-5 bg-slate-100 text-slate-400 text-xs font-black uppercase tracking-widest rounded-[32px] hover:bg-slate-200 transition-all flex-[1]">
+                Cancelar
+             </button>
+             <button type="submit" disabled={isSaving} className="flex-[2] py-5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-[32px] shadow-2xl shadow-blue-500/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2 disabled:opacity-50">
                 {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
                 {isSaving ? "Guardando..." : "Finalizar y Guardar Registro"}
-             </button>
-             <button type="button" onClick={handleClose} className="px-10 py-5 bg-slate-100 text-slate-400 text-xs font-black uppercase tracking-widest rounded-[32px] hover:bg-slate-200 transition-all">
-                Cancelar
              </button>
           </div>
         </form>
@@ -326,6 +417,35 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
             setShowAssetSearch(false);
           }}
         />
+      )}
+
+      {/* Exit Prompt */}
+      {showExitPrompt && (
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+           <div className="bg-white rounded-[32px] w-full max-w-sm p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-8 h-8 text-amber-600" />
+             </div>
+             <h3 className="text-xl font-black text-slate-900 text-center mb-3">¿Cerrar sin guardar?</h3>
+             <p className="text-xs text-slate-500 text-center mb-8 px-4">
+                Tienes cambios sin guardar. Si sales ahora, se perderán y el autoguardado será limpiado.
+             </p>
+             <div className="flex flex-col gap-3">
+                <button 
+                  onClick={discardChanges}
+                  className="w-full py-4 bg-red-50 text-red-600 hover:bg-red-100 font-black uppercase tracking-widest text-xs rounded-2xl transition-all"
+                >
+                   Sí, descartar cambios
+                </button>
+                <button 
+                  onClick={() => setShowExitPrompt(false)}
+                  className="w-full py-4 bg-slate-900 text-white hover:bg-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all"
+                >
+                   Continuar Editando
+                </button>
+             </div>
+           </div>
+        </div>
       )}
     </div>
   );

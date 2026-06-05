@@ -28,6 +28,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { ActivityEventModal } from '../components/modals/ActivityEventModal';
+import { CrearActividadModal } from '../components/modals/CrearActividadModal';
 import { initAuth, googleSignIn, getAccessToken, logout } from '../lib/auth';
 
 const locales = {
@@ -137,6 +138,8 @@ export default function Planificacion() {
   const [calendarView, setCalendarView] = useState<any>(Views.MONTH);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [activitiesList, setActivitiesList] = useState<Activity[]>(ACTIVITIES_MOCK);
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -211,8 +214,18 @@ export default function Planificacion() {
     }
   };
 
-  // Generate calendar events from mock data (placing them on current day for demo)
-  const baseEvents = ACTIVITIES_MOCK.map((act, index) => {
+  // Generate calendar events from mock/dynamic list
+  const baseEvents = activitiesList.map((act, index) => {
+    const actAny = act as any;
+    if (actAny.start) {
+      return {
+        id: act.id,
+        title: act.title,
+        start: new Date(actAny.start),
+        end: new Date(actAny.end),
+        resource: act
+      };
+    }
     const today = new Date();
     const [hours, minutes] = act.startTime.split(':').map(Number);
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() + index - 1, hours, minutes);
@@ -225,6 +238,19 @@ export default function Planificacion() {
       resource: act
     };
   });
+
+  const handleSaveActivity = (newAct: any) => {
+    setActivitiesList(prev => [newAct, ...prev]);
+    setShowAddModal(false);
+    // Open event detail immediately so users can test instant Google Calendar additions
+    setSelectedEvent({
+      id: newAct.id,
+      title: newAct.title,
+      start: newAct.start,
+      end: newAct.end,
+      resource: newAct
+    });
+  };
 
   const calendarEvents = [...baseEvents, ...googleEvents];
 
@@ -262,6 +288,12 @@ export default function Planificacion() {
         event={selectedEvent} 
       />
 
+      <CrearActividadModal 
+        isOpen={showAddModal} 
+        onClose={() => setShowAddModal(false)} 
+        onSave={handleSaveActivity} 
+      />
+
       {/* Header section */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
@@ -293,7 +325,10 @@ export default function Planificacion() {
               <List size={25} className="mx-auto" />
             </button>
           </div>
-          <button className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all">
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all"
+          >
             <Plus className="w-4 h-4" />
             Nueva Actividad
           </button>
@@ -412,7 +447,7 @@ export default function Planificacion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ACTIVITIES_MOCK.map((act) => (
+                    {activitiesList.map((act) => (
                       <tr key={act.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                         <td className="p-4">
                           <div className="space-y-1">
@@ -522,7 +557,7 @@ export default function Planificacion() {
             </div>
             
             <div className="space-y-4">
-              {ACTIVITIES_MOCK.map((act) => (
+              {activitiesList.map((act) => (
                 <div 
                   key={act.id} 
                   className="p-4 rounded-3xl bg-slate-50 border border-slate-100 hover:border-blue-200 hover:shadow-lg transition-all group cursor-pointer"

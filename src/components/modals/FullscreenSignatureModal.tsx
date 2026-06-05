@@ -24,11 +24,6 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
     // Resize canvas to match its rotated container's actual screen pixels
     const resizeCanvas = () => {
       if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      
-      // Because we rotate the content by 90deg, the visual width is the DOM height, 
-      // but the actual canvas layout matches the rotated dimensions.
-      // Easiest is to set canvas width/height to its clientWidth/clientHeight
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
       
@@ -38,37 +33,70 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
       ctx.lineJoin = 'round';
     };
 
-    // Initial resize
-    setTimeout(resizeCanvas, 100);
+    // Initial resize with longer delay to allow modal animation to complete
+    setTimeout(resizeCanvas, 300);
+    setTimeout(resizeCanvas, 50);
     window.addEventListener('resize', resizeCanvas);
 
-    let drawing = false;
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
 
-    const move = (e: PointerEvent) => {
-      if (!drawing) return;
+    const getPos = (e: MouseEvent | TouchEvent) => {
+      const r = canvas.getBoundingClientRect();
+      if ('touches' in e) {
+        return {
+          x: e.touches[0].clientX - r.left,
+          y: e.touches[0].clientY - r.top
+        };
+      }
+      return {
+        x: (e as MouseEvent).clientX - r.left,
+        y: (e as MouseEvent).clientY - r.top
+      };
+    };
+
+    const start = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
+      isDrawing = true;
+      const pos = getPos(e);
+      lastX = pos.x;
+      lastY = pos.y;
     };
 
-    const start = (e: PointerEvent) => {
-      drawing = true;
+    const move = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault();
+      if (!isDrawing) return;
+      const pos = getPos(e);
       ctx.beginPath();
-      ctx.moveTo(e.offsetX, e.offsetY);
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastX = pos.x;
+      lastY = pos.y;
     };
 
-    const end = () => drawing = false;
+    const end = (e: MouseEvent | TouchEvent | Event) => {
+      e.preventDefault();
+      isDrawing = false;
+    };
 
-    // Use PointerEvents which inherently support CSS transforms in offsetX/Y
-    canvas.addEventListener('pointerdown', start);
-    canvas.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end);
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', end, { passive: false });
 
     return () => {
-      window.removeEventListener('pointerup', end);
-      canvas.removeEventListener('pointerdown', start);
-      canvas.removeEventListener('pointermove', move);
       window.removeEventListener('resize', resizeCanvas);
+      canvas.removeEventListener('mousedown', start);
+      canvas.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+      canvas.removeEventListener('touchstart', start);
+      canvas.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
     };
   }, [isOpen]);
 
@@ -99,8 +127,7 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
           {/* Rotate the entire container so it's landscape on mobile */}
           <div 
             ref={containerRef}
-            className="w-[100vh] h-[100vw] sm:w-[80vw] sm:h-[80vh] bg-white rounded-3xl overflow-hidden flex flex-col rotate-90 sm:rotate-0 transform origin-center shadow-2xl relative touch-none"
-            style={{ maxHeight: '100vw', maxWidth: '100vh' }}
+            className="w-full max-w-4xl h-[70vh] sm:h-[80vh] bg-white rounded-3xl overflow-hidden flex flex-col shadow-2xl relative touch-none"
           >
             <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
               <span className="font-black text-xs uppercase tracking-widest text-slate-700">{title}</span>
@@ -115,7 +142,7 @@ export function FullscreenSignatureModal({ isOpen, onClose, onSave, title }: Ful
             <div className="flex-1 relative bg-white touch-none">
               <canvas 
                 ref={canvasRef} 
-                className="absolute inset-0 w-full h-full touch-none cursor-crosshair"
+                className="absolute inset-0 w-full h-full touch-none cursor-crosshair signature-canvas"
               />
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-5">
                 <span className="font-black text-6xl uppercase tracking-widest text-slate-900">FIRMAR</span>

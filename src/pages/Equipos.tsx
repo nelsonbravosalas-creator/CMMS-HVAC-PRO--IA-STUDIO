@@ -31,6 +31,7 @@ import { useAppStore } from "../store/useAppStore";
 import { useAssets } from "../hooks/useAssets";
 import { LocalActivo } from "../db/database";
 import { StatusIndicator } from "../components/StatusIndicator";
+import AccessDenied from "../components/AccessDenied";
 
 type ViewMode = "grid" | "list" | "detail" | "iconic";
 
@@ -42,6 +43,71 @@ interface FilterState {
   almacen: string;
 }
 
+function formatToDDMMAAAA(dateStr: string): string {
+  if (!dateStr) return "-";
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
+  
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const y = parts[0];
+    const m = parts[1];
+    const d = parts[2];
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr;
+}
+
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  }
+  return null;
+}
+
+function calculateAndFormatProximoMantenimiento(ultimoMantenimiento: string, proximoMantenimiento: string, frecuencia?: string): string {
+  if (!ultimoMantenimiento) {
+    if (proximoMantenimiento) return formatToDDMMAAAA(proximoMantenimiento);
+    return "-";
+  }
+
+  const lastDate = parseDate(ultimoMantenimiento);
+  if (!lastDate || isNaN(lastDate.getTime())) {
+    if (proximoMantenimiento) return formatToDDMMAAAA(proximoMantenimiento);
+    return "-";
+  }
+
+  let monthsToAdd = 6;
+  
+  if (frecuencia) {
+    const freq = frecuencia.toLowerCase();
+    if (freq.includes("mensual")) monthsToAdd = 1;
+    else if (freq.includes("bi") || freq.includes("2")) monthsToAdd = 2;
+    else if (freq.includes("tri") || freq.includes("3") || freq.includes("quarter")) monthsToAdd = 3;
+    else if (freq.includes("cuatri") || freq.includes("4")) monthsToAdd = 4;
+    else if (freq.includes("semes") || freq.includes("6") || freq.includes("half")) monthsToAdd = 6;
+    else if (freq.includes("anual") || freq.includes("12") || freq.includes("year")) monthsToAdd = 12;
+  } else if (proximoMantenimiento) {
+    const nextDateObj = parseDate(proximoMantenimiento);
+    if (nextDateObj && !isNaN(nextDateObj.getTime())) {
+      const diffMonths = (nextDateObj.getFullYear() - lastDate.getFullYear()) * 12 + (nextDateObj.getMonth() - lastDate.getMonth());
+      if (diffMonths > 0) {
+        monthsToAdd = diffMonths;
+      }
+    }
+  }
+
+  const nextDate = new Date(lastDate);
+  nextDate.setMonth(nextDate.getMonth() + monthsToAdd);
+
+  const d = String(nextDate.getDate()).padStart(2, '0');
+  const m = String(nextDate.getMonth() + 1).padStart(2, '0');
+  const y = nextDate.getFullYear();
+
+  return `${d}/${m}/${y}`;
+}
+
 export default function Equipos() {
   const { permisos } = useAuth();
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -51,13 +117,36 @@ export default function Equipos() {
   
   const assets = useAppStore(state => state.assets);
   const loading = useAppStore(state => state.isLoading);
+  const branches = useAppStore(state => state.branches);
+  const clients = useAppStore(state => state.clients);
+
+  const activeClientUid = localStorage.getItem("active_client");
+
+  const currentClient = useMemo(() => {
+    if (!activeClientUid) return null;
+    return clients.find(c => c.uuid_sync === activeClientUid || c.id === activeClientUid);
+  }, [clients, activeClientUid]);
+
+  const clientBranches = useMemo(() => {
+    if (activeClientUid) {
+      return branches.filter(b => 
+        (b.cliente_id === activeClientUid || 
+         (currentClient && (b.cliente_id === currentClient.uuid_sync || b.cliente_id === currentClient.id))) && 
+        b.activo !== false && 
+        !b.deleted_at
+      );
+    }
+    return branches.filter(b => b.activo !== false && !b.deleted_at);
+  }, [branches, activeClientUid, currentClient]);
 
   const [filters, setFilters] = useState<FilterState>(() => {
     const saved = localStorage.getItem("equipos_filters");
     return saved ? JSON.parse(saved) : { search: "", tipo: "", estado: "", area: "", almacen: "" };
   });
 
-  if (!permisos?.ver_dashboard) return <div className="p-20 text-center text-slate-400 font-black uppercase italic">Acceso Denegado</div>;
+  if (!permisos?.ver_dashboard) {
+    return <AccessDenied requiredPermission="Visualizar Dashboard" />;
+  }
 
   const [sortField, setSortField] = useState<keyof LocalActivo>("tag");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -68,7 +157,9 @@ export default function Equipos() {
   }, [filters]);
 
   const filteredEquipos = useMemo(() => {
+    const activeClientUid = localStorage.getItem("active_client");
     return assets.filter(eq => {
+      if (activeClientUid && eq.cliente_id !== activeClientUid) return false;
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
       const matchEstado = filters.estado ? eq.estado === filters.estado : true;
@@ -149,8 +240,8 @@ export default function Equipos() {
                 onChange={(e) => setFilters({...filters, almacen: e.target.value})}
               >
                  <option value="">Todas las Sucursales</option>
-                 {Object.entries(ALMACEN_LABELS).map(([k, v]) => (
-                   <option key={k} value={k}>{v} ({k})</option>
+                 {clientBranches.map((b) => (
+                   <option key={b.id || b.uuid_sync} value={b.codigo || b.id}>{b.nombre} ({b.codigo || b.id})</option>
                  ))}
               </select>
               <select 
@@ -306,7 +397,7 @@ const EquipoCardGrid: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> 
           </div>
           <div className="flex justify-between items-center text-[10px] font-bold uppercase">
              <span className="text-slate-400">Próximo Mantenimiento:</span>
-             <span className="text-slate-900">{equipo.proximo_mantenimiento}</span>
+             <span className="text-slate-900">{calculateAndFormatProximoMantenimiento(equipo.ultimo_mantenimiento, equipo.proximo_mantenimiento, equipo.frecuencia_mantenimiento)}</span>
           </div>
        </div>
 
@@ -358,7 +449,7 @@ const EquipoRowList: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> =
           {equipo.estado}
         </span>
       </td>
-      <td className="px-6 py-4 font-bold text-slate-600">{equipo.proximo_mantenimiento}</td>
+      <td className="px-6 py-4 font-bold text-slate-600 font-mono text-[11px] uppercase tracking-wide">{calculateAndFormatProximoMantenimiento(equipo.ultimo_mantenimiento, equipo.proximo_mantenimiento, equipo.frecuencia_mantenimiento)}</td>
       <td className="px-6 py-4 text-right">
          <div className="flex justify-end gap-2 text-slate-300 group-hover:text-slate-500">
             <Edit2 className="w-4 h-4 hover:text-blue-500" />

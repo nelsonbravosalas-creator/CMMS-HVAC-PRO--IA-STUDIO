@@ -28,7 +28,6 @@ import { EQUIPOS_DATA } from "../data/assets";
 import { SUCURSALES } from "../data/branches";
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { useAssets } from "../hooks/useAssets";
-import { useAppStore } from "../store/useAppStore";
 
 /**
  * Componente ScannerQR.
@@ -63,8 +62,6 @@ import { useAppStore } from "../store/useAppStore";
  */
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
-  const assets = useAppStore(state => state.assets);
-  const { createAsset } = useAssets();
 
   /** Modos de la vista: scanner (captura) o generator (creación) */
   const [mode, setMode] = useState<"scanner" | "generator">("scanner");
@@ -166,12 +163,27 @@ export default function ScannerQR() {
       // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
       setLastResult(tagValue);
       
-      const localAsset = assets.find(eq => eq.tag === tagValue);
-      if (localAsset) {
-        setEquipoEscaneado(localAsset);
-      } else {
-        setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en datos locales sincronizados.` });
-      }
+      // BÚSQUEDA EN BASE DE DATOS LOCAL:
+      assetsRepo.getByTag(tagValue)
+        .then(asset => {
+           if (asset) {
+             setEquipoEscaneado({
+               tag: asset.tag,
+               nombre: asset.nombre,
+               ubicacion: asset.ubicacion || "Ubicación en BD"
+             });
+           } else {
+             const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
+             if (localFallback) {
+               setEquipoEscaneado(localFallback);
+             } else {
+               setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
+             }
+           }
+        })
+        .catch(err => {
+           setEquipoEscaneado({ error: `Error de búsqueda local.` });
+        })
     }
   };
 
@@ -198,41 +210,23 @@ export default function ScannerQR() {
     window.print();
   };
 
+  const { createAsset } = useAssets();
+
   const handleRegister = async () => {
     setIsExporting(true);
-
-    const assetData = {
-      uuid_sync: crypto.randomUUID(),
-      tag: fullTag,
-      nombre: tagData.nombreEquipo,
-      tipo: tagData.tipo,
-      ubicacion: tagData.almacen,
-      estado: "operativo" as const,
-      marca: '',
-      modelo: '',
-      serie: '',
-      area: '',
-      capacidad: '',
-      voltaje: '',
-      corriente: '',
-      refrigerante: '',
-      fecha_instalacion: '',
-      vida_util: 10,
-      ultimo_mantenimiento: '',
-      proximo_mantenimiento: '',
-      horas_operacion: 0,
-      tecnicos: [],
-      notas: `Registrado desde generador QR. Correlativo: ${tagData.correlativo}`,
-      cliente_id: '',
-      sucursal_id: ''
-    };
-
     try {
-      await createAsset(assetData);
-      alert(`Activo ${fullTag} registrado localmente. Se sincronizará automáticamente.`);
+      await createAsset({
+        tag: fullTag,
+        nombre: tagData.nombreEquipo,
+        tipo: tagData.tipo,
+        estado: "operativo",
+        ubicacion: tagData.almacen
+      });
+      console.log("Activo guardado localmente (Offline First)");
+      alert(`Activo ${fullTag} registrado con éxito en el CMMS.`);
     } catch (error) {
-      console.error("Error registrando activo desde QR:", error);
-      alert("No se pudo registrar el activo.");
+      console.error("Error al guardar activo", error);
+      alert("Hubo un error al guardar el activo.");
     } finally {
       setIsExporting(false);
     }
@@ -438,10 +432,10 @@ export default function ScannerQR() {
                    <div 
                      id="printable-tag-preview" 
                      ref={tagRef}
-                     className="w-full aspect-[2/1] bg-white rounded-[24px] shadow-[0_40px_80px_rgba(0,0,0,0.4)] flex relative border border-slate-200 select-none mx-auto overflow-hidden min-h-[250px]"
+                     className="w-full aspect-[2/1] bg-white rounded-[16px] sm:rounded-[24px] shadow-[0_40px_80px_rgba(0,0,0,0.4)] flex relative border border-slate-200 select-none mx-auto overflow-hidden min-h-[160px] sm:min-h-[250px] max-w-[500px]"
                    >
-                     <div className="w-[45%] flex flex-col items-center justify-center p-6 border-r border-slate-100 bg-white">
-                        <div className="w-full max-w-[160px] aspect-square flex items-center justify-center">
+                     <div className="w-[45%] flex flex-col items-center justify-center p-3 sm:p-6 border-r border-slate-100 bg-white flex-shrink-0">
+                        <div className="w-full max-w-[80px] sm:max-w-[160px] aspect-square flex items-center justify-center">
                            <img 
                              src={qrImageUrl} 
                              alt="Generated QR" 
@@ -449,32 +443,36 @@ export default function ScannerQR() {
                              className="w-full h-full mix-blend-multiply"
                            />
                         </div>
-                        <p className="mt-3 text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Escaneo Directo CMMS</p>
+                        <p className="mt-1 sm:mt-3 text-[6px] sm:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Escaneo Directo CMMS</p>
                      </div>
 
-                     <div className="flex-1 p-8 flex flex-col justify-between bg-white text-slate-900 text-left">
+                     <div className="flex-1 p-3 sm:p-8 flex flex-col justify-between bg-white text-slate-900 text-left min-w-0">
                         <div className="flex justify-end">
-                           <div className="bg-black text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg">
-                              <span className="text-[12px] font-black italic tracking-tighter">NβyB</span>
-                              <span className="text-[8px] font-bold opacity-80">SPA</span>
+                           <div className="bg-black text-white px-1.5 py-0.5 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg flex items-center gap-1 sm:gap-1.5 shadow-md sm:shadow-lg">
+                              <span className="text-[9px] sm:text-[12px] font-black italic tracking-tighter">NβyB</span>
+                              <span className="text-[6px] sm:text-[8px] font-bold opacity-80">SPA</span>
                            </div>
                         </div>
 
                         <div className="space-y-1">
-                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Tag Identificador</p>
-                           <div className="text-[24px] lg:text-[28px] font-mono font-black text-slate-950 tracking-tighter leading-[0.9] italic">
+                           <p className="text-[6px] sm:text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Tag Identificador</p>
+                           <div className="text-[12px] sm:text-[24px] lg:text-[28px] font-mono font-black text-slate-950 tracking-tighter leading-[0.9] italic truncate">
                              {tagData.almacen} -<br />
                              {tagData.tipo}.{tagData.correlativo.padStart(3, '0')}
                            </div>
                         </div>
 
-                        <div className="space-y-1 pt-4 border-t border-slate-50 text-left">
-                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Descripción de Activo</p>
-                           <p className="text-[11px] font-black text-slate-800 uppercase leading-snug line-clamp-2 italic">
+                        <div className="space-y-0.5 sm:space-y-1 pt-1.5 sm:pt-4 border-t border-slate-50 text-left">
+                           <p className="text-[6px] sm:text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">Descripción de Activo</p>
+                           <p className="text-[8px] sm:text-[11px] font-black text-slate-800 uppercase leading-snug line-clamp-2 italic">
                              {tagData.nombreEquipo}
                            </p>
                         </div>
                      </div>
+                   </div>
+                   <div className="text-center mt-3 flex items-center justify-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                      <span className="text-[10px] font-medium text-slate-400/80 tracking-widest uppercase">DIMENSIÓN ÓPTIMA DE IMPRESIÓN: <strong className="text-white">100mm x 50mm</strong></span>
                    </div>
                 </div>
 

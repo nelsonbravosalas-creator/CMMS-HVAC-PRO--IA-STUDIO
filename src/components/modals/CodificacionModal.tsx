@@ -54,12 +54,13 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
     setIsSaving(true);
     try {
       const uuid_sync = crypto.randomUUID();
+      const cleanSiglas = sucursalCodigo.toUpperCase().replace(/[^A-Z0-9]/g, '');
       const newSucursal = {
         uuid_sync,
-        id: `SUB-${Date.now()}`,
+        id: `000000${cleanSiglas}`,
         nombre: sucursalNombre,
         codigo: sucursalCodigo,
-        cliente_id: 'default', // Para efectos de esta versión
+        cliente_id: localStorage.getItem("active_client") || 'default', // Asocia la sucursal al cliente activo
         direccion: sucursalDireccion,
         ciudad: '',
         region: sucursalRegion,
@@ -222,6 +223,7 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
                       disabled={isSaving}
                       className="flex gap-2 items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-600/20 disabled:opacity-50"
                     >
+                       {isSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
                        {isSaving ? "Guardando..." : "Guardar Sucursal"}
                        {!isSaving && <Plus className="w-4 h-4" />}
                     </button>
@@ -271,6 +273,7 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
                       disabled={isSaving}
                       className="flex gap-2 items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-600/20 disabled:opacity-50"
                     >
+                       {isSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
                        {isSaving ? "Guardando..." : "Guardar Equipo"}
                        {!isSaving && <Plus className="w-4 h-4" />}
                     </button>
