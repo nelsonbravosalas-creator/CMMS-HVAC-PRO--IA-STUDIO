@@ -35,7 +35,7 @@ public static class IdleBlocker {
     public const uint INPUT_MOUSE = 0;
     public const uint MOUSEEVENTF_MOVE = 0x0001;
 
-    public static void MoveMouse(int dx, int dy) {
+    public static uint MoveMouse(int dx, int dy) {
         INPUT[] inputs = new INPUT[1];
         inputs[0].type = INPUT_MOUSE;
         inputs[0].mi.dx = dx;
@@ -44,31 +44,122 @@ public static class IdleBlocker {
         inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE;
         inputs[0].mi.time = 0;
         inputs[0].mi.dwExtraInfo = IntPtr.Zero;
-        SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+        return SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+    }
+
+    public static int GetLastError() {
+        return Marshal.GetLastWin32Error();
     }
 }
 "@
 
 $intervalSeconds = 20
+$movePixels = 12
+$logMoves = $false
+$pauseStartBase = "13:30"
+$pauseStartJitterMinutes = 5
+$pauseEndBase = "14:40"
+$pauseEndJitterMinutes = 10
 
-Write-Host "Mouse jiggler activo. Mueve el mouse cada $intervalSeconds segundos."
-Write-Host "Presiona Ctrl+C para detener."
+function New-DailyPauseWindow {
+    param(
+        [datetime]$Date
+    )
 
-try {
+    $pauseStart = $Date.Date.Add([TimeSpan]::Parse($pauseStartBase)).
+        AddMinutes((Get-Random -Minimum (-$pauseStartJitterMinutes) -Maximum ($pauseStartJitterMinutes + 1)))
+    $pauseEnd = $Date.Date.Add([TimeSpan]::Parse($pauseEndBase)).
+        AddMinutes((Get-Random -Minimum (-$pauseEndJitterMinutes) -Maximum ($pauseEndJitterMinutes + 1)))
+
+    if ($pauseEnd -le $pauseStart) {
+        $pauseEnd = $pauseEnd.AddDays(1)
+    }
+
+    [pscustomobject]@{
+        Date = $Date.Date
+        Start = $pauseStart
+        End = $pauseEnd
+    }
+}
+
+function Enable-KeepAwake {
     [IdleBlocker]::SetThreadExecutionState(
         [IdleBlocker+EXECUTION_STATE]::ES_CONTINUOUS -bor
         [IdleBlocker+EXECUTION_STATE]::ES_SYSTEM_REQUIRED -bor
         [IdleBlocker+EXECUTION_STATE]::ES_DISPLAY_REQUIRED
     ) | Out-Null
+}
+
+function Disable-KeepAwake {
+    [IdleBlocker]::SetThreadExecutionState([IdleBlocker+EXECUTION_STATE]::ES_CONTINUOUS) | Out-Null
+}
+
+Write-Host "Mouse jiggler activo. Mueve el mouse cada $intervalSeconds segundos."
+Write-Host "Movimiento configurado: $movePixels pixeles."
+Write-Host "Pausa diaria: $pauseStartBase +/- $pauseStartJitterMinutes min hasta $pauseEndBase +/- $pauseEndJitterMinutes min."
+Write-Host "Presiona Ctrl+C para detener."
+
+try {
+    $pauseWindow = New-DailyPauseWindow -Date (Get-Date)
+    $keepAwakeEnabled = $false
+    $pauseAnnounced = $false
+
+    Write-Host ("Horario de pausa de hoy: {0:HH:mm} a {1:HH:mm}." -f $pauseWindow.Start, $pauseWindow.End)
 
     while ($true) {
-        [IdleBlocker]::MoveMouse(3, 0)
+        $now = Get-Date
+
+        if ($now.Date -ne $pauseWindow.Date) {
+            $pauseWindow = New-DailyPauseWindow -Date $now
+            $pauseAnnounced = $false
+            Write-Host ("Horario de pausa de hoy: {0:HH:mm} a {1:HH:mm}." -f $pauseWindow.Start, $pauseWindow.End)
+        }
+
+        if (($now -ge $pauseWindow.Start) -and ($now -lt $pauseWindow.End)) {
+            if ($keepAwakeEnabled) {
+                Disable-KeepAwake
+                $keepAwakeEnabled = $false
+            }
+
+            if (-not $pauseAnnounced) {
+                Write-Host ("Jiggler pausado hasta las {0:HH:mm}." -f $pauseWindow.End)
+                $pauseAnnounced = $true
+            }
+
+            $secondsUntilResume = [math]::Max(1, [int]($pauseWindow.End - $now).TotalSeconds)
+            Start-Sleep -Seconds ([math]::Min($secondsUntilResume, 60))
+            continue
+        }
+
+        if (-not $keepAwakeEnabled) {
+            Enable-KeepAwake
+            $keepAwakeEnabled = $true
+
+            if ($pauseAnnounced) {
+                Write-Host "Jiggler reanudado."
+                $pauseAnnounced = $false
+            }
+        }
+
+        $moveRightResult = [IdleBlocker]::MoveMouse($movePixels, 0)
         Start-Sleep -Milliseconds 250
-        [IdleBlocker]::MoveMouse(-3, 0)
+        $moveLeftResult = [IdleBlocker]::MoveMouse(-$movePixels, 0)
+
+        if ($logMoves) {
+            $timestamp = Get-Date -Format "HH:mm:ss"
+            if (($moveRightResult -eq 1) -and ($moveLeftResult -eq 1)) {
+                Write-Host "[$timestamp] Mouse movido."
+            }
+            else {
+                $lastError = [IdleBlocker]::GetLastError()
+                Write-Warning "[$timestamp] SendInput no confirmo el movimiento. Resultado: $moveRightResult/$moveLeftResult. Error Windows: $lastError."
+            }
+        }
+
         Start-Sleep -Seconds $intervalSeconds
     }
 }
 finally {
-    [IdleBlocker]::SetThreadExecutionState([IdleBlocker+EXECUTION_STATE]::ES_CONTINUOUS) | Out-Null
+    Disable-KeepAwake
     Write-Host "Mouse jiggler detenido."
 }
