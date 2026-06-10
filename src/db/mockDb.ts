@@ -245,12 +245,28 @@ export const createMockSql = () => {
       // Handle common WHERE conditions
       // Case A: SELECT * FROM users WHERE LOWER(correo) = $1 OR LOWER(data->>'email') = $1
       if (tableName === 'users' && (queryLower.includes('lower(correo)') || queryLower.includes('correo ='))) {
-        const emailVal = String(values[0]).toLowerCase();
-        return filteredRows.filter(u => 
-          String(u.correo || '').toLowerCase() === emailVal || 
-          String(u.email || '').toLowerCase() === emailVal ||
-          (u.data && JSON.parse(u.data).email && String(JSON.parse(u.data).email).toLowerCase() === emailVal)
-        );
+        const emailVal = String(values[0]).toLowerCase().trim();
+        return filteredRows.filter(u => {
+          try {
+            // Check correo column
+            if (String(u.correo || '').toLowerCase().trim() === emailVal) return true;
+            // Check email column
+            if (String(u.email || '').toLowerCase().trim() === emailVal) return true;
+            // Check data.email field (JSON string)
+            if (u.data) {
+              try {
+                const dataObj = typeof u.data === 'string' ? JSON.parse(u.data) : u.data;
+                if (dataObj.email && String(dataObj.email).toLowerCase().trim() === emailVal) return true;
+              } catch (e) {
+                // data is not valid JSON, skip
+              }
+            }
+            return false;
+          } catch (e) {
+            console.error("Error filtering user by email:", e);
+            return false;
+          }
+        });
       }
 
       // Case B: WHERE id = $1 or uuid_sync = $1

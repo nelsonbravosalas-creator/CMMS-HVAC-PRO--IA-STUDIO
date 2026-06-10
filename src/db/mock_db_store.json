@@ -6,6 +6,10 @@
       "data": "{\"nombre\":\"EECOL Default\",\"empresa\":\"EECOL\"}",
       "updated_at": 1780969821396,
       "created_at": 1780969821396
+    },
+    {
+      "updated_at": 1781068864305,
+      "created_at": 1781068864305
     }
   ],
   "sucursales": [
@@ -16,6 +20,10 @@
       "data": "{\"nombre\":\"Bodega Central\",\"codigo\":\"21-STK\",\"direccion\":\"Las Condes 123\",\"ciudad\":\"Santiago\",\"region\":\"RM\",\"activo\":true}",
       "updated_at": 1780969821396,
       "created_at": 1780969821396
+    },
+    {
+      "updated_at": 1781068864316,
+      "created_at": 1781068864316
     }
   ],
   "assets": [

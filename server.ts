@@ -339,6 +339,7 @@ async function ensureTables() {
     try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS sucursal_id TEXT REFERENCES sucursales(id) ON DELETE RESTRICT`; } catch (e) {}
     try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS latitud DOUBLE PRECISION`; } catch (e) {}
     try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS longitud DOUBLE PRECISION`; } catch (e) {}
+    try { await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS frecuencia_mantenimiento TEXT`; } catch (e) {}
 
     // 5. Garantizar llaves UNIQUE de sincronización
     const tryUnique = async (idx_name: string, q: any) => {
@@ -469,7 +470,18 @@ async function startServer() {
       }
 
       const user = _users[0];
-      const storedPin = user.pin || (user.data && user.data.pin);
+      
+      // FIX: user.data is a JSON STRING, must parse it
+      let userData = {};
+      try {
+        if (user.data) {
+          userData = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+        }
+      } catch (e) {
+        console.warn("Could not parse user.data:", e);
+      }
+      
+      const storedPin = user.pin || userData.pin;
       
       let isMatch = false;
       if (storedPin && storedPin.startsWith('$2')) {
@@ -492,7 +504,6 @@ async function startServer() {
       } catch (err) {}
 
       // Convert DB user format to expected return format
-      const userData = user.data || {};
       const returnUser = {
         id: user.id || userData.id || user.uuid_sync,
         nombre: user.nombre || userData.nombre,
@@ -774,7 +785,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.get("/api/v1/clients/:client_id", async (req: any, res: any) => {
+  app.get("/api/v1/clients/:client_id", verifyToken, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const rows = await sql`SELECT * FROM clientes WHERE id = ${req.params.client_id} AND deleted_at IS NULL`;
@@ -787,7 +798,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/v1/clients", async (req: any, res: any) => {
+  app.post("/api/v1/clients", verifyToken, requireRole(['gestionar_usuarios']), async (req: any, res: any) => {
     try {
       const { id, uuid_sync, data } = req.body;
       const sql = getSql();
@@ -808,7 +819,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.put("/api/v1/clients/:client_id", async (req: any, res: any) => {
+  app.put("/api/v1/clients/:client_id", verifyToken, requireRole(['gestionar_usuarios']), async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { client_id } = req.params;
@@ -828,7 +839,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.delete("/api/v1/clients/:client_id", async (req: any, res: any) => {
+  app.delete("/api/v1/clients/:client_id", verifyToken, requireRole(['gestionar_usuarios']), async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { client_id } = req.params;
@@ -880,11 +891,6 @@ function resolveTable(name: string): string | null {
         VALUES (${finalId}, ${req.clienteId}, ${finalUuid}, ${strData}::jsonb, ${updated_at}, ${updated_at})
         ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id;
       `;
-      await sql`
-        INSERT INTO branches (id, data, uuid_sync, updated_at, created_at, cliente_id)
-        VALUES (${finalId}, ${strData}::jsonb, ${finalUuid}, ${updated_at}, ${updated_at}, ${req.clienteId})
-        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
-      `;
 
       res.status(201).json({ success: true, id: finalId, uuid_sync: finalUuid });
     } catch (error: any) {
@@ -901,12 +907,7 @@ function resolveTable(name: string): string | null {
       const strData = typeof data === 'object' ? JSON.stringify(data) : (data || '{}');
 
       await sql`
-        UPDATE sucursales 
-        SET data = ${strData}::jsonb, updated_at = ${updated_at}
-        WHERE id = ${branch_id} AND cliente_id = ${req.clienteId};
-      `;
-      await sql`
-        UPDATE branches 
+        UPDATE sucursales
         SET data = ${strData}::jsonb, updated_at = ${updated_at}
         WHERE id = ${branch_id} AND cliente_id = ${req.clienteId};
       `;
@@ -924,7 +925,6 @@ function resolveTable(name: string): string | null {
       const ts = Date.now();
 
       await sql`UPDATE sucursales SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${branch_id} AND cliente_id = ${req.clienteId}`;
-      await sql`UPDATE branches SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${branch_id} AND cliente_id = ${req.clienteId}`;
 
       res.json({ success: true, message: "Sucursal dada de baja con éxito" });
     } catch (error: any) {
@@ -1000,12 +1000,12 @@ function resolveTable(name: string): string | null {
       const latVal = d.latitud !== undefined ? parseFloat(d.latitud) : (d.lat !== undefined ? parseFloat(d.lat) : (d.ubicacionGeografica?.lat !== undefined ? parseFloat(d.ubicacionGeografica.lat) : null));
       const lngVal = d.longitud !== undefined ? parseFloat(d.longitud) : (d.lng !== undefined ? parseFloat(d.lng) : (d.ubicacionGeografica?.lng !== undefined ? parseFloat(d.ubicacionGeografica.lng) : null));
 
-      let final_cliente_id = req.clienteId || 'cliente-eecol-default-001';
+      let final_cliente_id = req.clienteId || 'cliente-default-001';
       let final_sucursal_id = branch_id || 'default-sucursal';
 
       const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
       if (!clientExists || clientExists.length === 0) {
-        final_cliente_id = 'cliente-eecol-default-001';
+        final_cliente_id = 'cliente-default-001';
       }
 
       const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
@@ -1466,12 +1466,12 @@ function resolveTable(name: string): string | null {
         const latVal = d.latitud !== undefined ? parseFloat(d.latitud) : (d.lat !== undefined ? parseFloat(d.lat) : null);
         const lngVal = d.longitud !== undefined ? parseFloat(d.longitud) : (d.lng !== undefined ? parseFloat(d.lng) : null);
 
-        let final_cliente_id = clienteId || 'cliente-eecol-default-001';
+        let final_cliente_id = clienteId || 'cliente-default-001';
         let final_sucursal_id = d.sucursal_id || 'default-sucursal';
 
         const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
         if (!clientExists || clientExists.length === 0) {
-          final_cliente_id = 'cliente-eecol-default-001';
+          final_cliente_id = 'cliente-default-001';
         }
 
         const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
@@ -1540,12 +1540,12 @@ function resolveTable(name: string): string | null {
         const latVal = d.latitud !== undefined ? parseFloat(d.latitud) : (d.lat !== undefined ? parseFloat(d.lat) : null);
         const lngVal = d.longitud !== undefined ? parseFloat(d.longitud) : (d.lng !== undefined ? parseFloat(d.lng) : null);
 
-        let final_cliente_id = clienteId || 'cliente-eecol-default-001';
+        let final_cliente_id = clienteId || 'cliente-default-001';
         let final_sucursal_id = d.sucursal_id || 'default-sucursal';
 
         const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
         if (!clientExists || clientExists.length === 0) {
-          final_cliente_id = 'cliente-eecol-default-001';
+          final_cliente_id = 'cliente-default-001';
         }
 
         const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
@@ -1620,17 +1620,20 @@ function resolveTable(name: string): string | null {
       const payload = req.body;
       const clienteId = req.clienteId;
 
-      // Allow mapping from short name or specific cmms_* resource name
-      const allowedResources = ['cmms_equipos', 'cmms_tickets', 'cmms_mantenimientos', 'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_informes_mantenimiento', 'cmms_users'];
-      
-      let targetTable = resource.startsWith('cmms_') ? resource : `cmms_${resource}`;
-      // Map old plural to cmms_* explicitly if needed
-      if (resource === 'assets' || resource === 'equipos') targetTable = 'cmms_equipos';
-      if (resource === 'work_orders' || resource === 'tickets') targetTable = 'cmms_tickets';
-      if (resource === 'preventive_maintenance') targetTable = 'cmms_mantenimientos';
+      // Map resource names to real table names
+      const resourceToTable: Record<string, string> = {
+        'assets': 'assets', 'equipos': 'assets',
+        'work_orders': 'work_orders', 'tickets': 'work_orders',
+        'preventive_maintenance': 'preventive_maintenance', 'mantenimientos': 'preventive_maintenance',
+        'reports': 'reports', 'informes': 'reports',
+        'users': 'users', 'inventory': 'inventory',
+        'ordenes_servicio': 'ordenes_servicio', 'calendar': 'calendar',
+        'events': 'events',
+      };
+      const targetTable = resourceToTable[resource] || resourceToTable[resource.replace('cmms_', '')];
 
-      if (!allowedResources.includes(targetTable)) {
-        return res.status(400).json({ success: false, error: "Invalid resource table" });
+      if (!targetTable || !ALLOWED_TABLES.includes(targetTable)) {
+        return res.status(400).json({ success: false, error: `Invalid resource: ${resource}. Allowed: ${Object.keys(resourceToTable).join(', ')}` });
       }
 
       if (idempotencyKey) {
@@ -1655,10 +1658,10 @@ function resolveTable(name: string): string | null {
       // Check current version in DB
       let existingRecord: any[] = [];
       try {
-        if (targetTable === 'cmms_equipos') {
-          existingRecord = await sql`SELECT version FROM cmms_equipos WHERE tag = ${recordId} AND cliente_id = ${clienteId}`;
+        if (targetTable === 'assets') {
+          existingRecord = await sql`SELECT updated_at as version FROM assets WHERE (tag = ${recordId} OR uuid_sync = ${recordId}) AND cliente_id = ${clienteId}`;
         } else {
-          existingRecord = await sql`SELECT version FROM ${sql(targetTable)} WHERE id = ${recordId} AND cliente_id = ${clienteId}`;
+          existingRecord = await sql`SELECT updated_at as version FROM ${sql(targetTable)} WHERE (uuid_sync = ${recordId} OR id = ${recordId}) AND cliente_id = ${clienteId}`;
         }
       } catch(e) {}
 
@@ -1691,13 +1694,13 @@ function resolveTable(name: string): string | null {
   });
 
   // NEW GLOBAL SYNC ENDPOINT
-  app.post('/api/sync', async (req, res) => {
+  app.post('/api/sync', verifyToken, async (req: any, res: any) => {
     const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body;
     try {
       const sql = getSql();
       const results: any = { inserts: [], updates: [], deletes: [] };
-      
-      const decodedClienteId = (req as any).clienteId || 'cliente-default-001';
+
+      const decodedClienteId = req.clienteId || req.user?.clienteId || 'cliente-default-001';
       const bodyClienteId = req.body.clienteId || req.body.cliente_id || req.headers['x-client-id'] || req.headers['x-cliente-id'];
       const clienteIdSync = bodyClienteId || decodedClienteId;
 

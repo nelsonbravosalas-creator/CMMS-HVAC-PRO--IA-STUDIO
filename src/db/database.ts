@@ -154,11 +154,10 @@ export interface LocalOrdenServicio extends LocalBase {
   cliente_id?: string;
 }
 
-export interface LocalSetting {
+export interface LocalSetting extends LocalBase {
+  /** uuid_sync como PK alineado con servidor — key es el nombre lógico */
   key: string;
   value: string;
-  updated_at: number;
-  sync_status: SyncStatus;
 }
 
 export interface SyncOperation {
@@ -175,11 +174,15 @@ export interface SyncOperation {
   created_at?: number;
 }
 
-export interface AuditLog {
+export interface AuditLog extends LocalBase {
   id?: string;
   action: string;
-  userId: string;
-  details: string;
+  /** Alineado con columna Neon `user_id` */
+  user_id: string;
+  entity_type: string;
+  entity_id: string;
+  /** JSONB payload — objeto serializable */
+  payload?: any;
   timestamp: number;
   cliente_id?: string;
 }
@@ -211,8 +214,8 @@ export class CMMSDatabase extends Dexie {
   blobs!: Table<LocalBlob>;
 
   constructor() {
-    super('CMMS_LocalDB_v13');
-    const schema = {
+    super('CMMS_LocalDB_v14');
+    const schemaV13 = {
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at, estado',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
       preventive_maintenance: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
@@ -230,18 +233,26 @@ export class CMMSDatabase extends Dexie {
       audit_logs: '++id, action, userId, cliente_id, timestamp',
       blobs: 'uuid_sync, created_at'
     };
-    
-    this.version(13).stores(schema);
+    this.version(13).stores(schemaV13);
+
+    // v14: AuditLog usa user_id (snake_case), settings agrega uuid_sync como PK
+    const schemaV14 = {
+      ...schemaV13,
+      settings: 'uuid_sync, key, sync_status, updated_at',
+      audit_logs: '++id, action, user_id, cliente_id, timestamp',
+    };
+
+    this.version(14).stores(schemaV14);
     
     this.on('populate', async () => {
       const now = Date.now();
       // Default Clients Seed
       await this.clientes.bulkAdd([
-        { uuid_sync: 'cliente-eecol-default-001', id: 'cliente-eecol-default-001', nombre: 'Cliente EECOL S.A.', empresa: 'EECOL Industrial', email: 'contacto@eecol.cl', telefono: '+56220001111', direccion: 'Santiago Centro 456', updated_at: now, sync_status: 'synced' }
+        { uuid_sync: 'cliente-default-001', id: 'cliente-default-001', nombre: 'Cliente EECOL S.A.', empresa: 'EECOL Industrial', email: 'contacto@eecol.cl', telefono: '+56220001111', direccion: 'Santiago Centro 456', updated_at: now, sync_status: 'synced' }
       ]);
       // Default Branches (sucursales) with correct cliente_id & fallback id 'default-sucursal'
       await this.sucursales.bulkAdd([
-        { uuid_sync: 'default-sucursal', id: 'default-sucursal', nombre: 'Bodega Central', codigo: '21-STK', cliente_id: 'cliente-eecol-default-001', direccion: 'Las Condes 123', ciudad: 'Santiago', region: 'RM', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: 'default-sucursal', id: 'default-sucursal', nombre: 'Bodega Central', codigo: '21-STK', cliente_id: 'cliente-default-001', direccion: 'Las Condes 123', ciudad: 'Santiago', region: 'RM', activo: true, updated_at: now, sync_status: 'synced' },
       ]);
       // Default asset types
       await this.catalog_asset_types.bulkAdd([

@@ -207,7 +207,7 @@ class SyncEngine {
                        // Canónico: acciones (alineado con Neon y LocalMantenimiento)
                        acciones: remoteRecord.acciones || extraData.acciones || '',
                        repuestos: remoteRecord.repuestos || '',
-                       cliente_id: remoteRecord.cliente_id || extraData.cliente_id || 'cliente-eecol-default-001',
+                       cliente_id: remoteRecord.cliente_id || extraData.cliente_id || 'cliente-default-001',
                        uuid_sync: remoteUuid,
                        updated_at: Number(remoteRecord.updated_at || Date.now()),
                        ubicacionGeografica: extraData.ubicacionGeografica
@@ -227,7 +227,7 @@ class SyncEngine {
                        // Canónico: cantidad / unidad_medida (alineado con Neon)
                        cantidad: remoteRecord.cantidad !== undefined ? Number(remoteRecord.cantidad) : (extraData.cantidad !== undefined ? Number(extraData.cantidad) : 0),
                        unidad_medida: remoteRecord.unidad_medida || extraData.unidad_medida || '',
-                       cliente_id: remoteRecord.cliente_id || extraData.cliente_id || 'cliente-eecol-default-001',
+                       cliente_id: remoteRecord.cliente_id || extraData.cliente_id || 'cliente-default-001',
                        marca: remoteRecord.marca || extraData.marca || '',
                        modelo: remoteRecord.modelo || extraData.modelo || '',
                        estado: remoteRecord.estado || extraData.estado || 'disponible',
@@ -255,7 +255,7 @@ class SyncEngine {
                          : (extraData.activo !== undefined ? extraData.activo : true),
                        cliente_id: remoteRecord.cliente_id
                          || extraData.cliente_id
-                         || 'cliente-eecol-default-001',
+                         || 'cliente-default-001',
                        uuid_sync: remoteUuid,
                        updated_at: Number(remoteRecord.updated_at || Date.now())
                      };
