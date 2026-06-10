@@ -1,0 +1,2 @@
+const { request } = require('http');
+request('http://localhost:3000/api/sync', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' }, (res) => { res.on('data', d => process.stdout.write(d)) }).end();

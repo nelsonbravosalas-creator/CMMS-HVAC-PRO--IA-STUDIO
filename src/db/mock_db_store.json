@@ -1,0 +1,162 @@
+{
+  "clientes": [
+    {
+      "id": "cliente-eecol-default-001",
+      "uuid_sync": "cliente-eecol-default-001",
+      "data": "{\"nombre\":\"EECOL Default\",\"empresa\":\"EECOL\"}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    }
+  ],
+  "sucursales": [
+    {
+      "id": "default-sucursal",
+      "cliente_id": "cliente-eecol-default-001",
+      "uuid_sync": "default-sucursal",
+      "data": "{\"nombre\":\"Bodega Central\",\"codigo\":\"21-STK\",\"direccion\":\"Las Condes 123\",\"ciudad\":\"Santiago\",\"region\":\"RM\",\"activo\":true}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    }
+  ],
+  "assets": [
+    {
+      "uuid_sync": "ACT-001",
+      "tag": "ACT-001",
+      "nombre": "Aire Acondicionado Cassette Matriz",
+      "tipo": "AC",
+      "marca": "Carrier",
+      "modelo": "Cassette 36k",
+      "serie": "CAR-123456",
+      "ubicacion": "Oficina Central",
+      "area": "Operaciones",
+      "capacidad": "36000 BTU",
+      "voltaje": "220V",
+      "corriente": "16A",
+      "refrigerante": "R410A",
+      "fecha_instalacion": "2025-01-15",
+      "vida_util": 10,
+      "estado": "operativo",
+      "ultimo_mantenimiento": "2026-01-10",
+      "proximo_mantenimiento": "2026-07-10",
+      "horas_operacion": 1200,
+      "tecnicos": "[\"user-nelson-admin-uuid\"]",
+      "notas": "Equipo principal de climatización. En óptimas condiciones.",
+      "cliente_id": "cliente-eecol-default-001",
+      "sucursal_id": "default-sucursal",
+      "latitud": -33.4489,
+      "longitud": -70.6693,
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    },
+    {
+      "uuid_sync": "ACT-002",
+      "tag": "ACT-002",
+      "nombre": "Grupo Electrógeno de Emergencia",
+      "tipo": "GE",
+      "marca": "Caterpillar",
+      "modelo": "CAT-250",
+      "serie": "CAT-987654",
+      "ubicacion": "Patio Trasero Bodega",
+      "area": "Soporte",
+      "capacidad": "250 kVA",
+      "voltaje": "380V",
+      "corriente": "380A",
+      "refrigerante": "N/A",
+      "fecha_instalacion": "2024-06-20",
+      "vida_util": 15,
+      "estado": "operativo",
+      "ultimo_mantenimiento": "2026-02-15",
+      "proximo_mantenimiento": "2026-08-15",
+      "horas_operacion": 450,
+      "tecnicos": "[\"user-nelson-admin-uuid\"]",
+      "notas": "Generador de respaldo de energía crítica.",
+      "cliente_id": "cliente-eecol-default-001",
+      "sucursal_id": "default-sucursal",
+      "latitud": -33.451,
+      "longitud": -70.671,
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    }
+  ],
+  "users": [
+    {
+      "uuid_sync": "user-nelson-admin-uuid",
+      "id": "1",
+      "nombre": "Nelson Bravo",
+      "correo": "nelson.bravo.salas@gmail.com",
+      "perfil": "administrador",
+      "pin": "3517",
+      "activo": true,
+      "data": "{\"email\":\"nelson.bravo.salas@gmail.com\",\"pin\":\"3517\",\"nombre\":\"Nelson Bravo\",\"rol\":\"administrador\"}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    },
+    {
+      "uuid_sync": "user-nbravo-tecnico-uuid",
+      "id": "U2_TECH",
+      "nombre": "Nelson Bravo (Técnico)",
+      "correo": "nbravo.nbyb@gmail.com",
+      "perfil": "tecnico",
+      "pin": "3517",
+      "activo": true,
+      "data": "{\"email\":\"nbravo.nbyb@gmail.com\",\"pin\":\"3517\",\"nombre\":\"Nelson Bravo (Técnico)\",\"rol\":\"tecnico\"}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    }
+  ],
+  "preventive_maintenance": [],
+  "work_orders": [],
+  "reports": [],
+  "events": [],
+  "catalog_asset_types": [
+    {
+      "uuid_sync": "AC",
+      "id": "AC",
+      "data": "{\"codigo\":\"AC\",\"descripcion\":\"Aire acondicionado\",\"activo\":true}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    },
+    {
+      "uuid_sync": "VH",
+      "id": "VH",
+      "data": "{\"codigo\":\"VH\",\"descripcion\":\"Vehículo\",\"activo\":true}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    },
+    {
+      "uuid_sync": "GE",
+      "id": "GE",
+      "data": "{\"codigo\":\"GE\",\"descripcion\":\"Grupo electrógeno\",\"activo\":true}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    },
+    {
+      "uuid_sync": "EB",
+      "id": "EB",
+      "data": "{\"codigo\":\"EB\",\"descripcion\":\"Equipo de Bodega\",\"activo\":true}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    },
+    {
+      "uuid_sync": "GO",
+      "id": "GO",
+      "data": "{\"codigo\":\"GO\",\"descripcion\":\"Grúa horquilla\",\"activo\":true}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    },
+    {
+      "uuid_sync": "XX",
+      "id": "XX",
+      "data": "{\"codigo\":\"XX\",\"descripcion\":\"Otros Activos\",\"activo\":true}",
+      "updated_at": 1780969821396,
+      "created_at": 1780969821396
+    }
+  ],
+  "settings": [],
+  "ordenes_servicio": [],
+  "inventory": [],
+  "audit_logs": [],
+  "cmms_auth_failures": [],
+  "cmms_idempotency_keys": [],
+  "calendar": []
+}

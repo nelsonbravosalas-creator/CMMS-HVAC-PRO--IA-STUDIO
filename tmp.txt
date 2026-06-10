@@ -1,0 +1,47 @@
+163:            {!isReadOnly && (
+186:                      disabled={isReadOnly}
+205:                      disabled={isReadOnly || !generalData.cliente}
+214:                    readOnly={isReadOnly}
+219:                <InputField label="Técnico Responsable" value={generalData.tecnico} onChange={(val) => setGeneralData({...generalData, tecnico: val})} readOnly={isReadOnly} />
+221:                <InputField label="Fecha del Servicio" value={generalData.fecha} type="date" onChange={(val) => setGeneralData({...generalData, fecha: val})} readOnly={isReadOnly} />
+227:                    readOnly={isReadOnly}
+238:                    readOnly={isReadOnly}
+248:                     disabled={isReadOnly}
+261:                {!isReadOnly && (
+302:               {!isReadOnly && (
+326:                     <input type="text" value={machineData.marca} readOnly={isReadOnly} onChange={(e) => setMachineData({...machineData, marca: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+330:                     <input type="text" value={machineData.modelo} readOnly={isReadOnly} onChange={(e) => setMachineData({...machineData, modelo: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+335:                        <input type="text" value={machineData.tag} readOnly={isReadOnly} onChange={(e) => setMachineData({...machineData, tag: e.target.value})} className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+336:                        {!isReadOnly && (
+354:                       disabled={isReadOnly}
+370:                {!isReadOnly && (
+397:                     {!isReadOnly && (
+418:                    <InputField label="Presión Alta" value={circ.pa} onChange={(val) => { const nc = [...circuits]; nc[idx].pa = val; setCircuits(nc); }} readOnly={isReadOnly} />
+419:                    <InputField label="Presión Baja" value={circ.pb} onChange={(val) => { const nc = [...circuits]; nc[idx].pb = val; setCircuits(nc); }} readOnly={isReadOnly} />
+420:                    <InputField label="Temp. Evap." value={circ.te} onChange={(val) => { const nc = [...circuits]; nc[idx].te = val; setCircuits(nc); }} readOnly={isReadOnly} />
+421:                    <InputField label="Temp. Cond." value={circ.tc} onChange={(val) => { const nc = [...circuits]; nc[idx].tc = val; setCircuits(nc); }} readOnly={isReadOnly} />
+422:                    <InputField label="Subenffriamiento" value={circ.tsub} onChange={(val) => { const nc = [...circuits]; nc[idx].tsub = val; setCircuits(nc); }} readOnly={isReadOnly} />
+423:                    <InputField label="Sobrecalentamiento" value={circ.tsob} onChange={(val) => { const nc = [...circuits]; nc[idx].tsob = val; setCircuits(nc); }} readOnly={isReadOnly} />
+434:                             <InputField label="RLA Nominal" value={kp.rla} onChange={(val) => { const nc = [...circuits]; nc[idx].compressors[kidx].rla = val; setCircuits(nc); }} readOnly={isReadOnly} />
+435:                             <InputField label="L1 (Amps)" value={kp.r} onChange={(val) => { const nc = [...circuits]; nc[idx].compressors[kidx].r = val; setCircuits(nc); }} readOnly={isReadOnly} />
+436:                             <InputField label="L2 (Amps)" value={kp.s} onChange={(val) => { const nc = [...circuits]; nc[idx].compressors[kidx].s = val; setCircuits(nc); }} readOnly={isReadOnly} />
+437:                             <InputField label="L3 (Amps)" value={kp.t} onChange={(val) => { const nc = [...circuits]; nc[idx].compressors[kidx].t = val; setCircuits(nc); }} readOnly={isReadOnly} />
+457:                               disabled={isReadOnly}
+468:                               disabled={isReadOnly}
+479:                               disabled={isReadOnly}
+505:                              disabled={isReadOnly}
+535:                  disabled={isReadOnly}
+548:                       {!isReadOnly && (
+554:                    {!isReadOnly ? (
+571:                {!isReadOnly && (
+599:                         {!isReadOnly && (
+607:                         {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
+617:                   <canvas ref={canvasCliRef} className={`w-full h-48 bg-slate-50 border border-slate-100 rounded-3xl touch-none shadow-inner ${isReadOnly ? 'opacity-40' : ''}`} />
+621:                         {!isReadOnly && (
+629:                         {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
+635:                   <InputField label="Nombre de quien recibe" value="Gonzalo Bravo" readOnly={isReadOnly} />
+885:  const isReadOnly = status === 'firmado' || status === 'bloqueado';
+904:        if (isReadOnly) return;
+931:  }, [isReadOnly]);
+1006:            {!isReadOnly && (
+1021:            {isReadOnly && (
