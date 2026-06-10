@@ -68,6 +68,7 @@ export interface LocalMantenimiento extends LocalBase {
   /** Nombre canónico alineado con columna Neon `acciones` */
   acciones: string;
   repuestos: string;
+  descripcion?: string;
   ubicacionGeografica?: { lat: number, lng: number };
   cliente_id?: string;
 }

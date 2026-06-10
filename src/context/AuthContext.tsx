@@ -124,12 +124,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline
         const pinHash = bcrypt.hashSync(pin, 10);
-        const existingLocalUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+        const existingLocalUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
         if (existingLocalUser) {
           await db.users.update(existingLocalUser.uuid_sync, {
             id: json.user.id || existingLocalUser.id,
             nombre: json.user.nombre || existingLocalUser.nombre,
-            rol: loggedUser.perfil,
+            perfil: loggedUser.perfil,
             pin: pinHash,
             activo: true,
             updated_at: Date.now()
@@ -139,8 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             uuid_sync: crypto.randomUUID(),
             id: json.user.id || `U-${Date.now()}`,
             nombre: json.user.nombre,
-            email: correo,
-            rol: loggedUser.perfil,
+            correo: correo,
+            perfil: loggedUser.perfil,
             pin: pinHash,
             activo: true,
             updated_at: Date.now(),
@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Fallback offline-first: Buscar usuario en la tabla 'users' de Dexie/IndexedDB
     try {
-      const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+      const localUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
       if (localUser && localUser.activo) {
         // Validar el PIN contra el bcrypt hash almacenado
         const isMatch = localUser.pin.startsWith('$2')
@@ -163,11 +163,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : localUser.pin === pin;
 
         if (isMatch) {
-          const normalizedPerfil = normalizePerfil(localUser.rol);
+          const normalizedPerfil = normalizePerfil(localUser.perfil);
           const loggedUser: Usuario = {
             id: localUser.id || localUser.uuid_sync,
             nombre: localUser.nombre,
-            correo: localUser.email,
+            correo: localUser.correo,
             perfil: normalizedPerfil,
             activo: localUser.activo,
             puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
@@ -237,13 +237,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const biometricLogin = async (correo: string): Promise<boolean> => {
     try {
-      const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+      const localUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
       if (localUser && localUser.activo) {
-        const normalizedPerfil = normalizePerfil(localUser.rol);
+        const normalizedPerfil = normalizePerfil(localUser.perfil);
         const loggedUser: Usuario = {
           id: localUser.id || localUser.uuid_sync,
           nombre: localUser.nombre,
-          correo: localUser.email,
+          correo: localUser.correo,
           perfil: normalizedPerfil,
           activo: localUser.activo,
           puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',

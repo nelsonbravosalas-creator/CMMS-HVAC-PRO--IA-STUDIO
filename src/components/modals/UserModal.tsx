@@ -31,8 +31,8 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
   useEffect(() => {
     if (editingUser) {
       setNombre(editingUser.nombre || "");
-      setEmail(editingUser.email || "");
-      setPerfil(editingUser.rol || "Técnico");
+      setEmail(editingUser.correo || "");
+      setPerfil(editingUser.perfil || "Técnico");
       setPin(editingUser.pin || "");
       setClienteId(editingUser.cliente_id || "");
     } else {
@@ -65,8 +65,8 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
 
        const userPayload: Partial<LocalUsuario> = {
           nombre,
-          email,
-          rol: perfil,
+          correo: email,
+          perfil,
           pin: finalPin,
           activo: true,
           cliente_id: perfil === "Cliente" ? cliente_id : undefined

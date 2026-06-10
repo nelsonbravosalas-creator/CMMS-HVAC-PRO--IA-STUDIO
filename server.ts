@@ -414,7 +414,7 @@ async function startServer() {
     console.error("⚠️ Database initialization failed or timed out during startup:", error.message || error);
   }
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
