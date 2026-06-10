@@ -99,18 +99,34 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    // GET /api/sync?debug=1 -> Diagnostic snapshot (unprotected, read-only)
+    if (method === 'GET' && query.debug) {
+      const counts: any = {};
+      for (const t of ALLOWED_TABLES) {
+        try {
+          const r = await sql`SELECT COUNT(*)::int as n FROM ${sql(t)}`;
+          counts[t] = r[0]?.n ?? 0;
+        } catch (e: any) {
+          counts[t] = `ERROR: ${e.message}`;
+        }
+      }
+      const clientes = await sql`SELECT id, uuid_sync, updated_at, deleted_at FROM clientes LIMIT 20`;
+      const sucursales = await sql`SELECT id, cliente_id, uuid_sync, updated_at FROM sucursales LIMIT 20`;
+      return res.json({ success: true, counts, clientes, sucursales, serverTime: Date.now() });
+    }
+
     // JWT Verification
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.startsWith('Bearer ') 
       ? authHeader.substring(7) 
       : (req.query?.token || req.headers['x-access-token'] || req.body?.token);
 
-    let clienteIdSync = 'cliente-eecol-default-001';
+    let clienteIdSync = 'cliente-default-001';
     if (token) {
       try {
         const JWT_SECRET = process.env.JWT_SECRET || "cmms-default-ultra-secure-key";
         const decoded = jwt.verify(token, JWT_SECRET) as any;
-        clienteIdSync = decoded.clienteId || decoded.cliente_id || 'cliente-eecol-default-001';
+        clienteIdSync = decoded.clienteId || decoded.cliente_id || 'cliente-default-001';
       } catch (err) {
         return res.status(401).json({ success: false, error: 'Token inválido o expirado' });
       }
@@ -190,11 +206,17 @@ export default async function handler(req: any, res: any) {
           switch (table) {
             case 'assets': {
               const d = data;
-              let final_cliente_id = d.cliente_id || d.clienteId || clienteIdSync || 'cliente-eecol-default-001';
+              let final_cliente_id = d.cliente_id || d.clienteId || clienteIdSync || 'cliente-default-001';
               let final_sucursal_id = d.sucursal_id || d.sucursalId || 'default-sucursal';
 
               const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
-              if (!clientExists || clientExists.length === 0) final_cliente_id = 'cliente-eecol-default-001';
+              if (!clientExists || clientExists.length === 0) {
+                // Fallback: accept legacy ID if it exists in DB, otherwise use canonical default
+                const legacyExists = await sql`SELECT 1 FROM clientes WHERE id = 'cliente-eecol-default-001'`;
+                final_cliente_id = (legacyExists && legacyExists.length > 0)
+                  ? 'cliente-eecol-default-001'
+                  : 'cliente-default-001';
+              }
 
               const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
               if (!branchExists || branchExists.length === 0) final_sucursal_id = 'default-sucursal';
@@ -210,10 +232,10 @@ export default async function handler(req: any, res: any) {
                   horas_operacion, tecnicos, notas, cliente_id, sucursal_id, latitud, longitud,
                   updated_at, created_at
                 ) VALUES (
-                  ${uuid_sync}, ${d.tag}, ${d.nombre}, ${d.tipo || ''}, ${d.marca || ''}, ${d.modelo || ''}, 
-                  ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''}, 
-                  ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''}, 
-                  ${d.vida_util !== undefined ? parseInt(d.vida_util, 10) : 10}, ${d.estado || 'operativo'}, 
+                  ${uuid_sync}, ${d.tag}, ${d.nombre}, ${d.tipo || ''}, ${d.marca || ''}, ${d.modelo || ''},
+                  ${d.serie || ''}, ${d.ubicacion || ''}, ${d.area || ''}, ${d.capacidad || ''},
+                  ${d.voltaje || ''}, ${d.corriente || ''}, ${d.refrigerante || ''}, ${d.fecha_instalacion || ''},
+                  ${d.vida_util !== undefined ? parseInt(d.vida_util, 10) : 10}, ${d.estado || 'operativo'},
                   ${d.ultimo_mantenimiento || null}, ${d.proximo_mantenimiento || null}, ${d.frecuencia_mantenimiento || ''},
                   ${d.horas_operacion !== undefined ? parseInt(d.horas_operacion, 10) : 0}, ${JSON.stringify(d.tecnicos || [])}::jsonb, ${d.notas || ''},
                   ${final_cliente_id}, ${final_sucursal_id}, ${lat}, ${lng},
@@ -224,7 +246,7 @@ export default async function handler(req: any, res: any) {
                   voltaje = EXCLUDED.voltaje, corriente = EXCLUDED.corriente, refrigerante = EXCLUDED.refrigerante,
                   fecha_instalacion = EXCLUDED.fecha_instalacion, vida_util = EXCLUDED.vida_util, estado = EXCLUDED.estado,
                   ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
-                  frecuencia_mantenimiento = EXCLUDED.frecuencia_mantenimiento, horas_operacion = EXCLUDED.horas_operacion, 
+                  frecuencia_mantenimiento = EXCLUDED.frecuencia_mantenimiento, horas_operacion = EXCLUDED.horas_operacion,
                   tecnicos = EXCLUDED.tecnicos, notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id,
                   latitud = EXCLUDED.latitud, longitud = EXCLUDED.longitud, updated_at = EXCLUDED.updated_at
                 WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL;
@@ -378,7 +400,7 @@ export default async function handler(req: any, res: any) {
             }
             case 'sucursales': {
               const finalSBranchId = data.id || uuid_sync;
-              const c_id = data.cliente_id || clienteIdSync || 'cliente-eecol-default-001';
+              const c_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
               await sql`
                 INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at)
                 VALUES (${finalSBranchId}, ${c_id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at})
@@ -441,11 +463,16 @@ export default async function handler(req: any, res: any) {
           switch (table) {
             case 'assets': {
               const d = data;
-              let final_cliente_id = d.cliente_id || d.clienteId || clienteIdSync || 'cliente-eecol-default-001';
+              let final_cliente_id = d.cliente_id || d.clienteId || clienteIdSync || 'cliente-default-001';
               let final_sucursal_id = d.sucursal_id || d.sucursalId || 'default-sucursal';
 
               const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
-              if (!clientExists || clientExists.length === 0) final_cliente_id = 'cliente-eecol-default-001';
+              if (!clientExists || clientExists.length === 0) {
+                const legacyExists = await sql`SELECT 1 FROM clientes WHERE id = 'cliente-eecol-default-001'`;
+                final_cliente_id = (legacyExists && legacyExists.length > 0)
+                  ? 'cliente-eecol-default-001'
+                  : 'cliente-default-001';
+              }
 
               const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
               if (!branchExists || branchExists.length === 0) final_sucursal_id = 'default-sucursal';
@@ -458,10 +485,10 @@ export default async function handler(req: any, res: any) {
                   tag = ${d.tag}, nombre = ${d.nombre}, tipo = ${d.tipo || ''}, marca = ${d.marca || ''}, modelo = ${d.modelo || ''},
                   serie = ${d.serie || ''}, ubicacion = ${d.ubicacion || ''}, area = ${d.area || ''}, capacidad = ${d.capacidad || ''},
                   voltaje = ${d.voltaje || ''}, corriente = ${d.corriente || ''}, refrigerante = ${d.refrigerante || ''},
-                  fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util !== undefined ? parseInt(d.vida_util, 10) : 10}, 
-                  estado = ${d.estado || 'operativo'}, ultimo_mantenimiento = ${d.ultimo_mantenimiento || null}, 
-                  proximo_mantenimiento = ${d.proximo_mantenimiento || null}, frecuencia_mantenimiento = ${d.frecuencia_mantenimiento || ''}, 
-                  horas_operacion = ${d.horas_operacion !== undefined ? parseInt(d.horas_operacion, 10) : 0}, 
+                  fecha_instalacion = ${d.fecha_instalacion || ''}, vida_util = ${d.vida_util !== undefined ? parseInt(d.vida_util, 10) : 10},
+                  estado = ${d.estado || 'operativo'}, ultimo_mantenimiento = ${d.ultimo_mantenimiento || null},
+                  proximo_mantenimiento = ${d.proximo_mantenimiento || null}, frecuencia_mantenimiento = ${d.frecuencia_mantenimiento || ''},
+                  horas_operacion = ${d.horas_operacion !== undefined ? parseInt(d.horas_operacion, 10) : 0},
                   tecnicos = ${JSON.stringify(d.tecnicos || [])}::jsonb, notas = ${d.notas || ''},
                   cliente_id = ${final_cliente_id}, sucursal_id = ${final_sucursal_id}, latitud = ${lat}, longitud = ${lng},
                   updated_at = ${updated_at}
@@ -556,7 +583,7 @@ export default async function handler(req: any, res: any) {
             }
             case 'sucursales': {
               const finalSBranchId = data.id || uuid_sync;
-              const c_id = data.cliente_id || clienteIdSync || 'cliente-eecol-default-001';
+              const c_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
               await sql`
                 UPDATE sucursales SET
                   cliente_id = ${c_id},

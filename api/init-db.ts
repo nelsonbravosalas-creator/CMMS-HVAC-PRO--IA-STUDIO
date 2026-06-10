@@ -251,8 +251,8 @@ export default async function handler(req: any, res: any) {
       -- SEED OBLIGATORIO
       INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at)
       VALUES (
-        'cliente-eecol-default-001',
-        'cliente-eecol-default-001',
+        'cliente-default-001',
+        'cliente-default-001',
         '{"nombre":"EECOL Default","empresa":"EECOL"}'::jsonb,
         0, 0
       );
@@ -260,7 +260,7 @@ export default async function handler(req: any, res: any) {
       INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at)
       VALUES (
         'default-sucursal',
-        'cliente-eecol-default-001',
+        'cliente-default-001',
         'default-sucursal',
         '{"nombre":"Bodega Central","codigo":"21-STK","ciudad":"Santiago","region":"RM"}'::jsonb,
         0, 0
@@ -275,7 +275,7 @@ export default async function handler(req: any, res: any) {
         'administrador',
         '$2b$10$defaultHashAquiCambiar',
         true,
-        'cliente-eecol-default-001',
+        'cliente-default-001',
         0, 0
       );
     `;

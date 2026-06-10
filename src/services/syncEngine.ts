@@ -147,7 +147,9 @@ class SyncEngine {
              } else {
                 if (table && item.operation !== 'delete') {
                   const isConflict = rStatus === 'conflict';
-                  logger.error('SyncEngine', `Registro ${item.uuid_sync} falló en servidor: ${result?.error}`);
+                  const errMsg = result?.error || 'Error desconocido';
+                  logger.error('SyncEngine', `Registro ${item.uuid_sync} falló en servidor: ${errMsg}`);
+                  store.addError(`[${item.table}] ${errMsg}`);
                   await table.update(item.uuid_sync, {
                     sync_status: isConflict ? 'conflicted' : 'failed',
                     last_synced_at: Date.now()
@@ -158,6 +160,8 @@ class SyncEngine {
            }
          }
 
+         const failedInQueue = await db.sync_queue.where('retry_count').aboveOrEqual(3).count();
+         store.setFailedCount(failedInQueue);
          store.setPendingCount(await db.sync_queue.count());
 
          // Handle incoming server changes (PULL)
@@ -358,6 +362,21 @@ class SyncEngine {
       this.cooldownUntil = 0;
     }
     return this.fullSync(force);
+  }
+
+  async retryFailed() {
+    const dead = await db.sync_queue.filter(item => (item.retry_count || 0) >= 3).toArray();
+    for (const item of dead) {
+      await db.sync_queue.update(item.id!, { retry_count: 0, next_retry_at: undefined, last_error: undefined });
+      const tableRef = db[item.table as keyof typeof db] as any;
+      if (tableRef && item.operation !== 'delete') {
+        await tableRef.update(item.uuid_sync, { sync_status: 'pending_insert' });
+      }
+    }
+    useSyncStore.getState().clearErrors();
+    useSyncStore.getState().setFailedCount(0);
+    logger.info('SyncEngine', `Reintentando ${dead.length} items fallidos`);
+    return this.fullSync(true);
   }
 }
 

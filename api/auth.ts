@@ -84,9 +84,9 @@ export default async function handler(req: any, res: any) {
       activo: true
     };
     
-    const clienteIdForToken = user.cliente_id 
+    const clienteIdForToken = user.cliente_id
       || (user.data && (user.data.cliente_id || user.data.tenantId))
-      || 'cliente-eecol-default-001';
+      || 'cliente-default-001';
     
     const token = signToken({ 
       id: returnUser.id, 
