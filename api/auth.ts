@@ -39,14 +39,17 @@ export default async function handler(req: any, res: any) {
     if (correo) {
        rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
     } else {
-       // Fallback by plain text pin for backward compatibility if correo is not provided
-       rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, data->>'rol' as json_rol FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
+      const failsByIp = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures
+        WHERE ip = ${ip} AND email = '' AND attempted_at > ${new Date(Date.now() - 15*60*1000)}`;
+      if (failsByIp[0]?.count >= 10) {
+        return res.status(401).json({ success: false, error: 'account_locked', retryAfter: 900 });
+      }
+      // Fallback by plain text pin for backward compatibility if correo is not provided
+      rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, data->>'rol' as json_rol FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
     }
     
     if (rows.length === 0) {
-      if (emailLower) {
-        await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
-      }
+      await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
       return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
     }
 
@@ -61,14 +64,13 @@ export default async function handler(req: any, res: any) {
     if (storedPin && storedPin.startsWith('$2')) {
        isMatch = bcrypt.compareSync(pin, storedPin);
     } else {
+       console.warn({ event: 'plain_pin_login', email: emailLower, ip });
        isMatch = storedPin === pin;
     }
 
     if (!isMatch) {
-       if (emailLower) {
-         await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
-       }
-       return res.status(401).json({ success: false, error: 'PIN inválido' });
+      await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
+      return res.status(401).json({ success: false, error: 'PIN inválido' });
     }
 
     // Auth succeeded! Clear block counter
@@ -85,10 +87,16 @@ export default async function handler(req: any, res: any) {
     };
     
     const clienteIdForToken = user.cliente_id
-      || (user.data && (user.data.cliente_id || user.data.tenantId))
-      || 'cliente-default-001';
-    
-    const token = signToken({ 
+      || (user.data && (user.data.cliente_id || user.data.tenantId));
+
+    if (!clienteIdForToken) {
+      return res.status(403).json({
+        success: false,
+        error: 'Usuario sin tenant asignado. Contacte al administrador.'
+      });
+    }
+
+    const token = signToken({
       id: returnUser.id, 
       perfil: returnUser.perfil,
       clienteId: clienteIdForToken,
