@@ -28,15 +28,19 @@ class SyncEngine {
     this.fullSync();
   }
 
-  async fullSync(force: boolean = false) {
-    if (this.processing || !networkMonitor.isOnline()) return;
+  async fullSync(force: boolean = false): Promise<{ success: boolean; pulled: number; pushed: number; error?: string }> {
+    if (this.processing || !networkMonitor.isOnline()) {
+      return { success: false, pulled: 0, pushed: 0, error: 'Sin conexión o sincronización en progreso' };
+    }
     if (!force && this.cooldownUntil && Date.now() < this.cooldownUntil) {
-      return;
+      return { success: false, pulled: 0, pushed: 0, error: 'Cooldown activo' };
     }
     
     this.processing = true;
     const store = useSyncStore.getState();
     store.setSyncing(true);
+
+    let syncResult: { success: boolean; pulled: number; pushed: number; error?: string } = { success: false, pulled: 0, pushed: 0 };
 
     try {
       // Fuente canónica: AuthStore (Zustand persist). Fallback a keys legacy por compatibilidad.
@@ -124,6 +128,7 @@ class SyncEngine {
       const { success, results, serverChanges } = JSON.parse(responseText);
 
       if (success) {
+         let pushedOk = 0;
          if (token && results) {
            const resultList = [...(results.inserts || []), ...(results.updates || []), ...(results.deletes || [])];
            const resultMap = new Map(resultList.map((r: any) => [r.uuid_sync, r]));
@@ -144,6 +149,7 @@ class SyncEngine {
                   });
                 }
                 await syncQueue.remove(item.id!);
+                pushedOk++;
              } else {
                 if (table && item.operation !== 'delete') {
                   const isConflict = rStatus === 'conflict';
@@ -165,6 +171,7 @@ class SyncEngine {
          store.setPendingCount(await db.sync_queue.count());
 
          // Handle incoming server changes (PULL)
+         let pulledCount = 0;
          if (serverChanges) {
            for (const [tableName, rows] of Object.entries(serverChanges)) {
              const table = db[tableName as keyof typeof db] as any;
@@ -317,6 +324,7 @@ class SyncEngine {
                        last_synced_at: Date.now()
                      });
                   }
+                  pulledCount++;
                }
              }
            }
@@ -325,15 +333,15 @@ class SyncEngine {
          this.lastSync = Date.now();
          this.cooldownUntil = 0;
          localStorage.setItem('last_sync_timestamp', this.lastSync.toString());
-         // Actualiza el store para que SyncIndicator muestre la hora correcta
          useSyncStore.getState().setLastSync(this.lastSync);
 
-         // Trigger store hydration
          await useAppStore.getState().hydrate();
+         syncResult = { success: true, pulled: pulledCount, pushed: pushedOk };
       }
 
     } catch (e: any) {
       const errorMsg = e?.message || String(e);
+      syncResult = { success: false, pulled: 0, pushed: 0, error: errorMsg };
       const isRateLimit = errorMsg.includes('429');
       const isFetchError = errorMsg.toLowerCase().includes('failed to fetch') || 
                            errorMsg.toLowerCase().includes('networkerror') || 
@@ -355,11 +363,14 @@ class SyncEngine {
       store.setSyncing(false);
       this.processing = false;
     }
+
+    return syncResult;
   }
 
   async triggerSync(force: boolean = false) {
     if (force) {
       this.cooldownUntil = 0;
+      useSyncStore.getState().clearErrors();
     }
     return this.fullSync(force);
   }
