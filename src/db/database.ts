@@ -173,6 +173,7 @@ export interface SyncOperation {
   next_retry_at?: number;
   locked_at?: number;
   created_at?: number;
+  cliente_id?: string;
 }
 
 export interface AuditLog extends LocalBase {
@@ -240,10 +241,17 @@ export class CMMSDatabase extends Dexie {
     const schemaV14 = {
       ...schemaV13,
       settings: 'uuid_sync, key, sync_status, updated_at',
+      // v14: audit_logs migra índice de 'userId' (v13) a 'user_id' (snake_case alineado con Neon)
       audit_logs: '++id, action, user_id, cliente_id, timestamp',
     };
 
-    this.version(14).stores(schemaV14);
+    this.version(14).stores(schemaV14).upgrade(tx => {
+      return tx.table('settings').toCollection().modify((setting: any) => {
+        if (!setting.uuid_sync) {
+          setting.uuid_sync = crypto.randomUUID();
+        }
+      });
+    });
     
     this.on('populate', async () => {
       const now = Date.now();
