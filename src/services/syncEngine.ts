@@ -10,6 +10,7 @@ class SyncEngine {
   private processing = false;
   private syncTimer: any = null;
   private lastSync: number = 0;
+  private lastSeqByTable: Record<string, number> = {};
   private cooldownUntil: number = 0;
 
   init() {
@@ -21,9 +22,11 @@ class SyncEngine {
       this.fullSync();
     }, 15000);
     
-    // Read last sync timestamp
+    // Read last sync timestamp and per-table seq cursors
     const val = localStorage.getItem('last_sync_timestamp');
     this.lastSync = val ? Number(val) : 0;
+    const seqVal = localStorage.getItem('cmms_last_seq_by_table');
+    this.lastSeqByTable = seqVal ? JSON.parse(seqVal) : {};
 
     this.fullSync();
   }
@@ -57,8 +60,12 @@ class SyncEngine {
       if (token) {
         const allPending = await syncQueue.peekAll();
         const now = Date.now();
-        
-        const deadItems = allPending.filter(item => (item.retry_count || 0) >= 3);
+        const activeClientId = localStorage.getItem('active_client');
+        const clientFilteredPending = activeClientId
+          ? allPending.filter(item => !item.cliente_id || item.cliente_id === activeClientId)
+          : allPending;
+
+        const deadItems = clientFilteredPending.filter(item => (item.retry_count || 0) >= 3);
         for (const dead of deadItems) {
           const tableRef = db[dead.table as keyof typeof db] as any;
           if (tableRef && dead.operation !== 'delete') {
@@ -68,7 +75,7 @@ class SyncEngine {
           // un eventual "reintentar todo" manual lo pueda resetear.
         }
 
-        pendingItems = allPending.filter((item) => {
+        pendingItems = clientFilteredPending.filter((item) => {
           if ((item.retry_count || 0) >= 3) return false;
           if (item.next_retry_at && item.next_retry_at > now) return false;
           return true;
@@ -104,7 +111,7 @@ class SyncEngine {
           inserts,
           updates,
           deletes,
-          lastSync: this.lastSync
+          seqs: this.lastSeqByTable
         })
       });
 
@@ -188,18 +195,8 @@ class SyncEngine {
                   let mergedRecord = remoteRecord;
                   
                   if (tableName === 'clientes' || tableName === 'sucursales') {
-                     // Spread data to flat fields for easier UI binding
-                     if (remoteRecord.data) {
-                       try {
-                         const parsed = typeof remoteRecord.data === 'string' ? JSON.parse(remoteRecord.data) : remoteRecord.data;
-                         mergedRecord = { 
-                           ...mergedRecord,
-                           ...parsed, 
-                           uuid_sync: remoteUuid, 
-                           updated_at: remoteRecord.updated_at
-                         };
-                       } catch(e) {}
-                     }
+                     // v2: columnas explícitas, sin data JSONB
+                     mergedRecord = { ...remoteRecord, uuid_sync: remoteUuid };
                   } else if (tableName === 'preventive_maintenance') {
                      let extraData: any = {};
                      if (remoteRecord.data) {
@@ -329,7 +326,15 @@ class SyncEngine {
                   pulledCount++;
                }
              }
+
+             // Actualizar cursor server_seq para esta tabla
+             const tableRows = rows as any[];
+             const maxSeq = tableRows.reduce((m: number, r: any) => Math.max(m, r.server_seq || 0), 0);
+             if (maxSeq > 0) {
+               this.lastSeqByTable[tableName] = Math.max(this.lastSeqByTable[tableName] || 0, maxSeq);
+             }
            }
+           localStorage.setItem('cmms_last_seq_by_table', JSON.stringify(this.lastSeqByTable));
          }
 
          this.lastSync = Date.now();
@@ -383,7 +388,14 @@ class SyncEngine {
       await db.sync_queue.update(item.id!, { retry_count: 0, next_retry_at: undefined, last_error: undefined });
       const tableRef = db[item.table as keyof typeof db] as any;
       if (tableRef && item.operation !== 'delete') {
-        await tableRef.update(item.uuid_sync, { sync_status: 'pending_insert' });
+        const statusMap: Record<string, SyncStatus> = {
+          insert: 'pending_insert',
+          update: 'pending_update',
+          delete: 'pending_delete'
+        };
+        await tableRef.update(item.uuid_sync, {
+          sync_status: statusMap[item.operation] || 'pending_insert'
+        });
       }
     }
     useSyncStore.getState().clearErrors();
