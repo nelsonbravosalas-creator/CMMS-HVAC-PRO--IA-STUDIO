@@ -22,6 +22,8 @@ interface AuthContextType {
   biometricLogin: (correo: string) => Promise<boolean>;
   /** Función para destruir la sesión actual. */
   logout: () => void;
+  /** True cuando el usuario está autenticado pero sin token JWT (login offline). La sincronización no estará disponible. */
+  isOfflineSession: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +50,10 @@ export function normalizePerfil(rol: string | undefined | null): Perfil {
  * Envuelve la aplicación para inyectar los datos del usuario.
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [sessionHasToken, setSessionHasToken] = useState(() =>
+    !!(localStorage.getItem('auth_token') || localStorage.getItem('cmms_token'))
+  );
+
   const [user, setUser] = useState<Usuario | null>(() => {
     // Intentar recuperar sesión persistida desde localStorage de forma segura
     let savedUserJson = localStorage.getItem('auth_user');
@@ -117,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (json.token) {
           localStorage.setItem('auth_token', json.token);
           localStorage.setItem('cmms_token', json.token);
+          setSessionHasToken(true);
           // Sync token into Zustand so syncEngine can read it without localStorage fallback
           useAuthStore.getState().login(
             { id: loggedUser.id, nombre: loggedUser.nombre, correo: loggedUser.correo, perfil: loggedUser.perfil },
@@ -282,6 +289,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(() => {
     setUser(null);
+    setSessionHasToken(false);
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('cmms_token');
@@ -317,8 +325,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, logout]);
 
+  const isOfflineSession = user !== null && !sessionHasToken;
+
   return (
-    <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout }}>
+    <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout, isOfflineSession }}>
       {children}
     </AuthContext.Provider>
   );

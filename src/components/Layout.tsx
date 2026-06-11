@@ -155,7 +155,7 @@ import ClientSelectorWidget from "./ClientSelectorWidget";
 import { useIsModalOpen } from '../hooks/useIsModalOpen';
 
 export default function Layout({ children }: LayoutProps) {
-  const { logout } = useAuth();
+  const { logout, isOfflineSession } = useAuth();
   const [, setLocation] = useLocation();
   const isModalOpen = useIsModalOpen();
 
@@ -191,6 +191,7 @@ export default function Layout({ children }: LayoutProps) {
   /** Visibilidad del banner de Progressive Web App */
   const [showPWABanner, setShowPWABanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [dismissNoTokenBanner, setDismissNoTokenBanner] = useState(false);
 
   useEffect(() => {
     // Initial sync
@@ -475,11 +476,39 @@ export default function Layout({ children }: LayoutProps) {
               <span>INSTALAR APP PARA ACCESO OFFLINE</span>
               <button onClick={handleInstallClick} className="ml-4 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/40 transition-colors">INSTALAR</button>
             </div>
-            <X 
+            <X
               className={`w-3 h-3 cursor-pointer opacity-70 hover:opacity-100 p-0.5 rounded-full border transition-all ${
                 isDarkMode ? 'border-[#39FF14] text-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.5)]' : 'border-transparent'
-              }`} 
-              onClick={() => setShowPWABanner(false)} 
+              }`}
+              onClick={() => setShowPWABanner(false)}
+            />
+          </div>
+        )}
+
+        {/* No-Token Session Banner */}
+        {isOfflineSession && !dismissNoTokenBanner && (
+          <div className={`px-4 py-2 flex items-center justify-between text-xs font-bold shrink-0 border-b relative z-20 ${
+            isDarkMode
+              ? 'bg-amber-950/50 border-amber-800/30 text-amber-400'
+              : 'bg-amber-50 border-amber-200 text-amber-700'
+          }`}>
+            <div className="flex items-center gap-2 min-w-0">
+              <WifiOff className="w-3 h-3 shrink-0" />
+              <span className="uppercase tracking-wider truncate">Sesión sin token — inicia sesión online para sincronizar</span>
+              <button
+                onClick={() => setLocation('/login')}
+                className={`ml-2 shrink-0 px-2.5 py-0.5 rounded border text-[10px] font-black uppercase tracking-widest transition-colors ${
+                  isDarkMode
+                    ? 'bg-amber-500/20 border-amber-500/40 hover:bg-amber-500/30 text-amber-300'
+                    : 'bg-amber-100 border-amber-300 hover:bg-amber-200 text-amber-800'
+                }`}
+              >
+                Iniciar sesión
+              </button>
+            </div>
+            <X
+              className="w-3 h-3 cursor-pointer opacity-60 hover:opacity-100 shrink-0 ml-2 transition-opacity"
+              onClick={() => setDismissNoTokenBanner(true)}
             />
           </div>
         )}
