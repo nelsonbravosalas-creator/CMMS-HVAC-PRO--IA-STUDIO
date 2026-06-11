@@ -52,12 +52,14 @@ export abstract class BaseRepository<T extends LocalBase> {
   }
 
   async enqueueSync(uuid_sync: string, operation: 'insert' | 'update' | 'delete', data: any) {
+    const cliente_id = localStorage.getItem('active_client') || undefined;
     await db.sync_queue.add({
       table: this.table.name,
       uuid_sync,
       operation,
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      cliente_id
     });
   }
 
