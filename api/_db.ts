@@ -1,5 +1,12 @@
 import { neon } from '@neondatabase/serverless';
 
+// Suppress DEP0169: url.parse() emitted by @neondatabase/serverless internally (Node 22+).
+// The warning is harmless — Neon hasn't migrated to WHATWG URL yet.
+process.on('warning', (w: NodeJS.ProcessEmittedWarning) => {
+  if ((w as any).code === 'DEP0169') return;
+  process.stderr.write(`${w.name}: ${w.message}\n`);
+});
+
 let cachedDb: any = null;
 
 export function getDb() {

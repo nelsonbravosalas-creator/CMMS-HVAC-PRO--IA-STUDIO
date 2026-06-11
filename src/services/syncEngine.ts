@@ -116,6 +116,15 @@ class SyncEngine {
       });
 
       if (!response.ok) {
+         if (response.status === 401 || response.status === 403) {
+           // Token expirado o inválido — limpiar credencial y pausar sync indefinidamente
+           useAuthStore.getState().logout();
+           localStorage.removeItem('auth_token');
+           localStorage.removeItem('cmms_token');
+           this.cooldownUntil = Date.now() + 24 * 60 * 60 * 1000; // 24h — requiere nuevo login
+           logger.warn('SyncEngine', `Token rechazado por el servidor (${response.status}). Sesión limpiada — requiere nuevo login.`);
+           throw new Error(`Sesión expirada o inválida (${response.status}). Por favor inicia sesión nuevamente.`);
+         }
          let errorDetail = response.statusText;
          try {
            const text = await response.text();
