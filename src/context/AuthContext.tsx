@@ -8,10 +8,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL, Perfil } from '../types';
 import bcrypt from 'bcryptjs';
-
-/**
- * Definición del contrato del contexto de autenticación.
- */
+import { useAuthStore } from '../store/useAuthStore';
 import { db } from '../db/database';
 
 interface AuthContextType {
@@ -113,13 +110,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         setUser(loggedUser);
-        
+
         // Guardar para persistencia síncrona en recarga de página
         localStorage.setItem('auth_user', JSON.stringify(loggedUser));
         localStorage.setItem('is_authenticated', 'true');
         if (json.token) {
           localStorage.setItem('auth_token', json.token);
           localStorage.setItem('cmms_token', json.token);
+          // Sync token into Zustand so syncEngine can read it without localStorage fallback
+          useAuthStore.getState().login(
+            { id: loggedUser.id, nombre: loggedUser.nombre, correo: loggedUser.correo, perfil: loggedUser.perfil },
+            json.token
+          );
         }
 
         // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline

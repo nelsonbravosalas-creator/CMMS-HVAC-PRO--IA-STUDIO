@@ -82,8 +82,10 @@ class SyncEngine {
           else if (item.operation === 'delete') deletes.push(item);
         }
       } else {
-        logger.warn('SyncEngine', 'Sin token JWT disponible, omitiendo push local. Se intentará solo pull.');
-        store.setPendingCount(0);
+        // No token — cannot authenticate with the server. Stop here instead of getting a 401.
+        logger.warn('SyncEngine', 'Sin token JWT. Se requiere sesión online para sincronizar con el servidor.');
+        syncResult = { success: false, pulled: 0, pushed: 0, error: 'Sesión sin token — inicia sesión online para sincronizar' };
+        return syncResult;
       }
 
       logger.info('SyncEngine', `Ejecutando sync: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling desde ${this.lastSync}`);
