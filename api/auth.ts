@@ -17,7 +17,7 @@ export default async function handler(req: any, res: any) {
     if (emailLower) {
       const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
       const failuresCount = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${fifteenMinsAgo}`;
-      
+
       if (failuresCount[0] && failuresCount[0].count >= 5) {
         const oldestFailure = await sql`SELECT attempted_at FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${fifteenMinsAgo} ORDER BY attempted_at ASC LIMIT 1`;
         let delay = 900;
@@ -37,17 +37,17 @@ export default async function handler(req: any, res: any) {
 
     let rows;
     if (correo) {
-       rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
+       rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
     } else {
       const failsByIp = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures
         WHERE ip = ${ip} AND email = '' AND attempted_at > ${new Date(Date.now() - 15*60*1000)}`;
       if (failsByIp[0]?.count >= 10) {
         return res.status(401).json({ success: false, error: 'account_locked', retryAfter: 900 });
       }
-      // Fallback by plain text pin for backward compatibility if correo is not provided
-      rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, data->>'rol' as json_rol FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
+      // Fallback: solo funciona con PINs en texto plano (sin bcrypt). Solo compatibilidad backward.
+      rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
     }
-    
+
     if (rows.length === 0) {
       await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
       return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
@@ -60,7 +60,7 @@ export default async function handler(req: any, res: any) {
 
     const storedPin = user.pin || (user.data && user.data.pin);
     let isMatch = false;
-    
+
     if (storedPin && storedPin.startsWith('$2')) {
        isMatch = bcrypt.compareSync(pin, storedPin);
     } else {
@@ -85,7 +85,7 @@ export default async function handler(req: any, res: any) {
       perfil: user.perfil || user.json_rol || (user.data && user.data.rol) || 'tecnico',
       activo: true
     };
-    
+
     const clienteIdForToken = user.cliente_id
       || (user.data && (user.data.cliente_id || user.data.tenantId));
 
@@ -97,7 +97,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const token = signToken({
-      id: returnUser.id, 
+      id: returnUser.id,
       perfil: returnUser.perfil,
       clienteId: clienteIdForToken,
       correo: returnUser.correo

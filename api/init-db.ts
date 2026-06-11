@@ -273,7 +273,7 @@ export default async function handler(req: any, res: any) {
         'Nelson Bravo',
         'nelson.bravo.salas@gmail.com',
         'administrador',
-        '$2b$10$defaultHashAquiCambiar',
+        '3517',
         true,
         'cliente-default-001',
         0, 0
