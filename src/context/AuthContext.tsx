@@ -58,19 +58,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Intentar recuperar sesión persistida desde localStorage de forma segura
     let savedUserJson = localStorage.getItem('auth_user');
     
-    // Failsafe auto-recovery: If marked as authenticated but no user JSON exists or is corrupted, restore Nelson Bravo as admin
     if (localStorage.getItem('is_authenticated') === 'true' && !savedUserJson) {
-      const defaultUser: Usuario = {
-        id: "1",
-        nombre: "Nelson Bravo",
-        correo: "nelson.bravo.salas@gmail.com",
-        perfil: "administrador",
-        activo: true,
-        puedeEditarMantenimientos: true,
-        pin: '***'
-      };
-      localStorage.setItem('auth_user', JSON.stringify(defaultUser));
-      savedUserJson = JSON.stringify(defaultUser);
+      // Sesión corrupta — limpiar todo
+      localStorage.removeItem('is_authenticated');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('cmms_token');
     }
 
     if (savedUserJson) {
@@ -88,8 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
   
-  /** Derivación reactiva de permisos basada en el perfil del usuario con fallback a administrador en caso de desajuste */
-  const permisos = user ? (PERMISOS_POR_PERFIL[user.perfil] || PERMISOS_POR_PERFIL.administrador) : null;
+  const permisos = user ? (PERMISOS_POR_PERFIL[user.perfil] || PERMISOS_POR_PERFIL.visita) : null;
 
   /**
    * Intenta loguear un usuario buscando coincidencias de PIN en la base de datos (o localmente offline).
@@ -188,54 +179,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('is_authenticated', 'true');
           return true;
         }
-      } else {
-        // Fallback mockup por si es la primera vez offline y el usuario no está en Dexie
-        const correoLower = correo.toLowerCase();
-        if (correoLower === "gbravo.nbyb@gmail.com" && pin === "3210") {
-          const loggedUser: Usuario = {
-            id: "U-GBRAVO",
-            nombre: "Gonzalo Bravo",
-            correo: "gbravo.nbyb@gmail.com",
-            perfil: "administrador",
-            activo: true,
-            puedeEditarMantenimientos: true,
-            pin: '***'
-          };
-          setUser(loggedUser);
-          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
-          localStorage.setItem('is_authenticated', 'true');
-          return true;
-        }
-        if (correoLower === "nelson.bravo.salas@gmail.com" && pin === "3517") {
-          const loggedUser: Usuario = {
-            id: "1",
-            nombre: "Nelson Bravo",
-            correo: "nelson.bravo.salas@gmail.com",
-            perfil: "administrador",
-            activo: true,
-            puedeEditarMantenimientos: true,
-            pin: '***'
-          };
-          setUser(loggedUser);
-          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
-          localStorage.setItem('is_authenticated', 'true');
-          return true;
-        }
-        if (correoLower === "nbravo.nbyb@gmail.com" && pin === "3517") {
-          const loggedUser: Usuario = {
-            id: "U-NBRAVO-TECNICO",
-            nombre: "Nelson Bravo (Técnico)",
-            correo: "nbravo.nbyb@gmail.com",
-            perfil: "tecnico",
-            activo: true,
-            puedeEditarMantenimientos: true,
-            pin: '***'
-          };
-          setUser(loggedUser);
-          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
-          localStorage.setItem('is_authenticated', 'true');
-          return true;
-        }
       }
     } catch (dbError) {
       console.error('Error durante autenticación offline contra IndexedDB', dbError);
@@ -245,6 +188,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const biometricLogin = async (correo: string): Promise<boolean> => {
+    useAuthStore.getState().logout();
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('cmms_token');
     try {
       const localUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
       if (localUser && localUser.activo) {
@@ -263,23 +209,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('auth_user', JSON.stringify(loggedUser));
         localStorage.setItem('is_authenticated', 'true');
         return true;
-      } else {
-        // Fallback default mockup for Nelson Bravo if first boot and not saved in localdb yet
-        if (correo.toLowerCase() === "nelson.bravo.salas@gmail.com") {
-          const loggedUser: Usuario = {
-            id: "1",
-            nombre: "Nelson Bravo",
-            correo: "nelson.bravo.salas@gmail.com",
-            perfil: "administrador" as Perfil,
-            activo: true,
-            puedeEditarMantenimientos: true,
-            pin: '***'
-          };
-          setUser(loggedUser);
-          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
-          localStorage.setItem('is_authenticated', 'true');
-          return true;
-        }
       }
     } catch (dbError) {
       console.error('Error durante autenticación biométrica offline', dbError);
@@ -290,6 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(() => {
     setUser(null);
     setSessionHasToken(false);
+    useAuthStore.getState().logout();
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('cmms_token');
