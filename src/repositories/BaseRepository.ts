@@ -1,5 +1,6 @@
 import { db, CMMSDatabase, SyncStatus, LocalBase } from '../db/database';
 import { Table } from 'dexie';
+import { useAuthStore } from '../store/useAuthStore';
 
 export abstract class BaseRepository<T extends LocalBase> {
   protected table: Table<T>;
@@ -9,7 +10,11 @@ export abstract class BaseRepository<T extends LocalBase> {
   }
 
   async getAll(): Promise<T[]> {
-    return this.table.toArray();
+    const clienteId = useAuthStore.getState().clienteActivo?.id;
+    if (!clienteId) return this.table.where('sync_status').notEqual('pending_delete').toArray();
+    return this.table
+      .filter(item => item.sync_status !== 'pending_delete' && (item as any).cliente_id === clienteId)
+      .toArray();
   }
 
   async getById(uuid: string): Promise<T | undefined> {
@@ -33,33 +38,51 @@ export abstract class BaseRepository<T extends LocalBase> {
   }
 
   async update(uuid: string, data: Partial<T>): Promise<T> {
-    const existing = await this.getById(uuid);
-    if (!existing) throw new Error('Record not found');
+    return db.transaction('rw', this.table, db.sync_queue, async () => {
+      const existing = await this.table.get(uuid);
+      if (!existing) throw new Error('Record not found');
 
-    const now = Date.now();
-    const record = {
-      ...existing,
-      ...data,
-      updated_at: now,
-      version: existing.version + 1,
-      retry_count: 0,
-      sync_status: 'pending_update' as SyncStatus
-    } as unknown as T;
+      const record = {
+        ...existing,
+        ...data,
+        updated_at: Date.now(),
+        version: (existing.version ?? 0) + 1,
+        retry_count: 0,
+        sync_status: 'pending_update' as SyncStatus
+      } as unknown as T;
 
-    await this.table.put(record);
-    await this.enqueueSync(uuid, 'update', record);
-    return record;
+      await this.table.put(record);
+      await this.enqueueSync(uuid, 'update', record);
+      return record;
+    });
   }
 
   async enqueueSync(uuid_sync: string, operation: 'insert' | 'update' | 'delete', data: any) {
-    const cliente_id = localStorage.getItem('active_client') || undefined;
-    await db.sync_queue.add({
-      table: this.table.name,
-      uuid_sync,
-      operation,
-      data,
-      timestamp: Date.now(),
-      cliente_id
+    const cliente_id = useAuthStore.getState().clienteActivo?.id
+      || localStorage.getItem('active_client')
+      || undefined;
+
+    await db.transaction('rw', db.sync_queue, async () => {
+      const existing = await db.sync_queue
+        .where({ uuid_sync, operation })
+        .first();
+
+      if (existing) {
+        await db.sync_queue.update(existing.id!, {
+          data,
+          timestamp: Date.now()
+        });
+      } else {
+        await db.sync_queue.add({
+          table: this.table.name,
+          uuid_sync,
+          operation,
+          data,
+          timestamp: Date.now(),
+          cliente_id,
+          idempotencyKey: crypto.randomUUID()
+        });
+      }
     });
   }
 
@@ -96,8 +119,10 @@ export abstract class BaseRepository<T extends LocalBase> {
   }
 
   async search(query: string, fields: (keyof T)[]): Promise<T[]> {
+    const clienteId = useAuthStore.getState().clienteActivo?.id;
     return this.table.filter(item => {
       if (item.sync_status === 'pending_delete') return false;
+      if (clienteId && (item as any).cliente_id && (item as any).cliente_id !== clienteId) return false;
       return fields.some(field => {
         const val = item[field];
         return typeof val === 'string' && val.toLowerCase().includes(query.toLowerCase());
@@ -117,15 +142,14 @@ export abstract class BaseRepository<T extends LocalBase> {
   async markFailed(uuid: string, incrementRetry: boolean = true): Promise<void> {
     const existing = await this.getById(uuid);
     if (!existing) return;
-    
+
     await this.table.update(uuid, {
       sync_status: 'failed' as SyncStatus,
-      retry_count: incrementRetry ? existing.retry_count + 1 : existing.retry_count
+      retry_count: incrementRetry ? (existing.retry_count ?? 0) + 1 : (existing.retry_count ?? 0)
     } as any);
   }
 
   async resolveConflict(uuid: string, serverData: Partial<T>): Promise<T> {
-    // Basic conflict resolver: server wins but locally we mark as synced
     const existing = await this.getById(uuid);
     if (!existing) throw new Error('Record not found');
 

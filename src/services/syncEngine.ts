@@ -102,26 +102,55 @@ class SyncEngine {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      // Incluir idempotencyKey por op para que el servidor pueda deduplicar
+      const opsWithKey = (ops: any[]) => ops.map(op => ({
+        ...op,
+        idempotencyKey: op.idempotencyKey || crypto.randomUUID()
+      }));
+
+      const batchKey = crypto.randomUUID();
       const response = await fetch('/api/sync', {
         method: 'POST',
-        headers,
+        headers: { ...headers, 'Idempotency-Key': batchKey },
         body: JSON.stringify({
-          inserts,
-          updates,
-          deletes,
+          inserts: opsWithKey(inserts),
+          updates: opsWithKey(updates),
+          deletes: opsWithKey(deletes),
           seqs: this.lastSeqByTable
         })
       });
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          // Token expirado o inválido — limpiar credencial y pausar sync indefinidamente
           useAuthStore.getState().logout();
           localStorage.removeItem('auth_token');
           localStorage.removeItem('cmms_token');
-          this.cooldownUntil = Date.now() + 24 * 60 * 60 * 1000; // 24h — requiere nuevo login
+          this.cooldownUntil = Date.now() + 24 * 60 * 60 * 1000;
           logger.warn('SyncEngine', `Token rechazado por el servidor (${response.status}). Sesión limpiada — requiere nuevo login.`);
           throw new Error(`Sesión expirada o inválida (${response.status}). Por favor inicia sesión nuevamente.`);
+        }
+        if (response.status === 409) {
+          // Conflicto a nivel de batch — guardar todas las ops como conflictos y continuar
+          let conflictBody: any = {};
+          try { conflictBody = await response.json(); } catch {}
+          const conflictOps = [...inserts, ...updates];
+          for (const op of conflictOps) {
+            await db.conflicts.add({
+              entityType: op.table,
+              entityId: op.uuid_sync,
+              clienteId: op.cliente_id,
+              localData: op.data,
+              serverData: conflictBody.serverEntity || null,
+              detectedAt: Date.now(),
+              resolved: false
+            });
+            const tableRef = db[op.table as keyof typeof db] as any;
+            if (tableRef) await tableRef.update(op.uuid_sync, { sync_status: 'conflicted' });
+          }
+          store.addError(`Conflicto de sincronización: ${conflictOps.length} registros en conflicto. Revisa el indicador de sync.`);
+          logger.warn('SyncEngine', `409 batch conflict: ${conflictOps.length} ops guardadas en db.conflicts`);
+          syncResult = { success: false, pulled: 0, pushed: 0, error: 'Conflicto 409 detectado' };
+          return syncResult;
         }
         let errorDetail = response.statusText;
         try {
@@ -175,6 +204,17 @@ class SyncEngine {
                   sync_status: isConflict ? 'conflicted' : 'failed',
                   last_synced_at: Date.now()
                 });
+                if (isConflict) {
+                  await db.conflicts.add({
+                    entityType: item.table,
+                    entityId: item.uuid_sync,
+                    clienteId: item.cliente_id,
+                    localData: item.data,
+                    serverData: result?.serverEntity || null,
+                    detectedAt: Date.now(),
+                    resolved: false
+                  });
+                }
               }
               await syncQueue.markFailed(item.id!, result?.error || 'Error desconocido');
             }

@@ -31,6 +31,7 @@ import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatu
 import { db } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAppStore } from "../store/useAppStore";
+import { handleError } from "../lib/errorHandler";
 
 export interface ChecklistItemData {
   status?: 'ok' | 'obs' | 'falla';
@@ -197,7 +198,7 @@ export default function EditorOrdenServicio() {
           if (existing.estado) setStatus(existing.estado as any);
           if (data.ubicacionGeografica) setUbicacionGeografica(data.ubicacionGeografica);
         }
-      }).catch(console.error);
+      }).catch(e => handleError('EditorOrdenServicio:cargar', e));
     }
   }, [isNew, uuid]);
 
@@ -729,7 +730,7 @@ export default function EditorOrdenServicio() {
       }
 
       // Triggers background sync to Neon
-      syncEngine.triggerSync().catch(console.error);
+      syncEngine.triggerSync().catch(e => handleError('EditorOrdenServicio:sync', e));
 
       setStatus('firmada');
       localStorage.removeItem(OS_DRAFT_KEY);

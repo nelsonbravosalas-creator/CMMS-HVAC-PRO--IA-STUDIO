@@ -1,6 +1,7 @@
 import { db, LocalMantenimiento, SyncOperation } from '../db/database';
 import { useAppStore } from '../store/useAppStore';
 import { syncEngine } from '../sync/syncEngine';
+import { handleError } from '../lib/errorHandler';
 
 export const useMantenimientos = () => {
   const addMantToStore = useAppStore(state => state.addMantenimiento);
@@ -31,11 +32,11 @@ export const useMantenimientos = () => {
       await db.sync_queue.put(syncOp);
 
       addMantToStore(newMant);
-      syncEngine.triggerSync().catch(console.error);
+      syncEngine.triggerSync().catch(e => handleError('useMantenimientos:triggerSync', e));
       
       return newMant;
     } catch (error) {
-      console.error('Error al crear mantenimiento', error);
+      handleError('useMantenimientos:crear', error);
       throw error;
     }
   };
@@ -65,11 +66,11 @@ export const useMantenimientos = () => {
       await db.sync_queue.put(syncOp);
 
       updateMantInStore(updated);
-      syncEngine.triggerSync().catch(console.error);
+      syncEngine.triggerSync().catch(e => handleError('useMantenimientos:triggerSync', e));
 
       return updated;
     } catch (error) {
-      console.error('Error al actualizar mantenimiento', error);
+      handleError('useMantenimientos:actualizar', error);
       throw error;
     }
   };
@@ -104,9 +105,9 @@ export const useMantenimientos = () => {
       }
 
       deleteMantFromStore(uuid);
-      syncEngine.triggerSync().catch(console.error);
+      syncEngine.triggerSync().catch(e => handleError('useMantenimientos:triggerSync', e));
     } catch (error) {
-      console.error('Error al eliminar mantenimiento', error);
+      handleError('useMantenimientos:eliminar', error);
       throw error;
     }
   };
@@ -115,6 +116,6 @@ export const useMantenimientos = () => {
     createMantenimiento,
     updateMantenimiento,
     deleteMantenimiento,
-    syncNow: () => syncEngine.triggerSync(true).catch(console.error)
+    syncNow: () => syncEngine.triggerSync(true).catch(e => handleError('useMantenimientos:triggerSync', e))
   };
 };

@@ -30,6 +30,7 @@ import { useTickets } from "../hooks/useTickets";
 import { useGoogleTasks } from "../hooks/useGoogleTasks";
 import { StatusIndicator } from "../components/StatusIndicator";
 import AccessDenied from "../components/AccessDenied";
+import { handleError } from "../lib/errorHandler";
 
 export default function Tickets() {
   const { permisos } = useAuth();
@@ -234,7 +235,7 @@ const TicketImagePreview: React.FC<{ imageRef: string }> = ({ imageRef }) => {
         if (b && b.blob) {
           setUrl(URL.createObjectURL(b.blob));
         }
-      }).catch(console.error);
+      }).catch(e => handleError('Tickets:cargarBlob', e));
     } else {
       setUrl(imageRef);
     }

@@ -174,6 +174,26 @@ export interface SyncOperation {
   locked_at?: number;
   created_at?: number;
   cliente_id?: string;
+  idempotencyKey?: string;
+}
+
+export interface LocalConflict {
+  id?: number;
+  entityType: string;
+  entityId: string;
+  clienteId?: string;
+  localData: any;
+  serverData: any;
+  detectedAt: number;
+  resolved: boolean;
+  resolution?: 'keep_local' | 'keep_server';
+}
+
+export interface LocalIdempotencyCache {
+  idempotencyKey: string;
+  result: any;
+  createdAt: number;
+  expiresAt: number;
 }
 
 export interface AuditLog extends LocalBase {
@@ -214,6 +234,8 @@ export class CMMSDatabase extends Dexie {
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
   blobs!: Table<LocalBlob>;
+  conflicts!: Table<LocalConflict>;
+  idempotency_cache!: Table<LocalIdempotencyCache>;
 
   constructor() {
     super('CMMS_LocalDB_v14');
@@ -251,6 +273,14 @@ export class CMMSDatabase extends Dexie {
           setting.uuid_sync = crypto.randomUUID();
         }
       });
+    });
+
+    // v15: add conflicts + idempotency_cache stores; add idempotencyKey index to sync_queue
+    this.version(15).stores({
+      ...schemaV14,
+      sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp, idempotencyKey',
+      conflicts: '++id, entityType, entityId, clienteId, resolved, detectedAt',
+      idempotency_cache: 'idempotencyKey, expiresAt',
     });
     
     this.on('populate', async () => {

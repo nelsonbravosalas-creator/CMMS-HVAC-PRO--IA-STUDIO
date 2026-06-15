@@ -51,6 +51,8 @@ import { jsPDF } from "jspdf";
 import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
 import { db, SyncStatus } from "../db/database";
+import { handleError } from "../lib/errorHandler";
+import { generarHashDocumento } from "../lib/documentHash";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -736,7 +738,7 @@ export default function EditorInforme() {
 
       db.reports.put(newDraft).then(() => {
         setLocation(`/informes/${newUuid}`);
-      }).catch(console.error);
+      }).catch(e => handleError('EditorInforme:crearDraft', e));
     }
   }, [id, setLocation]);
 
@@ -759,7 +761,7 @@ export default function EditorInforme() {
           setGeneralData(prev => ({ ...prev, cliente: activeClient }));
         }
       }
-    }).catch(console.error);
+    }).catch(e => handleError('EditorInforme:cargarDraft', e));
   }, [id]);
 
   // Persist Changes to DB (Autosave - LOCAL ONLY, do not enqueue sync queue here to prevent spamming the server/queue)
@@ -784,8 +786,8 @@ export default function EditorInforme() {
         sync_status: existing?.sync_status || 'pending_insert' as SyncStatus,
         data: draftData
       };
-      db.reports.put(record).catch(console.error);
-    }).catch(console.error);
+      db.reports.put(record).catch(e => handleError('EditorInforme:autoguardado', e));
+    }).catch(e => handleError('EditorInforme:autoguardadoGet', e));
   }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, id]);
   
   // Main Save / Publish / Sync Function
@@ -816,6 +818,25 @@ export default function EditorInforme() {
         fechaSincronizacionLocal: new Date().toISOString()
       }
     };
+
+    // BUG-04: Calcular hash SHA-256 del payload canónico al firmar
+    if (finalStatus === 'firmado') {
+      try {
+        const payloadParaHash = {
+          id: reportData.id,
+          uuid_sync: reportData.uuid_sync,
+          generalData: reportData.data.generalData,
+          machineData: reportData.data.machineData,
+          circuits: reportData.data.circuits,
+          checklist: reportData.data.checklist,
+          firmado_en: reportData.data.fechaSincronizacionLocal
+        };
+        const hashFinal = await generarHashDocumento(payloadParaHash);
+        reportData.data.hashFinal = hashFinal;
+      } catch (hashErr) {
+        handleError('EditorInforme:hashSHA256', hashErr);
+      }
+    }
 
     // 1. Guardar local y encolar sync_queue usando reportsRepo
     await reportsRepo.save(reportData as any);
