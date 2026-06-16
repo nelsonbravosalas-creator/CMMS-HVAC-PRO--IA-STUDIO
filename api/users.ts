@@ -1,7 +1,11 @@
 import { getDb } from './_db.js';
+import { requireRole } from './_auth.js';
 
 export default async function handler(req: any, res: any) {
   try {
+    const user = requireRole(['administrador', 'programador'])(req, res);
+    if (!user) return;
+
     const sql = getDb();
     const { method, body } = req;
 
@@ -17,7 +21,7 @@ export default async function handler(req: any, res: any) {
       await sql`
         INSERT INTO users (id, nombre, correo, perfil, activo, pin, uuid_sync, updated_at, data)
         VALUES (${id}, ${d.nombre || ''}, ${d.correo || ''}, ${d.perfil || 'tecnico'},
-          ${d.activo !== false}, ${d.pin || '0000'}, ${d.uuid_sync || id}, ${d.updated_at || now}, ${JSON.stringify(d)})
+          ${d.activo !== false}, ${d.pin || null}, ${d.uuid_sync || id}, ${d.updated_at || now}, ${JSON.stringify(d)})
         ON CONFLICT (id) DO UPDATE SET
           nombre = EXCLUDED.nombre, correo = EXCLUDED.correo, perfil = EXCLUDED.perfil,
           activo = EXCLUDED.activo, pin = EXCLUDED.pin, updated_at = EXCLUDED.updated_at, data = EXCLUDED.data

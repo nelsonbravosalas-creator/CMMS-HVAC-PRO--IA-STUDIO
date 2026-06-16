@@ -1,6 +1,10 @@
 import { neon } from '@neondatabase/serverless';
+import { requireRole } from './_auth.js';
 
 export default async function handler(req, res) {
+  const user = requireRole(['administrador', 'programador'])(req, res);
+  if (!user) return;
+
   let dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return res.status(500).json({ success: false, error: "Missing DATABASE_URL" });

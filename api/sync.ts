@@ -4,6 +4,7 @@
 // Tablas Neon: assets, users, preventive_maintenance, work_orders, clientes, sucursal, reports, events, catalog_asset_types, settings, ordenes_servicio, inventory, calendar, audit_logs
 
 import { getDb } from './_db.js';
+import { requireAuth } from './_auth.js';
 
 const ALLOWED_TABLES = [
   'assets',
@@ -21,6 +22,53 @@ const ALLOWED_TABLES = [
   'calendar',
   'audit_logs'
 ];
+
+const SYNC_WRITABLE_TABLES = new Set([
+  'assets',
+  'preventive_maintenance',
+  'work_orders',
+  'reports',
+  'events',
+  'catalog_asset_types',
+  'ordenes_servicio',
+  'inventory',
+  'calendar'
+]);
+
+function sanitizeRows(table: string, rows: any[]) {
+  if (table !== 'users') return rows;
+  return rows.map((row) => {
+    const { pin, ...safeRow } = row;
+    if (safeRow.data && typeof safeRow.data === 'object') {
+      const { pin: _pin, ...safeData } = safeRow.data;
+      safeRow.data = safeData;
+    }
+    return safeRow;
+  });
+}
+
+function isAdminUser(user: any) {
+  const role = String(user?.perfil || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return role.includes('admin') || role.includes('program');
+}
+
+function getTenantId(authUser: any, res: any) {
+  const tenantId = authUser?.cliente_id;
+  if (!tenantId && !isAdminUser(authUser)) {
+    res.status(403).json({ success: false, error: 'Tenant no asociado al token de sesión' });
+    return null;
+  }
+  return tenantId || 'cliente-default-001';
+}
+
+function assertWritableTable(table: string, authUser: any) {
+  if (SYNC_WRITABLE_TABLES.has(table)) return true;
+  if (isAdminUser(authUser) && table === 'audit_logs') return true;
+  return false;
+}
 
 const TABLE_ALIAS_MAP: any = {
   'clients': 'clientes',
@@ -83,6 +131,9 @@ const validateWorkOrderPayload = (data: any) => {
 
 export default async function handler(req: any, res: any) {
   try {
+    const authUser: any = requireAuth(req, res);
+    if (!authUser) return;
+
     const sql = getDb();
     const { method, query, body } = req;
 
@@ -101,7 +152,8 @@ export default async function handler(req: any, res: any) {
     // GET /api/sync?since=:timestamp -> Pull changes only
     if (method === 'GET' || query.since !== undefined) {
       const since = query.since ? parseInt(query.since as string, 10) : 0;
-      const clienteIdSync = query.cliente_id || query.clienteId || 'cliente-default-001';
+      const clienteIdSync = getTenantId(authUser, res);
+      if (!clienteIdSync) return;
       const serverChanges: any = {};
 
       const pullPromises = ALLOWED_TABLES.map(async (table) => {
@@ -124,7 +176,7 @@ export default async function handler(req: any, res: any) {
             case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (timestamp > ${since}) ORDER BY timestamp ASC LIMIT 1000`; break;
           }
           if (rows && rows.length > 0) {
-            serverChanges[table] = rows;
+            serverChanges[table] = sanitizeRows(table, rows);
           }
         } catch (e) {
           console.error(`Error pulling ${table}:`, e);
@@ -143,24 +195,24 @@ export default async function handler(req: any, res: any) {
       const { inserts = [], updates = [], deletes = [], lastSync = 0 } = body;
       const results: any = { inserts: [], updates: [], deletes: [] };
 
-      const clienteIdSync = body.clienteId
-        || body.cliente_id
-        || req.headers['x-client-id']
-        || req.headers['x-cliente-id']
-        || 'cliente-default-001';
+      const clienteIdSync = getTenantId(authUser, res);
+      if (!clienteIdSync) return;
 
       // 1. Process inserts in parallel
       const insertPromises = inserts.map(async (ins: any) => {
         const rawTable = ins.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
+        if (!assertWritableTable(table, authUser)) {
+          return { uuid_sync: ins.uuid_sync || ins.id, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
+        }
 
         const data = ins.data || {};
         const uuid_sync = ins.uuid_sync || data.uuid_sync || ins.id;
         const updated_at = ins.updated_at || data.updated_at || ins.timestamp || Date.now();
 
         if (typeof data === 'object') {
-          if (!data.cliente_id) data.cliente_id = clienteIdSync;
+          data.cliente_id = clienteIdSync;
         }
 
         let status = 'applied';
@@ -172,7 +224,7 @@ export default async function handler(req: any, res: any) {
           }
           if (table === 'assets') {
             const d = data;
-            let final_cliente_id = d.cliente_id || clienteIdSync || 'cliente-default-001';
+            let final_cliente_id = clienteIdSync;
             let final_sucursal_id = d.sucursal_id || 'default-sucursal';
 
             const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
@@ -213,18 +265,11 @@ export default async function handler(req: any, res: any) {
             const strData = JSON.stringify(data);
 
             switch (table) {
-              case 'users': await sql`INSERT INTO users (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL`; break;
               case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL`; break;
               case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
               case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
               case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
               case 'calendar': await sql`INSERT INTO calendar (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > calendar.updated_at OR calendar.updated_at IS NULL`; break;
-              case 'clientes': await sql`INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clientes.updated_at OR clientes.updated_at IS NULL`; break;
-              case 'sucursales': {
-                const c_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
-                await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${c_id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL`;
-                break;
-              }
               case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
               case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
               case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${clienteIdSync}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
@@ -253,13 +298,16 @@ export default async function handler(req: any, res: any) {
         const rawTable = upd.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
+        if (!assertWritableTable(table, authUser)) {
+          return { uuid_sync: upd.uuid_sync, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
+        }
 
         const data = upd.data || {};
         const uuid_sync = upd.uuid_sync || data.uuid_sync;
         const updated_at = upd.updated_at || data.updated_at || upd.timestamp || Date.now();
 
         if (typeof data === 'object') {
-          if (!data.cliente_id) data.cliente_id = clienteIdSync;
+          data.cliente_id = clienteIdSync;
         }
 
         let status = 'applied';
@@ -271,7 +319,7 @@ export default async function handler(req: any, res: any) {
           }
           if (table === 'assets') {
             const d = data;
-            let final_cliente_id = d.cliente_id || clienteIdSync || 'cliente-default-001';
+            let final_cliente_id = clienteIdSync;
             let final_sucursal_id = d.sucursal_id || 'default-sucursal';
 
             const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
@@ -300,18 +348,11 @@ export default async function handler(req: any, res: any) {
             const id = data.id || uuid_sync;
             const strData = JSON.stringify(data);
             switch (table) {
-              case 'users': await sql`UPDATE users SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'calendar': await sql`UPDATE calendar SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'clientes': await sql`UPDATE clientes SET data = ${strData}::jsonb, updated_at = ${updated_at} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`; break;
-              case 'sucursales': {
-                const c_id = data.cliente_id || clienteIdSync || 'cliente-default-001';
-                await sql`UPDATE sucursales SET data = ${strData}::jsonb, updated_at = ${updated_at}, cliente_id = ${c_id} WHERE id = ${id} OR uuid_sync = ${uuid_sync}`;
-                break;
-              }
               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${clienteIdSync} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
@@ -334,6 +375,9 @@ export default async function handler(req: any, res: any) {
         const rawTable = del.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
+        if (!assertWritableTable(table, authUser)) {
+          return { uuid_sync: del.uuid_sync, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
+        }
 
         const ts = serverTimeForDelete;
         let status = 'applied';
@@ -341,14 +385,11 @@ export default async function handler(req: any, res: any) {
         try {
           switch (table) {
             case 'assets': await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-            case 'users': await sql`UPDATE users SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'calendar': await sql`UPDATE calendar SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
-            case 'clientes': await sql`UPDATE clientes SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${del.uuid_sync} OR uuid_sync = ${del.uuid_sync}`; break;
-            case 'sucursales': await sql`UPDATE sucursales SET deleted_at = ${ts}, updated_at = ${ts} WHERE id = ${del.uuid_sync} OR uuid_sync = ${del.uuid_sync}`; break;
             case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'settings': await sql`UPDATE settings SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
@@ -385,8 +426,8 @@ export default async function handler(req: any, res: any) {
             case 'calendar': rows = await sql`SELECT * FROM calendar WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
             case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (timestamp > ${lastSync}) LIMIT 200`; break;
           }
-          if (rows && rows.length > 0) {
-            serverChanges[table] = rows;
+            if (rows && rows.length > 0) {
+            serverChanges[table] = sanitizeRows(table, rows);
           }
         } catch (e) {
           console.error(`Error pulling ${table}:`, e);

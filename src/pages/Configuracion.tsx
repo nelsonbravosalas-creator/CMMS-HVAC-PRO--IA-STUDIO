@@ -58,7 +58,10 @@ export default function Configuracion() {
     try {
       const response = await fetch("/api/admin/clone-production-db", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(localStorage.getItem("auth_token") ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` } : {}),
+        },
         body: JSON.stringify({ prodUrl, mode: cloneMode })
       });
 

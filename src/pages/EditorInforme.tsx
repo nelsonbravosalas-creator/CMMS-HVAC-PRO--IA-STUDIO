@@ -48,7 +48,6 @@ import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { jsPDF } from "jspdf";
-import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
 import { db, SyncStatus } from "../db/database";
 
@@ -1643,8 +1642,8 @@ export default function EditorInforme() {
     doc.save(`Informe_Climasol_${machineData.tag}_${generalData.fecha}.pdf`);
   };
 
-  // Export Excel
-  const handleExportExcel = () => {
+  // Export CSV
+  const handleExportCsv = () => {
     const data = [
       ["CLIENTE", generalData.cliente],
       ["SUCURSAL", generalData.sucursal],
@@ -1654,10 +1653,16 @@ export default function EditorInforme() {
       ["MODELO", machineData.modelo],
       ["HALLAZGOS", observaciones]
     ];
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Informe");
-    XLSX.writeFile(wb, `Informe_${machineData.tag}.xlsx`);
+    const csv = data
+      .map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `Informe_${machineData.tag}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const renderIndustrialPreview = () => {
@@ -2276,8 +2281,8 @@ export default function EditorInforme() {
                   <button onClick={handleExportPDF} className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
                      <Download className="w-4 h-4 shrink-0" /> PDF
                   </button>
-                  <button onClick={handleExportExcel} className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
-                     <FileText className="w-4 h-4 shrink-0" /> Excel
+                  <button onClick={handleExportCsv} className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
+                     <FileText className="w-4 h-4 shrink-0" /> CSV
                   </button>
                </>
             )}
@@ -2467,7 +2472,7 @@ function SidebarButton({
          )}
       </button>
       
-      {/* Sub Items Excel Style */}
+      {/* Sub Items Table Style */}
       {subItems && expanded && (
         <div className="flex flex-col gap-1 pl-4 lg:pl-6 py-1 animate-in slide-in-from-top-2 duration-300">
            <div className="w-px h-full bg-slate-200 absolute left-8 top-12 bottom-4 hidden lg:block -z-10"></div>

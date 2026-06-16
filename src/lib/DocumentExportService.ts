@@ -23,6 +23,7 @@ export class DocumentExportService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(localStorage.getItem('auth_token') ? { Authorization: `Bearer ${localStorage.getItem('auth_token')}` } : {}),
         },
         body: JSON.stringify(payload),
       });

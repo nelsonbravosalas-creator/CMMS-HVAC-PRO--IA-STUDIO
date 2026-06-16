@@ -8,7 +8,7 @@ export default async function handler(req: any, res: any) {
   try {
     const sql = getDb();
     const { correo, pin } = req.body;
-    if (!pin) return res.status(400).json({ success: false, error: 'PIN requerido' });
+    if (!correo || !pin) return res.status(400).json({ success: false, error: 'Correo y PIN requeridos' });
 
     const emailLower = correo ? correo.toLowerCase() : '';
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
@@ -35,13 +35,7 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    let rows;
-    if (correo) {
-       rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
-    } else {
-       // Fallback by plain text pin for backward compatibility if correo is not provided
-       rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, data->>'rol' as json_rol FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
-    }
+    const rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
     
     if (rows.length === 0) {
       if (emailLower) {
@@ -81,10 +75,11 @@ export default async function handler(req: any, res: any) {
       nombre: user.nombre || (user.data && user.data.nombre),
       correo: user.correo || (user.data && user.data.email) || correo,
       perfil: user.perfil || user.json_rol || (user.data && user.data.rol) || 'tecnico',
+      cliente_id: user.cliente_id || (user.data && user.data.cliente_id),
       activo: true
     };
     
-    const token = signToken({ id: returnUser.id, perfil: returnUser.perfil });
+    const token = signToken({ id: returnUser.id, perfil: returnUser.perfil, cliente_id: returnUser.cliente_id });
 
     return res.json({ success: true, user: returnUser, token });
   } catch (error: any) {

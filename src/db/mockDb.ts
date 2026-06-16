@@ -78,21 +78,24 @@ export const loadMockData = () => {
   // Seed default data
   const now = Date.now();
   
-  // Create system users
-  const pinHash = bcrypt.hashSync('1234', 10);
-  const adminUser = {
-    uuid_sync: 'user-nelson-admin-uuid',
-    id: '1',
-    nombre: 'Nelson Bravo',
-    correo: 'nelson.bravo.salas@gmail.com',
-    perfil: 'administrador',
-    pin: pinHash,
-    activo: true,
-    data: JSON.stringify({ email: 'nelson.bravo.salas@gmail.com', pin: pinHash, nombre: 'Nelson Bravo', rol: 'administrador' }),
-    updated_at: now,
-    created_at: now
-  };
-  mockData.users = [adminUser];
+  const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL;
+  const mockAdminPin = process.env.DEV_MOCK_ADMIN_PIN;
+  if (mockAdminEmail && mockAdminPin) {
+    const pinHash = bcrypt.hashSync(mockAdminPin, 10);
+    const adminUser = {
+      uuid_sync: 'dev-mock-admin-uuid',
+      id: 'dev-admin',
+      nombre: 'Dev Admin',
+      correo: mockAdminEmail,
+      perfil: 'administrador',
+      pin: pinHash,
+      activo: true,
+      data: JSON.stringify({ email: mockAdminEmail, nombre: 'Dev Admin', rol: 'administrador' }),
+      updated_at: now,
+      created_at: now
+    };
+    mockData.users = [adminUser];
+  }
 
   // Default Client & Clientes
   const eecolClientData = { nombre: 'EECOL Default', empresa: 'EECOL' };

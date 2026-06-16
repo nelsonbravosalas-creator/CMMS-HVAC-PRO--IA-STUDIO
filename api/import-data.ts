@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { requireRole } from './_auth.js';
 import { EQUIPOS_DATA } from '../src/data/assets.js';
 import { CLIENTES_MOCK } from '../src/data/users.js';
 import { MANTENIMIENTOS_MOCK } from '../src/data/preventive_maintenance.js';
@@ -11,24 +12,27 @@ const BACKEND_USUARIOS_SEED = [
   {
     id: 'U1',
     nombre: 'Nelson Bravo',
-    correo: 'Nbravo.nbyb@gmail.com',
+    correo: process.env.SEED_NELSON_EMAIL || '',
     perfil: 'programador',
     activo: true,
     puedeEditarMantenimientos: true,
-    pin: '3517'
+    pin: process.env.SEED_NELSON_PIN_HASH
   },
   {
     id: 'U2',
     nombre: 'Gonzalo Bravo',
-    correo: 'gbravo.nbyb@gmail.com',
+    correo: process.env.SEED_GONZALO_EMAIL || '',
     perfil: 'administrador',
     activo: true,
     puedeEditarMantenimientos: true,
-    pin: '3210'
+    pin: process.env.SEED_GONZALO_PIN_HASH
   }
 ];
 
 export default async function handler(req, res) {
+  const user = requireRole(['administrador', 'programador'])(req, res);
+  if (!user) return;
+
   let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!connectionString) {
     return res.status(500).json({ success: false, error: "Missing DATABASE_URL / POSTGRES_URL" });
@@ -167,9 +171,10 @@ export default async function handler(req, res) {
         `;
         let count = 0;
         for (const usuario of BACKEND_USUARIOS_SEED) {
+          const { pin, ...safeUsuario } = usuario;
           await sql`
-            INSERT INTO users (id, nombre, correo, perfil, activo, data)
-            VALUES (${usuario.id}, ${usuario.nombre}, ${usuario.correo}, ${usuario.perfil}, ${usuario.activo}, ${JSON.stringify(usuario)})
+            INSERT INTO users (id, nombre, correo, perfil, activo, pin, data)
+            VALUES (${usuario.id}, ${usuario.nombre}, ${usuario.correo}, ${usuario.perfil}, ${usuario.activo}, ${pin || null}, ${JSON.stringify(safeUsuario)})
             ON CONFLICT (id) DO NOTHING;
           `;
           count++;

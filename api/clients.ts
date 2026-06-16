@@ -4,9 +4,13 @@
 // Tablas Neon: clientes, sucursales
 
 import { getDb } from './_db.js';
+import { requireRole } from './_auth.js';
 
 export default async function handler(req: any, res: any) {
   try {
+    const user = requireRole(['administrador', 'programador'])(req, res);
+    if (!user) return;
+
     const sql = getDb();
     const { method, query, body } = req;
     const isBranches = query.resource === 'branches' || query.resource === 'sucursales';
