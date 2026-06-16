@@ -4,8 +4,9 @@
 // Tablas Neon: inventory
 
 import { getDb } from './_db.js';
+import { getScopedTenantId, requireAuth } from './_auth.js';
 
-function mapToNeon(frontData: any) {
+function mapToNeon(frontData: any, tenantId: string) {
   return {
     id: frontData.id,
     categoria: frontData.categoria || '',
@@ -13,7 +14,7 @@ function mapToNeon(frontData: any) {
     nombre: frontData.nombre || '',
     cantidad: frontData.stock || 0,
     unidad_medida: frontData.unidad || '',
-    cliente_id: frontData.cliente_id || frontData.clienteId || 'cliente-eecol-default-001',
+    cliente_id: tenantId,
     marca: frontData.marca || '',
     modelo: frontData.modelo || '',
     estado: frontData.estado || 'disponible',
@@ -48,15 +49,24 @@ function mapToDexie(neonData: any) {
 
 export default async function handler(req: any, res: any) {
   try {
+    const user: any = requireAuth(req, res);
+    if (!user) return;
+
     const sql = getDb();
     const { method, body, query } = req;
+    const tenantId = getScopedTenantId(user, query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId);
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: 'Tenant no asociado al token de sesión' });
+    }
     const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 
     if (method === 'GET') {
       if (id) {
         const rows = await sql`
           SELECT * FROM inventory 
-          WHERE (id = ${id} OR uuid_sync = ${id}) AND deleted_at IS NULL
+          WHERE (id = ${id} OR uuid_sync = ${id})
+            AND cliente_id = ${tenantId}
+            AND deleted_at IS NULL
         `;
         if (rows.length === 0) {
           return res.status(404).json({ success: false, message: 'Repuesto no encontrado' });
@@ -64,7 +74,7 @@ export default async function handler(req: any, res: any) {
         return res.json({ success: true, data: mapToDexie(rows[0]) });
       }
 
-      const rows = await sql`SELECT * FROM inventory WHERE deleted_at IS NULL ORDER BY nombre ASC LIMIT 500`;
+      const rows = await sql`SELECT * FROM inventory WHERE cliente_id = ${tenantId} AND deleted_at IS NULL ORDER BY nombre ASC LIMIT 500`;
       return res.json({ success: true, data: rows.map(mapToDexie) });
     }
 
@@ -77,7 +87,7 @@ export default async function handler(req: any, res: any) {
         
         let amount = body.amount;
         if (amount === undefined && body.delta !== undefined) {
-          const currentRows = await sql`SELECT cantidad FROM inventory WHERE id = ${id} OR uuid_sync = ${id}`;
+          const currentRows = await sql`SELECT cantidad FROM inventory WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}`;
           if (currentRows.length > 0) {
             amount = Number(currentRows[0].cantidad || 0) + Number(body.delta);
           } else {
@@ -95,12 +105,12 @@ export default async function handler(req: any, res: any) {
           SET cantidad = ${Number(amount)}, 
               updated_at = ${now},
               data = jsonb_set(coalesce(data, '{}'::jsonb), '{stock}', ${String(amount)}::jsonb)
-          WHERE id = ${id} OR uuid_sync = ${id}
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
         `;
         return res.json({ success: true, message: 'Stock del repuesto ajustado con éxito.' });
       }
 
-      const mapped = mapToNeon(body);
+      const mapped = mapToNeon(body, tenantId);
       const finalId = mapped.id || `PRT-${Date.now()}`;
       const now = Date.now();
 
@@ -138,7 +148,7 @@ export default async function handler(req: any, res: any) {
           unidad_medida = ${d.unidad || ''},
           updated_at = ${now},
           data = ${JSON.stringify(d)}
-        WHERE id = ${id} OR uuid_sync = ${id}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Repuesto actualizado' });
     }
@@ -149,7 +159,7 @@ export default async function handler(req: any, res: any) {
       await sql`
         UPDATE inventory 
         SET deleted_at = ${now}, updated_at = ${now} 
-        WHERE id = ${id} OR uuid_sync = ${id}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Repuesto eliminado' });
     }

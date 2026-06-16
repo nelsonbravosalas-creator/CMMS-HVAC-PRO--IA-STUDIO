@@ -128,7 +128,7 @@ function App() {
   }, [isAuthenticated, setLocation]);
 
   useEffect(() => {
-    const auth = localStorage.getItem("is_authenticated") === "true" && !!localStorage.getItem("auth_token");
+    const auth = localStorage.getItem("is_authenticated") === "true" && !!sessionStorage.getItem("auth_token");
     const client = !!localStorage.getItem("active_client");
     setIsAuthenticated(auth);
     setHasClientSelected(client);

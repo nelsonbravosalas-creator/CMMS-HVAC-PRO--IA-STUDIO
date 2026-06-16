@@ -127,19 +127,40 @@ export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ on
     try {
       const reportsToInsert: LocalInforme[] = parsedData.map(row => {
         const uuid = crypto.randomUUID();
+        const status = (row.Estado || 'borrador').toLowerCase();
+        const activeClient = localStorage.getItem("active_client") || "";
         return {
           uuid_sync: uuid,
           id: row.ID_Informe || `INF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           data: {
-            equipo_tag: row.TAG_Equipo,
-            estado: row.Estado,
-            fecha: row.Fecha,
-            tecnico: row.Tecnico,
-            tipoServicio: row.Tipo_Servicio,
-            descripcion: row.Descripcion
+            estado: status,
+            status,
+            generalData: {
+              cliente: activeClient,
+              folio: row.ID_Informe || '',
+              equipoTag: row.TAG_Equipo,
+              fecha: row.Fecha,
+              tecnico: row.Tecnico,
+              tipoServicio: row.Tipo_Servicio || 'Preventivo'
+            },
+            machineData: {
+              tag: row.TAG_Equipo,
+              tipo: row.Tipo_Servicio || '',
+              marca: '',
+              modelo: '',
+              serie: '',
+              refrigerante: '',
+              capacidad: '',
+              voltaje: ''
+            },
+            circuits: [],
+            checklist: {},
+            observaciones: row.Descripcion,
+            galeria: []
           },
           sync_status: 'pending_insert',
-          updated_at: Date.now()
+          updated_at: Date.now(),
+          version: 1
         };
       });
 

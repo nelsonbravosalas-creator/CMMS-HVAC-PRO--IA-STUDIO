@@ -19,15 +19,19 @@ import { Link, useLocation } from "wouter";
 import { ReportBulkUploadModal } from "../components/modals/ReportBulkUploadModal";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/database";
+import { reportsRepo } from "../repositories/ReportRepository";
 
 export default function InformesHVAC() {
   const [filter, setFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [, setLocation] = useLocation();
+  const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
+  const activeClientUid = localStorage.getItem("active_client") || "";
 
   const handleCreateInforme = async () => {
     const borradosCount = rawReports.filter(inf => {
-      const state = inf.data?.estado;
+      const state = inf.data?.estado || inf.data?.status;
       return state === 'borrador';
     }).length;
 
@@ -44,28 +48,62 @@ export default function InformesHVAC() {
       uuid_sync: newUuid,
       id: shortId,
       updated_at: Date.now(),
+      version: 1,
       sync_status: 'pending_insert',
       data: {
         estado: 'borrador',
+        status: 'borrador',
         generalData: {
+          cliente: activeClientUid,
+          sucursal: '',
+          region: '',
+          direccion: '',
           fecha: new Date().toISOString().split('T')[0],
-          tecnico: 'Nelson Bravo'
-        }
+          tecnico: 'Nelson Bravo',
+          tipoServicio: 'Preventivo',
+          folio: shortId
+        },
+        machineData: {
+          tipo: '',
+          tag: '',
+          marca: '',
+          modelo: '',
+          serie: '',
+          refrigerante: '',
+          capacidad: '',
+          voltaje: ''
+        },
+        circuits: [],
+        checklist: {},
+        observaciones: '',
+        galeria: []
       }
     });
 
     setLocation(`/informes/${newUuid}`);
   };
 
-  const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
-  const activeClientUid = localStorage.getItem("active_client");
+  const handleDeleteInforme = async (uuidSync: string) => {
+    if (!confirm("¿Eliminar este informe? Se marcará como eliminado y se sincronizará el cambio.")) {
+      return;
+    }
+
+    await reportsRepo.delete(uuidSync);
+  };
 
   const filtered = rawReports.filter(inf => {
     const data = inf.data || {};
-    if (activeClientUid && data.generalData?.cliente !== activeClientUid) {
+    const estado = data.estado || data.status || "borrador";
+    if (inf.sync_status === 'pending_delete') {
       return false;
     }
-    const tg = data.generalData?.equipoTag || "";
+    if (activeClientUid && data.generalData?.cliente && data.generalData.cliente !== activeClientUid) {
+      return false;
+    }
+    if (statusFilter !== "todos" && estado !== statusFilter) {
+      return false;
+    }
+    const tg = data.generalData?.equipoTag || data.machineData?.tag || data.equipo_tag || "";
     const tec = data.generalData?.tecnico || "";
     const idStr = inf.id || "";
     const filterLower = (filter || "").toLowerCase();
@@ -74,13 +112,14 @@ export default function InformesHVAC() {
            tec.toLowerCase().includes(filterLower) ||
            idStr.toLowerCase().includes(filterLower);
   }).map(inf => ({
+    uuid_sync: inf.uuid_sync,
     id: inf.id,
     fecha: inf.data?.generalData?.fecha || new Date(inf.updated_at || Date.now()).toISOString().split('T')[0],
-    tag: inf.data?.generalData?.equipoTag || "S/T",
-    equipoNombre: inf.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
-    tipoServicio: inf.data?.generalData?.tipoMantenimiento || "Preventivo",
+    tag: inf.data?.generalData?.equipoTag || inf.data?.machineData?.tag || inf.data?.equipo_tag || "S/T",
+    equipoNombre: inf.data?.generalData?.descripcionEquipo || inf.data?.machineData?.tipo || "Equipo sin descripción",
+    tipoServicio: inf.data?.generalData?.tipoServicio || inf.data?.generalData?.tipoMantenimiento || "Preventivo",
     tecnico: inf.data?.generalData?.tecnico || "No Asignado",
-    estado: (inf as any).estado || (inf.data?.status || "borrador")
+    estado: inf.data?.estado || inf.data?.status || "borrador"
   }));
 
   return (
@@ -97,7 +136,10 @@ export default function InformesHVAC() {
           >
             <Download className="w-4 h-4" /> Carga Masiva
           </button>
-          <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
+          <button
+            onClick={() => setLocation("/scanner")}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
+          >
             <ScanLine className="w-4 h-4" /> Escanear QR
           </button>
           <button 
@@ -128,10 +170,16 @@ export default function InformesHVAC() {
           />
         </div>
         <div className="flex items-center gap-2">
-           <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none min-w-[120px]">
-              <option>Cualquier Estado</option>
-              <option>Borrador</option>
-              <option>Firmado</option>
+           <select
+             value={statusFilter}
+             onChange={(event) => setStatusFilter(event.target.value)}
+             className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none min-w-[120px]"
+           >
+              <option value="todos">Cualquier Estado</option>
+              <option value="borrador">Borrador</option>
+              <option value="enviado">Enviado</option>
+              <option value="firmado">Firmado</option>
+              <option value="bloqueado">Bloqueado</option>
            </select>
            <button className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200"><Filter className="w-4 h-4" /></button>
         </div>
@@ -150,7 +198,7 @@ export default function InformesHVAC() {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filtered.map(inf => (
-              <tr key={inf.id} className="hover:bg-slate-50/50 transition-colors group">
+              <tr key={inf.uuid_sync} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="text-xs font-black text-slate-900">{inf.id}</div>
                   <div className="text-[10px] font-bold text-slate-400">{inf.fecha}</div>
@@ -174,11 +222,13 @@ export default function InformesHVAC() {
                 </td>
                 <td className="px-6 py-4 text-right">
                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/informes/${inf.id}`}>
+                      <Link href={`/informes/${inf.uuid_sync}`}>
                         <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
                       </Link>
-                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><FileDown className="w-3.5 h-3.5" /></button>
-                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <Link href={`/informes/${inf.uuid_sync}`}>
+                        <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><FileDown className="w-3.5 h-3.5" /></button>
+                      </Link>
+                      <button onClick={() => handleDeleteInforme(inf.uuid_sync)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
                    </div>
                 </td>
               </tr>

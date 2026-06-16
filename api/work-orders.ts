@@ -4,8 +4,9 @@
 // Tablas Neon: work_orders
 
 import { getDb } from './_db.js';
+import { getScopedTenantId, requireAuth } from './_auth.js';
 
-function mapToNeon(frontData: any) {
+function mapToNeon(frontData: any, tenantId: string) {
   return {
     id: frontData.id,
     titulo: frontData.titulo,
@@ -13,7 +14,7 @@ function mapToNeon(frontData: any) {
     prioridad: frontData.prioridad,
     estado: frontData.estado,
     equipo_tag: frontData.equipo_tag || frontData.equipoTag,
-    cliente_id: frontData.cliente_id || frontData.clienteId,
+    cliente_id: tenantId,
     creado_por: frontData.creado_por || frontData.creadoPor,
     asignado_a: frontData.asignado_a || frontData.asignadoA,
     fecha_creacion: frontData.fecha_creacion || frontData.fechaCreacion,
@@ -50,15 +51,24 @@ function mapToDexie(neonData: any) {
 
 export default async function handler(req: any, res: any) {
   try {
+    const user: any = requireAuth(req, res);
+    if (!user) return;
+
     const sql = getDb();
     const { method, body, query } = req;
+    const tenantId = getScopedTenantId(user, query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId);
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: 'Tenant no asociado al token de sesión' });
+    }
     const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 
     if (method === 'GET') {
       if (id) {
         const rows = await sql`
           SELECT * FROM work_orders 
-          WHERE (id = ${id} OR uuid_sync = ${id}) AND deleted_at IS NULL
+          WHERE (id = ${id} OR uuid_sync = ${id})
+            AND cliente_id = ${tenantId}
+            AND deleted_at IS NULL
         `;
         if (rows.length === 0) {
           return res.status(404).json({ success: false, message: 'Orden de trabajo no encontrada' });
@@ -66,7 +76,7 @@ export default async function handler(req: any, res: any) {
         return res.json({ success: true, data: mapToDexie(rows[0]) });
       }
 
-      const rows = await sql`SELECT * FROM work_orders WHERE deleted_at IS NULL ORDER BY fecha_creacion DESC LIMIT 500`;
+      const rows = await sql`SELECT * FROM work_orders WHERE cliente_id = ${tenantId} AND deleted_at IS NULL ORDER BY fecha_creacion DESC LIMIT 500`;
       const mapped = rows.map(mapToDexie);
       return res.json({ success: true, data: mapped });
     }
@@ -84,12 +94,12 @@ export default async function handler(req: any, res: any) {
               fecha_cierre = ${new Date().toISOString()},
               updated_at = ${now},
               data = jsonb_set(coalesce(data, '{}'::jsonb), '{estado}', '"cerrado"')
-          WHERE id = ${id} OR uuid_sync = ${id}
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
         `;
         return res.json({ success: true, message: 'Orden de trabajo completada y guardada con éxito.' });
       }
 
-      const mapped = mapToNeon(body);
+      const mapped = mapToNeon(body, tenantId);
       const finalId = mapped.id || `TK-${Date.now()}`;
       const now = Date.now();
 
@@ -129,7 +139,7 @@ export default async function handler(req: any, res: any) {
           asignado_a = ${d.asignado_a || d.asignadoA || ''},
           updated_at = ${d.updated_at || now},
           data = ${JSON.stringify(d)}
-        WHERE id = ${id} OR uuid_sync = ${id}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Orden de trabajo actualizada' });
     }
@@ -140,7 +150,7 @@ export default async function handler(req: any, res: any) {
       await sql`
         UPDATE work_orders 
         SET deleted_at = ${now}, updated_at = ${now} 
-        WHERE id = ${id} OR uuid_sync = ${id}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Orden de trabajo eliminada' });
     }

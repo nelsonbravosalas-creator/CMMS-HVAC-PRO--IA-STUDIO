@@ -55,7 +55,12 @@ export default async function handler(req: any, res: any) {
     if (storedPin && storedPin.startsWith('$2')) {
        isMatch = bcrypt.compareSync(pin, storedPin);
     } else {
+       if (process.env.NODE_ENV === 'production') {
+         console.warn({ event: "auth_plaintext_pin_rejected", email: emailLower, ip });
+         isMatch = false;
+       } else {
        isMatch = storedPin === pin;
+       }
     }
 
     if (!isMatch) {

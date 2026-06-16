@@ -4,9 +4,9 @@
 // Tablas Neon: preventive_maintenance
 
 import { getDb } from './_db.js';
-import { requireRole } from './_auth.js';
+import { getScopedTenantId, requireRole } from './_auth.js';
 
-function mapToNeon(frontData: any) {
+function mapToNeon(frontData: any, tenantId: string) {
   return {
     id: frontData.id,
     equipo_tag: frontData.equipo_tag || frontData.equipoTag,
@@ -19,7 +19,7 @@ function mapToNeon(frontData: any) {
     hallazgos: frontData.hallazgos || '',
     acciones: frontData.descripcion || frontData.acciones || '', // Dexie descripcion -> Neon acciones
     repuestos: frontData.repuestos || '',
-    cliente_id: frontData.cliente_id || frontData.clienteId || 'cliente-eecol-default-001',
+    cliente_id: tenantId,
     uuid_sync: frontData.uuid_sync || frontData.uuidSync || frontData.id,
     updated_at: frontData.updated_at || frontData.updatedAt || Date.now()
   };
@@ -59,13 +59,19 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, query, body } = req;
+    const tenantId = getScopedTenantId(user, query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId);
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: 'Tenant no asociado al token de sesión' });
+    }
     const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 
     if (method === 'GET') {
       if (id) {
         const rows = await sql`
           SELECT * FROM preventive_maintenance 
-          WHERE (id = ${id} OR uuid_sync = ${id}) AND deleted_at IS NULL
+          WHERE (id = ${id} OR uuid_sync = ${id})
+            AND cliente_id = ${tenantId}
+            AND deleted_at IS NULL
         `;
         if (rows.length === 0) {
           return res.status(404).json({ success: false, message: 'Mantenimiento no encontrado' });
@@ -75,11 +81,11 @@ export default async function handler(req: any, res: any) {
 
       const tag = query.tag || query.equipo_tag;
       if (tag) {
-        const rows = await sql`SELECT * FROM preventive_maintenance WHERE equipo_tag = ${tag} AND deleted_at IS NULL ORDER BY fecha DESC`;
+        const rows = await sql`SELECT * FROM preventive_maintenance WHERE equipo_tag = ${tag} AND cliente_id = ${tenantId} AND deleted_at IS NULL ORDER BY fecha DESC`;
         return res.json({ success: true, data: rows.map(mapToDexie) });
       }
 
-      const rows = await sql`SELECT * FROM preventive_maintenance WHERE deleted_at IS NULL ORDER BY fecha DESC LIMIT 500`;
+      const rows = await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${tenantId} AND deleted_at IS NULL ORDER BY fecha DESC LIMIT 500`;
       return res.json({ success: true, data: rows.map(mapToDexie) });
     }
 
@@ -94,12 +100,12 @@ export default async function handler(req: any, res: any) {
           UPDATE preventive_maintenance 
           SET updated_at = ${now},
               data = jsonb_set(coalesce(data, '{}'::jsonb), '{estado}', '"ejecutado"')
-          WHERE id = ${id} OR uuid_sync = ${id}
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
         `;
         return res.json({ success: true, message: 'Mantenimiento ejecutado con éxito.' });
       }
 
-      const mapped = mapToNeon(body);
+      const mapped = mapToNeon(body, tenantId);
       if (!mapped.equipo_tag) {
         return res.status(400).json({ success: false, error: 'El campo equipo_tag es obligatorio para registrar un mantenimiento' });
       }
@@ -109,11 +115,11 @@ export default async function handler(req: any, res: any) {
 
       await sql`
         INSERT INTO preventive_maintenance (id, equipo_tag, tecnico_id, tipo, fecha,
-          hallazgos, acciones, repuestos, uuid_sync, updated_at, data)
+          hallazgos, acciones, repuestos, cliente_id, uuid_sync, updated_at, data)
         VALUES (
           ${finalId}, ${mapped.equipo_tag}, ${mapped.tecnico_id || ''}, ${mapped.tipo || ''},
           ${mapped.fecha || new Date().toISOString()}, ${mapped.hallazgos || ''}, ${mapped.acciones || ''},
-          ${mapped.repuestos || ''}, ${mapped.uuid_sync || finalId}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
+          ${mapped.repuestos || ''}, ${mapped.cliente_id}, ${mapped.uuid_sync || finalId}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
         )
         ON CONFLICT (id) DO UPDATE SET
           hallazgos = EXCLUDED.hallazgos, acciones = EXCLUDED.acciones,
@@ -141,7 +147,7 @@ export default async function handler(req: any, res: any) {
           repuestos = ${d.repuestos || ''},
           updated_at = ${now},
           data = ${JSON.stringify(d)}
-        WHERE id = ${id} OR uuid_sync = ${id}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Mantenimiento actualizado' });
     }
@@ -154,7 +160,7 @@ export default async function handler(req: any, res: any) {
       await sql`
         UPDATE preventive_maintenance 
         SET deleted_at = ${now}, updated_at = ${now} 
-        WHERE id = ${id} OR uuid_sync = ${id}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Mantenimiento eliminado' });
     }

@@ -4,7 +4,7 @@
 // Tablas Neon: assets
 
 import { getDb } from './_db.js';
-import { requireRole } from './_auth.js';
+import { getScopedTenantId, requireRole } from './_auth.js';
 
 export default async function handler(req: any, res: any) {
   try {
@@ -13,13 +13,19 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, query, body } = req;
+    const tenantId = getScopedTenantId(user, query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId);
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: 'Tenant no asociado al token de sesión' });
+    }
     const id = query.id || query.tag || query.uuid || body?.uuid_sync || body?.tag;
 
     if (method === 'GET') {
       if (id) {
         const rows = await sql`
           SELECT * FROM assets 
-          WHERE (uuid_sync = ${id} OR tag = ${id}) AND deleted_at IS NULL
+          WHERE (uuid_sync = ${id} OR tag = ${id})
+            AND cliente_id = ${tenantId}
+            AND deleted_at IS NULL
         `;
         if (rows.length === 0) {
           return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
@@ -28,16 +34,11 @@ export default async function handler(req: any, res: any) {
       }
       const tag = query.tag;
       if (tag) {
-        const rows = await sql`SELECT * FROM assets WHERE tag = ${tag} AND deleted_at IS NULL`;
+        const rows = await sql`SELECT * FROM assets WHERE tag = ${tag} AND cliente_id = ${tenantId} AND deleted_at IS NULL`;
         if (rows.length === 0) return res.status(404).json({ success: false, message: 'Equipo no encontrado' });
         return res.json({ success: true, data: rows[0] });
       }
-      const cliente_id = query.cliente_id;
-      if (cliente_id) {
-        const rows = await sql`SELECT * FROM assets WHERE cliente_id = ${cliente_id} AND deleted_at IS NULL ORDER BY tag ASC LIMIT 1000`;
-        return res.json({ success: true, data: rows });
-      }
-      const rows = await sql`SELECT * FROM assets WHERE deleted_at IS NULL ORDER BY tag ASC LIMIT 1000`;
+      const rows = await sql`SELECT * FROM assets WHERE cliente_id = ${tenantId} AND deleted_at IS NULL ORDER BY tag ASC LIMIT 1000`;
       return res.json({ success: true, data: rows });
     }
 
@@ -46,7 +47,6 @@ export default async function handler(req: any, res: any) {
       if (!d.tag) return res.status(400).json({ error: 'El campo tag es obligatorio' });
       if (!d.nombre) return res.status(400).json({ error: 'El campo nombre es obligatorio' });
       
-      const cliente_id = d.cliente_id || 'cliente_defecto';
       const sucursal_id = d.sucursal_id || 'sucursal_defecto';
       const now = Date.now();
       
@@ -62,7 +62,7 @@ export default async function handler(req: any, res: any) {
           ${d.fecha_instalacion || ''}, ${d.vida_util || 0}, ${d.estado || 'operativo'},
           ${d.ultimo_mantenimiento || ''}, ${d.proximo_mantenimiento || ''},
           ${d.horas_operacion || 0}, ${JSON.stringify(d.tecnicos || [])}, ${d.notes || d.notas || ''},
-          ${cliente_id}, ${sucursal_id},
+          ${tenantId}, ${sucursal_id},
           ${d.uuid_sync || d.tag}, ${d.updated_at || now}, ${now}
         )
         ON CONFLICT (tag) DO UPDATE SET
@@ -106,10 +106,10 @@ export default async function handler(req: any, res: any) {
           horas_operacion = ${d.horas_operacion || 0},
           tecnicos = ${JSON.stringify(d.tecnicos || [])},
           notas = ${d.notes || d.notas || ''},
-          cliente_id = ${d.cliente_id || 'cliente_defecto'},
+          cliente_id = ${tenantId},
           sucursal_id = ${d.sucursal_id || 'sucursal_defecto'},
           updated_at = ${d.updated_at || now}
-        WHERE uuid_sync = ${id} OR tag = ${id}
+        WHERE (uuid_sync = ${id} OR tag = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Equipo actualizado' });
     }
@@ -120,7 +120,7 @@ export default async function handler(req: any, res: any) {
       await sql`
         UPDATE assets 
         SET deleted_at = ${now}, estado = 'baja', updated_at = ${now} 
-        WHERE uuid_sync = ${id} OR tag = ${id}
+        WHERE (uuid_sync = ${id} OR tag = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Equipo eliminado/dado de baja' });
     }

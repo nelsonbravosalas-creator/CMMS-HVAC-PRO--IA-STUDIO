@@ -61,7 +61,7 @@ class SyncEngine {
 
       logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
 
-      const token = localStorage.getItem('auth_token');
+      const token = sessionStorage.getItem('auth_token');
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: {

@@ -58,6 +58,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (localStorage.getItem('is_authenticated') === 'true' && !savedUserJson) {
       localStorage.removeItem('is_authenticated');
       localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
+    }
+    localStorage.removeItem('auth_token');
+
+    if (savedUserJson && !sessionStorage.getItem('auth_token')) {
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('is_authenticated');
+      return null;
     }
 
     if (savedUserJson) {
@@ -108,7 +116,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('auth_user', JSON.stringify(loggedUser));
         localStorage.setItem('is_authenticated', 'true');
         if (json.token) {
-          localStorage.setItem('auth_token', json.token);
+          sessionStorage.setItem('auth_token', json.token);
+          localStorage.removeItem('auth_token');
         }
 
         // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline
@@ -162,7 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const biometricLogin = async (correo: string): Promise<boolean> => {
     try {
-      if (!localStorage.getItem('auth_token')) {
+      if (!sessionStorage.getItem('auth_token')) {
         return false;
       }
       const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
@@ -193,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_token');
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
   }, []);

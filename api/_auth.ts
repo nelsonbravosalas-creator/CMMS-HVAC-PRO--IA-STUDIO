@@ -16,6 +16,18 @@ function normalizeRole(role: string | undefined | null) {
     .trim();
 }
 
+export function isAdminUser(user: any) {
+  const role = normalizeRole(user?.perfil);
+  return role.includes('admin') || role.includes('program');
+}
+
+export function getScopedTenantId(user: any, requestedTenantId?: any) {
+  if (isAdminUser(user)) {
+    return requestedTenantId || user?.cliente_id || 'cliente-default-001';
+  }
+  return user?.cliente_id || null;
+}
+
 export function signToken(payload: any) {
   return jwt.sign(payload, getSecretKey(), { expiresIn: '7d' });
 }
