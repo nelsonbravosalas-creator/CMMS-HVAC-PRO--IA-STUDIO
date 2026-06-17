@@ -1,37 +1,25 @@
-import { neon } from '@neondatabase/serverless';
+import { getDb } from './_db.js';
 import { requireRole } from './_auth.js';
+import { runDbBootstrap } from '../scripts/db/bootstrap.js';
 
-export default async function handler(req, res) {
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+
   const user = requireRole(['administrador', 'programador'])(req, res);
   if (!user) return;
 
-  let dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
-    return res.status(500).json({ success: false, error: "Missing DATABASE_URL" });
+  try {
+    await runDbBootstrap(getDb());
+    return res.status(200).json({
+      success: true,
+      message: 'Base de datos inicializada y data parametrica sincronizada'
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Error inicializando base de datos'
+    });
   }
-  if (!dbUrl.startsWith('postgres')) {
-    return res.status(500).json({ success: false, error: "Invalid DATABASE_URL format" });
-  }
-
-  if (req.method === 'POST' || req.method === 'GET') {
-    try {
-      const sql = neon(dbUrl);
-      await sql`
-        CREATE TABLE IF NOT EXISTS activos (
-          id TEXT PRIMARY KEY,
-          tag_tecnico TEXT,
-          nombre TEXT,
-          tipo TEXT,
-          ubicacion TEXT,
-          estado TEXT,
-          ultima_revision TIMESTAMP
-        );
-      `;
-      return res.status(200).json({ success: true, message: "Base de datos inicializada correctamente en Neon" });
-    } catch (error) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  }
-
-  return res.status(405).json({ success: false, error: "Method not allowed" });
 }

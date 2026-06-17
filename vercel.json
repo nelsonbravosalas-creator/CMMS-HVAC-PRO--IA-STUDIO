@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "buildCommand": "npm run vercel-build",
   "rewrites": [
     { "source": "/api/assets/:id/execute", "destination": "/api/assets.ts" },
     { "source": "/api/assets/:id", "destination": "/api/assets.ts" },

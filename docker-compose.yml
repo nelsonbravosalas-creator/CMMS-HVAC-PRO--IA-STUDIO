@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cmms_hvac}
+      POSTGRES_USER: ${POSTGRES_USER:-cmms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cmms_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - cmms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cmms} -d ${POSTGRES_DB:-cmms_hvac}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgresql://cmms:cmms_password@postgres:5432/cmms_hvac}
+      JWT_SECRET: ${JWT_SECRET:-local_dev_jwt_secret_change_me}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "${APP_PORT:-3001}:3000"
+    command: sh -c "node --import tsx scripts/db/bootstrap.ts && node dist/server.cjs"
+
+volumes:
+  cmms_postgres_data:
