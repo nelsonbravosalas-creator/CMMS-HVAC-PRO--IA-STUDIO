@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { 
   X, FileSpreadsheet, Upload, AlertCircle, Download, CheckCircle2
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { db, LocalActivo } from '../../db/database';
 import { useAppStore } from '../../store/useAppStore';
 import { syncEngine } from '../../sync/syncEngine';
@@ -42,6 +41,47 @@ const cleanString = (val: any): string => {
 const cleanNumber = (val: any, defaultVal = 0): number => {
   if (val === null || val === undefined || isNaN(Number(val))) return defaultVal;
   return Number(val);
+};
+
+const toCsv = (rows: Record<string, any>[]) => {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (value: any) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return [headers.join(','), ...rows.map(row => headers.map(header => escape(row[header])).join(','))].join('\r\n');
+};
+
+const parseCsv = (text: string): Record<string, string>[] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      cell += '"';
+      i++;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i++;
+      row.push(cell);
+      if (row.some(value => value.trim() !== '')) rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  if (row.some(value => value.trim() !== '')) rows.push(row);
+  const headers = rows.shift()?.map(header => header.trim()) || [];
+  return rows.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])));
 };
 
 export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => {
@@ -101,10 +141,13 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
       }
     ];
 
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Activos");
-    XLSX.writeFile(wb, "Plantilla_Carga_Masiva_Equipos.xlsx");
+    const blob = new Blob([toCsv(templateData)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'Plantilla_Carga_Masiva_Equipos.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,7 +155,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
     if (!selectedFile) return;
 
     setFile(selectedFile);
-    parseExcel(selectedFile);
+    parseCsvFile(selectedFile);
   };
 
   const validateData = async (data: AssetRow[]) => {
@@ -128,7 +171,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
         newErrors.push(`Fila ${lineNum}: El campo 'TAG' es obligatorio.`);
       } else {
         if (seenTags.has(tag)) {
-          newErrors.push(`Fila ${lineNum}: El TAG '${tag}' está duplicado en el archivo Excel.`);
+            newErrors.push(`Fila ${lineNum}: El TAG '${tag}' está duplicado en el archivo CSV.`);
         } else {
           seenTags.add(tag);
           // Verificar en la db local si ya se encuentra registrado
@@ -163,7 +206,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
       if (!codigoSucursal) {
         newErrors.push(`Fila ${lineNum}: El campo 'Codigo_Sucursal' es obligatorio.`);
       } else {
-        const branch = await db.sucursales.where('codigo').equalsIgnoreCase(codigoSucursal).first();
+        const branch = await db.branches.where('codigo').equalsIgnoreCase(codigoSucursal).first();
         if (!branch) {
           newErrors.push(`Fila ${lineNum}: No se encontró ninguna sucursal con el código de sucursal '${codigoSucursal}'.`);
         }
@@ -173,15 +216,12 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
     setErrors(newErrors);
   };
 
-  const parseExcel = (file: File) => {
+  const parseCsvFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json<AssetRow>(ws);
+        const text = String(evt.target?.result || '');
+        const data = parseCsv(text) as unknown as AssetRow[];
 
         setParsedData(data);
         await validateData(data);
@@ -189,7 +229,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
         setErrors([`Error al analizar el archivo: ${err.message}`]);
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsText(file);
   };
 
   const handleStartImport = async () => {
@@ -206,7 +246,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
         const uuid = crypto.randomUUID();
 
         // Buscar correspondencia de sucursal_id
-        const branch = await db.sucursales.where('codigo').equalsIgnoreCase(cleanString(row.Codigo_Sucursal)).first();
+        const branch = await db.branches.where('codigo').equalsIgnoreCase(cleanString(row.Codigo_Sucursal)).first();
         const sucursalId = branch ? branch.uuid_sync : 'default-sucursal';
 
         const asset: LocalActivo = {
@@ -279,7 +319,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
         <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
           <div>
             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Carga Masiva de Activos</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sincronización incremental vía Excel/CSV</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sincronización incremental vía CSV</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-5 h-5" /></button>
         </div>
@@ -310,7 +350,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
                 ref={fileInputRef} 
                 onChange={handleFileUpload}
                 className="hidden" 
-                accept=".xlsx,.csv"
+                accept=".csv"
              />
              <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
                 <Upload className="w-8 h-8" />
@@ -319,7 +359,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
                 <p className="text-xs font-black text-slate-900 uppercase">
                   {file ? file.name : 'Seleccionar o arrastrar archivo'}
                 </p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Soporta .XLSX, .CSV (Máx 5MB)</p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Soporta .CSV (Máx 5MB)</p>
              </div>
           </div>
 

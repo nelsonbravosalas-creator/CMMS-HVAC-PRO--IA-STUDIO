@@ -1,20 +1,20 @@
 // CMMS HVAC PRO — inventory API
-// Consolida: api/parts.ts + api/inventory.ts
+// Consolida: api/parts.ts + api/parts/[id].ts + api/parts/[id]/adjust.ts
 // Vercel function: /api/inventory
 // Tablas Neon: inventory
 
 import { getDb } from './_db.js';
-import { verifyToken } from './_auth.js';
+import { getScopedTenantId, requireAuth } from './_auth.js';
 
-function mapToNeon(frontData: any) {
+function mapToNeon(frontData: any, tenantId: string) {
   return {
     id: frontData.id,
     categoria: frontData.categoria || '',
     codigo: frontData.codigo || '',
     nombre: frontData.nombre || '',
-    cantidad: Number(frontData.stock !== undefined ? frontData.stock : (frontData.cantidad !== undefined ? frontData.cantidad : 0)),
-    unidad_medida: frontData.unidad || frontData.unidad_medida || '',
-    cliente_id: frontData.cliente_id || frontData.clienteId || 'cliente-eecol-default-001',
+    cantidad: frontData.stock || 0,
+    unidad_medida: frontData.unidad || '',
+    cliente_id: tenantId,
     marca: frontData.marca || '',
     modelo: frontData.modelo || '',
     estado: frontData.estado || 'disponible',
@@ -49,23 +49,23 @@ function mapToDexie(neonData: any) {
 
 export default async function handler(req: any, res: any) {
   try {
-    const userToken: any = verifyToken(req);
-    if (!userToken) {
-      return res.status(401).json({ success: false, error: 'No autorizado - falta token o es inválido' });
-    }
-
-    const clienteIdFromToken = userToken.clienteId || userToken.cliente_id || 'cliente-eecol-default-001';
+    const user: any = requireAuth(req, res);
+    if (!user) return;
 
     const sql = getDb();
     const { method, body, query } = req;
+    const tenantId = getScopedTenantId(user, query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId);
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: 'Tenant no asociado al token de sesión' });
+    }
     const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 
     if (method === 'GET') {
       if (id) {
         const rows = await sql`
           SELECT * FROM inventory 
-          WHERE (id = ${id} OR uuid_sync = ${id}) 
-            AND cliente_id = ${clienteIdFromToken} 
+          WHERE (id = ${id} OR uuid_sync = ${id})
+            AND cliente_id = ${tenantId}
             AND deleted_at IS NULL
         `;
         if (rows.length === 0) {
@@ -74,13 +74,7 @@ export default async function handler(req: any, res: any) {
         return res.json({ success: true, data: mapToDexie(rows[0]) });
       }
 
-      const rows = await sql`
-        SELECT * FROM inventory 
-        WHERE cliente_id = ${clienteIdFromToken} 
-          AND deleted_at IS NULL 
-        ORDER BY nombre ASC 
-        LIMIT 500
-      `;
+      const rows = await sql`SELECT * FROM inventory WHERE cliente_id = ${tenantId} AND deleted_at IS NULL ORDER BY nombre ASC LIMIT 500`;
       return res.json({ success: true, data: rows.map(mapToDexie) });
     }
 
@@ -93,7 +87,7 @@ export default async function handler(req: any, res: any) {
         
         let amount = body.amount;
         if (amount === undefined && body.delta !== undefined) {
-          const currentRows = await sql`SELECT cantidad FROM inventory WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken}`;
+          const currentRows = await sql`SELECT cantidad FROM inventory WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}`;
           if (currentRows.length > 0) {
             amount = Number(currentRows[0].cantidad || 0) + Number(body.delta);
           } else {
@@ -111,43 +105,32 @@ export default async function handler(req: any, res: any) {
           SET cantidad = ${Number(amount)}, 
               updated_at = ${now},
               data = jsonb_set(coalesce(data, '{}'::jsonb), '{stock}', ${String(amount)}::jsonb)
-          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken}
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
         `;
         return res.json({ success: true, message: 'Stock del repuesto ajustado con éxito.' });
       }
 
-      const mapped = mapToNeon(body);
+      const mapped = mapToNeon(body, tenantId);
       const finalId = mapped.id || `PRT-${Date.now()}`;
       const now = Date.now();
 
       await sql`
-        INSERT INTO inventory (
-          uuid_sync, id, categoria, codigo, nombre, cantidad, unidad_medida,
-          marca, modelo, estado, cliente_id, updated_at, created_at, data
-        )
+        INSERT INTO inventory (id, categoria, codigo, nombre, cantidad, unidad_medida,
+          cliente_id, marca, modelo, estado, uuid_sync, updated_at, data)
         VALUES (
-          ${mapped.uuid_sync || finalId}, ${finalId}, ${mapped.categoria}, ${mapped.codigo}, 
-          ${mapped.nombre}, ${mapped.cantidad}, ${mapped.unidad_medida},
-          ${mapped.marca}, ${mapped.modelo}, ${mapped.estado}, 
-          ${mapped.cliente_id || clienteIdFromToken || 'cliente-eecol-default-001'},
-          ${mapped.updated_at || now}, ${now}, ${JSON.stringify(body)}
+          ${finalId}, ${mapped.categoria}, ${mapped.codigo}, ${mapped.nombre},
+          ${mapped.cantidad}, ${mapped.unidad_medida}, ${mapped.cliente_id},
+          ${mapped.marca}, ${mapped.modelo}, ${mapped.estado},
+          ${mapped.uuid_sync || finalId}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
         )
-        ON CONFLICT (uuid_sync) DO UPDATE SET
-          id = EXCLUDED.id,
-          categoria = EXCLUDED.categoria,
-          codigo = EXCLUDED.codigo,
-          nombre = EXCLUDED.nombre,
-          cantidad = EXCLUDED.cantidad,
-          unidad_medida = EXCLUDED.unidad_medida,
-          marca = EXCLUDED.marca,
-          modelo = EXCLUDED.modelo,
-          estado = EXCLUDED.estado,
-          cliente_id = EXCLUDED.cliente_id,
-          updated_at = EXCLUDED.updated_at,
+        ON CONFLICT (id) DO UPDATE SET
+          categoria = EXCLUDED.categoria, codigo = EXCLUDED.codigo,
+          nombre = EXCLUDED.nombre, cantidad = EXCLUDED.cantidad,
+          unidad_medida = EXCLUDED.unidad_medida, updated_at = EXCLUDED.updated_at,
           data = EXCLUDED.data
         WHERE EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL
       `;
-      return res.json({ success: true, data: { id: finalId, uuid_sync: mapped.uuid_sync || finalId } });
+      return res.json({ success: true, data: { id: finalId } });
     }
 
     if (method === 'PUT') {
@@ -156,22 +139,16 @@ export default async function handler(req: any, res: any) {
       }
       const d = body;
       const now = Date.now();
-      const mapped = mapToNeon(d);
-
       await sql`
         UPDATE inventory SET
-          categoria = ${mapped.categoria || ''},
-          codigo = ${mapped.codigo || ''},
-          nombre = ${mapped.nombre || ''},
-          cantidad = ${mapped.cantidad || 0},
-          unidad_medida = ${mapped.unidad_medida || ''},
-          marca = ${mapped.marca || ''},
-          modelo = ${mapped.modelo || ''},
-          estado = ${mapped.estado || 'disponible'},
-          cliente_id = ${mapped.cliente_id || clienteIdFromToken || 'cliente-eecol-default-001'},
+          categoria = ${d.categoria || ''},
+          codigo = ${d.codigo || ''},
+          nombre = ${d.nombre || ''},
+          cantidad = ${d.stock || 0},
+          unidad_medida = ${d.unidad || ''},
           updated_at = ${now},
           data = ${JSON.stringify(d)}
-        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Repuesto actualizado' });
     }
@@ -182,7 +159,7 @@ export default async function handler(req: any, res: any) {
       await sql`
         UPDATE inventory 
         SET deleted_at = ${now}, updated_at = ${now} 
-        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
       `;
       return res.json({ success: true, message: 'Repuesto eliminado' });
     }

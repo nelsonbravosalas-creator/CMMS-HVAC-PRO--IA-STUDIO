@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.docker.example
+mouse-jiggler.ps1

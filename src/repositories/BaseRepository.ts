@@ -41,7 +41,7 @@ export abstract class BaseRepository<T extends LocalBase> {
       ...existing,
       ...data,
       updated_at: now,
-      version: existing.version + 1,
+      version: (existing.version || 0) + 1,
       retry_count: 0,
       sync_status: 'pending_update' as SyncStatus
     } as unknown as T;
@@ -52,15 +52,30 @@ export abstract class BaseRepository<T extends LocalBase> {
   }
 
   async enqueueSync(uuid_sync: string, operation: 'insert' | 'update' | 'delete', data: any) {
-    const cliente_id = localStorage.getItem('active_client') || undefined;
-    await db.sync_queue.add({
+    const existingQueued = await db.sync_queue
+      .where('[uuid_sync+operation]')
+      .equals([uuid_sync, operation])
+      .first();
+
+    const queueItem = {
       table: this.table.name,
       uuid_sync,
       operation,
       data,
-      timestamp: Date.now(),
-      cliente_id
-    });
+      timestamp: Date.now()
+    };
+
+    if (existingQueued?.id) {
+      await db.sync_queue.update(existingQueued.id, {
+        ...queueItem,
+        retry_count: 0,
+        last_error: undefined,
+        next_retry_at: undefined
+      });
+      return;
+    }
+
+    await db.sync_queue.add(queueItem);
   }
 
   async hydrate(): Promise<T[]> {
@@ -70,6 +85,22 @@ export abstract class BaseRepository<T extends LocalBase> {
   async save(data: T): Promise<T> {
     const existing = await this.getById(data.uuid_sync);
     if (existing) {
+      if (existing.sync_status === 'pending_insert') {
+        const now = Date.now();
+        const record = {
+          ...existing,
+          ...data,
+          updated_at: now,
+          version: (existing.version || 0) + 1,
+          retry_count: 0,
+          sync_status: 'pending_insert' as SyncStatus
+        } as unknown as T;
+
+        await this.table.put(record);
+        await this.enqueueSync(record.uuid_sync, 'insert', record);
+        return record;
+      }
+
       return this.update(data.uuid_sync, data);
     } else {
       return this.create(data);

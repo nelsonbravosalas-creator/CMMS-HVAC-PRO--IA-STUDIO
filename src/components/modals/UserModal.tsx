@@ -31,10 +31,10 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
   useEffect(() => {
     if (editingUser) {
       setNombre(editingUser.nombre || "");
-      setEmail(editingUser.correo || "");
-      setPerfil(editingUser.perfil || "Técnico");
+      setEmail(editingUser.email || "");
+      setPerfil(editingUser.rol || "Técnico");
       setPin(editingUser.pin || "");
-      setClienteId(editingUser.cliente_id || "");
+      setClienteId(localStorage.getItem("active_client") || editingUser.cliente_id || "");
     } else {
       setNombre("");
       setEmail("");
@@ -65,8 +65,8 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
 
        const userPayload: Partial<LocalUsuario> = {
           nombre,
-          correo: email,
-          perfil,
+          email,
+          rol: perfil,
           pin: finalPin,
           activo: true,
           cliente_id: perfil === "Cliente" ? cliente_id : undefined
@@ -130,11 +130,11 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
                    <label className="text-[10px] font-black uppercase text-slate-400">Cliente Asociado a este Usuario</label>
                    <select 
                      value={cliente_id} 
-                     onChange={e => setClienteId(e.target.value)} 
-                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none"
+                     onChange={() => undefined}
+                     disabled
+                     className="w-full px-4 py-3 bg-slate-100 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none cursor-not-allowed"
                      required
                    >
-                     <option value="">Seleccione el Cliente...</option>
                      {activeClients.map(c => (
                         <option key={c.uuid_sync} value={c.uuid_sync}>{c.nombre}</option>
                      ))}

@@ -1,43 +1,28 @@
-import React, { useState, useEffect } from "react";
-import {
-  Building2,
-  Plus,
-  RotateCcw,
-  Edit2,
+import React, { useState } from "react";
+import { 
+  Building2, 
+  Plus, 
+  RotateCcw, 
+  Edit2, 
   Search,
-  CheckCircle2,
-  XCircle,
+  ChevronRight,
   AlertTriangle
 } from "lucide-react";
 import { ClientModal } from "../components/modals/ClientModal";
 import { useAppStore } from "../store/useAppStore";
-import { useSyncStore } from "../store/useSyncStore";
 import { LocalCliente, LocalSucursal } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
-
-type SyncFeedback = { type: 'success' | 'error'; message: string } | null;
 
 export default function Clientes() {
   const [showClientModal, setShowClientModal] = useState(false);
   const [editingClient, setEditingClient] = useState<{ client: LocalCliente, branches: LocalSucursal[] } | null>(null);
   const [filter, setFilter] = useState("");
-  const [syncFeedback, setSyncFeedback] = useState<SyncFeedback>(null);
 
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
-  const isSyncing = useSyncStore(state => state.isSyncing);
-
-  useEffect(() => {
-    if (!syncFeedback) return;
-    const timer = setTimeout(() => setSyncFeedback(null), 4000);
-    return () => clearTimeout(timer);
-  }, [syncFeedback]);
 
   const handleEditClient = (client: LocalCliente) => {
-    // Fix: filter by both uuid_sync and id to avoid missing branches
-    const clientBranches = branches.filter(b =>
-      b.cliente_id === client.uuid_sync || b.cliente_id === client.id
-    );
+    const clientBranches = branches.filter(b => b.cliente_id === client.uuid_sync);
     setEditingClient({ client, branches: clientBranches });
     setShowClientModal(true);
   };
@@ -48,19 +33,7 @@ export default function Clientes() {
   };
 
   const handleRefresh = async () => {
-    if (isSyncing) return;
-    setSyncFeedback(null);
-    const result = await syncEngine.triggerSync(true);
-    if (result.success) {
-      const parts: string[] = [];
-      if (result.pushed > 0) parts.push(`${result.pushed} enviado${result.pushed !== 1 ? 's' : ''}`);
-      if (result.pulled > 0) parts.push(`${result.pulled} recibido${result.pulled !== 1 ? 's' : ''}`);
-      const detail = parts.length > 0 ? ` — ${parts.join(', ')}` : '';
-      setSyncFeedback({ type: 'success', message: `Sincronización exitosa${detail}` });
-    } else {
-      const msg = result.error || 'Error al conectar con el servidor';
-      setSyncFeedback({ type: 'error', message: msg });
-    }
+    await syncEngine.triggerSync(true);
   };
 
   const activeClients = clients.filter(c => 
@@ -72,34 +45,17 @@ export default function Clientes() {
 
   return (
     <div className="flex flex-col gap-8 text-left animate-in fade-in duration-500 pb-20">
-
-      {/* Sync feedback toast */}
-      {syncFeedback && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-bold transition-all animate-in slide-in-from-bottom-4 duration-300 ${
-          syncFeedback.type === 'success'
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-            : 'bg-red-50 border-red-200 text-red-800'
-        }`}>
-          {syncFeedback.type === 'success'
-            ? <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-            : <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
-          <span>{syncFeedback.message}</span>
-        </div>
-      )}
-
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Gestión de Clientes</h2>
           <p className="text-slate-500 text-sm font-medium">Administración de carteras de clientes, contratos y sus respectivas sucursales en terreno.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <button 
             onClick={handleRefresh}
-            disabled={isSyncing}
-            className="bg-slate-100 hover:bg-slate-200 disabled:opacity-60 disabled:cursor-not-allowed text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
+            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
           >
-            <RotateCcw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+            <RotateCcw className="w-4 h-4" /> Sincronizar
           </button>
           <button 
             onClick={handleAddClient}

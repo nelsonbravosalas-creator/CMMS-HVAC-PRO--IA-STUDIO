@@ -83,12 +83,12 @@ export default function Reportes() {
               <ExportSelect label="Hojas a incluir" value="Equipos, Historial" />
               <ExportSelect label="Técnico" value="Todos" />
               <ExportSelect label="Costo Mín" value="$0" />
-              <ExportSelect label="Formato" value="Excel (.xlsx)" />
+              <ExportSelect label="Formato" value="CSV (.csv)" />
            </div>
 
            <div className="flex gap-4">
               <button className="px-6 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all">
-                 <FileSpreadsheet className="w-4 h-4" /> Generar Excel
+                 <FileSpreadsheet className="w-4 h-4" /> Generar CSV
               </button>
               <button className="px-6 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-2 shadow-lg shadow-red-600/20 active:scale-95 transition-all">
                  <FileText className="w-4 h-4" /> Generar PDF

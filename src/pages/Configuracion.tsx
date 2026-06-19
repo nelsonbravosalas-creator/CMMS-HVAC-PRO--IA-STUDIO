@@ -31,7 +31,7 @@ export default function Configuracion() {
   const { isSyncing, pendingCount, lastSync, isOnline } = useSyncStore();
   const [syncStatus, setSyncStatus] = useState<string>("");
 
-  const [prodUrl, setProdUrl] = useState(() => localStorage.getItem("prod_db_url") || "");
+  const [prodUrl, setProdUrl] = useState("");
   const [cloneMode, setCloneMode] = useState<'merge' | 'overwrite'>('merge');
   const [isCloning, setIsCloning] = useState(false);
   const [cloneMessage, setCloneMessage] = useState("");
@@ -58,7 +58,10 @@ export default function Configuracion() {
     try {
       const response = await fetch("/api/admin/clone-production-db", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(sessionStorage.getItem("auth_token") ? { Authorization: `Bearer ${sessionStorage.getItem("auth_token")}` } : {}),
+        },
         body: JSON.stringify({ prodUrl, mode: cloneMode })
       });
 
@@ -67,7 +70,7 @@ export default function Configuracion() {
         throw new Error(data.error || "Error al sincronizar base de datos.");
       }
 
-      localStorage.setItem("prod_db_url", prodUrl);
+      localStorage.removeItem("prod_db_url");
       setCloneMessage("¡Sincronización de Producción Exitosa!");
       alert("✅ Datos de producción sincronizados con éxito en el entorno de desarrollo.");
       

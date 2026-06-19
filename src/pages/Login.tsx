@@ -16,19 +16,6 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { login, biometricLogin } = useAuth();
 
-  const performRedirect = () => {
-    let redirectAfterLogin = localStorage.getItem('cmms_scan_redirect') || localStorage.getItem('pending_tag');
-    if (redirectAfterLogin) {
-      localStorage.removeItem('cmms_scan_redirect');
-      localStorage.removeItem('pending_tag');
-      
-      const targetUrl = redirectAfterLogin.startsWith('/') ? redirectAfterLogin : '/' + redirectAfterLogin;
-      window.location.href = targetUrl;
-    } else {
-      window.location.href = "/client-selector";
-    }
-  };
-
   // Check if a biometric fingerprint file is registered in the phone's local storage
   const registeredEmail = localStorage.getItem("biometry_registered_email");
   const hasBiometricsRegistered = !!registeredEmail;
@@ -55,7 +42,7 @@ export default function Login() {
       const success = await login(pin, email);
       setIsLoading(false);
       if (success) {
-        performRedirect();
+        window.location.href = "/client-selector";
       } else {
         alert("PIN o correo inválido");
       }
@@ -114,7 +101,7 @@ export default function Login() {
           const success = await biometricLogin(userEmail);
           setIsBiometricScanning(false);
           if (success) {
-            performRedirect();
+            window.location.href = "/client-selector";
             return;
           }
         }
@@ -131,7 +118,7 @@ export default function Login() {
       const success = await biometricLogin(userEmail);
       setIsBiometricScanning(false);
       if (success) {
-        performRedirect();
+        window.location.href = "/client-selector";
       } else {
         setBiometricError("Falló la verificación del archivo biométrico alojado en el teléfono. Por favor intente nuevamente.");
       }

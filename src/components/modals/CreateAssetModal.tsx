@@ -93,8 +93,8 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   }, [tagData, voltaje, corriente, ultimoMantenimiento, frecuenciaMantenimiento]);
 
   const activeClient = localStorage.getItem("active_client");
-  const clients = useLiveQuery(() => db.clientes.toArray()) || [];
-  const rawBranches = useLiveQuery(() => db.sucursales.toArray()) || [];
+  const clients = useLiveQuery(() => db.clients.toArray()) || [];
+  const rawBranches = useLiveQuery(() => db.branches.toArray()) || [];
 
   const currentClient = React.useMemo(() => {
     if (!activeClient) return null;

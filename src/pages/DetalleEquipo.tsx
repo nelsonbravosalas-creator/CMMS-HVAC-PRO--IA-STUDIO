@@ -54,18 +54,12 @@ type Tab = "info" | "historial" | "historico" | "documentos";
 
 export default function DetalleEquipo() {
   const { user, permisos } = useAuth();
-  const [, paramsLower] = useRoute<{ tag: string }>("/equipos/:tag");
-  const [, paramsUpper] = useRoute<{ tag: string }>("/EQUIPOS/:tag");
-  const params = paramsLower || paramsUpper;
+  const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
   const tag = params ? params.tag : undefined;
   
-  const [localEquipo, setLocalEquipo] = useState<any>(null);
-  const [localLoading, setLocalLoading] = useState(true);
-  const [errorLoading, setErrorLoading] = useState<string | null>(null);
-
   const assets = useAppStore(state => state.assets);
-  const loadingStore = useAppStore(state => state.isLoading);
-  const equipo = localEquipo;
+  const loading = useAppStore(state => state.isLoading);
+  const equipo = useMemo(() => assets.find(a => a.tag === tag), [assets, tag]);
 
   const { editAsset } = useAssets();
   
@@ -82,67 +76,6 @@ export default function DetalleEquipo() {
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    if (!tag) return;
-
-    let isMounted = true;
-    const fetchEquipo = async () => {
-      setLocalLoading(true);
-      setErrorLoading(null);
-      try {
-        // 1. Intentar cargar desde Dexie (offline-first)
-        const equipoDexie = await db.assets.where('tag').equals(tag).first();
-        if (equipoDexie) {
-          if (isMounted) {
-            setLocalEquipo(equipoDexie);
-            setLocalLoading(false);
-          }
-          return;
-        }
-
-        // 2. Si no existe en Dexie -> fetch a GET /api/assets?tag={tag}
-        const token = localStorage.getItem('cmms_token') || localStorage.getItem('token');
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-        
-        const response = await fetch(`/api/assets?tag=${encodeURIComponent(tag)}`, {
-          headers
-        });
-        
-        if (response.ok) {
-          const resData = await response.json();
-          if (resData.success && resData.data) {
-            if (isMounted) {
-              setLocalEquipo(resData.data);
-            }
-            // Guardar en Dexie para caché local offline
-            try {
-              await db.assets.put(resData.data);
-            } catch (err) {
-              console.warn("No se pudo guardar el equipo cargado de la API en Dexie:", err);
-            }
-          } else {
-            if (isMounted) setErrorLoading("No se encontró el equipo en el servidor");
-          }
-        } else {
-          if (isMounted) setErrorLoading(`Error al cargar equipo (${response.status})`);
-        }
-      } catch (err: any) {
-        console.error("Error cargando equipo por TAG:", err);
-        if (isMounted) setErrorLoading(err.message || 'Error desconocido');
-      } finally {
-        if (isMounted) setLocalLoading(false);
-      }
-    };
-
-    fetchEquipo();
-    return () => {
-      isMounted = false;
-    };
-  }, [tag]);
-
-  useEffect(() => {
     if (equipo) setFormData(equipo);
   }, [equipo]);
 
@@ -156,17 +89,16 @@ export default function DetalleEquipo() {
     }
   };
 
-  if (localLoading) {
+  if (loading) {
     return <div className="p-8 text-center text-slate-500 font-medium">Cargando datos del equipo...</div>;
   }
 
   if (!equipo) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-slate-200 animate-in fade-in">
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-slate-200">
         <AlertCircle className="w-16 h-16 text-slate-200 mb-4" />
         <h2 className="text-xl font-black text-slate-900 uppercase">Equipo No Encontrado</h2>
-        <p className="text-slate-500 text-sm mt-2 font-medium">El TAG solicitado no existe en nuestra base de datos maestra o local.</p>
-        {errorLoading && <p className="text-xs text-red-500 font-mono mt-1">Detalle: {errorLoading}</p>}
+        <p className="text-slate-500 text-sm mt-2 font-medium">El TAG solicitado no existe en nuestra base de datos maestra.</p>
         <Link href="/equipos">
           <button className="mt-8 px-6 py-2.5 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl">Volver al Inventario</button>
         </Link>
@@ -298,7 +230,7 @@ export default function DetalleEquipo() {
                    <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6">
                       <div className="flex items-center gap-3 pb-4 border-b border-slate-50">
                          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Layout className="w-4 h-4" /></div>
-                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Ubicación y Ciclo de Vida</h3>
+                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Ubicación y Vida Útil</h3>
                       </div>
                       <div className="space-y-4">
                          <ParamRow label="Área / Departamento" value={formData.area} field="area" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
@@ -306,10 +238,6 @@ export default function DetalleEquipo() {
                          <ParamRow label="Vida Útil (Años)" value={`${formData.vida_util}`} field="vida_util" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                          <ParamRow label="Voltaje / Corriente" value={`${formData.voltaje}V / ${formData.corriente}A`} field="voltaje" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                          <ParamRow label="Fecha Instalación" value={formData.fecha_instalacion || 'S/I'} field="fecha_instalacion" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
-                          <ParamRow label="Último Mantenimiento" value={formData.ultimo_mantenimiento || formData.fecha_ultimo_mantenimiento || 'S/I'} field="ultimo_mantenimiento" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
-                          <ParamRow label="Próximo Mantenimiento" value={formData.proximo_mantenimiento || formData.fecha_proxima_preventiva || 'S/I'} field="proximo_mantenimiento" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
-                          <ParamRow label="ID Cliente" value={formData.cliente_id || 'S/I'} field="cliente_id" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
-                          <ParamRow label="ID Sucursal" value={formData.sucursal_id || 'S/I'} field="sucursal_id" onChange={(f, v) => setFormData({...formData, [f]: v})} editable={isEditing} />
                       </div>
                    </div>
                 </div>

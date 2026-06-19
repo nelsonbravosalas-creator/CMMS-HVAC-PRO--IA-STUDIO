@@ -7,8 +7,9 @@ export default async function handler(req: any, res: any) {
 
   try {
     const sql = getDb();
-    const { correo, pin } = req.body;
-    if (!pin) return res.status(400).json({ success: false, error: 'PIN requerido' });
+    const correo = String(req.body.correo || req.body.email || '').trim();
+    const pin = String(req.body.pin || req.body.password || '').trim();
+    if (!correo || !pin) return res.status(400).json({ success: false, error: 'Correo y PIN requeridos' });
 
     const emailLower = correo ? correo.toLowerCase() : '';
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
@@ -17,7 +18,7 @@ export default async function handler(req: any, res: any) {
     if (emailLower) {
       const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
       const failuresCount = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${fifteenMinsAgo}`;
-
+      
       if (failuresCount[0] && failuresCount[0].count >= 5) {
         const oldestFailure = await sql`SELECT attempted_at FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${fifteenMinsAgo} ORDER BY attempted_at ASC LIMIT 1`;
         let delay = 900;
@@ -35,21 +36,12 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    let rows;
-    if (correo) {
-       rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
-    } else {
-      const failsByIp = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures
-        WHERE ip = ${ip} AND email = '' AND attempted_at > ${new Date(Date.now() - 15*60*1000)}`;
-      if (failsByIp[0]?.count >= 10) {
-        return res.status(401).json({ success: false, error: 'account_locked', retryAfter: 900 });
-      }
-      // Fallback: solo funciona con PINs en texto plano (sin bcrypt). Solo compatibilidad backward.
-      rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
-    }
-
+    const rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
+    
     if (rows.length === 0) {
-      await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
+      if (emailLower) {
+        await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
+      }
       return res.status(401).json({ success: false, error: 'Credenciales inválidas' });
     }
 
@@ -60,17 +52,23 @@ export default async function handler(req: any, res: any) {
 
     const storedPin = user.pin || (user.data && user.data.pin);
     let isMatch = false;
-
+    
     if (storedPin && storedPin.startsWith('$2')) {
        isMatch = bcrypt.compareSync(pin, storedPin);
     } else {
-       console.warn({ event: 'plain_pin_login', email: emailLower, ip });
+       if (process.env.NODE_ENV === 'production') {
+         console.warn({ event: "auth_plaintext_pin_rejected", email: emailLower, ip });
+         isMatch = false;
+       } else {
        isMatch = storedPin === pin;
+       }
     }
 
     if (!isMatch) {
-      await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
-      return res.status(401).json({ success: false, error: 'PIN inválido' });
+       if (emailLower) {
+         await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
+       }
+       return res.status(401).json({ success: false, error: 'PIN inválido' });
     }
 
     // Auth succeeded! Clear block counter
@@ -83,25 +81,11 @@ export default async function handler(req: any, res: any) {
       nombre: user.nombre || (user.data && user.data.nombre),
       correo: user.correo || (user.data && user.data.email) || correo,
       perfil: user.perfil || user.json_rol || (user.data && user.data.rol) || 'tecnico',
+      cliente_id: user.cliente_id || (user.data && user.data.cliente_id),
       activo: true
     };
-
-    const clienteIdForToken = user.cliente_id
-      || (user.data && (user.data.cliente_id || user.data.tenantId));
-
-    if (!clienteIdForToken) {
-      return res.status(403).json({
-        success: false,
-        error: 'Usuario sin tenant asignado. Contacte al administrador.'
-      });
-    }
-
-    const token = signToken({
-      id: returnUser.id,
-      perfil: returnUser.perfil,
-      clienteId: clienteIdForToken,
-      correo: returnUser.correo
-    });
+    
+    const token = signToken({ id: returnUser.id, perfil: returnUser.perfil, cliente_id: returnUser.cliente_id });
 
     return res.json({ success: true, user: returnUser, token });
   } catch (error: any) {

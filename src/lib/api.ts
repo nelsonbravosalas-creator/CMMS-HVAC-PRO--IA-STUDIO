@@ -1,54 +1,35 @@
-// URLS CANÓNICAS — alineadas con server.ts
+// URLS CANÓNICAS — estas son las únicas correctas
 export const API_ENDPOINTS = {
   // Activos / Equipos HVAC
-  assets:            '/api/assets',
-  assetById:         (id: string) => `/api/assets/${id}`,
+  assets:           '/api/assets',
+  assetById:        (id: string) => `/api/assets/${id}`,
 
-  // Órdenes de trabajo — vía v1 multi-tenant
-  workOrders:        (clienteId: string) => `/api/v1/${clienteId}/work-orders`,
-  workOrderById:     (clienteId: string, id: string) => `/api/v1/${clienteId}/work-orders/${id}`,
+  // Órdenes de trabajo — usar kebab-case, NO camelCase
+  workOrders:       '/api/work-orders',           // ← CORRECTO (no /api/workOrders)
+  workOrderById:    (id: string) => `/api/work-orders/${id}`,
+  workOrderComplete:(id: string) => `/api/work-orders/${id}/complete`,
 
-  // Mantenimiento preventivo — vía v1 multi-tenant
-  planning:          (clienteId: string) => `/api/v1/${clienteId}/planning`,
-  planningById:      (clienteId: string, id: string) => `/api/v1/${clienteId}/planning/${id}`,
+  // Mantenimiento preventivo
+  maintenance:      '/api/maintenance',
+  maintenanceById:  (id: string) => `/api/maintenance/${id}`,
+  maintenanceExec:  (id: string) => `/api/maintenance/${id}/execute`,
 
-  // Inventario / Repuestos — vía v1 multi-tenant
-  inventory:         (clienteId: string) => `/api/v1/${clienteId}/inventory`,
-  inventoryById:     (clienteId: string, id: string) => `/api/v1/${clienteId}/inventory/${id}`,
+  // Repuestos — usar /api/parts, NO /api/inventory
+  parts:            '/api/parts',                 // ← CORRECTO (no /api/inventory)
+  partById:         (id: string) => `/api/parts/${id}`,
+  partAdjust:       (id: string) => `/api/parts/${id}/adjust`,
 
-  // Activos por sucursal — vía v1 multi-tenant
-  branchAssets:      (clienteId: string, branchId: string) => `/api/v1/${clienteId}/branches/${branchId}/assets`,
-  branchAssetById:   (clienteId: string, branchId: string, id: string) => `/api/v1/${clienteId}/branches/${branchId}/assets/${id}`,
+  // Técnicos
+  technicians:      '/api/technicians',
+  technicianById:   (id: string) => `/api/technicians/${id}`,
 
-  // Sucursales
-  branches:          (clienteId: string) => `/api/v1/${clienteId}/branches`,
-  branchById:        (clienteId: string, id: string) => `/api/v1/${clienteId}/branches/${id}`,
+  // Dashboard
+  dashboardKpis:    '/api/dashboard/kpis',
+  dashboardUpcoming:'/api/dashboard/upcoming',
+  dashboardAlerts:  '/api/dashboard/alerts',
 
-  // Clientes
-  clients:           '/api/v1/clients',
-  clientById:        (id: string) => `/api/v1/clients/${id}`,
-
-  // Usuarios — vía generic table GET
-  users:             '/api/users',
-  technicians:       '/api/users?perfil=tecnico',
-
-  // Audit logs
-  auditLogs:         (clienteId: string) => `/api/v1/${clienteId}/audit-logs`,
-
-  // Sincronización bidireccional (push + pull en un solo ciclo)
-  sync:              '/api/sync',
-
-  // Lectura directa por tabla (GET only, requiere token)
-  tableGet:          (table: string) => `/api/${table}`,
-  tableGetSince:     (table: string, since: number) => `/api/${table}?since=${since}`,
-
-  // Exportar documentos
-  export:            '/api/export',
-
-  // OCR placa de equipo
-  ocr:               '/api/ocr',
-
-  // Health
-  health:            '/api/health',
-  healthDb:          '/api/health/db',
+  // Sync
+  syncPush:         '/api/sync/push',
+  syncPull:         '/api/sync/pull',
+  syncStatus:       '/api/sync/status',
 } as const;

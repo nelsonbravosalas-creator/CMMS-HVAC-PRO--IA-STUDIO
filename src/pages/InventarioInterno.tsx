@@ -43,8 +43,8 @@ export default function InventarioInterno() {
     nombre: "",
     codigo: "",
     categoria: "maquinas" as CategoriaInventario,
-    cantidad: 0,
-    unidad_medida: "unidades",
+    stock: 0,
+    unidad: "unidades",
     marca: "",
     modelo: "",
     estado: "disponible",
@@ -64,8 +64,8 @@ export default function InventarioInterno() {
 
   // Computed metrics
   const totalItems = items.length;
-  const totalStockVal = items.reduce((sum, item) => sum + (item.cantidad || 0), 0);
-  const limitWarningItems = items.filter(item => item.cantidad <= 3).length;
+  const totalStockVal = items.reduce((sum, item) => sum + (item.stock || 0), 0);
+  const limitWarningItems = items.filter(item => item.stock <= 3).length;
   const activeVehicles = items.filter(item => item.categoria === "vehiculos" && item.estado === "disponible").length;
 
   // Filter items
@@ -80,21 +80,21 @@ export default function InventarioInterno() {
   const handleStockChange = async (uuid_sync: string, increment: number) => {
     const item = await db.inventory.get(uuid_sync);
     if (!item) return;
-    const newStock = Math.max(0, (item.cantidad || 0) + increment);
-
+    const newStock = Math.max(0, (item.stock || 0) + increment);
+    
     await db.inventory.update(uuid_sync, {
-      cantidad: newStock,
+      stock: newStock,
       updated_at: Date.now(),
       sync_status: "pending_update"
     });
-
+    
     // Add transaction to Sync Queue
     await db.sync_queue.add({
       table: "inventory",
       uuid_sync,
       operation: "update",
       timestamp: Date.now(),
-      data: { ...item, cantidad: newStock }
+      data: { ...item, stock: newStock }
     });
     
     syncEngine.triggerSync();
@@ -106,8 +106,8 @@ export default function InventarioInterno() {
       nombre: "",
       codigo: "",
       categoria: "maquinas",
-      cantidad: 0,
-      unidad_medida: "unidades",
+      stock: 0,
+      unidad: "unidades",
       marca: "",
       modelo: "",
       estado: "disponible",
@@ -122,8 +122,8 @@ export default function InventarioInterno() {
       nombre: item.nombre,
       codigo: item.codigo,
       categoria: item.categoria,
-      cantidad: item.cantidad,
-      unidad_medida: item.unidad_medida,
+      stock: item.stock,
+      unidad: item.unidad,
       marca: item.marca || "",
       modelo: item.modelo || "",
       estado: item.estado || "disponible",
@@ -163,8 +163,8 @@ export default function InventarioInterno() {
       nombre: formData.nombre,
       codigo: formData.codigo,
       categoria: formData.categoria,
-      cantidad: Number(formData.cantidad),
-      unidad_medida: formData.unidad_medida,
+      stock: Number(formData.stock),
+      unidad: formData.unidad,
       marca: formData.marca,
       modelo: formData.modelo,
       estado: formData.estado,
@@ -317,7 +317,7 @@ export default function InventarioInterno() {
         {filteredItems.map((item) => {
           const categoryMeta = CATEGORIAS[item.categoria];
           const CategoryIcon = categoryMeta?.icon || Package;
-          const isLowStock = item.cantidad <= 3;
+          const isLowStock = item.stock <= 3;
 
           return (
             <motion.div 
@@ -353,8 +353,8 @@ export default function InventarioInterno() {
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                   <div className="text-center px-2">
-                    <span className={`text-base font-black ${isLowStock ? 'text-rose-600' : 'text-slate-800'}`}>{item.cantidad}</span>
-                    <span className="text-[10px] text-slate-400 block font-bold leading-3 uppercase">{item.unidad_medida}</span>
+                    <span className={`text-base font-black ${isLowStock ? 'text-rose-600' : 'text-slate-800'}`}>{item.stock}</span>
+                    <span className="text-[10px] text-slate-400 block font-bold leading-3 uppercase">{item.unidad}</span>
                   </div>
                   <button 
                     onClick={() => handleStockChange(item.uuid_sync, 1)}
@@ -462,8 +462,8 @@ export default function InventarioInterno() {
                     <input 
                       type="number" 
                       min="0"
-                      value={formData.cantidad}
-                      onChange={(e) => setFormData({ ...formData, cantidad: Number(e.target.value) })}
+                      value={formData.stock}
+                      onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
                       className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -472,8 +472,8 @@ export default function InventarioInterno() {
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-1">Unidad de Medida</label>
                     <input 
                       type="text" 
-                      value={formData.unidad_medida}
-                      onChange={(e) => setFormData({ ...formData, unidad_medida: e.target.value })}
+                      value={formData.unidad}
+                      onChange={(e) => setFormData({ ...formData, unidad: e.target.value })}
                       placeholder="Ej: unidades, metros, kit"
                       className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />

@@ -1,10 +1,8 @@
-import { LocalCliente } from '../db/database';
-
 export type ExportMethod = 'email' | 'whatsapp' | 'share';
 
 export interface ExportPayload {
   documentId: string;
-  documentType: 'maintenance' | 'work_order' | 'ticket' | 'efficiency_report';
+  documentType: 'maintenance' | 'work_order' | 'ticket' | 'efficiency_report' | 'reports';
   method: ExportMethod;
   clientId?: string;
   clientName?: string;
@@ -23,6 +21,7 @@ export class DocumentExportService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(sessionStorage.getItem('auth_token') ? { Authorization: `Bearer ${sessionStorage.getItem('auth_token')}` } : {}),
         },
         body: JSON.stringify(payload),
       });

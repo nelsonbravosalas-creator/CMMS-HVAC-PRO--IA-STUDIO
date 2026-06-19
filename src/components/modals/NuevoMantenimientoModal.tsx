@@ -158,6 +158,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
         await createMantenimiento({
           id: docId,
           equipo_tag: equipoTag,
+          cliente_id: existingAsset.cliente_id || localStorage.getItem("active_client") || undefined,
           tipo: tipoServicio.toLowerCase(),
           estado: estadoFinal.toLowerCase() as 'ejecutado' | 'en_proceso' | 'cancelado' | 'observado',
           fecha: fechaActual,

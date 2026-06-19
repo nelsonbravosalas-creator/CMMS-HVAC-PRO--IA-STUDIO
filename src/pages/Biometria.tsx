@@ -37,27 +37,32 @@ export default function Biometria() {
   const [hardwareDetected, setHardwareDetected] = useState(true);
   const [biometriaError, setBiometriaError] = useState("");
   const [scanTimeoutCountdown, setScanTimeoutCountdown] = useState<number | null>(null);
+  const currentUserEmail = currentUser?.email || "";
+  const currentUserName = currentUser?.nombre || "Usuario";
 
   useEffect(() => {
     // Get currently logged-in user from store or db
     const loadCurrentUser = async () => {
-      const email = localStorage.getItem("current_user_email") || "nelson@example.com";
-      const user = await db.users.where("correo").equalsIgnoreCase(email).first();
+      const savedAuthUser = localStorage.getItem("auth_user");
+      const parsedAuthUser = savedAuthUser ? JSON.parse(savedAuthUser) : null;
+      const email = parsedAuthUser?.correo || parsedAuthUser?.email || localStorage.getItem("current_user_email");
+      if (!email) return;
+
+      const user = await db.users.where("email").equalsIgnoreCase(email).first();
       if (user) {
         setCurrentUser(user);
         // Check if biometry is already configured in localdb data (simulated or real)
-        if (localStorage.getItem(`biometry_active_${user.correo}`) === "true") {
+        if (localStorage.getItem(`biometry_active_${user.email}`) === "true") {
           setBiometryStatus("registered");
         }
-      } else {
-        // Fallback default
+      } else if (parsedAuthUser) {
         setCurrentUser({
-          nombre: "Nelson Bravo",
-          correo: "nelson.bravo.salas@gmail.com",
-          perfil: "Administrador / Auditor",
-          id: "1"
+          nombre: parsedAuthUser.nombre,
+          email,
+          rol: parsedAuthUser.perfil,
+          id: parsedAuthUser.id
         });
-        if (localStorage.getItem(`biometry_active_nelson.bravo.salas@gmail.com`) === "true") {
+        if (localStorage.getItem(`biometry_active_${email}`) === "true") {
           setBiometryStatus("registered");
         }
       }
@@ -89,8 +94,13 @@ export default function Biometria() {
 
     try {
       // Find current user in dexie to compare current pin
-      const email = currentUser?.correo || "nelson.bravo.salas@gmail.com";
-      const dbUser = await db.users.where("correo").equalsIgnoreCase(email).first();
+      const email = currentUserEmail;
+      if (!email) {
+        setPinError("No hay usuario autenticado para actualizar el PIN.");
+        setIsSavingPin(false);
+        return;
+      }
+      const dbUser = await db.users.where("email").equalsIgnoreCase(email).first();
       
       if (dbUser) {
         // Check current pin
@@ -133,8 +143,8 @@ export default function Biometria() {
         const newUserIdx = {
           id: "U1",
           nombre: currentUser?.nombre || "Nelson Bravo",
-          correo: email,
-          perfil: "administrador",
+          email: email,
+          rol: "administrador",
           pin: hashedNewPin,
           activo: true,
           updated_at: Date.now(),
@@ -184,8 +194,8 @@ export default function Biometria() {
             },
             user: {
               id: userId,
-              name: currentUser?.correo || "nelson.bravo.salas@gmail.com",
-              displayName: currentUser?.nombre || "Nelson Bravo",
+              name: currentUserEmail,
+              displayName: currentUserName,
             },
             pubKeyCredParams: [
               { type: "public-key", alg: -7 }, // ES256
@@ -204,8 +214,9 @@ export default function Biometria() {
           clearInterval(timer);
           setScanTimeoutCountdown(null);
           const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
-          const userEmail = currentUser?.correo || "nelson.bravo.salas@gmail.com";
-
+          const userEmail = currentUserEmail;
+          if (!userEmail) return;
+          
           // Guardamos "el archivo con la identificación de la huella" en localStorage del teléfono/navegador
           localStorage.setItem(`biometry_credential_id_${userEmail}`, credentialId);
           localStorage.setItem(`biometry_active_${userEmail}`, "true");
@@ -246,7 +257,8 @@ export default function Biometria() {
       } else {
         // Registro finalizado mediante calibración local certificada
         setBiometryStatus("registered");
-        const userEmail = currentUser?.correo || "nelson.bravo.salas@gmail.com";
+        const userEmail = currentUserEmail;
+        if (!userEmail) return;
         const simulatedCredId = `SIM_FINGERPRINT_${userEmail.toUpperCase()}_${Date.now()}`;
         
         // Guardar el archivo simulado de huella digital en local storage
@@ -259,7 +271,8 @@ export default function Biometria() {
 
   const removeBiometry = () => {
     setBiometryStatus("not_configured");
-    const userEmail = currentUser?.correo || "nelson.bravo.salas@gmail.com";
+    const userEmail = currentUserEmail;
+    if (!userEmail) return;
     localStorage.removeItem(`biometry_active_${userEmail}`);
     localStorage.removeItem(`biometry_credential_id_${userEmail}`);
     if (localStorage.getItem("biometry_registered_email") === userEmail) {
@@ -299,11 +312,11 @@ export default function Biometria() {
         <div className="lg:col-span-1 bg-white p-6 rounded-[32px] border border-slate-200 shadow-sm self-start flex flex-col gap-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black text-lg">
-              {currentUser?.nombre ? currentUser.nombre.split(' ').map((n: string) => n[0]).join('').substring(0, 2) : "NB"}
+              {currentUserName ? currentUserName.split(' ').map((n: string) => n[0]).join('').substring(0, 2) : "US"}
             </div>
             <div>
-              <h4 className="text-base font-black text-slate-900 uppercase tracking-tight">{currentUser?.nombre || "Nelson Bravo"}</h4>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentUser?.correo || "nelson.bravo.salas@gmail.com"}</p>
+              <h4 className="text-base font-black text-slate-900 uppercase tracking-tight">{currentUserName}</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{currentUserEmail || "Sin usuario autenticado"}</p>
             </div>
           </div>
 
@@ -313,7 +326,7 @@ export default function Biometria() {
             <div>
               <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Rol Operativo</span>
               <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg uppercase tracking-wide inline-block">
-                {currentUser?.perfil || "administrador"}
+                {currentUser?.rol || "administrador"}
               </span>
             </div>
             
@@ -445,8 +458,8 @@ export default function Biometria() {
                         <div className="w-full max-w-md bg-slate-950 text-slate-300 p-5 rounded-2xl mb-8 text-left font-mono text-[10px] space-y-2 border border-slate-800 shadow-inner">
                           <span className="text-emerald-500 block font-bold mb-2">// ARCHIVO BIOMÉTRICO EN LOCALSTORAGE:</span>
                           <div><strong className="text-slate-500">Ruta:</strong> <span className="text-slate-300">localStorage.getItem("biometry_credential_id")</span></div>
-                          <div className="truncate"><strong className="text-slate-500">Identificador (ID):</strong> <span className="text-slate-300">{localStorage.getItem(`biometry_credential_id_${currentUser?.correo || "nelson.bravo.salas@gmail.com"}`) || "SIM_FINGERPRINT_ACTIVE"}</span></div>
-                          <div><strong className="text-slate-500">Usuario Asociado:</strong> <span className="text-slate-300">{currentUser?.correo || "nelson.bravo.salas@gmail.com"}</span></div>
+                          <div className="truncate"><strong className="text-slate-500">Identificador (ID):</strong> <span className="text-slate-300">{currentUserEmail ? localStorage.getItem(`biometry_credential_id_${currentUserEmail}`) : ""}</span></div>
+                          <div><strong className="text-slate-500">Usuario Asociado:</strong> <span className="text-slate-300">{currentUserEmail}</span></div>
                           <div><strong className="text-slate-500">Estado de llave:</strong> <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md text-[9px] uppercase tracking-wider font-bold ml-1">Activo local</span></div>
                         </div>
                         

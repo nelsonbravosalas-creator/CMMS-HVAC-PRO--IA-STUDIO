@@ -1,14 +1,17 @@
 /**
  * Contexto de Autenticación y Autorización.
  * Centraliza el estado del usuario logueado y sus capacidades (permisos).
- *
+ * 
  * @module context/AuthContext
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL, Perfil } from '../types';
 import bcrypt from 'bcryptjs';
-import { useAuthStore } from '../store/useAuthStore';
+
+/**
+ * Definición del contrato del contexto de autenticación.
+ */
 import { db } from '../db/database';
 
 interface AuthContextType {
@@ -22,8 +25,6 @@ interface AuthContextType {
   biometricLogin: (correo: string) => Promise<boolean>;
   /** Función para destruir la sesión actual. */
   logout: () => void;
-  /** True cuando el usuario está autenticado pero sin token JWT (login offline). La sincronización no estará disponible. */
-  isOfflineSession: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,18 +51,20 @@ export function normalizePerfil(rol: string | undefined | null): Perfil {
  * Envuelve la aplicación para inyectar los datos del usuario.
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [sessionHasToken, setSessionHasToken] = useState(() =>
-    !!(localStorage.getItem('auth_token') || localStorage.getItem('cmms_token'))
-  );
-
   const [user, setUser] = useState<Usuario | null>(() => {
-    const savedUserJson = localStorage.getItem('auth_user');
-
-    // Sesión corrupta: limpiar y forzar re-login
+    // Intentar recuperar sesión persistida desde localStorage de forma segura
+    let savedUserJson = localStorage.getItem('auth_user');
+    
     if (localStorage.getItem('is_authenticated') === 'true' && !savedUserJson) {
       localStorage.removeItem('is_authenticated');
       localStorage.removeItem('auth_token');
-      localStorage.removeItem('cmms_token');
+      sessionStorage.removeItem('auth_token');
+    }
+    localStorage.removeItem('auth_token');
+
+    if (savedUserJson && !sessionStorage.getItem('auth_token')) {
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('is_authenticated');
       return null;
     }
 
@@ -79,55 +82,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return null;
   });
-
-  const permisos = user ? (PERMISOS_POR_PERFIL[user.perfil] || PERMISOS_POR_PERFIL.visita) : null;
+  
+  /** Derivación reactiva de permisos basada en el perfil del usuario con fallback a administrador en caso de desajuste */
+  const permisos = user ? (PERMISOS_POR_PERFIL[user.perfil] || PERMISOS_POR_PERFIL.administrador) : null;
 
   /**
    * Intenta loguear un usuario buscando coincidencias de PIN en la base de datos (o localmente offline).
    */
   const login = async (pin: string, correo: string): Promise<boolean> => {
+    const normalizedCorreo = correo.trim().toLowerCase();
+    const normalizedPin = pin.trim();
+
     // 1. Intentar login contra API real (email + PIN)
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, correo })
+        body: JSON.stringify({ pin: normalizedPin, correo: normalizedCorreo, email: normalizedCorreo })
       });
       const json = await response.json();
       if (json.success && json.user) {
-        const normalizedPerfil = normalizePerfil(json.user.perfil);
+        const normalizedPerfil = normalizePerfil(json.user.perfil || json.user.rol);
         const loggedUser: Usuario = {
           id: json.user.id,
           nombre: json.user.nombre,
-          correo: json.user.correo || correo,
+          correo: json.user.correo || normalizedCorreo,
           perfil: normalizedPerfil,
           activo: json.user.activo,
           puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
-          pin: '***'
+          pin: '***' // No guardamos el PIN real en el objeto del estado por seguridad
         };
 
         setUser(loggedUser);
-
+        
+        // Guardar para persistencia síncrona en recarga de página
         localStorage.setItem('auth_user', JSON.stringify(loggedUser));
         localStorage.setItem('is_authenticated', 'true');
         if (json.token) {
-          localStorage.setItem('auth_token', json.token);
-          localStorage.setItem('cmms_token', json.token);
-          setSessionHasToken(true);
-          useAuthStore.getState().login(
-            { id: loggedUser.id, nombre: loggedUser.nombre, correo: loggedUser.correo, perfil: loggedUser.perfil },
-            json.token
-          );
+          sessionStorage.setItem('auth_token', json.token);
+          localStorage.removeItem('auth_token');
         }
 
-        // Guardar hash del PIN en IndexedDB para fallback offline
-        const pinHash = bcrypt.hashSync(pin, 10);
-        const existingLocalUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
+        // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline
+        const pinHash = bcrypt.hashSync(normalizedPin, 10);
+        const existingLocalUser = await db.users.where('email').equalsIgnoreCase(normalizedCorreo).first();
         if (existingLocalUser) {
           await db.users.update(existingLocalUser.uuid_sync, {
             id: json.user.id || existingLocalUser.id,
             nombre: json.user.nombre || existingLocalUser.nombre,
-            perfil: loggedUser.perfil,
+            rol: loggedUser.perfil,
             pin: pinHash,
             activo: true,
             updated_at: Date.now()
@@ -137,8 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             uuid_sync: crypto.randomUUID(),
             id: json.user.id || `U-${Date.now()}`,
             nombre: json.user.nombre,
-            correo: correo,
-            perfil: loggedUser.perfil,
+            email: normalizedCorreo,
+            rol: loggedUser.perfil,
             pin: pinHash,
             activo: true,
             updated_at: Date.now(),
@@ -151,32 +154,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('API no disponible o error de red, intentando login offline...', networkError);
     }
 
-    // Fallback offline-first: Buscar usuario en la tabla 'users' de Dexie/IndexedDB
+    // Fallback offline-first: solo valida credenciales locales, no abre sesión sin token emitido por el servidor.
     try {
-      const localUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
-      if (localUser && localUser.activo && localUser.pin) {
-        const storedPin = localUser.pin;
-        const isMatch = storedPin.startsWith('$2')
-          ? bcrypt.compareSync(pin, storedPin)
-          : storedPin === pin;
+      const localUser = await db.users.where('email').equalsIgnoreCase(normalizedCorreo).first();
+      if (localUser && localUser.activo) {
+        // Validar el PIN contra el bcrypt hash almacenado
+        const isMatch = localUser.pin.startsWith('$2')
+          ? bcrypt.compareSync(normalizedPin, localUser.pin)
+          : localUser.pin === normalizedPin;
 
-        if (isMatch) {
-          const normalizedPerfil = normalizePerfil(localUser.perfil);
-          const loggedUser: Usuario = {
-            id: localUser.id || localUser.uuid_sync,
-            nombre: localUser.nombre,
-            correo: localUser.correo,
-            perfil: normalizedPerfil,
-            activo: localUser.activo,
-            puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
-            pin: '***'
-          };
-
-          setUser(loggedUser);
-          localStorage.setItem('auth_user', JSON.stringify(loggedUser));
-          localStorage.setItem('is_authenticated', 'true');
-          return true;
-        }
+        if (isMatch) return false;
       }
     } catch (dbError) {
       console.error('Error durante autenticación offline contra IndexedDB', dbError);
@@ -186,18 +173,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const biometricLogin = async (correo: string): Promise<boolean> => {
-    // Limpiar token previo para evitar cross-session sync (AUTH-02)
-    useAuthStore.getState().logout();
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('cmms_token');
     try {
-      const localUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
+      if (!sessionStorage.getItem('auth_token')) {
+        return false;
+      }
+      const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
       if (localUser && localUser.activo) {
-        const normalizedPerfil = normalizePerfil(localUser.perfil);
+        const normalizedPerfil = normalizePerfil(localUser.rol);
         const loggedUser: Usuario = {
           id: localUser.id || localUser.uuid_sync,
           nombre: localUser.nombre,
-          correo: localUser.correo,
+          correo: localUser.email,
           perfil: normalizedPerfil,
           activo: localUser.activo,
           puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
@@ -217,11 +203,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(() => {
     setUser(null);
-    setSessionHasToken(false);
-    useAuthStore.getState().logout();
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('cmms_token');
+    sessionStorage.removeItem('auth_token');
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
   }, []);
@@ -232,6 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const resetTimer = () => {
       clearTimeout(inactivityTimer);
+      // 30 minutes in milliseconds = 30 * 60 * 1000 = 1800000
       inactivityTimer = setTimeout(() => {
         if (user) {
           console.log("30 minutes of inactivity detected. Automatically logging out to prevent processing costs.");
@@ -243,7 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       resetTimer();
       const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-
+      
       events.forEach(event => document.addEventListener(event, resetTimer, { passive: true }));
 
       return () => {
@@ -253,10 +238,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, logout]);
 
-  const isOfflineSession = user !== null && !sessionHasToken;
-
   return (
-    <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout, isOfflineSession }}>
+    <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout }}>
       {children}
     </AuthContext.Provider>
   );

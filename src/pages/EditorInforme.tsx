@@ -48,7 +48,6 @@ import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { jsPDF } from "jspdf";
-import * as XLSX from "xlsx";
 import { GoogleGenAI } from "@google/genai";
 import { db, SyncStatus } from "../db/database";
 
@@ -81,6 +80,31 @@ interface ChecklistEvidence {
   };
 }
 
+interface SavedSignatures {
+  tecnico?: string;
+  cliente?: string;
+}
+
+function isCanvasBlank(canvas: HTMLCanvasElement | null) {
+  if (!canvas) return true;
+  const blank = document.createElement('canvas');
+  blank.width = canvas.width;
+  blank.height = canvas.height;
+  return canvas.toDataURL() === blank.toDataURL();
+}
+
+function drawSignatureOnCanvas(canvas: HTMLCanvasElement | null, dataUrl?: string) {
+  if (!canvas || !dataUrl) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const img = new Image();
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  };
+  img.src = dataUrl;
+}
+
 const CHECKLIST_ITEMS = [
   "Inspección visual general", "Limpieza de filtros", "Instalacion filtros Desechables", "Limpieza de evaporador", "Limpieza de condensador",
   "Limpieza de bandejas", "Bomba de condensado", "Verificación de desagüe", "Revisión de ventiladores", "Verificación de correas",
@@ -102,6 +126,7 @@ export default function EditorInforme() {
   const [appLogo] = useState<string | null>(() => localStorage.getItem("system_logo"));
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
   const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('cliente');
+  const [savedFirmas, setSavedFirmas] = useState<SavedSignatures>({});
   const [status, setStatus] = useState<'borrador' | 'firmado' | 'bloqueado' | 'offline_draft'>(informe?.estado as any || 'offline_draft');
   const [loadingAI, setLoadingAI] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -137,6 +162,8 @@ export default function EditorInforme() {
 
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
+  const activeClientId = localStorage.getItem("active_client") || "";
+  const activeClient = clients.find(c => c.uuid_sync === activeClientId || c.id === activeClientId);
 
   const SECTIONS = [
     { id: 'general', label: 'Datos Generales', icon: <Info className="w-4 h-4" /> },
@@ -175,23 +202,15 @@ export default function EditorInforme() {
                    <label className="text-[10px] font-black uppercase text-slate-400">Cliente / Instalación</label>
                    <SearchableSelect
                       options={[
-                        { value: "", label: "Seleccione un cliente..." },
-                        ...(() => {
-                          const activeClientId = localStorage.getItem("active_client");
-                          const filteredClients = clients.filter(c => !c.deleted_at);
-                          if (activeClientId) {
-                            return filteredClients.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
-                          }
-                          return filteredClients;
-                        })().map(c => ({
-                          value: c.uuid_sync,
-                          label: c.nombre
-                        }))
+                        ...(activeClient ? [{
+                          value: activeClient.uuid_sync,
+                          label: activeClient.nombre
+                        }] : [])
                       ]}
-                      value={generalData.cliente}
-                      onChange={val => setGeneralData({...generalData, cliente: val, sucursal: ''})}
-                      disabled={isReadOnly}
-                      placeholder="Seleccione un cliente..."
+                      value={activeClient?.uuid_sync || activeClientId}
+                      onChange={() => undefined}
+                      disabled
+                      placeholder="Cliente seleccionado en la sesión"
                     />
                 </div>
                 <div className="space-y-1">
@@ -618,6 +637,7 @@ export default function EditorInforme() {
                          {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
                              const ctx = canvasTecRef.current?.getContext('2d');
                              ctx?.clearRect(0, 0, canvasTecRef.current?.width || 0, canvasTecRef.current?.height || 0);
+                             setSavedFirmas(prev => ({ ...prev, tecnico: undefined }));
                          }}>Borrar</button>}
                       </div>
                    </div>
@@ -640,10 +660,16 @@ export default function EditorInforme() {
                          {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
                              const ctx = canvasCliRef.current?.getContext('2d');
                              ctx?.clearRect(0, 0, canvasCliRef.current?.width || 0, canvasCliRef.current?.height || 0);
+                             setSavedFirmas(prev => ({ ...prev, cliente: undefined }));
                          }}>Borrar</button>}
                      </div>
                   </div>
-                   <InputField label="Nombre de quien recibe" value="Gonzalo Bravo" readOnly={isReadOnly} />
+                   <InputField
+                     label="Nombre de quien recibe"
+                     value={generalData.nombreCliente || ""}
+                     onChange={(value) => setGeneralData({ ...generalData, nombreCliente: value })}
+                     readOnly={isReadOnly}
+                   />
                 </div>
              </SectionBox>
           </div>
@@ -661,6 +687,7 @@ export default function EditorInforme() {
     direccion: '',
     fecha: new Date().toISOString().split('T')[0],
     tecnico: 'Nelson Bravo',
+    nombreCliente: '',
     tipoServicio: 'Preventivo',
     folio: ''
   });
@@ -708,6 +735,7 @@ export default function EditorInforme() {
             direccion: '',
             fecha: new Date().toISOString().split('T')[0],
             tecnico: 'Nelson Bravo',
+            nombreCliente: '',
             tipoServicio: 'Preventivo',
             folio: ''
           },
@@ -746,12 +774,19 @@ export default function EditorInforme() {
     
     db.reports.get(id).then(dbReport => {
       if (dbReport && dbReport.data) {
+        const reportClient = dbReport.data.generalData?.cliente;
+        if (activeClientId && reportClient && reportClient !== activeClientId && reportClient !== activeClient?.id) {
+          alert("Este informe pertenece a otro cliente. Cambie de cliente desde el selector para abrirlo.");
+          setLocation("/informes");
+          return;
+        }
         setGeneralData(prev => ({ ...prev, ...dbReport.data.generalData }));
         if (dbReport.data.machineData) setMachineData(dbReport.data.machineData);
         if (dbReport.data.circuits) setCircuits(dbReport.data.circuits);
         if (dbReport.data.checklist) setChecklist(dbReport.data.checklist);
         if (dbReport.data.observaciones) setObservaciones(dbReport.data.observaciones);
         if (dbReport.data.galeria) setGaleria(dbReport.data.galeria);
+        if (dbReport.data.firmas) setSavedFirmas(dbReport.data.firmas);
         if (dbReport.data.estado) setStatus(dbReport.data.estado);
       } else {
         const activeClient = localStorage.getItem("active_client");
@@ -760,7 +795,16 @@ export default function EditorInforme() {
         }
       }
     }).catch(console.error);
-  }, [id]);
+  }, [id, activeClientId, activeClient?.id, setLocation]);
+
+  useEffect(() => {
+    if (!activeClientId || status === 'firmado' || status === 'bloqueado') return;
+    setGeneralData(prev => prev.cliente === activeClientId ? prev : {
+      ...prev,
+      cliente: activeClientId,
+      sucursal: prev.cliente && prev.cliente !== activeClientId ? '' : prev.sucursal
+    });
+  }, [activeClientId, status]);
 
   // Persist Changes to DB (Autosave - LOCAL ONLY, do not enqueue sync queue here to prevent spamming the server/queue)
   useEffect(() => {
@@ -791,28 +835,36 @@ export default function EditorInforme() {
   // Main Save / Publish / Sync Function
   const saveReport = async (finalStatus: 'borrador' | 'firmado' | 'bloqueado' | 'offline_draft') => {
     // Generate folio if not exists
+    const activeClient = localStorage.getItem("active_client") || '';
     const currentFolio = generalData.folio || (finalStatus === 'firmado' ? `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}` : `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`);
+    const normalizedGeneralData = {
+      ...generalData,
+      cliente: generalData.cliente || activeClient,
+      folio: currentFolio,
+      ubicacionGeografica
+    };
 
     const existing = await db.reports.get(id);
 
     const reportData = {
       id: currentFolio,
       uuid_sync: id,
+      cliente_id: normalizedGeneralData.cliente,
       updated_at: Date.now(),
       sync_status: (existing ? 'pending_update' : 'pending_insert') as SyncStatus,
       data: {
         estado: finalStatus,
         status: finalStatus,
-        generalData: { ...generalData, folio: currentFolio, ubicacionGeografica },
+        generalData: normalizedGeneralData,
         machineData,
         circuits,
         checklist,
         observaciones,
         galeria,
         firmas: finalStatus === 'firmado' ? {
-          tecnico: canvasTecRef.current?.toDataURL() || '',
-          cliente: canvasCliRef.current?.toDataURL() || ''
-        } : existing?.data?.firmas,
+          tecnico: getSignatureDataUrl('tecnico') || '',
+          cliente: getSignatureDataUrl('cliente') || ''
+        } : (savedFirmas.tecnico || savedFirmas.cliente ? savedFirmas : existing?.data?.firmas),
         fechaSincronizacionLocal: new Date().toISOString()
       }
     };
@@ -820,7 +872,8 @@ export default function EditorInforme() {
     // 1. Guardar local y encolar sync_queue usando reportsRepo
     await reportsRepo.save(reportData as any);
     
-    setGeneralData(prev => ({ ...prev, folio: currentFolio }));
+    setSavedFirmas(reportData.data.firmas || {});
+    setGeneralData(prev => ({ ...prev, cliente: prev.cliente || activeClient, folio: currentFolio }));
     setStatus(finalStatus);
 
     // 2. Trigger sync background task if online
@@ -838,16 +891,29 @@ export default function EditorInforme() {
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
 
-    const isCanvasEmpty = (canvas: HTMLCanvasElement | null) => {
-      if (!canvas) return true;
-      const blank = document.createElement('canvas');
-      blank.width = canvas.width;
-      blank.height = canvas.height;
-      return canvas.toDataURL() === blank.toDataURL();
-    };
-
-    if (isCanvasEmpty(canvasTecRef.current)) {
+    if (!getSignatureDataUrl('tecnico')) {
       alert("Error: No es posible finalizar: falta la firma del técnico.");
+      setIsSyncing(false);
+      return;
+    }
+    if (!generalData.cliente && !localStorage.getItem("active_client")) {
+      alert("Error: No es posible finalizar: falta seleccionar cliente.");
+      setIsSyncing(false);
+      return;
+    }
+    if (!machineData.tag.trim()) {
+      alert("Error: No es posible finalizar: falta TAG de equipo.");
+      setIsSyncing(false);
+      return;
+    }
+    if (!generalData.tecnico.trim()) {
+      alert("Error: No es posible finalizar: falta técnico responsable.");
+      setIsSyncing(false);
+      return;
+    }
+    const hasChecklist = Object.values(checklist).some(item => item.status || item.findings || item.photos?.length);
+    if (!hasChecklist && !observaciones.trim()) {
+      alert("Error: No es posible finalizar: registre checklist u observaciones.");
       setIsSyncing(false);
       return;
     }
@@ -865,7 +931,7 @@ export default function EditorInforme() {
         
         const exportResult = await DocumentExportService.exportDocument({
           documentId: currentFolio,
-          documentType: 'efficiency_report',
+          documentType: 'reports',
           method: 'email',
           clientName: generalData.cliente,
           assetTag: machineData.tag,
@@ -874,7 +940,7 @@ export default function EditorInforme() {
         alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\n${exportResult.message}`);
       } catch (exportError: any) {
         console.warn("Exportación fallida", exportError);
-        alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\nNota: No se pudo enviar el correo: ${exportError.message}`);
+        alert(`Informe firmado exitosamente. Folio: ${currentFolio}\nLa notificación por correo no está disponible en este entorno.`);
       }
     } catch (saveError: any) {
       console.error(saveError);
@@ -920,6 +986,14 @@ export default function EditorInforme() {
 
   const canvasTecRef = useRef<HTMLCanvasElement>(null);
   const canvasCliRef = useRef<HTMLCanvasElement>(null);
+
+  function getSignatureDataUrl(type: 'tecnico' | 'cliente') {
+    const canvas = type === 'tecnico' ? canvasTecRef.current : canvasCliRef.current;
+    if (canvas && !isCanvasBlank(canvas)) {
+      return canvas.toDataURL();
+    }
+    return type === 'tecnico' ? savedFirmas.tecnico : savedFirmas.cliente;
+  }
 
   // Generador de Informe Premium con Estructura Climasol
   const generateClimasolPDF = async (forcedFolio?: string) => {
@@ -1588,7 +1662,7 @@ export default function EditorInforme() {
     doc.roundedRect(10, y2, signBoxW, signBoxH, 1, 1, "DF");
     
     // Draw signature image if present
-    const sigTecVal = canvasTecRef.current?.toDataURL();
+    const sigTecVal = getSignatureDataUrl('tecnico');
     if (sigTecVal) {
       try {
         doc.addImage(sigTecVal, 'PNG', 12, y2 + 2, signBoxW - 4, signBoxH - 10);
@@ -1610,7 +1684,7 @@ export default function EditorInforme() {
     doc.setDrawColor(226, 232, 240);
     doc.roundedRect(10 + signBoxW + colGap, y2, signBoxW, signBoxH, 1, 1, "DF");
 
-    const sigCliVal = canvasCliRef.current?.toDataURL();
+    const sigCliVal = getSignatureDataUrl('cliente');
     if (sigCliVal) {
       try {
         doc.addImage(sigCliVal, 'PNG', 10 + signBoxW + colGap + 2, y2 + 2, signBoxW - 4, signBoxH - 10);
@@ -1621,7 +1695,7 @@ export default function EditorInforme() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(30, 41, 59);
-    doc.text("Firma Cliente de Conformidad: Gonzalo Bravo", 10 + signBoxW + colGap + 4, y2 + signBoxH - 5);
+    doc.text(`Firma Cliente de Conformidad: ${generalData.nombreCliente || '—'}`, 10 + signBoxW + colGap + 4, y2 + signBoxH - 5);
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139);
@@ -1643,8 +1717,8 @@ export default function EditorInforme() {
     doc.save(`Informe_Climasol_${machineData.tag}_${generalData.fecha}.pdf`);
   };
 
-  // Export Excel
-  const handleExportExcel = () => {
+  // Export CSV
+  const handleExportCsv = () => {
     const data = [
       ["CLIENTE", generalData.cliente],
       ["SUCURSAL", generalData.sucursal],
@@ -1654,10 +1728,16 @@ export default function EditorInforme() {
       ["MODELO", machineData.modelo],
       ["HALLAZGOS", observaciones]
     ];
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Informe");
-    XLSX.writeFile(wb, `Informe_${machineData.tag}.xlsx`);
+    const csv = data
+      .map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `Informe_${machineData.tag}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const renderIndustrialPreview = () => {
@@ -2082,8 +2162,8 @@ export default function EditorInforme() {
                 {/* Tech */}
                 <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
                   <div className="h-16 flex items-center justify-center bg-white border border-slate-100 rounded-xl overflow-hidden p-2">
-                    {canvasTecRef.current?.toDataURL() ? (
-                      <img src={canvasTecRef.current.toDataURL()} alt="Firma Técnico" className="h-full object-contain" />
+                    {getSignatureDataUrl('tecnico') ? (
+                      <img src={getSignatureDataUrl('tecnico')} alt="Firma Técnico" className="h-full object-contain" />
                     ) : (
                       <span className="text-[10px] text-slate-400 font-bold italic">Firme en sección firmas</span>
                     )}
@@ -2097,14 +2177,14 @@ export default function EditorInforme() {
                 {/* Client */}
                 <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
                   <div className="h-16 flex items-center justify-center bg-white border border-slate-100 rounded-xl overflow-hidden p-2">
-                    {canvasCliRef.current?.toDataURL() ? (
-                      <img src={canvasCliRef.current.toDataURL()} alt="Firma Cliente" className="h-full object-contain" />
+                    {getSignatureDataUrl('cliente') ? (
+                      <img src={getSignatureDataUrl('cliente')} alt="Firma Cliente" className="h-full object-contain" />
                     ) : (
                       <span className="text-[10px] text-slate-400 font-bold italic">Firme en sección firmas</span>
                     )}
                   </div>
                   <div className="mt-2 text-xs">
-                    <span className="font-black text-slate-800 block">Firma Cliente: Gonzalo Bravo</span>
+                    <span className="font-black text-slate-800 block">Firma Cliente: {generalData.nombreCliente || "—"}</span>
                     <span className="text-[10px] text-slate-400 font-medium uppercase">Jefe de Operaciones e Infraestructura</span>
                   </div>
                 </div>
@@ -2168,6 +2248,11 @@ export default function EditorInforme() {
     setupCanvas(canvasTecRef.current);
     setupCanvas(canvasCliRef.current);
   }, [isReadOnly]);
+
+  useEffect(() => {
+    drawSignatureOnCanvas(canvasTecRef.current, savedFirmas.tecnico);
+    drawSignatureOnCanvas(canvasCliRef.current, savedFirmas.cliente);
+  }, [savedFirmas, isReadOnly, viewMode, activeSection]);
 
   const addImageToGallery = async (file: File) => {
     const reader = new FileReader();
@@ -2276,8 +2361,8 @@ export default function EditorInforme() {
                   <button onClick={handleExportPDF} className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
                      <Download className="w-4 h-4 shrink-0" /> PDF
                   </button>
-                  <button onClick={handleExportExcel} className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
-                     <FileText className="w-4 h-4 shrink-0" /> Excel
+                  <button onClick={handleExportCsv} className="flex-1 xl:flex-none justify-center px-4 py-3 xl:py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
+                     <FileText className="w-4 h-4 shrink-0" /> CSV
                   </button>
                </>
             )}
@@ -2409,6 +2494,7 @@ export default function EditorInforme() {
             img.onload = () => {
               ctx.clearRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              setSavedFirmas(prev => ({ ...prev, [signatureType]: dataUrl }));
             };
             img.src = dataUrl;
             setShowFullscreenSignature(false);
@@ -2467,7 +2553,7 @@ function SidebarButton({
          )}
       </button>
       
-      {/* Sub Items Excel Style */}
+      {/* Sub Items Table Style */}
       {subItems && expanded && (
         <div className="flex flex-col gap-1 pl-4 lg:pl-6 py-1 animate-in slide-in-from-top-2 duration-300">
            <div className="w-px h-full bg-slate-200 absolute left-8 top-12 bottom-4 hidden lg:block -z-10"></div>

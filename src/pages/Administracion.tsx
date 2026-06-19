@@ -61,8 +61,8 @@ export default function Administracion() {
   };
 
   const activeUsers = users.filter(u => 
-    u.nombre?.toLowerCase().includes(filter.toLowerCase()) ||
-    u.correo?.toLowerCase().includes(filter.toLowerCase())
+    u.nombre?.toLowerCase().includes(filter.toLowerCase()) || 
+    u.email?.toLowerCase().includes(filter.toLowerCase())
   );
 
   return (
@@ -132,9 +132,9 @@ export default function Administracion() {
                           </div>
                           <div>
                              <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">{u.nombre}</h4>
-                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{u.correo}</p>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{u.email}</p>
                           </div>
-                          <div className="ml-4 px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black uppercase text-slate-600">{u.perfil}</div>
+                          <div className="ml-4 px-3 py-1 bg-slate-100 rounded-full text-[9px] font-black uppercase text-slate-600">{u.rol}</div>
                        </div>
                        <div className="flex items-center gap-2">
                            <button className={`p-2.5 rounded-xl transition-all ${u.activo ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-300'}`}>

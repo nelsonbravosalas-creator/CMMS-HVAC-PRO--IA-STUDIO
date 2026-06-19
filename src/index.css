@@ -252,7 +252,6 @@
     border: 2px solid var(--cmms-border) !important;
     margin: 0.75rem !important;
     padding: 1.25rem !important;
-    padding-bottom: 11rem !important; /* Asegura espacio de scroll para no solaparse con botones flotantes o widget de sync */
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
     background-color: var(--cmms-bg-card) !important;
     overflow-y: auto !important;

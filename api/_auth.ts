@@ -1,31 +1,65 @@
 import jwt from 'jsonwebtoken';
 
-const SECRET_KEY = process.env.JWT_SECRET;
-if (!SECRET_KEY) throw new Error('JWT_SECRET no configurado en variables de entorno');
+function getSecretKey() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET is required in production');
+  }
+  return secret || 'dev_only_jwt_secret_change_me';
+}
+
+function normalizeRole(role: string | undefined | null) {
+  return String(role || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+export function isAdminUser(user: any) {
+  const role = normalizeRole(user?.perfil);
+  return role.includes('admin') || role.includes('program');
+}
+
+export function getScopedTenantId(user: any, requestedTenantId?: any) {
+  if (isAdminUser(user)) {
+    return requestedTenantId || user?.cliente_id || 'cliente-default-001';
+  }
+  return user?.cliente_id || null;
+}
 
 export function signToken(payload: any) {
-  return jwt.sign(payload, SECRET_KEY, { expiresIn: '7d' });
+  return jwt.sign(payload, getSecretKey(), { expiresIn: '7d' });
 }
 
 export function verifyToken(req: any) {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return null;
-    const token = authHeader.split(' ')[1];
-    return jwt.verify(token, SECRET_KEY);
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+    const token = authHeader.slice('Bearer '.length).trim();
+    return jwt.verify(token, getSecretKey());
   } catch (e) {
     return null;
   }
 }
 
+export function requireAuth(req: any, res: any) {
+  const user: any = verifyToken(req);
+  if (!user) {
+    res.status(401).json({ success: false, error: 'No autorizado - token inválido o ausente' });
+    return null;
+  }
+  return user;
+}
+
 export function requireRole(allowedRoles: string[]) {
   return (req: any, res: any) => {
-    const user: any = verifyToken(req);
+    const user: any = requireAuth(req, res);
     if (!user) {
-      res.status(401).json({ success: false, error: 'No autorizado - falta token' });
       return null;
     }
-    if (!allowedRoles.includes(user.perfil)) {
+    const allowed = allowedRoles.map(normalizeRole);
+    if (!allowed.includes(normalizeRole(user.perfil))) {
       res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
       return null;
     }

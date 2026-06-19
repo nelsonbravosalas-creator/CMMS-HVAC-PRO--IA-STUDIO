@@ -17,14 +17,12 @@ import { useSyncStore } from '../../store/useSyncStore';
 import { useAppStore } from '../../store/useAppStore';
 import { db } from '../../db/database';
 import { motion, AnimatePresence } from 'motion/react';
-import { useIsModalOpen } from '../../hooks/useIsModalOpen';
 
 export const SyncInspectorPanel = () => {
   const { isOnline, isSyncing, pendingCount, syncHistory, clearHistory } = useSyncStore();
   const [isOpen, setIsOpen] = useState(false);
   const [queue, setQueue] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
-  const isModalOpen = useIsModalOpen();
 
   const fetchQueue = async () => {
     const items = await db.sync_queue.limit(50).toArray();
@@ -38,8 +36,6 @@ export const SyncInspectorPanel = () => {
       return () => clearInterval(interval);
     }
   }, [isOpen]);
-
-  if (isModalOpen) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">

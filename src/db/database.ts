@@ -36,8 +36,6 @@ export interface LocalActivo extends LocalBase {
   notas: string;
   cliente_id?: string;
   sucursal_id?: string;
-  latitud?: number;
-  longitud?: number;
 }
 
 export interface LocalTicket extends LocalBase {
@@ -65,10 +63,8 @@ export interface LocalMantenimiento extends LocalBase {
   proxima_fecha?: string;
   estado: string;
   hallazgos: string;
-  /** Nombre canónico alineado con columna Neon `acciones` */
-  acciones: string;
+  descripcion?: string; // Originally acciones
   repuestos: string;
-  descripcion?: string;
   ubicacionGeografica?: { lat: number, lng: number };
   cliente_id?: string;
 }
@@ -91,10 +87,8 @@ export interface LocalCliente extends LocalBase {
 export interface LocalUsuario extends LocalBase {
   id: string;
   nombre: string;
-  /** Nombre canónico alineado con columna Neon `correo` */
-  correo: string;
-  /** Nombre canónico alineado con columna Neon `perfil` */
-  perfil: string;
+  email: string;
+  rol: string;
   pin: string;
   activo: boolean;
   cliente_id?: string;
@@ -135,10 +129,8 @@ export interface LocalInventario extends LocalBase {
   categoria: 'maquinas' | 'instrumentos' | 'vehiculos' | 'insumos' | 'materiales_repuestos';
   codigo: string;
   nombre: string;
-  /** Nombre canónico alineado con columna Neon `cantidad` */
-  cantidad: number;
-  /** Nombre canónico alineado con columna Neon `unidad_medida` */
-  unidad_medida: string;
+  stock: number;
+  unidad: string;
   cliente_id: string;
   marca?: string;
   modelo?: string;
@@ -155,10 +147,11 @@ export interface LocalOrdenServicio extends LocalBase {
   cliente_id?: string;
 }
 
-export interface LocalSetting extends LocalBase {
-  /** uuid_sync como PK alineado con servidor — key es el nombre lógico */
+export interface LocalSetting {
   key: string;
   value: string;
+  updated_at: number;
+  sync_status: SyncStatus;
 }
 
 export interface SyncOperation {
@@ -173,18 +166,13 @@ export interface SyncOperation {
   next_retry_at?: number;
   locked_at?: number;
   created_at?: number;
-  cliente_id?: string;
 }
 
-export interface AuditLog extends LocalBase {
+export interface AuditLog {
   id?: string;
   action: string;
-  /** Alineado con columna Neon `user_id` */
-  user_id: string;
-  entity_type: string;
-  entity_id: string;
-  /** JSONB payload — objeto serializable */
-  payload?: any;
+  userId: string;
+  details: string;
   timestamp: number;
   cliente_id?: string;
 }
@@ -201,67 +189,47 @@ export class CMMSDatabase extends Dexie {
   assets!: Table<LocalActivo>;
   work_orders!: Table<LocalTicket>;
   preventive_maintenance!: Table<LocalMantenimiento>;
-  clientes!: Table<LocalCliente>;
+  clients!: Table<LocalCliente>;
   users!: Table<LocalUsuario>;
-  sucursales!: Table<LocalSucursal>;
+  branches!: Table<LocalSucursal>;
   catalog_asset_types!: Table<LocalCatalogAssetType>;
   ordenes_servicio!: Table<LocalOrdenServicio>;
   settings!: Table<LocalSetting>;
   reports!: Table<LocalInforme>;
   events!: Table<LocalEvento>;
   inventory!: Table<LocalInventario>;
-  calendar!: Table<LocalEvento>;
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
   blobs!: Table<LocalBlob>;
 
   constructor() {
-    super('CMMS_LocalDB_v14');
-    const schemaV13 = {
+    super('CMMS_LocalDB_v11');
+    const schema = {
       assets: 'uuid_sync, tag, cliente_id, sucursal_id, sync_status, updated_at, estado',
       work_orders: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
       preventive_maintenance: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
-      clientes: 'uuid_sync, id, sync_status, updated_at',
-      users: 'uuid_sync, id, correo, sync_status, updated_at',
-      sucursales: 'uuid_sync, id, codigo, cliente_id, sync_status, updated_at',
+      clients: 'uuid_sync, id, sync_status, updated_at',
+      users: 'uuid_sync, id, email, sync_status, updated_at',
+      branches: 'uuid_sync, id, codigo, cliente_id, sync_status, updated_at',
       catalog_asset_types: 'uuid_sync, codigo, sync_status, updated_at',
       ordenes_servicio: 'uuid_sync, id, draft_key, cliente_id, sync_status, updated_at',
       settings: 'key, sync_status, updated_at',
       reports: 'uuid_sync, id, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
       inventory: 'uuid_sync, id, categoria, cliente_id, sync_status, updated_at',
-      calendar: 'uuid_sync, id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp',
       audit_logs: '++id, action, userId, cliente_id, timestamp',
       blobs: 'uuid_sync, created_at'
     };
-    this.version(13).stores(schemaV13);
-
-    // v14: AuditLog usa user_id (snake_case), settings agrega uuid_sync como PK
-    const schemaV14 = {
-      ...schemaV13,
-      settings: 'uuid_sync, key, sync_status, updated_at',
-      // v14: audit_logs migra índice de 'userId' (v13) a 'user_id' (snake_case alineado con Neon)
-      audit_logs: '++id, action, user_id, cliente_id, timestamp',
-    };
-
-    this.version(14).stores(schemaV14).upgrade(tx => {
-      return tx.table('settings').toCollection().modify((setting: any) => {
-        if (!setting.uuid_sync) {
-          setting.uuid_sync = crypto.randomUUID();
-        }
-      });
-    });
+    
+    this.version(10).stores(schema);
+    this.version(11).stores(schema);
     
     this.on('populate', async () => {
       const now = Date.now();
-      // Default Clients Seed
-      await this.clientes.bulkAdd([
-        { uuid_sync: 'cliente-default-001', id: 'cliente-default-001', nombre: 'Cliente EECOL S.A.', empresa: 'EECOL Industrial', email: 'contacto@eecol.cl', telefono: '+56220001111', direccion: 'Santiago Centro 456', updated_at: now, sync_status: 'synced' }
-      ]);
-      // Default Branches (sucursales) with correct cliente_id & fallback id 'default-sucursal'
-      await this.sucursales.bulkAdd([
-        { uuid_sync: 'default-sucursal', id: 'default-sucursal', nombre: 'Bodega Central', codigo: '21-STK', cliente_id: 'cliente-default-001', direccion: 'Las Condes 123', ciudad: 'Santiago', region: 'RM', activo: true, updated_at: now, sync_status: 'synced' },
+      // Default branches
+      await this.branches.bulkAdd([
+        { uuid_sync: crypto.randomUUID(), id: 'SUB-default1', nombre: 'Bodega Central', codigo: '21-STK', cliente_id: 'default', direccion: 'Las Condes 123', ciudad: 'Santiago', region: 'RM', activo: true, updated_at: now, sync_status: 'synced' },
       ]);
       // Default asset types
       await this.catalog_asset_types.bulkAdd([

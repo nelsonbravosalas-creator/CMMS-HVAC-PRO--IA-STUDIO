@@ -60,6 +60,8 @@ export default function EditorOrdenServicio() {
   
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
+  const activeClientId = localStorage.getItem("active_client") || "";
+  const activeClient = clients.find(c => c.uuid_sync === activeClientId || c.id === activeClientId);
 
   const OS_DRAFT_KEY = `OS_DRAFT_${uuid}`;
 
@@ -190,6 +192,12 @@ export default function EditorOrdenServicio() {
       db.ordenes_servicio.get(uuid).then(existing => {
         if (existing && existing.data) {
           const data = existing.data;
+          const orderClient = data.generalData?.cliente || existing.cliente_id;
+          if (activeClientId && orderClient && orderClient !== activeClientId && orderClient !== activeClient?.id) {
+            alert("Esta orden pertenece a otro cliente. Cambie de cliente desde el selector para abrirla.");
+            setLocation("/ordenes-servicio");
+            return;
+          }
           if (data.generalData) setGeneralData(data.generalData);
           if (data.checklist) setChecklist(normalizeChecklist(data.checklist));
           if (data.hallazgos) setHallazgos(data.hallazgos);
@@ -199,7 +207,16 @@ export default function EditorOrdenServicio() {
         }
       }).catch(console.error);
     }
-  }, [isNew, uuid]);
+  }, [isNew, uuid, activeClientId, activeClient?.id, setLocation]);
+
+  useEffect(() => {
+    if (!activeClientId || status === 'enviada' || status === 'firmada') return;
+    setGeneralData(prev => prev.cliente === activeClientId ? prev : {
+      ...prev,
+      cliente: activeClientId,
+      sucursal: prev.cliente && prev.cliente !== activeClientId ? '' : prev.sucursal
+    });
+  }, [activeClientId, status]);
 
   // Save to local storage auto
   useEffect(() => {
@@ -701,6 +718,7 @@ export default function EditorOrdenServicio() {
       id: rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`,
       draft_key: OS_DRAFT_KEY,
       estado: 'firmada',
+      cliente_id: generalData.cliente,
       sync_status: 'pending_insert' as const,
       updated_at: Date.now(),
       data: dataPayload
@@ -749,7 +767,7 @@ export default function EditorOrdenServicio() {
         alert(`Orden de Servicio guardada y firmada exitosamente.\n${exportResult.message}`);
       } catch (exportError: any) {
          console.warn("Export fallido", exportError);
-         alert(`Orden de Servicio guardada exitosamente.\nNota: No se pudo enviar el correo: ${exportError.message}`);
+         alert("Orden de Servicio guardada exitosamente.\nLa notificación por correo no está disponible en este entorno.");
       }
 
       setLocation("/ordenes-servicio");
@@ -793,26 +811,15 @@ export default function EditorOrdenServicio() {
                   <label className="text-[10px] font-black uppercase text-slate-400">Cliente / Instalación</label>
                   <SearchableSelect
                     options={[
-                      { value: "", label: "Seleccione un cliente..." },
-                      ...(() => {
-                        const activeClientId = localStorage.getItem("active_client");
-                        const filteredClients = clients.filter(c => !c.deleted_at);
-                        if (activeClientId) {
-                          return filteredClients.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
-                        }
-                        return filteredClients;
-                      })().map(c => ({
-                        value: c.uuid_sync,
-                        label: c.nombre
-                      }))
+                      ...(activeClient ? [{
+                        value: activeClient.uuid_sync,
+                        label: activeClient.nombre
+                      }] : [])
                     ]}
-                    value={generalData.cliente}
-                    onChange={val => {
-                      handleGeneralChange('cliente', val);
-                      handleGeneralChange('sucursal', '');
-                    }}
-                    disabled={isReadOnly}
-                    placeholder="Seleccione un cliente..."
+                    value={activeClient?.uuid_sync || activeClientId}
+                    onChange={() => undefined}
+                    disabled
+                    placeholder="Cliente seleccionado en la sesión"
                   />
                </div>
                <div>

@@ -151,13 +151,10 @@ interface LayoutProps {
 import { syncEngine } from '../sync/syncEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
-import ClientSelectorWidget from "./ClientSelectorWidget";
-import { useIsModalOpen } from '../hooks/useIsModalOpen';
 
 export default function Layout({ children }: LayoutProps) {
-  const { logout, isOfflineSession } = useAuth();
+  const { logout } = useAuth();
   const [, setLocation] = useLocation();
-  const isModalOpen = useIsModalOpen();
 
   const handleHeaderLogout = () => {
     logout();
@@ -168,19 +165,9 @@ export default function Layout({ children }: LayoutProps) {
   const activeClientId = localStorage.getItem("active_client");
   const activeClientName = useLiveQuery(async () => {
     if (!activeClientId) return null;
-    const client = await db.clientes.get(activeClientId);
+    const client = await db.clients.get(activeClientId);
     return client ? client.nombre : null;
   }, [activeClientId]) || "Entorno General";
-
-  /** Fetch active clients list for responsive dropdown selection */
-  const activeClients = useLiveQuery(async () => {
-    const clients = await db.clientes.toArray();
-    const filtered = clients.filter(c => c.activo !== false);
-    if (activeClientId) {
-      return filtered.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
-    }
-    return filtered;
-  }, [activeClientId]) || [];
 
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -191,7 +178,6 @@ export default function Layout({ children }: LayoutProps) {
   /** Visibilidad del banner de Progressive Web App */
   const [showPWABanner, setShowPWABanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [dismissNoTokenBanner, setDismissNoTokenBanner] = useState(false);
 
   useEffect(() => {
     // Initial sync
@@ -223,24 +209,39 @@ export default function Layout({ children }: LayoutProps) {
 
   // Real-time queries for badges
   const ticketsAbiertos = useLiveQuery(() => 
-    db.work_orders.where('estado').anyOf('abierto', 'en_proceso').count()
-  ) ?? 0;
+    db.work_orders.filter(item =>
+      item.cliente_id === activeClientId &&
+      (item.estado === 'abierto' || item.estado === 'en_proceso')
+    ).count()
+  , [activeClientId]) ?? 0;
 
   const mantenimientosPendientes = useLiveQuery(() => 
-    db.preventive_maintenance.where('estado').notEqual('ejecutado').count()
-  ) ?? 0;
+    db.preventive_maintenance.filter(item =>
+      item.cliente_id === activeClientId && item.estado !== 'ejecutado'
+    ).count()
+  , [activeClientId]) ?? 0;
 
-  const informesTotal = useLiveQuery(() => db.reports.count()) ?? 0;
+  const informesTotal = useLiveQuery(() =>
+    db.reports.filter(item =>
+      item.sync_status !== 'pending_delete' &&
+      (item.data?.generalData?.cliente || (item as any).cliente_id) === activeClientId
+    ).count()
+  , [activeClientId]) ?? 0;
   
   const equiposTotal = useLiveQuery(() => 
-    db.assets.filter(a => !a.deleted_at).count()
-  ) ?? 0;
+    db.assets.filter(a => !a.deleted_at && a.cliente_id === activeClientId).count()
+  , [activeClientId]) ?? 0;
 
-  const ordenesServicioTotal = useLiveQuery(() => db.ordenes_servicio.count()) ?? 0;
+  const ordenesServicioTotal = useLiveQuery(() =>
+    db.ordenes_servicio.filter(item =>
+      item.sync_status !== 'pending_delete' &&
+      (item.cliente_id || item.data?.generalData?.cliente) === activeClientId
+    ).count()
+  , [activeClientId]) ?? 0;
 
   const equiposEnFalla = useLiveQuery(() => 
-    db.assets.where('estado').equals('falla').count()
-  ) ?? 0;
+    db.assets.filter(a => !a.deleted_at && a.cliente_id === activeClientId && a.estado === 'falla').count()
+  , [activeClientId]) ?? 0;
 
   /** 
    * Estadísticas y contadores de insignias (Badges).
@@ -476,39 +477,11 @@ export default function Layout({ children }: LayoutProps) {
               <span>INSTALAR APP PARA ACCESO OFFLINE</span>
               <button onClick={handleInstallClick} className="ml-4 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded border border-white/40 transition-colors">INSTALAR</button>
             </div>
-            <X
+            <X 
               className={`w-3 h-3 cursor-pointer opacity-70 hover:opacity-100 p-0.5 rounded-full border transition-all ${
                 isDarkMode ? 'border-[#39FF14] text-[#39FF14] shadow-[0_0_8px_rgba(57,255,20,0.5)]' : 'border-transparent'
-              }`}
-              onClick={() => setShowPWABanner(false)}
-            />
-          </div>
-        )}
-
-        {/* No-Token Session Banner */}
-        {isOfflineSession && !dismissNoTokenBanner && (
-          <div className={`px-4 py-2 flex items-center justify-between text-xs font-bold shrink-0 border-b relative z-20 ${
-            isDarkMode
-              ? 'bg-amber-950/50 border-amber-800/30 text-amber-400'
-              : 'bg-amber-50 border-amber-200 text-amber-700'
-          }`}>
-            <div className="flex items-center gap-2 min-w-0">
-              <WifiOff className="w-3 h-3 shrink-0" />
-              <span className="uppercase tracking-wider truncate">Sesión sin token — inicia sesión online para sincronizar</span>
-              <button
-                onClick={() => setLocation('/login')}
-                className={`ml-2 shrink-0 px-2.5 py-0.5 rounded border text-[10px] font-black uppercase tracking-widest transition-colors ${
-                  isDarkMode
-                    ? 'bg-amber-500/20 border-amber-500/40 hover:bg-amber-500/30 text-amber-300'
-                    : 'bg-amber-100 border-amber-300 hover:bg-amber-200 text-amber-800'
-                }`}
-              >
-                Iniciar sesión
-              </button>
-            </div>
-            <X
-              className="w-3 h-3 cursor-pointer opacity-60 hover:opacity-100 shrink-0 ml-2 transition-opacity"
-              onClick={() => setDismissNoTokenBanner(true)}
+              }`} 
+              onClick={() => setShowPWABanner(false)} 
             />
           </div>
         )}
@@ -519,63 +492,61 @@ export default function Layout({ children }: LayoutProps) {
         </main>
 
         {/* Mobile Navigation (One-Handed / Ambidiestro) */}
-        {!isModalOpen && (
-          <nav className={`lg:hidden fixed bottom-6 ${menuPosition === 'right' ? 'right-6' : 'left-6'} z-50 flex items-center gap-3`}>
-            {/* Toggle Handness */}
-            <button 
-              onClick={() => setMenuPosition(menuPosition === 'right' ? 'left' : 'right')}
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border backdrop-blur-md transition-all active:scale-90 ${
-                isDarkMode ? 'bg-slate-900/80 border-slate-700 text-slate-400' : 'bg-white/80 border-slate-200 text-slate-600'
-              }`}
-            >
-              {menuPosition === 'right' ? 'R' : 'L'}
-            </button>
+        <nav className={`lg:hidden fixed bottom-6 ${menuPosition === 'right' ? 'right-6' : 'left-6'} z-50 flex items-center gap-3`}>
+          {/* Toggle Handness */}
+          <button 
+            onClick={() => setMenuPosition(menuPosition === 'right' ? 'left' : 'right')}
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border backdrop-blur-md transition-all active:scale-90 ${
+              isDarkMode ? 'bg-slate-900/80 border-slate-700 text-slate-400' : 'bg-white/80 border-slate-200 text-slate-600'
+            }`}
+          >
+            {menuPosition === 'right' ? 'R' : 'L'}
+          </button>
 
-            <motion.div 
-              key={menuPosition}
-              drag
-              dragMomentum={false}
-              dragElastic={0.1}
-              whileDrag={{ scale: 1.05, boxShadow: "0px 30px 60px rgba(0,0,0,0.5)" }}
-              className={`flex items-center gap-2 p-2 mt-0 -mb-[23px] mr-[1px] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 cursor-grab active:cursor-grabbing touch-none ${
-                isDarkMode ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-200'
-              } ${menuPosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}
+          <motion.div 
+            key={menuPosition}
+            drag
+            dragMomentum={false}
+            dragElastic={0.1}
+            whileDrag={{ scale: 1.05, boxShadow: "0px 30px 60px rgba(0,0,0,0.5)" }}
+            className={`flex items-center gap-2 p-2 mt-0 -mb-[23px] mr-[1px] rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border backdrop-blur-2xl transition-all duration-300 cursor-grab active:cursor-grabbing touch-none ${
+              isDarkMode ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-slate-200'
+            } ${menuPosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}
+          >
+            
+            {/* Secondary Actions (More) */}
+            <div 
+              className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+              onClick={() => setIsMoreDrawerOpen(true)}
             >
-              
-              {/* Secondary Actions (More) */}
-              <div 
-                className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-                onClick={() => setIsMoreDrawerOpen(true)}
-              >
-                <MoreHorizontal className="w-6 h-6" />
+              <MoreHorizontal className="w-6 h-6" />
+            </div>
+
+            <Link href="/mantenimientos">
+              <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-colors relative ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`}>
+                <Wrench className="w-6 h-6" />
+                {stats.preventive_maintenancePendientes > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-amber-500 text-[10px] text-white flex items-center justify-center rounded-full font-black border-2 border-slate-900">
+                    {stats.preventive_maintenancePendientes}
+                  </span>
+                )}
               </div>
+            </Link>
 
-              <Link href="/mantenimientos">
-                <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-colors relative ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`}>
-                  <Wrench className="w-6 h-6" />
-                  {stats.preventive_maintenancePendientes > 0 && (
-                    <span className="absolute top-1 right-1 w-4 h-4 bg-amber-500 text-[10px] text-white flex items-center justify-center rounded-full font-black border-2 border-slate-900">
-                      {stats.preventive_maintenancePendientes}
-                    </span>
-                  )}
-                </div>
-              </Link>
+            {/* Primary Action (Scanner) */}
+            <Link href="/scanner">
+              <div className="w-16 h-16 bg-blue-600 rounded-[22px] flex items-center justify-center shadow-xl shadow-blue-600/40 text-white hover:scale-105 active:scale-95 transition-transform cursor-pointer">
+                <ScanLine className="w-8 h-8" />
+              </div>
+            </Link>
 
-              {/* Primary Action (Scanner) */}
-              <Link href="/scanner">
-                <div className="w-16 h-16 bg-blue-600 rounded-[22px] flex items-center justify-center shadow-xl shadow-blue-600/40 text-white hover:scale-105 active:scale-95 transition-transform cursor-pointer">
-                  <ScanLine className="w-8 h-8" />
-                </div>
-              </Link>
-
-              <Link href="/">
-                <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`}>
-                  <LayoutDashboard className="w-6 h-6" />
-                </div>
-              </Link>
-            </motion.div>
-          </nav>
-        )}
+            <Link href="/">
+              <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`}>
+                <LayoutDashboard className="w-6 h-6" />
+              </div>
+            </Link>
+          </motion.div>
+        </nav>
       </div>
 
       {/* More Options Drawer (Mobile - Thumb Optimized) */}
@@ -665,7 +636,6 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Floating Draggable Client Selector Widget */}
-      <ClientSelectorWidget isDarkMode={isDarkMode} />
     </div>
   );
 }

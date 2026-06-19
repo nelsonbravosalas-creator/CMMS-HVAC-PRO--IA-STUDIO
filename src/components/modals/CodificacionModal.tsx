@@ -69,7 +69,7 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
         sync_status: 'pending_insert' as const,
       };
       
-      await db.sucursales.add(newSucursal);
+      await db.branches.add(newSucursal);
       
       // Update store if needed? No, Dexie hooks will auto reload UI
       // await useAppStore.getState().syncWithDB();

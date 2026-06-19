@@ -99,8 +99,8 @@ export function CrearActividadModal({ isOpen, onClose, onSave }: CrearActividadM
     const list = await db.inventory.toArray();
     return list.filter(item => 
       item.cliente_id === activeClientId && 
-      item.estado === "disponible" &&
-      item.cantidad > 0 &&
+      item.estado === "disponible" && 
+      item.stock > 0 &&
       item.sync_status !== "pending_delete"
     );
   }, [activeClientId]) || [];
@@ -286,7 +286,7 @@ Sincronizado vía AI Studio CMMS Framework.`;
                     <option value="">-- Ninguno / General --</option>
                     {availableResources.map(res => (
                       <option key={res.uuid_sync} value={res.uuid_sync}>
-                        [{res.codigo}] {res.nombre} (Stock: {res.cantidad})
+                        [{res.codigo}] {res.nombre} (Stock: {res.stock})
                       </option>
                     ))}
                   </select>

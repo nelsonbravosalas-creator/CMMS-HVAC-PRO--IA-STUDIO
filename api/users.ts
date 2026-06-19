@@ -1,7 +1,12 @@
 import { getDb } from './_db.js';
+import { requireRole } from './_auth.js';
+import bcrypt from 'bcryptjs';
 
 export default async function handler(req: any, res: any) {
   try {
+    const user = requireRole(['administrador', 'programador'])(req, res);
+    if (!user) return;
+
     const sql = getDb();
     const { method, body } = req;
 
@@ -14,10 +19,14 @@ export default async function handler(req: any, res: any) {
       const d = body;
       const id = d.id || `U-${Date.now()}`;
       const now = Date.now();
+      const pinHash = d.pin
+        ? (String(d.pin).startsWith('$2') ? d.pin : bcrypt.hashSync(String(d.pin), 10))
+        : null;
+      const { pin: _pin, ...safeData } = d;
       await sql`
         INSERT INTO users (id, nombre, correo, perfil, activo, pin, uuid_sync, updated_at, data)
         VALUES (${id}, ${d.nombre || ''}, ${d.correo || ''}, ${d.perfil || 'tecnico'},
-          ${d.activo !== false}, ${d.pin || '0000'}, ${d.uuid_sync || id}, ${d.updated_at || now}, ${JSON.stringify(d)})
+          ${d.activo !== false}, ${pinHash}, ${d.uuid_sync || id}, ${d.updated_at || now}, ${JSON.stringify(safeData)})
         ON CONFLICT (id) DO UPDATE SET
           nombre = EXCLUDED.nombre, correo = EXCLUDED.correo, perfil = EXCLUDED.perfil,
           activo = EXCLUDED.activo, pin = EXCLUDED.pin, updated_at = EXCLUDED.updated_at, data = EXCLUDED.data

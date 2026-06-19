@@ -3,20 +3,20 @@ import { SyncOperation } from '../db/database';
 
 export class SyncQueue {
   async enqueue(operation: SyncOperation) {
-    await db.transaction('rw', db.sync_queue, async () => {
-      const existing = await db.sync_queue
-        .where({ uuid_sync: operation.uuid_sync, operation: operation.operation })
-        .first();
-
-      if (existing) {
-        await db.sync_queue.update(existing.id!, {
-          data: operation.data,
-          timestamp: Date.now()
-        });
-      } else {
-        await db.sync_queue.add(operation);
-      }
-    });
+    // Avoid duplicate inserts for the same entity and operation type
+    const existing = await db.sync_queue
+      .where({ uuid_sync: operation.uuid_sync, operation: operation.operation })
+      .first();
+      
+    if (existing) {
+      await db.sync_queue.update(existing.id!, {
+        data: operation.data,
+        timestamp: Date.now()
+      });
+      return;
+    }
+    
+    await db.sync_queue.add(operation);
   }
 
   async dequeue(): Promise<SyncOperation | undefined> {

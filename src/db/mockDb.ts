@@ -78,36 +78,24 @@ export const loadMockData = () => {
   // Seed default data
   const now = Date.now();
   
-  // Create system users
-  const pinHash3517 = bcrypt.hashSync('3517', 10);
-  
-  const adminUser = {
-    uuid_sync: 'user-nelson-admin-uuid',
-    id: '1',
-    nombre: 'Nelson Bravo',
-    correo: 'nelson.bravo.salas@gmail.com',
-    perfil: 'administrador',
-    pin: pinHash3517,
-    activo: true,
-    data: JSON.stringify({ email: 'nelson.bravo.salas@gmail.com', pin: pinHash3517, nombre: 'Nelson Bravo', rol: 'administrador' }),
-    updated_at: now,
-    created_at: now
-  };
-
-  const techUser = {
-    uuid_sync: 'user-nbravo-tecnico-uuid',
-    id: 'U2_TECH',
-    nombre: 'Nelson Bravo (Técnico)',
-    correo: 'nbravo.nbyb@gmail.com',
-    perfil: 'tecnico',
-    pin: pinHash3517,
-    activo: true,
-    data: JSON.stringify({ email: 'nbravo.nbyb@gmail.com', pin: pinHash3517, nombre: 'Nelson Bravo (Técnico)', rol: 'tecnico' }),
-    updated_at: now,
-    created_at: now
-  };
-  
-  mockData.users = [adminUser, techUser];
+  const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL;
+  const mockAdminPin = process.env.DEV_MOCK_ADMIN_PIN;
+  if (mockAdminEmail && mockAdminPin) {
+    const pinHash = bcrypt.hashSync(mockAdminPin, 10);
+    const adminUser = {
+      uuid_sync: 'dev-mock-admin-uuid',
+      id: 'dev-admin',
+      nombre: 'Dev Admin',
+      correo: mockAdminEmail,
+      perfil: 'administrador',
+      pin: pinHash,
+      activo: true,
+      data: JSON.stringify({ email: mockAdminEmail, nombre: 'Dev Admin', rol: 'administrador' }),
+      updated_at: now,
+      created_at: now
+    };
+    mockData.users = [adminUser];
+  }
 
   // Default Client & Clientes
   const eecolClientData = { nombre: 'EECOL Default', empresa: 'EECOL' };
@@ -245,28 +233,12 @@ export const createMockSql = () => {
       // Handle common WHERE conditions
       // Case A: SELECT * FROM users WHERE LOWER(correo) = $1 OR LOWER(data->>'email') = $1
       if (tableName === 'users' && (queryLower.includes('lower(correo)') || queryLower.includes('correo ='))) {
-        const emailVal = String(values[0]).toLowerCase().trim();
-        return filteredRows.filter(u => {
-          try {
-            // Check correo column
-            if (String(u.correo || '').toLowerCase().trim() === emailVal) return true;
-            // Check email column
-            if (String(u.email || '').toLowerCase().trim() === emailVal) return true;
-            // Check data.email field (JSON string)
-            if (u.data) {
-              try {
-                const dataObj = typeof u.data === 'string' ? JSON.parse(u.data) : u.data;
-                if (dataObj.email && String(dataObj.email).toLowerCase().trim() === emailVal) return true;
-              } catch (e) {
-                // data is not valid JSON, skip
-              }
-            }
-            return false;
-          } catch (e) {
-            console.error("Error filtering user by email:", e);
-            return false;
-          }
-        });
+        const emailVal = String(values[0]).toLowerCase();
+        return filteredRows.filter(u => 
+          String(u.correo || '').toLowerCase() === emailVal || 
+          String(u.email || '').toLowerCase() === emailVal ||
+          (u.data && JSON.parse(u.data).email && String(JSON.parse(u.data).email).toLowerCase() === emailVal)
+        );
       }
 
       // Case B: WHERE id = $1 or uuid_sync = $1

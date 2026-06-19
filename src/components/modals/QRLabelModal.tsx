@@ -33,11 +33,7 @@ export function QRLabelModal({ isOpen, onClose, equipment }: QRLabelModalProps) 
   if (!equipment) return null;
 
   // URL centralizada para el CMMS (Coincide con el URL Box)
-  const BASE_URL = import.meta.env.VITE_APP_URL
-    || window.location.origin
-    || 'https://cmms-hvac-pro-ia-studio.vercel.app';
-
-  const assetUrl = `${BASE_URL}/scan/${equipment.tag}`;
+  const assetUrl = `https://nelsonbravosalas-creator.github.io/APP.-ACTIVOS/EQUIPOS/${equipment.tag}`;
   // API para generar el código QR
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(assetUrl)}&margin=10`;
 

@@ -33,7 +33,6 @@ import Consola from "./pages/Consola";
 import Configuracion from "./pages/Configuracion";
 import Login from "./pages/Login";
 import Planificacion from "./pages/Planificacion";
-import ScanRedirect from "./pages/ScanRedirect";
 import ClientSelector from "./pages/ClientSelector";
 import EFIEnergia from "./pages/EFIEnergia";
 import InventarioInterno from "./pages/InventarioInterno";
@@ -129,7 +128,7 @@ function App() {
   }, [isAuthenticated, setLocation]);
 
   useEffect(() => {
-    const auth = localStorage.getItem("is_authenticated") === "true";
+    const auth = localStorage.getItem("is_authenticated") === "true" && !!sessionStorage.getItem("auth_token");
     const client = !!localStorage.getItem("active_client");
     setIsAuthenticated(auth);
     setHasClientSelected(client);
@@ -138,10 +137,8 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const tagParam = params.get("tag");
 
-    const isScanRoute = location.startsWith("/scan/") || location.startsWith("/SCAN/");
-
     // Initial routing logic
-    if (!auth && location !== "/login" && !isScanRoute) {
+    if (!auth && location !== "/login") {
       // Store the pending tag scan if any, to redirect after login
       if (tagParam) localStorage.setItem("pending_tag", tagParam);
       setLocation("/login");
@@ -171,20 +168,10 @@ function App() {
     }
   }, [location, setLocation]);
 
-  const isScanRoute = location.startsWith("/scan/") || location.startsWith("/SCAN/");
-
   return (
     <AuthProvider>
-      {!isAuthenticated ? (
-        isScanRoute ? (
-          <Switch>
-            <Route path="/scan/:tag" component={ScanRedirect} />
-            <Route path="/SCAN/:tag" component={ScanRedirect} />
-            <Route component={Login} />
-          </Switch>
-        ) : (
-          <Login />
-        )
+      {(!isAuthenticated && location === "/login") ? (
+        <Login />
       ) : (isAuthenticated && !hasClientSelected && clients.length > 0) ? (
         <ClientSelector />
       ) : (
@@ -193,8 +180,6 @@ function App() {
             <Switch>
               <Route path="/" component={Dashboard} />
               <Route path="/scanner" component={ScannerQR} />
-              <Route path="/scan/:tag" component={ScanRedirect} />
-              <Route path="/SCAN/:tag" component={ScanRedirect} />
               <Route path="/equipos" component={Equipos} />
               <Route path="/equipos/:tag" component={DetalleEquipo} />
               <Route path="/EQUIPOS/:tag" component={DetalleEquipo} />

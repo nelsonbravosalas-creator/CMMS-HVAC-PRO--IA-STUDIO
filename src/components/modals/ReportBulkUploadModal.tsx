@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { 
   X, FileSpreadsheet, Upload, AlertCircle, Download, CheckCircle2, ChevronRight
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { db, LocalInforme } from '../../db/database';
 import { syncEngine } from '../../sync/syncEngine';
 
@@ -19,6 +18,47 @@ interface ReportRow {
   Tipo_Servicio: string;
   Descripcion: string;
 }
+
+const toCsv = (rows: Record<string, any>[]) => {
+  if (rows.length === 0) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = (value: any) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return [headers.join(','), ...rows.map(row => headers.map(header => escape(row[header])).join(','))].join('\r\n');
+};
+
+const parseCsv = (text: string): Record<string, string>[] => {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      cell += '"';
+      i++;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i++;
+      row.push(cell);
+      if (row.some(value => value.trim() !== '')) rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  if (row.some(value => value.trim() !== '')) rows.push(row);
+  const headers = rows.shift()?.map(header => header.trim()) || [];
+  return rows.map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])));
+};
 
 export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ onClose }) => {
   const [showErrors, setShowErrors] = useState(false);
@@ -39,10 +79,13 @@ export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ on
       Descripcion: 'Mantenimiento manual realizado'
     }];
     
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Informes");
-    XLSX.writeFile(wb, "Plantilla_Carga_Masiva_Informes.xlsx");
+    const blob = new Blob([toCsv(templateData)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'Plantilla_Carga_Masiva_Informes.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,18 +93,15 @@ export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ on
     if (!selectedFile) return;
     
     setFile(selectedFile);
-    parseExcel(selectedFile);
+    parseCsvFile(selectedFile);
   };
 
-  const parseExcel = (file: File) => {
+  const parseCsvFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json<ReportRow>(ws);
+        const text = String(evt.target?.result || '');
+        const data = parseCsv(text) as unknown as ReportRow[];
         
         // Validation rules
         const newErrors: string[] = [];
@@ -77,7 +117,7 @@ export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ on
         setErrors([`Error al analizar el archivo: ${err.message}`]);
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsText(file);
   };
 
   const handleStartImport = async () => {
@@ -87,19 +127,40 @@ export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ on
     try {
       const reportsToInsert: LocalInforme[] = parsedData.map(row => {
         const uuid = crypto.randomUUID();
+        const status = (row.Estado || 'borrador').toLowerCase();
+        const activeClient = localStorage.getItem("active_client") || "";
         return {
           uuid_sync: uuid,
           id: row.ID_Informe || `INF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           data: {
-            equipo_tag: row.TAG_Equipo,
-            estado: row.Estado,
-            fecha: row.Fecha,
-            tecnico: row.Tecnico,
-            tipoServicio: row.Tipo_Servicio,
-            descripcion: row.Descripcion
+            estado: status,
+            status,
+            generalData: {
+              cliente: activeClient,
+              folio: row.ID_Informe || '',
+              equipoTag: row.TAG_Equipo,
+              fecha: row.Fecha,
+              tecnico: row.Tecnico,
+              tipoServicio: row.Tipo_Servicio || 'Preventivo'
+            },
+            machineData: {
+              tag: row.TAG_Equipo,
+              tipo: row.Tipo_Servicio || '',
+              marca: '',
+              modelo: '',
+              serie: '',
+              refrigerante: '',
+              capacidad: '',
+              voltaje: ''
+            },
+            circuits: [],
+            checklist: {},
+            observaciones: row.Descripcion,
+            galeria: []
           },
           sync_status: 'pending_insert',
-          updated_at: Date.now()
+          updated_at: Date.now(),
+          version: 1
         };
       });
 
@@ -139,7 +200,7 @@ export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ on
         <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
           <div>
             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Carga Masiva de Informes</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sincronización incremental vía Excel/CSV</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sincronización incremental vía CSV</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-5 h-5" /></button>
         </div>
@@ -167,14 +228,14 @@ export const ReportBulkUploadModal: React.FC<ReportBulkUploadModalProps> = ({ on
                 ref={fileInputRef} 
                 onChange={handleFileUpload}
                 className="hidden" 
-                accept=".xlsx,.csv"
+                accept=".csv"
              />
              <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
                 <Upload className="w-8 h-8" />
              </div>
              <div className="text-center">
                 <p className="text-xs font-black text-slate-900 uppercase">{file ? file.name : 'Seleccionar o arrastrar archivo'}</p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Soporta .XLSX, .CSV (Máx 5MB)</p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Soporta .CSV (Máx 5MB)</p>
              </div>
           </div>
 

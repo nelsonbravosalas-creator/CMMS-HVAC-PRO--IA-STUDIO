@@ -4,8 +4,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 interface User {
   id: string;
   nombre: string;
-  correo: string;
-  perfil: 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'programador' | 'cliente' | 'contratista';
+  email: string;
+  rol: 'admin' | 'tecnico' | 'cliente' | 'supervisor';
   empresa_id?: string;
 }
 
