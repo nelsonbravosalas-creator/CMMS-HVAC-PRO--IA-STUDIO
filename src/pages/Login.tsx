@@ -14,7 +14,7 @@ export default function Login() {
   const [biometricError, setBiometricError] = useState("");
   const [scanTimeoutCountdown, setScanTimeoutCountdown] = useState<number | null>(null);
   const [, setLocation] = useLocation();
-  const { login, biometricLogin } = useAuth();
+  const { login, biometricLogin, authError } = useAuth();
 
   // Check if a biometric fingerprint file is registered in the phone's local storage
   const registeredEmail = localStorage.getItem("biometry_registered_email");
@@ -43,8 +43,6 @@ export default function Login() {
       setIsLoading(false);
       if (success) {
         window.location.href = "/client-selector";
-      } else {
-        alert("PIN o correo inválido");
       }
     }
   };
@@ -138,6 +136,18 @@ export default function Login() {
 
         <form onSubmit={handleLogin} className={`p-8 rounded-3xl border shadow-2xl space-y-6 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="space-y-4 text-left font-sans">
+            {authError && (
+              <div className="p-4 bg-slate-900 border border-red-500/30 rounded-3xl flex items-start gap-4 shadow-xl">
+                <div className="p-2.5 bg-red-500/20 rounded-2xl shrink-0">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-0.5">Error de acceso</span>
+                  <span className="text-xs font-medium text-slate-300 leading-relaxed">{authError}</span>
+                </div>
+              </div>
+            )}
+
             {biometricError && (
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-3xl flex items-start gap-4 shadow-xl">
                 <div className="p-2.5 bg-red-500/20 rounded-2xl shrink-0">

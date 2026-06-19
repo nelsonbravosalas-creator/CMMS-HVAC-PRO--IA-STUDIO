@@ -13,6 +13,7 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       !disablePwa && VitePWA({
         registerType: 'autoUpdate',
+        useCredentials: true,
         devOptions: {
           enabled: false
         },

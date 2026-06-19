@@ -25,6 +25,8 @@ interface AuthContextType {
   biometricLogin: (correo: string) => Promise<boolean>;
   /** Función para destruir la sesión actual. */
   logout: () => void;
+  /** Último error de autenticación entregado por la API o la capa de despliegue. */
+  authError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,6 +53,7 @@ export function normalizePerfil(rol: string | undefined | null): Perfil {
  * Envuelve la aplicación para inyectar los datos del usuario.
  */
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [authError, setAuthError] = useState<string | null>(null);
   const [user, setUser] = useState<Usuario | null>(() => {
     // Intentar recuperar sesión persistida desde localStorage de forma segura
     let savedUserJson = localStorage.getItem('auth_user');
@@ -92,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (pin: string, correo: string): Promise<boolean> => {
     const normalizedCorreo = correo.trim().toLowerCase();
     const normalizedPin = pin.trim();
+    setAuthError(null);
 
     // 1. Intentar login contra API real (email + PIN)
     try {
@@ -100,7 +104,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: normalizedPin, correo: normalizedCorreo, email: normalizedCorreo })
       });
-      const json = await response.json();
+      const responseText = await response.text();
+      let json: any = {};
+
+      try {
+        json = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        if (response.status === 401 && responseText.trim().startsWith('<')) {
+          setAuthError('Este deployment está protegido por Vercel. Autoriza el acceso al proyecto o utiliza el dominio de producción.');
+          return false;
+        }
+        setAuthError('El servidor devolvió una respuesta inválida.');
+        return false;
+      }
+
+      if (!response.ok) {
+        const message = json.message
+          || (json.error === 'account_locked'
+            ? 'Cuenta bloqueada temporalmente por demasiados intentos fallidos.'
+            : json.error)
+          || 'Correo o PIN inválido.';
+        setAuthError(message);
+        return false;
+      }
+
       if (json.success && json.user) {
         const normalizedPerfil = normalizePerfil(json.user.perfil || json.user.rol);
         const loggedUser: Usuario = {
@@ -151,8 +178,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return true;
       }
+
+      setAuthError('La API no devolvió una sesión válida.');
     } catch (networkError) {
       console.warn('API no disponible o error de red, intentando login offline...', networkError);
+      setAuthError('No fue posible contactar el servicio de autenticación.');
     }
 
     // Fallback offline-first: solo valida credenciales locales, no abre sesión sin token emitido por el servidor.
@@ -204,6 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(() => {
     setUser(null);
+    setAuthError(null);
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     sessionStorage.removeItem('auth_token');
@@ -240,7 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, logout]);
 
   return (
-    <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout }}>
+    <AuthContext.Provider value={{ user, permisos, login, biometricLogin, logout, authError }}>
       {children}
     </AuthContext.Provider>
   );
