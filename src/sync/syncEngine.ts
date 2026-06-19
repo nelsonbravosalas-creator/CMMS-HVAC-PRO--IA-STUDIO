@@ -138,7 +138,12 @@ class SyncEngine {
          // Handle incoming server changes
          if (serverChanges) {
            for (const [tableName, rows] of Object.entries(serverChanges)) {
-             const table = db[tableName as keyof typeof db] as any;
+             const localTableName = tableName === 'clientes'
+               ? 'clients'
+               : tableName === 'sucursales'
+                 ? 'branches'
+                 : tableName;
+             const table = db[localTableName as keyof typeof db] as any;
              if (!table) continue;
 
              for (const remoteRecord of rows as any[]) {

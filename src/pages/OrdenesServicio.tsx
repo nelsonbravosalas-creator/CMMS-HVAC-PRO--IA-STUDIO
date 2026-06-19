@@ -25,7 +25,8 @@ export default function OrdenesServicio() {
 
   const filtered = rawOrdenes.filter(os => {
     const data = os.data || {};
-    if (activeClientUid && data.generalData?.cliente !== activeClientUid) {
+    const orderClient = os.cliente_id || data.generalData?.cliente;
+    if (!activeClientUid || orderClient !== activeClientUid || os.sync_status === 'pending_delete') {
       return false;
     }
     const tg = data.generalData?.equipoTag || "";
@@ -44,6 +45,10 @@ export default function OrdenesServicio() {
     tecnico: os.data?.generalData?.tecnico || "No Asignado",
     estado: os.estado || "borrador"
   }));
+  const statusCounts = filtered.reduce((acc, order) => {
+    acc[order.estado] = (acc[order.estado] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <div className="flex flex-col gap-6 text-left">
@@ -66,10 +71,10 @@ export default function OrdenesServicio() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatusSummary label="Borradores" count="1" color="slate" />
-        <StatusSummary label="Enviados" count="1" color="blue" />
-        <StatusSummary label="Firmados" count="0" color="emerald" />
-        <StatusSummary label="Cerrados" count="0" color="amber" />
+        <StatusSummary label="Borradores" count={(statusCounts.borrador || 0).toString()} color="slate" />
+        <StatusSummary label="Enviados" count={((statusCounts.enviada || 0) + (statusCounts.enviado || 0)).toString()} color="blue" />
+        <StatusSummary label="Firmados" count={((statusCounts.firmada || 0) + (statusCounts.firmado || 0)).toString()} color="emerald" />
+        <StatusSummary label="Cerrados" count={((statusCounts.cerrada || 0) + (statusCounts.cerrado || 0)).toString()} color="amber" />
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">

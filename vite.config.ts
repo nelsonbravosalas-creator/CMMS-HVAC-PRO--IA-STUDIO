@@ -6,11 +6,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const disablePwa = env.VITE_DISABLE_PWA === 'true' || env.DISABLE_PWA === 'true' || process.env.DISABLE_PWA === 'true';
   return {
     plugins: [
       react(), 
       tailwindcss(),
-      VitePWA({
+      !disablePwa && VitePWA({
         registerType: 'autoUpdate',
         devOptions: {
           enabled: false

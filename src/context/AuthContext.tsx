@@ -90,12 +90,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Intenta loguear un usuario buscando coincidencias de PIN en la base de datos (o localmente offline).
    */
   const login = async (pin: string, correo: string): Promise<boolean> => {
+    const normalizedCorreo = correo.trim().toLowerCase();
+    const normalizedPin = pin.trim();
+
     // 1. Intentar login contra API real (email + PIN)
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin, correo })
+        body: JSON.stringify({ pin: normalizedPin, correo: normalizedCorreo, email: normalizedCorreo })
       });
       const json = await response.json();
       if (json.success && json.user) {
@@ -103,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const loggedUser: Usuario = {
           id: json.user.id,
           nombre: json.user.nombre,
-          correo: json.user.correo || correo,
+          correo: json.user.correo || normalizedCorreo,
           perfil: normalizedPerfil,
           activo: json.user.activo,
           puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
@@ -121,8 +124,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline
-        const pinHash = bcrypt.hashSync(pin, 10);
-        const existingLocalUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+        const pinHash = bcrypt.hashSync(normalizedPin, 10);
+        const existingLocalUser = await db.users.where('email').equalsIgnoreCase(normalizedCorreo).first();
         if (existingLocalUser) {
           await db.users.update(existingLocalUser.uuid_sync, {
             id: json.user.id || existingLocalUser.id,
@@ -137,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             uuid_sync: crypto.randomUUID(),
             id: json.user.id || `U-${Date.now()}`,
             nombre: json.user.nombre,
-            email: correo,
+            email: normalizedCorreo,
             rol: loggedUser.perfil,
             pin: pinHash,
             activo: true,
@@ -153,12 +156,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Fallback offline-first: solo valida credenciales locales, no abre sesión sin token emitido por el servidor.
     try {
-      const localUser = await db.users.where('email').equalsIgnoreCase(correo).first();
+      const localUser = await db.users.where('email').equalsIgnoreCase(normalizedCorreo).first();
       if (localUser && localUser.activo) {
         // Validar el PIN contra el bcrypt hash almacenado
         const isMatch = localUser.pin.startsWith('$2')
-          ? bcrypt.compareSync(pin, localUser.pin)
-          : localUser.pin === pin;
+          ? bcrypt.compareSync(normalizedPin, localUser.pin)
+          : localUser.pin === normalizedPin;
 
         if (isMatch) return false;
       }

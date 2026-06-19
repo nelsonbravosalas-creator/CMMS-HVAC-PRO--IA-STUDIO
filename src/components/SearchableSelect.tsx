@@ -43,12 +43,16 @@ export function SearchableSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const safeSearchTerm = searchTerm.toLowerCase();
   const filteredOptions = options.filter(opt =>
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (opt.subtitle && opt.subtitle.toLowerCase().includes(searchTerm.toLowerCase()))
+    String(opt.label || '').toLowerCase().includes(safeSearchTerm) ||
+    String(opt.subtitle || '').toLowerCase().includes(safeSearchTerm)
   );
 
-  const exactMatchExists = options.some(opt => opt.label.toLowerCase() === searchTerm.toLowerCase() || opt.value.toLowerCase() === searchTerm.toLowerCase());
+  const exactMatchExists = options.some(opt =>
+    String(opt.label || '').toLowerCase() === safeSearchTerm ||
+    String(opt.value || '').toLowerCase() === safeSearchTerm
+  );
 
   return (
     <div className="relative w-full" ref={dropdownRef}>

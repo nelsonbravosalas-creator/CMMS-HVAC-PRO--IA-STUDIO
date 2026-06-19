@@ -17,17 +17,17 @@ services:
 
   app:
     build: .
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:-postgresql://cmms:cmms_password@postgres:5432/cmms_hvac}
+      ALLOW_MOCK_DB: "true"
+      DATABASE_URL: ${DATABASE_URL:-}
       JWT_SECRET: ${JWT_SECRET:-local_dev_jwt_secret_change_me}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DEV_MOCK_ADMIN_EMAIL: ${DEV_MOCK_ADMIN_EMAIL:-admin@local.test}
+      DEV_MOCK_ADMIN_PIN: ${DEV_MOCK_ADMIN_PIN:-1234}
     ports:
       - "${APP_PORT:-3001}:3000"
-    command: sh -c "node --import tsx scripts/db/bootstrap.ts && node dist/server.cjs"
+    command: sh -c "mkdir -p src/db && node dist/server.cjs"
 
 volumes:
   cmms_postgres_data:

@@ -92,6 +92,13 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
   const storeBranches = useAppStore(state => state.branches);
 
   const activeClientUuid = localStorage.getItem("active_client");
+  React.useEffect(() => {
+    if (activeClientUuid && cliente !== activeClientUuid) {
+      setCliente(activeClientUuid);
+      setSucursal("");
+    }
+  }, [activeClientUuid, cliente]);
+
   const localAssets = useLiveQuery(() => {
     let query = db.assets.filter(a => !a.deleted_at && a.estado !== 'baja');
     if (activeClientUuid) {

@@ -28,6 +28,39 @@ interface SubLocation {
   repeats_client?: boolean;
 }
 
+const cleanRut = (value: string) => value.replace(/[^0-9kK]/g, '').toUpperCase();
+
+const formatRut = (value: string) => {
+  const cleaned = cleanRut(value);
+  if (!cleaned) return '';
+
+  const body = cleaned.slice(0, -1);
+  const dv = cleaned.slice(-1);
+  if (!body) return dv;
+
+  const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${formattedBody}-${dv}`;
+};
+
+const isValidRut = (value: string) => {
+  const cleaned = cleanRut(value);
+  if (cleaned.length < 2) return false;
+
+  const body = cleaned.slice(0, -1);
+  const dv = cleaned.slice(-1);
+  let sum = 0;
+  let multiplier = 2;
+
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+
+  const expected = 11 - (sum % 11);
+  const expectedDv = expected === 11 ? '0' : expected === 10 ? 'K' : String(expected);
+  return dv === expectedDv;
+};
+
 export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps) {
   const [subs, setSubs] = useState<SubLocation[]>([]);
   const [nombre, setNombre] = useState('');
@@ -53,7 +86,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   useEffect(() => {
     if (editingClient && isOpen) {
       setNombre(editingClient.client.nombre || '');
-      setRut(editingClient.client.rut || '');
+      setRut(formatRut(editingClient.client.rut || ''));
       setDireccion(editingClient.client.direccion || '');
       setRegion(editingClient.client.region || '');
       setContactoNombre(editingClient.client.contacto_nombre || '');
@@ -109,6 +142,10 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       alert("El nombre de la empresa es obligatorio");
       return;
     }
+    if (rut && !isValidRut(rut)) {
+      alert("El RUT ingresado no es válido. Revise el número y el dígito verificador.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -118,8 +155,8 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
       // VALIDATE NO DUPLICATE CLIENT NAME OR RUT
       const clientsList = useAppStore.getState().clients;
-      const cleanRut = (r: string) => r.replace(/[^0-9kK]/g, '').toUpperCase();
       const normalizedRut = cleanRut(rut);
+      const formattedRut = formatRut(rut);
       const normalizedName = nombre.trim().toLowerCase();
 
       for (const c of clientsList) {
@@ -132,7 +169,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         
         const cRut = cleanRut(c.rut || "");
         if (normalizedRut && cRut && normalizedRut === cRut) {
-          alert(`Error: Ya existe un cliente registrado con el RUT ${rut}. No se permiten RUTs duplicados.`);
+          alert(`Error: Ya existe un cliente registrado con el RUT ${formattedRut}. No se permiten RUTs duplicados.`);
           setIsSaving(false);
           return;
         }
@@ -183,7 +220,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           id: formatClientId(nombre),
           nombre,
           empresa: nombre,
-          rut,
+          rut: formattedRut,
           direccion,
           region,
           contacto_nombre: contactoNombre,
@@ -258,7 +295,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           id: newClientId,
           nombre,
           empresa: nombre,
-          rut,
+          rut: formattedRut,
           direccion,
           region,
           contacto_nombre: contactoNombre,
@@ -329,6 +366,10 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
     setSubs(subs.map(s => s.id === id ? { ...s, ...partial } : s));
   };
 
+  const handleRutChange = (value: string) => {
+    setRut(formatRut(value));
+  };
+
   const removeSub = (id: string) => {
     setSubs(subs.filter(s => s.id !== id));
   };
@@ -359,7 +400,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                     </div>
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">RUT Empresa</label>
-                       <input type="text" value={rut} onChange={e => setRut(e.target.value)} placeholder="77.123.456-7" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <input type="text" value={rut} onChange={e => handleRutChange(e.target.value)} placeholder="77.123.456-7" inputMode="text" maxLength={12} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">Dirección Matriz</label>

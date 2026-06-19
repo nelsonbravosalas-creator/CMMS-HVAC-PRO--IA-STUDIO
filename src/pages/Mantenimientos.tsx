@@ -54,11 +54,9 @@ export default function Mantenimientos() {
   const filtered = useMemo(() => {
     const activeClientUuid = localStorage.getItem("active_client");
     return preventive_maintenance.filter(m => {
-      if (activeClientUuid) {
-        const client_id = assetToClientMap[m.equipo_tag];
-        if (client_id && client_id !== activeClientUuid) {
-          return false;
-        }
+      const clientId = m.cliente_id || assetToClientMap[m.equipo_tag];
+      if (!activeClientUuid || clientId !== activeClientUuid) {
+        return false;
       }
       const tagLower = (m.equipo_tag || "").toLowerCase();
       const tecnicoLower = (m.tecnico || "").toLowerCase();

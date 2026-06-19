@@ -162,6 +162,8 @@ export default function EditorInforme() {
 
   const clients = useAppStore(state => state.clients);
   const branches = useAppStore(state => state.branches);
+  const activeClientId = localStorage.getItem("active_client") || "";
+  const activeClient = clients.find(c => c.uuid_sync === activeClientId || c.id === activeClientId);
 
   const SECTIONS = [
     { id: 'general', label: 'Datos Generales', icon: <Info className="w-4 h-4" /> },
@@ -200,23 +202,15 @@ export default function EditorInforme() {
                    <label className="text-[10px] font-black uppercase text-slate-400">Cliente / Instalación</label>
                    <SearchableSelect
                       options={[
-                        { value: "", label: "Seleccione un cliente..." },
-                        ...(() => {
-                          const activeClientId = localStorage.getItem("active_client");
-                          const filteredClients = clients.filter(c => !c.deleted_at);
-                          if (activeClientId) {
-                            return filteredClients.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
-                          }
-                          return filteredClients;
-                        })().map(c => ({
-                          value: c.uuid_sync,
-                          label: c.nombre
-                        }))
+                        ...(activeClient ? [{
+                          value: activeClient.uuid_sync,
+                          label: activeClient.nombre
+                        }] : [])
                       ]}
-                      value={generalData.cliente}
-                      onChange={val => setGeneralData({...generalData, cliente: val, sucursal: ''})}
-                      disabled={isReadOnly}
-                      placeholder="Seleccione un cliente..."
+                      value={activeClient?.uuid_sync || activeClientId}
+                      onChange={() => undefined}
+                      disabled
+                      placeholder="Cliente seleccionado en la sesión"
                     />
                 </div>
                 <div className="space-y-1">
@@ -670,7 +664,12 @@ export default function EditorInforme() {
                          }}>Borrar</button>}
                      </div>
                   </div>
-                   <InputField label="Nombre de quien recibe" value="Gonzalo Bravo" readOnly={isReadOnly} />
+                   <InputField
+                     label="Nombre de quien recibe"
+                     value={generalData.nombreCliente || ""}
+                     onChange={(value) => setGeneralData({ ...generalData, nombreCliente: value })}
+                     readOnly={isReadOnly}
+                   />
                 </div>
              </SectionBox>
           </div>
@@ -688,6 +687,7 @@ export default function EditorInforme() {
     direccion: '',
     fecha: new Date().toISOString().split('T')[0],
     tecnico: 'Nelson Bravo',
+    nombreCliente: '',
     tipoServicio: 'Preventivo',
     folio: ''
   });
@@ -735,6 +735,7 @@ export default function EditorInforme() {
             direccion: '',
             fecha: new Date().toISOString().split('T')[0],
             tecnico: 'Nelson Bravo',
+            nombreCliente: '',
             tipoServicio: 'Preventivo',
             folio: ''
           },
@@ -773,6 +774,12 @@ export default function EditorInforme() {
     
     db.reports.get(id).then(dbReport => {
       if (dbReport && dbReport.data) {
+        const reportClient = dbReport.data.generalData?.cliente;
+        if (activeClientId && reportClient && reportClient !== activeClientId && reportClient !== activeClient?.id) {
+          alert("Este informe pertenece a otro cliente. Cambie de cliente desde el selector para abrirlo.");
+          setLocation("/informes");
+          return;
+        }
         setGeneralData(prev => ({ ...prev, ...dbReport.data.generalData }));
         if (dbReport.data.machineData) setMachineData(dbReport.data.machineData);
         if (dbReport.data.circuits) setCircuits(dbReport.data.circuits);
@@ -788,7 +795,16 @@ export default function EditorInforme() {
         }
       }
     }).catch(console.error);
-  }, [id]);
+  }, [id, activeClientId, activeClient?.id, setLocation]);
+
+  useEffect(() => {
+    if (!activeClientId || status === 'firmado' || status === 'bloqueado') return;
+    setGeneralData(prev => prev.cliente === activeClientId ? prev : {
+      ...prev,
+      cliente: activeClientId,
+      sucursal: prev.cliente && prev.cliente !== activeClientId ? '' : prev.sucursal
+    });
+  }, [activeClientId, status]);
 
   // Persist Changes to DB (Autosave - LOCAL ONLY, do not enqueue sync queue here to prevent spamming the server/queue)
   useEffect(() => {
@@ -833,6 +849,7 @@ export default function EditorInforme() {
     const reportData = {
       id: currentFolio,
       uuid_sync: id,
+      cliente_id: normalizedGeneralData.cliente,
       updated_at: Date.now(),
       sync_status: (existing ? 'pending_update' : 'pending_insert') as SyncStatus,
       data: {
@@ -923,7 +940,7 @@ export default function EditorInforme() {
         alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\n${exportResult.message}`);
       } catch (exportError: any) {
         console.warn("Exportación fallida", exportError);
-        alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\nNota: No se pudo enviar el correo: ${exportError.message}`);
+        alert(`Informe firmado exitosamente. Folio: ${currentFolio}\nLa notificación por correo no está disponible en este entorno.`);
       }
     } catch (saveError: any) {
       console.error(saveError);
@@ -1678,7 +1695,7 @@ export default function EditorInforme() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(6.5);
     doc.setTextColor(30, 41, 59);
-    doc.text("Firma Cliente de Conformidad: Gonzalo Bravo", 10 + signBoxW + colGap + 4, y2 + signBoxH - 5);
+    doc.text(`Firma Cliente de Conformidad: ${generalData.nombreCliente || '—'}`, 10 + signBoxW + colGap + 4, y2 + signBoxH - 5);
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139);
@@ -2167,7 +2184,7 @@ export default function EditorInforme() {
                     )}
                   </div>
                   <div className="mt-2 text-xs">
-                    <span className="font-black text-slate-800 block">Firma Cliente: Gonzalo Bravo</span>
+                    <span className="font-black text-slate-800 block">Firma Cliente: {generalData.nombreCliente || "—"}</span>
                     <span className="text-[10px] text-slate-400 font-medium uppercase">Jefe de Operaciones e Infraestructura</span>
                   </div>
                 </div>

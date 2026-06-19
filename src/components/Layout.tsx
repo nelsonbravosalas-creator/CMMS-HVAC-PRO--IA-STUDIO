@@ -151,7 +151,6 @@ interface LayoutProps {
 import { syncEngine } from '../sync/syncEngine';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
-import ClientSelectorWidget from "./ClientSelectorWidget";
 
 export default function Layout({ children }: LayoutProps) {
   const { logout } = useAuth();
@@ -169,16 +168,6 @@ export default function Layout({ children }: LayoutProps) {
     const client = await db.clients.get(activeClientId);
     return client ? client.nombre : null;
   }, [activeClientId]) || "Entorno General";
-
-  /** Fetch active clients list for responsive dropdown selection */
-  const activeClients = useLiveQuery(async () => {
-    const clients = await db.clients.toArray();
-    const filtered = clients.filter(c => c.activo !== false);
-    if (activeClientId) {
-      return filtered.filter(c => c.uuid_sync === activeClientId || c.id === activeClientId);
-    }
-    return filtered;
-  }, [activeClientId]) || [];
 
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -220,24 +209,39 @@ export default function Layout({ children }: LayoutProps) {
 
   // Real-time queries for badges
   const ticketsAbiertos = useLiveQuery(() => 
-    db.work_orders.where('estado').anyOf('abierto', 'en_proceso').count()
-  ) ?? 0;
+    db.work_orders.filter(item =>
+      item.cliente_id === activeClientId &&
+      (item.estado === 'abierto' || item.estado === 'en_proceso')
+    ).count()
+  , [activeClientId]) ?? 0;
 
   const mantenimientosPendientes = useLiveQuery(() => 
-    db.preventive_maintenance.where('estado').notEqual('ejecutado').count()
-  ) ?? 0;
+    db.preventive_maintenance.filter(item =>
+      item.cliente_id === activeClientId && item.estado !== 'ejecutado'
+    ).count()
+  , [activeClientId]) ?? 0;
 
-  const informesTotal = useLiveQuery(() => db.reports.count()) ?? 0;
+  const informesTotal = useLiveQuery(() =>
+    db.reports.filter(item =>
+      item.sync_status !== 'pending_delete' &&
+      (item.data?.generalData?.cliente || (item as any).cliente_id) === activeClientId
+    ).count()
+  , [activeClientId]) ?? 0;
   
   const equiposTotal = useLiveQuery(() => 
-    db.assets.filter(a => !a.deleted_at).count()
-  ) ?? 0;
+    db.assets.filter(a => !a.deleted_at && a.cliente_id === activeClientId).count()
+  , [activeClientId]) ?? 0;
 
-  const ordenesServicioTotal = useLiveQuery(() => db.ordenes_servicio.count()) ?? 0;
+  const ordenesServicioTotal = useLiveQuery(() =>
+    db.ordenes_servicio.filter(item =>
+      item.sync_status !== 'pending_delete' &&
+      (item.cliente_id || item.data?.generalData?.cliente) === activeClientId
+    ).count()
+  , [activeClientId]) ?? 0;
 
   const equiposEnFalla = useLiveQuery(() => 
-    db.assets.where('estado').equals('falla').count()
-  ) ?? 0;
+    db.assets.filter(a => !a.deleted_at && a.cliente_id === activeClientId && a.estado === 'falla').count()
+  , [activeClientId]) ?? 0;
 
   /** 
    * Estadísticas y contadores de insignias (Badges).
@@ -632,7 +636,6 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Floating Draggable Client Selector Widget */}
-      <ClientSelectorWidget isDarkMode={isDarkMode} />
     </div>
   );
 }

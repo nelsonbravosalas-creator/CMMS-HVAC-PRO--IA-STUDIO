@@ -29,14 +29,23 @@ export default function InformesHVAC() {
   const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
   const activeClientUid = localStorage.getItem("active_client") || "";
 
-  const handleCreateInforme = async () => {
-    const borradosCount = rawReports.filter(inf => {
-      const state = inf.data?.estado || inf.data?.status;
-      return state === 'borrador';
-    }).length;
+  const getReportStatus = (inf: any) => inf.data?.estado || inf.data?.status || "borrador";
+  const visibleReports = rawReports.filter(inf => {
+    if (inf.sync_status === 'pending_delete') return false;
+    const reportClient = inf.data?.generalData?.cliente || (inf as any).cliente_id;
+    return !!activeClientUid && reportClient === activeClientUid;
+  });
+  const statusCounts = visibleReports.reduce((acc, inf) => {
+    const status = getReportStatus(inf);
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
-    if (borradosCount >= 5) {
-      alert("No puedes tener más de 5 informes en estado de borrador.");
+  const handleCreateInforme = async () => {
+    const draftsCount = visibleReports.filter(inf => getReportStatus(inf) === 'borrador').length;
+
+    if (draftsCount >= 5) {
+      alert(`No puedes tener más de 5 informes en estado de borrador. Actualmente hay ${draftsCount}.`);
       return;
     }
 
@@ -91,21 +100,15 @@ export default function InformesHVAC() {
     await reportsRepo.delete(uuidSync);
   };
 
-  const filtered = rawReports.filter(inf => {
+  const filtered = visibleReports.filter(inf => {
     const data = inf.data || {};
-    const estado = data.estado || data.status || "borrador";
-    if (inf.sync_status === 'pending_delete') {
-      return false;
-    }
-    if (activeClientUid && data.generalData?.cliente && data.generalData.cliente !== activeClientUid) {
-      return false;
-    }
+    const estado = getReportStatus(inf);
     if (statusFilter !== "todos" && estado !== statusFilter) {
       return false;
     }
-    const tg = data.generalData?.equipoTag || data.machineData?.tag || data.equipo_tag || "";
-    const tec = data.generalData?.tecnico || "";
-    const idStr = inf.id || "";
+    const tg = String(data.generalData?.equipoTag || data.machineData?.tag || data.equipo_tag || "");
+    const tec = String(data.generalData?.tecnico || "");
+    const idStr = String(inf.id || "");
     const filterLower = (filter || "").toLowerCase();
     // filter logic
     return tg.toLowerCase().includes(filterLower) ||
@@ -151,11 +154,42 @@ export default function InformesHVAC() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatusSummary label="Borradores" count={filtered.filter(i => i.estado === 'borrador').length.toString()} color="slate" />
-        <StatusSummary label="Enviados" count={filtered.filter(i => i.estado === 'enviado').length.toString()} color="blue" />
-        <StatusSummary label="Firmados" count={filtered.filter(i => i.estado === 'firmado').length.toString()} color="emerald" />
-        <StatusSummary label="Bloqueados" count={filtered.filter(i => i.estado === 'bloqueado').length.toString()} color="amber" />
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <StatusSummary
+          label="Todos"
+          count={visibleReports.length.toString()}
+          color="slate"
+          active={statusFilter === "todos"}
+          onClick={() => setStatusFilter("todos")}
+        />
+        <StatusSummary
+          label="Borradores"
+          count={(statusCounts.borrador || 0).toString()}
+          color="slate"
+          active={statusFilter === "borrador"}
+          onClick={() => setStatusFilter(statusFilter === "borrador" ? "todos" : "borrador")}
+        />
+        <StatusSummary
+          label="Enviados"
+          count={(statusCounts.enviado || 0).toString()}
+          color="blue"
+          active={statusFilter === "enviado"}
+          onClick={() => setStatusFilter(statusFilter === "enviado" ? "todos" : "enviado")}
+        />
+        <StatusSummary
+          label="Firmados"
+          count={(statusCounts.firmado || 0).toString()}
+          color="emerald"
+          active={statusFilter === "firmado"}
+          onClick={() => setStatusFilter(statusFilter === "firmado" ? "todos" : "firmado")}
+        />
+        <StatusSummary
+          label="Bloqueados"
+          count={(statusCounts.bloqueado || 0).toString()}
+          color="amber"
+          active={statusFilter === "bloqueado"}
+          onClick={() => setStatusFilter(statusFilter === "bloqueado" ? "todos" : "bloqueado")}
+        />
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
@@ -244,7 +278,19 @@ export default function InformesHVAC() {
   );
 }
 
-function StatusSummary({ label, count, color }: { label: string, count: string, color: string }) {
+function StatusSummary({
+  label,
+  count,
+  color,
+  active,
+  onClick
+}: {
+  label: string;
+  count: string;
+  color: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   const colors: Record<string, string> = {
     slate: "text-slate-400",
     blue: "text-blue-500",
@@ -252,9 +298,16 @@ function StatusSummary({ label, count, color }: { label: string, count: string, 
     amber: "text-amber-500"
   };
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col gap-1 text-left">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`bg-white p-6 rounded-3xl border shadow-sm flex flex-col gap-1 text-left transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+        active ? "border-blue-500 ring-2 ring-blue-500/10" : "border-slate-200"
+      }`}
+      aria-pressed={active}
+    >
        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
        <div className={`text-2xl font-black ${colors[color]}`}>{count}</div>
-    </div>
+    </button>
   );
 }

@@ -7,7 +7,8 @@ export default async function handler(req: any, res: any) {
 
   try {
     const sql = getDb();
-    const { correo, pin } = req.body;
+    const correo = String(req.body.correo || req.body.email || '').trim();
+    const pin = String(req.body.pin || req.body.password || '').trim();
     if (!correo || !pin) return res.status(400).json({ success: false, error: 'Correo y PIN requeridos' });
 
     const emailLower = correo ? correo.toLowerCase() : '';
