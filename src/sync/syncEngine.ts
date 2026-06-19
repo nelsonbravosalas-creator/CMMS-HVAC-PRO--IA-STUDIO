@@ -6,14 +6,19 @@ import { syncQueue } from './syncQueue';
 import { networkMonitor } from './networkMonitor';
 
 class SyncEngine {
+  private initialized = false;
   private processing = false;
   private syncTimer: any = null;
   private lastSync: number = 0;
   private cooldownUntil: number = 0;
 
   init() {
+    if (this.initialized) return;
+    this.initialized = true;
+
     networkMonitor.init();
     window.addEventListener('network-reconnected', () => this.fullSync(true));
+    window.addEventListener('auth-session-started', () => this.fullSync(true));
     
     // Attempt full sync every 15s in background
     this.syncTimer = setInterval(() => {
@@ -24,10 +29,14 @@ class SyncEngine {
     const val = localStorage.getItem('last_sync_timestamp');
     this.lastSync = val ? Number(val) : 0;
 
-    this.fullSync();
+    if (sessionStorage.getItem('auth_token')) {
+      this.fullSync();
+    }
   }
 
   async fullSync(force: boolean = false) {
+    const token = sessionStorage.getItem('auth_token');
+    if (!token) return;
     if (this.processing || !networkMonitor.isOnline()) return;
     if (!force && this.cooldownUntil && Date.now() < this.cooldownUntil) {
       // Gracefully postpone syncing during active cooldown to avoid spamming the server/logs
@@ -61,7 +70,6 @@ class SyncEngine {
 
       logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
 
-      const token = sessionStorage.getItem('auth_token');
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: {
@@ -77,6 +85,11 @@ class SyncEngine {
       });
 
       if (!response.ok) {
+         if (response.status === 401) {
+           this.cooldownUntil = Number.POSITIVE_INFINITY;
+           window.dispatchEvent(new Event('auth-session-invalid'));
+           return;
+         }
          let errorDetail = response.statusText;
          try {
            const text = await response.text();

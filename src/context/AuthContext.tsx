@@ -121,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (json.token) {
           sessionStorage.setItem('auth_token', json.token);
           localStorage.removeItem('auth_token');
+          window.dispatchEvent(new Event('auth-session-started'));
         }
 
         // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline

@@ -73,8 +73,13 @@ export default /**
  * 3. Si no hay clientes (nuevo entorno), salta directo al Dashboard.
  */
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [hasClientSelected, setHasClientSelected] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => (
+    localStorage.getItem("is_authenticated") === "true"
+    && !!sessionStorage.getItem("auth_token")
+  ));
+  const [hasClientSelected, setHasClientSelected] = useState<boolean>(() => (
+    !!localStorage.getItem("active_client")
+  ));
   const [location, setLocation] = useLocation();
   const clients = useAppStore(state => state.clients);
 
@@ -88,6 +93,22 @@ function App() {
     // 3. Monitor de red se inicia dentro de syncEngine.init() o manualmente si se prefiere
     // networkMonitor.init(); // networkMonitor.init() ya es llamado por syncEngine.init()
   }, []);
+
+  useEffect(() => {
+    const handleInvalidSession = () => {
+      localStorage.removeItem("auth_user");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("is_authenticated");
+      localStorage.removeItem("active_client");
+      sessionStorage.removeItem("auth_token");
+      setIsAuthenticated(false);
+      setHasClientSelected(false);
+      setLocation("/login");
+    };
+
+    window.addEventListener("auth-session-invalid", handleInvalidSession);
+    return () => window.removeEventListener("auth-session-invalid", handleInvalidSession);
+  }, [setLocation]);
 
   // 30-Minute Inactivity Session Disconnection Rule (§1)
   useEffect(() => {
@@ -170,7 +191,7 @@ function App() {
 
   return (
     <AuthProvider>
-      {(!isAuthenticated && location === "/login") ? (
+      {!isAuthenticated ? (
         <Login />
       ) : (isAuthenticated && !hasClientSelected && clients.length > 0) ? (
         <ClientSelector />
