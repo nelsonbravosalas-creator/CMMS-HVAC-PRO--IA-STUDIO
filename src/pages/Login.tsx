@@ -42,7 +42,7 @@ export default function Login() {
       const success = await login(pin, email);
       setIsLoading(false);
       if (success) {
-        window.location.href = "/client-selector";
+        window.location.href = "/";
       }
     }
   };
@@ -99,7 +99,7 @@ export default function Login() {
           const success = await biometricLogin(userEmail);
           setIsBiometricScanning(false);
           if (success) {
-            window.location.href = "/client-selector";
+            window.location.href = "/";
             return;
           }
         }
@@ -116,7 +116,7 @@ export default function Login() {
       const success = await biometricLogin(userEmail);
       setIsBiometricScanning(false);
       if (success) {
-        window.location.href = "/client-selector";
+        window.location.href = "/";
       } else {
         setBiometricError("Falló la verificación del archivo biométrico alojado en el teléfono. Por favor intente nuevamente.");
       }

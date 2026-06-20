@@ -106,6 +106,7 @@ export interface LocalUserCliente extends LocalBase {
 export interface LocalSucursal extends LocalBase {
   id: string;
   nombre: string;
+  tipo?: string;
   codigo?: string;
   cliente_id: string;
   direccion: string;

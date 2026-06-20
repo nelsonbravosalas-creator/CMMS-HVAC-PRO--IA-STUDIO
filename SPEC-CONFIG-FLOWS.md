@@ -1,7 +1,7 @@
 # SPEC-CONFIG-FLOWS — Centro de Configuración de Flujos
 ## CMMS HVAC PRO · Versión 1.0 · 2026-06-13
 
-> **Alineación normativa:** el Administrador es global y es el único rol que crea clientes. Puede cambiar de contexto para configurar cada cliente. El Programador mantiene capacidades técnicas de plataforma, sin crear clientes ni obtener acceso implícito a datos operativos.
+> **Alineación normativa:** el Administrador es global y es el único rol que crea, edita, activa, desactiva o elimina clientes y sus sucursales. Puede cambiar de contexto para configurar cada cliente. El Programador mantiene capacidades técnicas de plataforma, sin administrar clientes ni obtener acceso implícito a datos operativos.
 
 ---
 
@@ -28,6 +28,8 @@ Administrador global
 ```
 
 **Regla:** el Administrador global es el único creador de clientes. Al operar dentro de un cliente no puede activar módulos fuera del plan técnico habilitado por plataforma.
+
+**Entrada al sistema:** el Administrador global utiliza el selector para elegir vista global o cliente. El Programador entra al contexto técnico global. Supervisor y Técnico eligen un cliente asignado al iniciar y pueden cambiarlo durante su sesión. Los demás usuarios reciben automáticamente su cliente predeterminado. Las sucursales no forman parte del inicio de sesión; se presentan como filtros internos cuando un módulo las necesita.
 
 ---
 

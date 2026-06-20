@@ -26,7 +26,7 @@ export function getScopedTenantId(user: any, requestedTenantId?: any) {
     return requestedTenantId || user?.cliente_id || null;
   }
   const allowedTenants = Array.isArray(user?.cliente_ids) ? user.cliente_ids : [];
-  const requested = requestedTenantId || user?.cliente_id;
+  const requested = requestedTenantId || user?.cliente_id || allowedTenants[0];
   return requested && (requested === user?.cliente_id || allowedTenants.includes(requested))
     ? requested
     : null;

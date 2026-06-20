@@ -22,6 +22,8 @@
 | **Cliente** | Crea tickets, mantenimientos, lee informes, descarga datos. | Su cliente |
 | **Proveedor** | Accede a tickets asignados, actualiza estado. | Tickets asignados |
 
+El Administrador global utiliza el selector para entrar a vista global o a un cliente. El Programador inicia en la plataforma técnica global. Supervisor y Técnico eligen al iniciar uno de sus clientes asignados y mantienen ese contexto durante la sesión, con opción de cambiarlo desde el encabezado. Cliente y Proveedor ingresan directamente con su cliente predeterminado. La sucursal nunca se solicita al iniciar sesión y se selecciona únicamente como filtro dentro de los módulos que corresponda.
+
 ---
 
 ### 1.1 MATRIZ DETALLADA DE PERMISOS
@@ -34,7 +36,7 @@
 | Crear Sucursal | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Editar Sucursal | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | **USUARIOS & PERFILES** | | | | | | |
-| Crear Usuario | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Crear Usuario | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Editar Perfil (propio) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Editar Perfil (otros) | ✅ | ✅ (su cliente) | ✅ (técnicos) | ❌ | ❌ | ❌ |
 | Ver Logs de Eventos | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
@@ -162,6 +164,7 @@ Toda entidad sincronizable incluye además `uuid_sync` técnico e inmutable y `i
 
 #### 3.2.2 Cliente & Sucursales
 - **CRUD Cliente** (solo Administrador global)
+- El formulario de alta y edición exige nombre, RUT válido, dirección, región y una sucursal obligatoria de tipo Casa Matriz.
 - **CRUD Sucursal** (Administrador global)
 - **Datos corporativos** (Logo, razón social, contacto)
 - **Carta de presentación** (editable, para reportes)

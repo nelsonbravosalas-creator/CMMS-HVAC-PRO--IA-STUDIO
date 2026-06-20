@@ -34,6 +34,7 @@ import Configuracion from "./pages/Configuracion";
 import Login from "./pages/Login";
 import Planificacion from "./pages/Planificacion";
 import ClientSelector from "./pages/ClientSelector";
+import AccessDenied from "./components/AccessDenied";
 import EFIEnergia from "./pages/EFIEnergia";
 import InventarioInterno from "./pages/InventarioInterno";
 import { syncEngine } from "./sync/syncEngine";
@@ -69,8 +70,10 @@ export default /**
  * 
  * FLUJO DE ARRANQUE:
  * 1. Verifica si hay sesión. Si no, manda a /login.
- * 2. Si hay sesión pero no cliente, intenta mandar a /client-selector.
- * 3. Si no hay clientes (nuevo entorno), salta directo al Dashboard.
+ * 2. El administrador elige vista global o cliente.
+ * 3. El programador entra a la plataforma técnica global.
+ * 4. Supervisor y Técnico eligen un cliente asignado para la sesión.
+ * 5. Los demás perfiles usan automáticamente su cliente asignado.
  */
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => (
@@ -90,7 +93,10 @@ function App() {
     }
   })();
   const isAdmin = savedUser?.perfil === "administrador";
+  const isProgrammer = savedUser?.perfil === "programador";
+  const selectsClient = savedUser?.perfil === "supervisor" || savedUser?.perfil === "tecnico";
   const isAdminGlobalView = isAdmin && localStorage.getItem("admin_global_view") === "true";
+  const isMissingAssignedClient = !!savedUser && !isAdmin && !isProgrammer && !selectsClient && !hasClientSelected;
 
   useEffect(() => {
     // 1. Hidratar datos locales (IndexedDB -> Zustand)
@@ -110,6 +116,7 @@ function App() {
       localStorage.removeItem("is_authenticated");
       localStorage.removeItem("active_client");
       localStorage.removeItem("admin_global_view");
+      localStorage.removeItem("platform_global_view");
       sessionStorage.removeItem("auth_token");
       setIsAuthenticated(false);
       setHasClientSelected(false);
@@ -132,6 +139,7 @@ function App() {
       localStorage.setItem("is_authenticated", "false");
       localStorage.removeItem("active_client");
       localStorage.removeItem("admin_global_view");
+      localStorage.removeItem("platform_global_view");
       setIsAuthenticated(false);
       setHasClientSelected(false);
       setLocation("/login");
@@ -195,22 +203,29 @@ function App() {
       return;
     }
 
-    if (auth && !client && !isAdminGlobalView && clients.length > 0 && location !== "/client-selector") {
+    if (
+      auth
+      && ((isAdmin && !isAdminGlobalView) || selectsClient)
+      && !client
+      && location !== "/client-selector"
+    ) {
       setLocation("/client-selector");
     }
-  }, [location, setLocation, clients.length, isAdminGlobalView]);
+  }, [location, setLocation, isAdmin, selectsClient, isAdminGlobalView]);
 
   return (
     <AuthProvider>
       {!isAuthenticated ? (
         <Login />
-      ) : (isAuthenticated && !hasClientSelected && !isAdminGlobalView && clients.length > 0) ? (
+      ) : (isAuthenticated && ((isAdmin && !isAdminGlobalView) || selectsClient) && !hasClientSelected) ? (
         <ClientSelector />
+      ) : isMissingAssignedClient ? (
+        <AccessDenied requiredPermission="Cliente asignado por el administrador" />
       ) : (
         <>
           <Layout>
             <Switch>
-              <Route path="/" component={Dashboard} />
+              <Route path="/">{isProgrammer ? <Configuracion /> : <Dashboard />}</Route>
               <Route path="/scanner" component={ScannerQR} />
               <Route path="/equipos" component={Equipos} />
               <Route path="/equipos/:assetId" component={DetalleEquipo} />
@@ -226,14 +241,22 @@ function App() {
               <Route path="/reportes" component={Reportes} />
               <Route path="/eficiencia" component={EFIEnergia} />
               <Route path="/inventario" component={InventarioInterno} />
-              <Route path="/administracion" component={Administracion} />
-              <Route path="/clientes" component={Clientes} />
+              <Route path="/administracion">
+                {isAdmin ? <Administracion /> : <AccessDenied requiredPermission="Gestionar usuarios" />}
+              </Route>
+              <Route path="/clientes">
+                {isAdmin ? <Clientes /> : <AccessDenied requiredPermission="Administrar clientes" />}
+              </Route>
               <Route path="/biometria" component={Biometria} />
               <Route path="/consola" component={Consola} />
               <Route path="/configuracion" component={Configuracion} />
               
               {/* Simple fallbacks */}
-              <Route path="/client-selector" component={ClientSelector} />
+              <Route path="/client-selector">
+                {isAdmin || selectsClient
+                  ? <ClientSelector />
+                  : <AccessDenied requiredPermission="Cambiar contexto de clientes" />}
+              </Route>
               <Route path="/login" component={Login} />
 
               <Route>

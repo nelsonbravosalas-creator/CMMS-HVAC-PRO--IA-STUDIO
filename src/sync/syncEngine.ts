@@ -37,6 +37,15 @@ class SyncEngine {
   async fullSync(force: boolean = false) {
     const token = sessionStorage.getItem('auth_token');
     if (!token) return;
+    let savedUser: any = null;
+    try {
+      savedUser = JSON.parse(localStorage.getItem('auth_user') || 'null');
+    } catch {
+      savedUser = null;
+    }
+    if (savedUser?.perfil === 'programador' && !localStorage.getItem('active_client')) {
+      return;
+    }
     if (this.processing || !networkMonitor.isOnline()) return;
     if (!force && this.cooldownUntil && Date.now() < this.cooldownUntil) {
       // Gracefully postpone syncing during active cooldown to avoid spamming the server/logs
@@ -74,13 +83,17 @@ class SyncEngine {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(localStorage.getItem('active_client')
+            ? { 'X-Client-ID': localStorage.getItem('active_client') as string }
+            : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           inserts,
           updates,
           deletes,
-          lastSync: this.lastSync
+          lastSync: this.lastSync,
+          cliente_id: localStorage.getItem('active_client') || undefined
         })
       });
 

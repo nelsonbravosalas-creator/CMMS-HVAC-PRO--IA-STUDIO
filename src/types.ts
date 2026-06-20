@@ -89,7 +89,7 @@ export const PERMISOS_POR_PERFIL: Record<Perfil, Permisos> = {
   programador: {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
     crear_informe: true, crear_ticket: true, ver_reportes: true,
-    gestionar_usuarios: true, crear_equipo: true, crear_mantenimiento: true,
+    gestionar_usuarios: false, crear_equipo: true, crear_mantenimiento: true,
     puedeEditarMantenimientos: true, ver_historial: true, ver_specs: true, ver_ubicacion: true
   }
 };

@@ -376,14 +376,19 @@ export const createMockSql = () => {
         const perfil = values[4];
         const usesPinHash = queryLower.includes('pin_hash');
         const pin_hash = usesPinHash ? values[5] : undefined;
-        const pin = usesPinHash ? values[6] : values[5];
-        const offset = usesPinHash ? 1 : 0;
-        const activo = values[6 + offset] !== false;
-        const data = values[7 + offset] || '{}';
-        const updated_at = values[8 + offset] || Date.now();
-        const created_at = values[9 + offset] || Date.now();
-        const deleted_at = values[10 + offset] || null;
-        const cliente_id = values[11 + offset] || null;
+        const pinIsSqlNull = usesPinHash && /__val5__\s*,\s*null/.test(queryLower);
+        const pin = usesPinHash ? (pinIsSqlNull ? null : values[6]) : values[5];
+        const activeIndex = usesPinHash ? (pinIsSqlNull ? 6 : 7) : 6;
+        const activo = values[activeIndex] !== false;
+        const data = values[activeIndex + 1] || '{}';
+        const updated_at = values[activeIndex + 2] || Date.now();
+        const created_at = values[activeIndex + 3] || Date.now();
+        const deletedIsSqlNull = queryLower.includes('deleted_at')
+          && values.length === activeIndex + 5;
+        const deleted_at = deletedIsSqlNull ? null : (values[activeIndex + 4] || null);
+        const cliente_id = deletedIsSqlNull
+          ? (values[activeIndex + 4] || null)
+          : (values[activeIndex + 5] || null);
 
         const record = { uuid_sync, id, nombre, correo, perfil, pin_hash, pin, activo, data, updated_at, created_at, deleted_at, cliente_id };
         const idx = targetTable.findIndex(row => row.uuid_sync === uuid_sync);
@@ -505,6 +510,21 @@ export const createMockSql = () => {
         }
       }
 
+      saveMockData();
+      return [{ success: true }];
+    }
+
+    if (queryLower.startsWith('delete')) {
+      const tableMatch = query.match(/FROM\s+"?(\w+)"?/i);
+      if (!tableMatch) return [];
+      const tableName = tableMatch[1].toLowerCase() as keyof MockSchema;
+      const targetTable = mockData[tableName];
+      if (!targetTable) return [];
+
+      if (tableName === 'user_clientes' && queryLower.includes('user_id =')) {
+        const userId = String(values[0]);
+        (mockData.user_clientes as any[]) = targetTable.filter(row => String(row.user_id || '') !== userId);
+      }
       saveMockData();
       return [{ success: true }];
     }

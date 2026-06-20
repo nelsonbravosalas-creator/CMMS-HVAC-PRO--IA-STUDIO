@@ -81,15 +81,48 @@ export default async function handler(req: any, res: any) {
 
     const tenantRows = await sql`SELECT cliente_id FROM user_clientes WHERE user_id = ${user.uuid_sync}`;
     const clienteIds = tenantRows.map((row: any) => row.cliente_id);
+    const assignedClients = [];
+    for (const clienteId of clienteIds) {
+      const clientRows = await sql`
+        SELECT * FROM clientes
+        WHERE (id = ${clienteId} OR uuid_sync = ${clienteId})
+          AND deleted_at IS NULL
+        LIMIT 1
+      `;
+      if (clientRows[0]) {
+        const rawData = clientRows[0].data;
+        let parsedData: any = {};
+        if (rawData && typeof rawData === 'object') {
+          parsedData = rawData;
+        } else if (typeof rawData === 'string' && /^[{\[]/.test(rawData.trim())) {
+          try {
+            parsedData = JSON.parse(rawData);
+          } catch {
+            parsedData = {};
+          }
+        }
+        assignedClients.push({ ...parsedData, ...clientRows[0] });
+      }
+    }
+    const defaultClientId = returnUser.cliente_id || clienteIds[0] || null;
     const token = signToken({
       id: returnUser.id,
       uuid_sync: user.uuid_sync,
       perfil: returnUser.perfil,
-      cliente_id: returnUser.cliente_id,
+      cliente_id: defaultClientId,
       cliente_ids: clienteIds
     });
 
-    return res.json({ success: true, user: { ...returnUser, cliente_ids: clienteIds }, token });
+    return res.json({
+      success: true,
+      user: {
+        ...returnUser,
+        cliente_id: defaultClientId,
+        cliente_ids: clienteIds,
+        assigned_clients: assignedClients
+      },
+      token
+    });
   } catch (error: any) {
     return res.status(503).json({ success: false, error: 'Servicio no disponible', offline: true });
   }

@@ -30,6 +30,53 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getDefaultClientId(user: Pick<Usuario, 'cliente_id' | 'cliente_ids'>) {
+  return user.cliente_id || user.cliente_ids?.[0] || null;
+}
+
+function requiresClientSelection(perfil: Perfil) {
+  return perfil === 'supervisor' || perfil === 'tecnico';
+}
+
+function configureRoleContext(user: Usuario, resetSessionContext = true) {
+  if (user.perfil === 'administrador') {
+    localStorage.removeItem('platform_global_view');
+    if (resetSessionContext) {
+      localStorage.removeItem('active_client');
+      localStorage.removeItem('admin_global_view');
+    }
+    return true;
+  }
+
+  localStorage.removeItem('admin_global_view');
+
+  if (user.perfil === 'programador') {
+    localStorage.removeItem('active_client');
+    localStorage.setItem('platform_global_view', 'true');
+    return true;
+  }
+
+  if (requiresClientSelection(user.perfil)) {
+    if (!user.cliente_ids?.length && !user.cliente_id) {
+      localStorage.removeItem('active_client');
+      return false;
+    }
+    if (resetSessionContext) {
+      localStorage.removeItem('active_client');
+    }
+    return true;
+  }
+
+  const defaultClientId = getDefaultClientId(user);
+  if (!defaultClientId) {
+    localStorage.removeItem('active_client');
+    return false;
+  }
+
+  localStorage.setItem('active_client', defaultClientId);
+  return true;
+}
+
 /**
  * Normaliza cualquier perfil / rol String (con mayúsculas, acentos u otros)
  * para asegurar que sea una llave válida de PERMISOS_POR_PERFIL.
@@ -76,6 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (u) {
           u.perfil = normalizePerfil(u.perfil);
           u.puedeEditarMantenimientos = u.perfil !== 'visita' && u.perfil !== 'cliente';
+          configureRoleContext(u, false);
         }
         return u;
       } catch (e) {
@@ -140,6 +188,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cliente_ids: json.user.cliente_ids || []
         };
 
+        if (!configureRoleContext(loggedUser)) {
+          setAuthError('Tu usuario no tiene un cliente asignado. Contacta al administrador.');
+          return false;
+        }
+
         setUser(loggedUser);
         
         // Guardar para persistencia síncrona en recarga de página
@@ -149,6 +202,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.setItem('auth_token', json.token);
           localStorage.removeItem('auth_token');
           window.dispatchEvent(new Event('auth-session-started'));
+        }
+
+        for (const assignedClient of json.user.assigned_clients || []) {
+          await db.clients.put({
+            ...assignedClient,
+            uuid_sync: assignedClient.uuid_sync || assignedClient.id,
+            id: assignedClient.id,
+            nombre: assignedClient.nombre || assignedClient.data?.nombre || assignedClient.id,
+            rut: assignedClient.rut || assignedClient.data?.rut || '',
+            direccion: assignedClient.direccion || assignedClient.data?.direccion || '',
+            activo: assignedClient.activo !== false,
+            updated_at: assignedClient.updated_at || Date.now(),
+            sync_status: 'synced'
+          });
         }
 
         // Guardar solo metadatos no sensibles para UX y biometría de una sesión vigente.
@@ -203,8 +270,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           correo: localUser.email,
           perfil: normalizedPerfil,
           activo: localUser.activo,
-          puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente'
+          puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
+          cliente_id: localUser.cliente_id,
+          cliente_ids: localUser.cliente_ids || []
         };
+
+        if (!configureRoleContext(loggedUser)) {
+          return false;
+        }
 
         setUser(loggedUser);
         localStorage.setItem('auth_user', JSON.stringify(loggedUser));
@@ -226,6 +299,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
     localStorage.removeItem('admin_global_view');
+    localStorage.removeItem('platform_global_view');
   }, []);
 
   // BR-AUTH-004: Inactivity Timeout (30 minutes)

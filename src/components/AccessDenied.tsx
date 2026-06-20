@@ -54,11 +54,13 @@ export default function AccessDenied({ requiredPermission }: AccessDeniedProps) 
             </a>
           </Link>
 
-          <Link href="/client-selector">
-            <a className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 active:scale-[0.98] text-slate-900 dark:text-white text-[10px] font-black uppercase rounded-2xl tracking-widest transition-all border border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2">
-              <RefreshCw className="w-4 h-4" /> Selector de Clientes
-            </a>
-          </Link>
+          {user?.perfil === "administrador" && (
+            <Link href="/client-selector">
+              <a className="w-full py-3.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 active:scale-[0.98] text-slate-900 dark:text-white text-[10px] font-black uppercase rounded-2xl tracking-widest transition-all border border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4" /> Selector de Clientes
+              </a>
+            </Link>
+          )}
 
           <button 
             onClick={handleLogout}

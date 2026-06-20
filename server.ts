@@ -43,7 +43,7 @@ const SYNC_WRITABLE_TABLES = new Set([
 const getTenantFromAuth = (req: any, res: any) => {
   const requestedTenantId = req.headers['x-client-id'] || req.headers['x-cliente-id'] || req.query?.cliente_id || req.body?.cliente_id;
   const allowedTenantIds = Array.isArray(req.authUser?.cliente_ids) ? req.authUser.cliente_ids : [];
-  const tenantId = requestedTenantId || req.authUser?.cliente_id;
+  const tenantId = requestedTenantId || req.authUser?.cliente_id || allowedTenantIds[0];
   if (!tenantId && !isAdminAuthUser(req.authUser)) {
     res.status(403).json({ success: false, error: "Tenant no asociado al token de sesión" });
     return null;
@@ -580,14 +580,47 @@ async function startServer() {
 
       const tenantRows = await sql`SELECT cliente_id FROM user_clientes WHERE user_id = ${user.uuid_sync}`;
       const clienteIds = tenantRows.map((row: any) => row.cliente_id);
+      const assignedClients = [];
+      for (const clienteId of clienteIds) {
+        const clientRows = await sql`
+          SELECT * FROM clientes
+          WHERE (id = ${clienteId} OR uuid_sync = ${clienteId})
+            AND deleted_at IS NULL
+          LIMIT 1
+        `;
+        if (clientRows[0]) {
+          const rawData = clientRows[0].data;
+          let parsedData: any = {};
+          if (rawData && typeof rawData === "object") {
+            parsedData = rawData;
+          } else if (typeof rawData === "string" && /^[{\[]/.test(rawData.trim())) {
+            try {
+              parsedData = JSON.parse(rawData);
+            } catch {
+              parsedData = {};
+            }
+          }
+          assignedClients.push({ ...parsedData, ...clientRows[0] });
+        }
+      }
+      const defaultClientId = returnUser.cliente_id || clienteIds[0] || null;
       const token = signAuthToken({
         id: returnUser.id,
         uuid_sync: user.uuid_sync,
         perfil: returnUser.perfil,
-        cliente_id: returnUser.cliente_id,
+        cliente_id: defaultClientId,
         cliente_ids: clienteIds
       });
-      res.json({ success: true, user: { ...returnUser, cliente_ids: clienteIds }, token });
+      res.json({
+        success: true,
+        user: {
+          ...returnUser,
+          cliente_id: defaultClientId,
+          cliente_ids: clienteIds,
+          assigned_clients: assignedClients
+        },
+        token
+      });
     } catch (e: any) {
       console.error("Auth error:", e);
       res.status(500).json({ success: false, error: e.message });
@@ -620,19 +653,105 @@ async function startServer() {
     }
   });
 
+  app.get("/api/users", requireRole(["administrador"]), async (_req: any, res: any) => {
+    try {
+      const sql = getSql();
+      const [users, relations] = await Promise.all([
+        sql`
+          SELECT id, nombre, correo, perfil, activo, uuid_sync, cliente_id, updated_at
+          FROM users
+          WHERE deleted_at IS NULL
+          ORDER BY nombre ASC
+        `,
+        sql`SELECT user_id, cliente_id FROM user_clientes`
+      ]);
+      const clientIdsByUser = new Map<string, string[]>();
+      for (const relation of relations) {
+        const current = clientIdsByUser.get(relation.user_id) || [];
+        current.push(relation.cliente_id);
+        clientIdsByUser.set(relation.user_id, current);
+      }
+      return res.json({
+        success: true,
+        data: users.map((item: any) => ({
+          ...item,
+          cliente_ids: clientIdsByUser.get(item.uuid_sync) || []
+        }))
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   app.post("/api/users", requireRole(["administrador"]), async (req: any, res: any) => {
     try {
       const d = req.body || {};
+      const perfil = normalizeRole(d.perfil || "tecnico");
+      const allowedRoles = new Set(["administrador", "programador", "supervisor", "tecnico", "contratista", "cliente", "visita"]);
+      const globalRoles = new Set(["administrador", "programador"]);
+      if (!allowedRoles.has(perfil)) {
+        return res.status(400).json({ success: false, error: "Perfil de usuario no válido" });
+      }
+      const nombre = String(d.nombre || "").trim();
+      const correo = String(d.correo || "").trim().toLowerCase();
+      if (!nombre || !correo) {
+        return res.status(400).json({ success: false, error: "Nombre y correo son obligatorios" });
+      }
+      if (d.pin && !/^\d{4}$/.test(String(d.pin))) {
+        return res.status(400).json({ success: false, error: "El PIN debe contener exactamente 4 dígitos" });
+      }
+
+      const sql = getSql();
+      let clienteId: string | null = null;
+      let clienteIds: string[] = [];
+      if (!globalRoles.has(perfil)) {
+        const requestedClientIds = Array.from(new Set(
+          (Array.isArray(d.cliente_ids) && d.cliente_ids.length ? d.cliente_ids : [d.cliente_id])
+            .map((value: unknown) => String(value || "").trim())
+            .filter(Boolean)
+        )) as string[];
+        if (requestedClientIds.length === 0) {
+          return res.status(400).json({ success: false, error: "Debe asignar al menos un cliente para este perfil" });
+        }
+        for (const requestedClientId of requestedClientIds) {
+          const clients = await sql`
+            SELECT id FROM clientes
+            WHERE (id = ${requestedClientId} OR uuid_sync = ${requestedClientId})
+              AND deleted_at IS NULL
+            LIMIT 1
+          `;
+          if (!clients[0]) {
+            return res.status(400).json({ success: false, error: "Uno o más clientes seleccionados no existen o están inactivos" });
+          }
+          clienteIds.push(clients[0].id);
+        }
+        clienteIds = Array.from(new Set(clienteIds));
+        clienteId = clienteIds[0];
+      }
+
       const id = d.id || `U-${Date.now()}`;
       const uuidSync = d.uuid_sync || crypto.randomUUID();
-      const now = d.updated_at || Date.now();
+      const now = Date.now();
       const pinHash = d.pin ? await hashPin(String(d.pin)) : null;
       const { pin: _pin, ...safeData } = d;
-      const sql = getSql();
+      const normalizedData = {
+        ...safeData,
+        id,
+        uuid_sync: uuidSync,
+        nombre,
+        correo,
+        perfil,
+        activo: d.activo !== false,
+        cliente_id: clienteId,
+        cliente_ids: clienteIds
+      };
       await sql`
-        INSERT INTO users (uuid_sync, id, nombre, correo, perfil, pin_hash, pin, activo, data, updated_at, created_at)
-        VALUES (${uuidSync}, ${id}, ${d.nombre || ''}, ${d.correo || ''}, ${d.perfil || 'tecnico'}, ${pinHash}, NULL,
-          ${d.activo !== false}, ${JSON.stringify(safeData)}, ${now}, ${d.created_at || now})
+        INSERT INTO users (
+          uuid_sync, id, nombre, correo, perfil, pin_hash, pin, activo,
+          data, updated_at, created_at, deleted_at, cliente_id
+        )
+        VALUES (${uuidSync}, ${id}, ${nombre}, ${correo}, ${perfil}, ${pinHash}, NULL,
+          ${d.activo !== false}, ${JSON.stringify(normalizedData)}, ${now}, ${d.created_at || now}, NULL, ${clienteId})
         ON CONFLICT (id) DO UPDATE SET
           nombre = EXCLUDED.nombre,
           correo = EXCLUDED.correo,
@@ -640,17 +759,31 @@ async function startServer() {
           pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash),
           pin = NULL,
           activo = EXCLUDED.activo,
+          cliente_id = EXCLUDED.cliente_id,
           data = EXCLUDED.data,
-          updated_at = EXCLUDED.updated_at
+          updated_at = EXCLUDED.updated_at,
+          deleted_at = NULL
       `;
-      if (d.cliente_id) {
+      const storedUsers = await sql`SELECT uuid_sync FROM users WHERE id = ${id} LIMIT 1`;
+      const storedUuid = storedUsers[0]?.uuid_sync || uuidSync;
+      await sql`DELETE FROM user_clientes WHERE user_id = ${storedUuid}`;
+      for (const assignedClientId of clienteIds) {
+        const relationId = `UC-${storedUuid}-${assignedClientId}`;
         await sql`
           INSERT INTO user_clientes (uuid_sync, id, user_id, cliente_id, created_at)
-          VALUES (${crypto.randomUUID()}, ${`UC-${id}-${d.cliente_id}`}, ${uuidSync}, ${d.cliente_id}, ${now})
+          VALUES (${relationId}, ${relationId}, ${storedUuid}, ${assignedClientId}, ${now})
           ON CONFLICT (user_id, cliente_id) DO NOTHING
         `;
       }
-      return res.json({ success: true, data: { id, uuid_sync: uuidSync } });
+      return res.json({
+        success: true,
+        data: {
+          id,
+          uuid_sync: storedUuid,
+          cliente_id: clienteId,
+          cliente_ids: clienteIds
+        }
+      });
     } catch (error: any) {
       return res.status(500).json({ success: false, error: error.message });
     }

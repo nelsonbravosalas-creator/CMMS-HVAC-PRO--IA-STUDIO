@@ -60,7 +60,7 @@ const NAV_ITEMS = [
   { href: "/scanner", icon: ScanLine, label: "Scanner QR" },
   { href: "/equipos", icon: Box, label: "Equipos", badgeKey: 'equiposTotal', badgeColor: "bg-purple-600" },
   { href: "/mapa", icon: MapPin, label: "Mapa" },
-  { href: "/clientes", icon: Building2, label: "Clientes" },
+  { href: "/clientes", icon: Building2, label: "Clientes", adminOnly: true },
   { href: "/inventario", icon: Package, label: "Inventario Interno" },
   { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
@@ -69,7 +69,7 @@ const NAV_ITEMS = [
   { href: "/tickets", icon: Ticket, label: "Tickets", badgeKey: 'ticketsAbiertos' },
   { href: "/reportes", icon: BarChart3, label: "Reportes" },
   { href: "/eficiencia", icon: Zap, label: "Eficiencia Energética" },
-  { href: "/administracion", icon: Users, label: "Administración", section: "Configuración" },
+  { href: "/administracion", icon: Users, label: "Usuarios", section: "Configuración", adminOnly: true },
   { href: "/biometria", icon: Fingerprint, label: "Acceso Biométrico", section: "Configuración" },
   { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración" },
   { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración" },
@@ -156,6 +156,12 @@ export default function Layout({ children }: LayoutProps) {
   const { logout, user } = useAuth();
   const [, setLocation] = useLocation();
   const isAdmin = user?.perfil === "administrador";
+  const canChangeClient = isAdmin || user?.perfil === "supervisor" || user?.perfil === "tecnico";
+  const visibleNavItems = NAV_ITEMS
+    .filter(item => !item.adminOnly || isAdmin)
+    .map(item => user?.perfil === "programador" && item.href === "/"
+      ? { ...item, label: "Plataforma Técnica" }
+      : item);
 
   const handleHeaderLogout = () => {
     logout();
@@ -165,10 +171,14 @@ export default function Layout({ children }: LayoutProps) {
   /** Dynamic active client name */
   const activeClientId = localStorage.getItem("active_client");
   const activeClientName = useLiveQuery(async () => {
-    if (!activeClientId) return null;
-    const client = await db.clients.get(activeClientId);
+    if (!activeClientId) {
+      return user?.perfil === "programador" ? "Plataforma Técnica" : null;
+    }
+    const client = await db.clients
+      .filter(item => item.uuid_sync === activeClientId || item.id === activeClientId)
+      .first();
     return client ? client.nombre : null;
-  }, [activeClientId]) || "Vista Global";
+  }, [activeClientId, user?.perfil]) || (isAdmin ? "Vista Global" : activeClientId || "Sin cliente");
 
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -273,9 +283,9 @@ export default function Layout({ children }: LayoutProps) {
         </div>
         
         <nav className="mt-4 flex-1 flex flex-col overflow-y-auto scrollbar-hide py-2">
-          {NAV_ITEMS.map((item, idx) => (
+          {visibleNavItems.map((item, idx) => (
             <div key={item.href}>
-              {item.section && (idx === 0 || NAV_ITEMS[idx-1].section !== item.section) && (
+              {item.section && (idx === 0 || visibleNavItems[idx-1].section !== item.section) && (
                 <div className={`mt-6 mb-2 px-6 text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                   {item.section}
                 </div>
@@ -360,7 +370,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
 
             <nav className="flex-1 overflow-y-auto py-6 space-y-1 custom-scrollbar">
-              {NAV_ITEMS.map((item) => (
+              {visibleNavItems.map((item) => (
                 <NavItem 
                   key={item.href}
                   isDarkMode={isDarkMode} 
@@ -400,7 +410,11 @@ export default function Layout({ children }: LayoutProps) {
               <MenuIcon className="w-6 h-6" />
             </button>
             <h1 className={`text-xs font-bold uppercase tracking-widest hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              Panel Operativo Global
+              {user?.perfil === "programador"
+                ? "Plataforma Técnica Global"
+                : isAdmin
+                  ? "Panel Operativo Global"
+                  : "Panel Operativo del Cliente"}
             </h1>
           </div>
 
@@ -432,13 +446,13 @@ export default function Layout({ children }: LayoutProps) {
             {/* Active Client Badge (Simple Capsule) */}
             <button
               type="button"
-              onClick={() => isAdmin && setLocation("/client-selector")}
-              title={isAdmin ? "Cambiar contexto de cliente" : undefined}
+              onClick={() => canChangeClient && setLocation("/client-selector")}
+              title={canChangeClient ? "Cambiar contexto de cliente" : undefined}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black tracking-wider uppercase ${
               isDarkMode 
                 ? 'bg-slate-900/60 border-slate-800 text-slate-300' 
                 : 'bg-white/80 border-slate-200 text-slate-700 shadow-sm'
-            } ${isAdmin ? "cursor-pointer hover:border-blue-300 hover:text-blue-700" : "cursor-default"}`}>
+            } ${canChangeClient ? "cursor-pointer hover:border-blue-300 hover:text-blue-700" : "cursor-default"}`}>
               <Database className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
               <span className="max-w-[120px] sm:max-w-[180px] truncate">{activeClientName}</span>
             </button>
@@ -583,12 +597,14 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </Link>
 
-              <Link href="/clientes" onClick={() => setIsMoreDrawerOpen(false)}>
-                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
-                  <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400"><Building2 className="w-6 h-6" /></div>
-                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Clientes</span>
-                </div>
-              </Link>
+              {isAdmin && (
+                <Link href="/clientes" onClick={() => setIsMoreDrawerOpen(false)}>
+                  <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                    <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400"><Building2 className="w-6 h-6" /></div>
+                    <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Clientes</span>
+                  </div>
+                </Link>
+              )}
 
               <Link href="/planificacion" onClick={() => setIsMoreDrawerOpen(false)}>
                 <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
@@ -604,12 +620,14 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </Link>
 
-              <Link href="/administracion" onClick={() => setIsMoreDrawerOpen(false)}>
-                <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
-                  <div className="w-12 h-12 bg-rose-600/20 rounded-2xl flex items-center justify-center text-rose-400"><Users className="w-6 h-6" /></div>
-                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Admin</span>
-                </div>
-              </Link>
+              {isAdmin && (
+                <Link href="/administracion" onClick={() => setIsMoreDrawerOpen(false)}>
+                  <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
+                    <div className="w-12 h-12 bg-rose-600/20 rounded-2xl flex items-center justify-center text-rose-400"><Users className="w-6 h-6" /></div>
+                    <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Usuarios</span>
+                  </div>
+                </Link>
+              )}
 
               <Link href="/biometria" onClick={() => setIsMoreDrawerOpen(false)}>
                 <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">

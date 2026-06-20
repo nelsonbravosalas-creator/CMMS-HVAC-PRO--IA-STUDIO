@@ -2,51 +2,170 @@ import { getDb } from './_db.js';
 import { requireRole } from './_auth.js';
 import { hashPin } from '../server/passwords.js';
 
+const ALLOWED_ROLES = new Set([
+  'administrador',
+  'programador',
+  'supervisor',
+  'tecnico',
+  'contratista',
+  'cliente',
+  'visita'
+]);
+const GLOBAL_ROLES = new Set(['administrador', 'programador']);
+
+function normalizeRole(value: unknown) {
+  return String(value || 'tecnico')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 export default async function handler(req: any, res: any) {
   try {
-    const user = requireRole(['administrador'])(req, res);
-    if (!user) return;
+    const admin = requireRole(['administrador'])(req, res);
+    if (!admin) return;
 
     const sql = getDb();
-    const { method, body } = req;
+    const { method, body = {} } = req;
 
     if (method === 'GET') {
-      const rows = await sql`SELECT id, nombre, correo, perfil, activo, uuid_sync, updated_at FROM users WHERE activo = true AND deleted_at IS NULL`;
-      return res.json({ success: true, data: rows });
+      const [users, relations] = await Promise.all([
+        sql`
+          SELECT id, nombre, correo, perfil, activo, uuid_sync, cliente_id, updated_at
+          FROM users
+          WHERE deleted_at IS NULL
+          ORDER BY nombre ASC
+        `,
+        sql`SELECT user_id, cliente_id FROM user_clientes`
+      ]);
+      const clientIdsByUser = new Map<string, string[]>();
+      for (const relation of relations) {
+        const current = clientIdsByUser.get(relation.user_id) || [];
+        current.push(relation.cliente_id);
+        clientIdsByUser.set(relation.user_id, current);
+      }
+      return res.json({
+        success: true,
+        data: users.map((user: any) => ({
+          ...user,
+          cliente_ids: clientIdsByUser.get(user.uuid_sync) || []
+        }))
+      });
     }
 
     if (method === 'POST') {
-      const d = body;
-      const id = d.id || `U-${Date.now()}`;
+      const perfil = normalizeRole(body.perfil);
+      if (!ALLOWED_ROLES.has(perfil)) {
+        return res.status(400).json({ success: false, error: 'Perfil de usuario no válido' });
+      }
+
+      const nombre = String(body.nombre || '').trim();
+      const correo = String(body.correo || '').trim().toLowerCase();
+      if (!nombre || !correo) {
+        return res.status(400).json({ success: false, error: 'Nombre y correo son obligatorios' });
+      }
+      if (body.pin && !/^\d{4}$/.test(String(body.pin))) {
+        return res.status(400).json({ success: false, error: 'El PIN debe contener exactamente 4 dígitos' });
+      }
+
+      let clienteId: string | null = null;
+      let clienteIds: string[] = [];
+      if (!GLOBAL_ROLES.has(perfil)) {
+        const requestedClientIds = Array.from(new Set(
+          (Array.isArray(body.cliente_ids) && body.cliente_ids.length
+            ? body.cliente_ids
+            : [body.cliente_id])
+            .map((value: unknown) => String(value || '').trim())
+            .filter(Boolean)
+        )) as string[];
+        if (requestedClientIds.length === 0) {
+          return res.status(400).json({ success: false, error: 'Debe asignar al menos un cliente para este perfil' });
+        }
+        for (const requestedClientId of requestedClientIds) {
+          const clients = await sql`
+            SELECT id FROM clientes
+            WHERE (id = ${requestedClientId} OR uuid_sync = ${requestedClientId})
+              AND deleted_at IS NULL
+            LIMIT 1
+          `;
+          if (!clients[0]) {
+            return res.status(400).json({ success: false, error: 'Uno o más clientes seleccionados no existen o están inactivos' });
+          }
+          clienteIds.push(clients[0].id);
+        }
+        clienteIds = Array.from(new Set(clienteIds));
+        clienteId = clienteIds[0];
+      }
+
+      const id = body.id || `U-${Date.now()}`;
+      const uuidSync = body.uuid_sync || crypto.randomUUID();
       const now = Date.now();
-      const pinHash = d.pin ? await hashPin(String(d.pin)) : null;
-      const { pin: _pin, ...safeData } = d;
+      const pinHash = body.pin ? await hashPin(String(body.pin)) : null;
+      const { pin: _pin, ...safeData } = body;
+      const normalizedData = {
+        ...safeData,
+        id,
+        uuid_sync: uuidSync,
+        nombre,
+        correo,
+        perfil,
+        activo: body.activo !== false,
+        cliente_id: clienteId,
+        cliente_ids: clienteIds
+      };
+
       await sql`
-        INSERT INTO users (id, nombre, correo, perfil, activo, pin_hash, pin, uuid_sync, updated_at, data)
-        VALUES (${id}, ${d.nombre || ''}, ${d.correo || ''}, ${d.perfil || 'tecnico'},
-          ${d.activo !== false}, ${pinHash}, NULL, ${d.uuid_sync || crypto.randomUUID()}, ${d.updated_at || now}, ${JSON.stringify(safeData)})
+        INSERT INTO users (
+          uuid_sync, id, nombre, correo, perfil, pin_hash, pin, activo,
+          data, updated_at, created_at, deleted_at, cliente_id
+        )
+        VALUES (
+          ${uuidSync}, ${id}, ${nombre}, ${correo}, ${perfil}, ${pinHash}, NULL,
+          ${body.activo !== false}, ${JSON.stringify(normalizedData)}, ${now},
+          ${body.created_at || now}, NULL, ${clienteId}
+        )
         ON CONFLICT (id) DO UPDATE SET
-          nombre = EXCLUDED.nombre, correo = EXCLUDED.correo, perfil = EXCLUDED.perfil,
+          nombre = EXCLUDED.nombre,
+          correo = EXCLUDED.correo,
+          perfil = EXCLUDED.perfil,
           activo = EXCLUDED.activo,
           pin_hash = COALESCE(EXCLUDED.pin_hash, users.pin_hash),
           pin = NULL,
+          cliente_id = EXCLUDED.cliente_id,
           updated_at = EXCLUDED.updated_at,
+          deleted_at = NULL,
           data = EXCLUDED.data
-        WHERE EXCLUDED.updated_at > users.updated_at OR users.updated_at IS NULL
       `;
-      if (d.cliente_id) {
+
+      const storedUsers = await sql`SELECT uuid_sync FROM users WHERE id = ${id} LIMIT 1`;
+      const storedUuid = storedUsers[0]?.uuid_sync || uuidSync;
+      await sql`DELETE FROM user_clientes WHERE user_id = ${storedUuid}`;
+      for (const assignedClientId of clienteIds) {
+        const relationId = `UC-${storedUuid}-${assignedClientId}`;
         await sql`
           INSERT INTO user_clientes (uuid_sync, id, user_id, cliente_id, created_at)
-          SELECT ${crypto.randomUUID()}, ${`UC-${Date.now()}`}, uuid_sync, ${d.cliente_id}, ${now}
-          FROM users WHERE id = ${id}
+          VALUES (${relationId}, ${relationId}, ${storedUuid}, ${assignedClientId}, ${now})
           ON CONFLICT (user_id, cliente_id) DO NOTHING
         `;
       }
-      return res.json({ success: true, data: { id } });
+
+      return res.json({
+        success: true,
+        data: {
+          id,
+          uuid_sync: storedUuid,
+          cliente_id: clienteId,
+          cliente_ids: clienteIds
+        }
+      });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
+    if (String(error?.message || '').toLowerCase().includes('correo')) {
+      return res.status(409).json({ success: false, error: 'El correo ya está registrado' });
+    }
     return res.status(500).json({ success: false, error: error.message });
   }
 }

@@ -70,7 +70,10 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, body, query } = req;
-    const tenantId = getScopedTenantId(user, query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId);
+    const tenantId = getScopedTenantId(
+      user,
+      req.headers['x-client-id'] || req.headers['x-cliente-id'] || query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId
+    );
     if (!tenantId) {
       return res.status(403).json({ success: false, error: 'Tenant no asociado al token de sesión' });
     }

@@ -7,6 +7,7 @@ import { ClientRepository } from '../../repositories/ClientRepository';
 import { BranchRepository } from '../../repositories/BranchRepository';
 import { syncEngine } from '../../sync/syncEngine';
 import { useAppStore } from '../../store/useAppStore';
+import { useAuth } from '../../context/AuthContext';
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -27,6 +28,19 @@ interface SubLocation {
   contacto_cargo?: string;
   repeats_client?: boolean;
 }
+
+const createHeadquarters = (direccion = '', region = ''): SubLocation => ({
+  id: crypto.randomUUID(),
+  tipo: 'Casa Matriz',
+  nombre: 'Casa Matriz',
+  direccion,
+  codigo: 'MATR',
+  region,
+  contacto_nombre: '',
+  contacto_correo: '',
+  contacto_cargo: '',
+  repeats_client: true
+});
 
 const cleanRut = (value: string) => value.replace(/[^0-9kK]/g, '').toUpperCase();
 
@@ -62,6 +76,8 @@ const isValidRut = (value: string) => {
 };
 
 export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === 'administrador';
   const [subs, setSubs] = useState<SubLocation[]>([]);
   const [nombre, setNombre] = useState('');
   const [rut, setRut] = useState('');
@@ -70,18 +86,27 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   const [contactoNombre, setContactoNombre] = useState('');
   const [contactoCargo, setContactoCargo] = useState('');
   const [contactoEmail, setContactoEmail] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [activo, setActivo] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [sinSucursales, setSinSucursales] = useState(false);
 
   useEffect(() => {
     if (sinSucursales) {
       if (subs.length === 0) {
-        setSubs([{ id: Math.random().toString(), tipo: 'Tienda', nombre: 'Casa Matriz', direccion: direccion, codigo: 'MATR', region: region }]);
+        setSubs([createHeadquarters(direccion, region)]);
       } else {
-        setSubs(subs.slice(0, 1).map(s => ({ ...s, nombre: 'Casa Matriz', direccion: direccion, codigo: s.codigo || 'MATR', region: region })));
+        setSubs(subs.slice(0, 1).map(s => ({
+          ...s,
+          tipo: 'Casa Matriz',
+          nombre: 'Casa Matriz',
+          direccion,
+          codigo: s.codigo || 'MATR',
+          region
+        })));
       }
     }
-  }, [sinSucursales]);
+  }, [sinSucursales, direccion, region]);
 
   useEffect(() => {
     if (editingClient && isOpen) {
@@ -91,9 +116,11 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setRegion(editingClient.client.region || '');
       setContactoNombre(editingClient.client.contacto_nombre || '');
       setContactoCargo(editingClient.client.contacto_cargo || '');
-      setContactoEmail(editingClient.client.email || '');
+      setContactoEmail(editingClient.client.contacto_correo || editingClient.client.email || '');
+      setTelefono(editingClient.client.telefono || '');
+      setActivo(editingClient.client.activo !== false);
 
-      const loadedSubs = editingClient.branches.map(b => {
+      let loadedSubs: SubLocation[] = editingClient.branches.map(b => {
         const hasContact = !!(b.contacto_nombre || b.contacto_correo || b.contacto_cargo);
         const isSame = hasContact && 
           (b.contacto_nombre === (editingClient.client.contacto_nombre || '')) &&
@@ -103,7 +130,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         return {
           id: b.id,
           uuid_sync: b.uuid_sync,
-          tipo: 'Tienda',
+          tipo: b.tipo || (b.nombre === 'Casa Matriz' ? 'Casa Matriz' : 'Tienda'),
           nombre: b.nombre,
           direccion: b.direccion || '',
           codigo: b.codigo,
@@ -114,10 +141,16 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           repeats_client: isSame || (!hasContact && !!editingClient.client.contacto_nombre),
         };
       });
+      if (!loadedSubs.some(sub => sub.tipo === 'Casa Matriz')) {
+        loadedSubs = [createHeadquarters(
+          editingClient.client.direccion || '',
+          editingClient.client.region || ''
+        ), ...loadedSubs];
+      }
       setSubs(loadedSubs);
       
       // Auto-detect if it's "sin sucursales" format
-      if (loadedSubs.length === 1 && loadedSubs[0].nombre === 'Casa Matriz') {
+      if (loadedSubs.length === 1 && loadedSubs[0].tipo === 'Casa Matriz') {
          setSinSucursales(true);
       } else {
          setSinSucursales(false);
@@ -130,28 +163,62 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoNombre('');
       setContactoCargo('');
       setContactoEmail('');
-      setSubs([]);
+      setTelefono('');
+      setActivo(true);
+      setSubs([createHeadquarters()]);
       setSinSucursales(false);
     }
   }, [editingClient, isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !isAdmin) return null;
 
   const handleSave = async () => {
-    if (!nombre) {
+    if (!isAdmin) {
+      alert("Solo el administrador global puede crear o editar clientes.");
+      return;
+    }
+    if (!nombre.trim()) {
       alert("El nombre de la empresa es obligatorio");
       return;
     }
-    if (rut && !isValidRut(rut)) {
+    if (!rut.trim()) {
+      alert("El RUT de la empresa es obligatorio.");
+      return;
+    }
+    if (!isValidRut(rut)) {
       alert("El RUT ingresado no es válido. Revise el número y el dígito verificador.");
       return;
+    }
+    if (!direccion.trim()) {
+      alert("La dirección de la empresa es obligatoria.");
+      return;
+    }
+    if (!region) {
+      alert("La región de la empresa es obligatoria.");
+      return;
+    }
+    if (subs.length === 0 || !subs.some(sub => sub.tipo === 'Casa Matriz')) {
+      alert("Debe existir al menos una sucursal de tipo Casa Matriz.");
+      return;
+    }
+    for (const sub of subs) {
+      if (!sub.nombre.trim() || !sub.codigo.trim()) {
+        alert("Todas las sucursales deben tener nombre y código.");
+        return;
+      }
+      const branchAddress = sub.tipo === 'Casa Matriz' ? direccion : sub.direccion;
+      const branchRegion = sub.tipo === 'Casa Matriz' ? region : sub.region;
+      if (!branchAddress.trim() || !branchRegion) {
+        alert(`La sucursal ${sub.nombre} debe tener dirección y región.`);
+        return;
+      }
     }
 
     setIsSaving(true);
     try {
       const clientRepo = new ClientRepository();
       const branchRepo = new BranchRepository();
-      let clientId = editingClient?.client.uuid_sync;
+      let clientId = editingClient?.client.id;
 
       // VALIDATE NO DUPLICATE CLIENT NAME OR RUT
       const clientsList = useAppStore.getState().clients;
@@ -213,27 +280,36 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         return `000000${cleanSiglas}`;
       };
 
+      const clientFields = {
+        nombre: nombre.trim(),
+        empresa: nombre.trim(),
+        rut: formattedRut,
+        direccion: direccion.trim(),
+        region,
+        contacto_nombre: contactoNombre.trim(),
+        contacto_cargo: contactoCargo.trim(),
+        contacto_correo: contactoEmail.trim().toLowerCase(),
+        email: contactoEmail.trim().toLowerCase(),
+        telefono: telefono.trim(),
+        activo
+      };
+
       if (editingClient) {
-        // Update client
+        // La edición usa exactamente el mismo modelo de datos que la creación,
+        // preservando los identificadores técnico y funcional existentes.
         const updatedClient = {
           ...editingClient.client,
-          id: formatClientId(nombre),
-          nombre,
-          empresa: nombre,
-          rut: formattedRut,
-          direccion,
-          region,
-          contacto_nombre: contactoNombre,
-          contacto_cargo: contactoCargo,
-          contacto_correo: contactoEmail,
-          email: contactoEmail,
+          ...clientFields,
+          id: editingClient.client.id,
+          uuid_sync: editingClient.client.uuid_sync
         };
         await clientRepo.update(editingClient.client.uuid_sync, updatedClient);
         
         // Handle branches
         const existingBranchMap = new Map(editingClient.branches.map(b => [b.uuid_sync, b]));
         
-        for (const sub of subs) {
+      for (const sub of subs) {
+          const isHeadquarters = sub.tipo === 'Casa Matriz';
           const sName = sub.repeats_client ? contactoNombre : (sub.contacto_nombre || '');
           const sCorreo = sub.repeats_client ? contactoEmail : (sub.contacto_correo || '');
           const sCargo = sub.repeats_client ? contactoCargo : (sub.contacto_cargo || '');
@@ -244,11 +320,13 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
             const updatedBranch = {
               ...existing,
               id: getBranchId(sub.codigo),
+              cliente_id: editingClient.client.id,
+              tipo: sub.tipo,
               nombre: sub.nombre,
               codigo: sub.codigo,
-              descripcion: sinSucursales ? direccion : sub.direccion,
-              direccion: sinSucursales ? direccion : sub.direccion,
-              region: sinSucursales ? region : (sub.region || region || ''),
+              descripcion: isHeadquarters || sinSucursales ? direccion : sub.direccion,
+              direccion: isHeadquarters || sinSucursales ? direccion : sub.direccion,
+              region: isHeadquarters || sinSucursales ? region : (sub.region || region || ''),
               contacto_nombre: sName,
               contacto_correo: sCorreo,
               contacto_cargo: sCargo,
@@ -260,12 +338,13 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
             const newBranchId = getBranchId(sub.codigo);
             const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
               id: newBranchId,
-              cliente_id: editingClient.client.uuid_sync,
+              cliente_id: editingClient.client.id,
+              tipo: sub.tipo,
               codigo: sub.codigo,
               nombre: sub.nombre,
-              direccion: sinSucursales ? direccion : sub.direccion,
+              direccion: isHeadquarters || sinSucursales ? direccion : sub.direccion,
               ciudad: '',
-              region: sinSucursales ? region : (sub.region || region || ''),
+              region: isHeadquarters || sinSucursales ? region : (sub.region || region || ''),
               activo: true,
               contacto_nombre: sName,
               contacto_correo: sCorreo,
@@ -293,23 +372,14 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         const newClientId = formatClientId(nombre);
         const newClient: Omit<LocalCliente, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
           id: newClientId,
-          nombre,
-          empresa: nombre,
-          rut: formattedRut,
-          direccion,
-          region,
-          contacto_nombre: contactoNombre,
-          contacto_cargo: contactoCargo,
-          contacto_correo: contactoEmail,
-          email: contactoEmail,
-          telefono: '',
-          activo: true
+          ...clientFields
         };
         const createdClient = await clientRepo.create(newClient);
-        clientId = createdClient.uuid_sync;
+        clientId = createdClient.id;
 
         // Create branches
         for (const sub of subs) {
+          const isHeadquarters = sub.tipo === 'Casa Matriz';
           const sName = sub.repeats_client ? contactoNombre : (sub.contacto_nombre || '');
           const sCorreo = sub.repeats_client ? contactoEmail : (sub.contacto_correo || '');
           const sCargo = sub.repeats_client ? contactoCargo : (sub.contacto_cargo || '');
@@ -318,11 +388,12 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           const newBranch: Omit<LocalSucursal, 'uuid_sync' | 'updated_at' | 'sync_status'> = {
             id: newBranchId,
             cliente_id: clientId!,
+            tipo: sub.tipo,
             codigo: sub.codigo,
             nombre: sub.nombre,
-            direccion: sinSucursales ? direccion : sub.direccion,
+            direccion: isHeadquarters || sinSucursales ? direccion : sub.direccion,
             ciudad: '',
-            region: sinSucursales ? region : (sub.region || region || ''),
+            region: isHeadquarters || sinSucursales ? region : (sub.region || region || ''),
             activo: true,
             contacto_nombre: sName,
             contacto_correo: sCorreo,
@@ -371,6 +442,11 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   };
 
   const removeSub = (id: string) => {
+    const target = subs.find(sub => sub.id === id);
+    if (target?.tipo === 'Casa Matriz') {
+      alert("La sucursal Casa Matriz es obligatoria y no puede eliminarse.");
+      return;
+    }
     setSubs(subs.filter(s => s.id !== id));
   };
 
@@ -384,7 +460,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                 </div>
                 <div>
                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}</h3>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Alta de Cliente y Multi-Sucursales (SUBs)</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ficha completa de cliente y multi-sucursales</p>
                 </div>
              </div>
              <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors absolute top-8 right-8"><X className="w-5 h-5" /></button>
@@ -396,18 +472,18 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">Nombre Empresa *</label>
-                       <input type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. ACME Corp" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <input required type="text" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. ACME Corp" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black uppercase text-slate-400">RUT Empresa</label>
-                       <input type="text" value={rut} onChange={e => handleRutChange(e.target.value)} placeholder="77.123.456-7" inputMode="text" maxLength={12} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <label className="text-[10px] font-black uppercase text-slate-400">RUT Empresa *</label>
+                       <input required type="text" value={rut} onChange={e => handleRutChange(e.target.value)} placeholder="77.123.456-7" inputMode="text" maxLength={12} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black uppercase text-slate-400">Dirección Matriz</label>
-                       <input type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                       <label className="text-[10px] font-black uppercase text-slate-400">Dirección Matriz *</label>
+                       <input required type="text" value={direccion} onChange={e => setDireccion(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
                     </div>
                     <div className="space-y-1 z-50">
-                       <label className="text-[10px] font-black uppercase text-slate-400">Región</label>
+                       <label className="text-[10px] font-black uppercase text-slate-400">Región *</label>
                        <SearchableSelect
                          options={REGIONES_CHILE}
                          value={region}
@@ -433,6 +509,17 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                        <label className="text-[10px] font-black uppercase text-slate-400">Correo de Contacto</label>
                        <input type="email" value={contactoEmail} onChange={e => setContactoEmail(e.target.value)} placeholder="correo@empresa.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none lowercase" />
                     </div>
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black uppercase text-slate-400">Teléfono</label>
+                       <input type="tel" value={telefono} onChange={e => setTelefono(e.target.value)} placeholder="+56 9 1234 5678" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+                    </div>
+                    <label className="md:col-span-2 flex items-center justify-between gap-4 px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                       <span>
+                          <span className="block text-[10px] font-black uppercase text-slate-500">Cliente activo</span>
+                          <span className="block text-[10px] text-slate-400 mt-0.5">Controla su disponibilidad operativa.</span>
+                       </span>
+                       <input type="checkbox" checked={activo} onChange={e => setActivo(e.target.checked)} className="w-5 h-5 accent-indigo-600" />
+                    </label>
                  </div>
              </div>
 
@@ -468,7 +555,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
 
                  {subs.map((sub, index) => (
                     <div key={sub.id} className="p-4 sm:p-6 bg-slate-50 border border-slate-200 rounded-3xl relative group space-y-4 shadow-sm">
-                       {!sinSucursales && (
+                       {!sinSucursales && sub.tipo !== 'Casa Matriz' && (
                          <button onClick={() => removeSub(sub.id)} className="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100">
                             <Trash2 className="w-4 h-4" />
                          </button>
@@ -477,7 +564,8 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-2">
                           <div className="space-y-1">
                              <label className="text-[9px] font-black uppercase text-slate-400">Tipo</label>
-                             <select disabled={sinSucursales} value={sub.tipo} onChange={e => updateSub(sub.id, 'tipo', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50">
+                             <select disabled={sinSucursales || sub.tipo === 'Casa Matriz'} value={sub.tipo} onChange={e => updateSub(sub.id, 'tipo', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50">
+                                <option value="Casa Matriz">Casa Matriz</option>
                                 <option value="Tienda">Tienda</option>
                                 <option value="Bodega">Bodega / Almacén</option>
                                 <option value="Proyecto">Proyecto</option>
@@ -491,17 +579,17 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
                           </div>
                           <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Nombre de la Sucursal</label>
-                             <input disabled={sinSucursales} type="text" placeholder="Nombre identificador" value={sub.nombre} onChange={e => updateSub(sub.id, 'nombre', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
+                             <input disabled={sinSucursales || sub.tipo === 'Casa Matriz'} type="text" placeholder="Nombre identificador" value={sub.nombre} onChange={e => updateSub(sub.id, 'nombre', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
                           </div>
                           <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Dirección</label>
-                             <input disabled={sinSucursales} type="text" placeholder="Dirección de la instalación" value={sub.direccion} onChange={e => updateSub(sub.id, 'direccion', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
+                             <input disabled={sinSucursales || sub.tipo === 'Casa Matriz'} type="text" placeholder="Dirección de la instalación" value={sub.tipo === 'Casa Matriz' ? direccion : sub.direccion} onChange={e => updateSub(sub.id, 'direccion', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:bg-slate-100 disabled:text-slate-500" />
                           </div>
                           <div className="space-y-1 md:col-span-2">
                              <label className="text-[9px] font-black uppercase text-slate-400">Región de la Sucursal</label>
                              <select 
-                                disabled={sinSucursales} 
-                                value={sub.region || region || ""} 
+                                disabled={sinSucursales || sub.tipo === 'Casa Matriz'}
+                                value={sub.tipo === 'Casa Matriz' ? region : (sub.region || region || "")}
                                 onChange={e => updateSub(sub.id, 'region', e.target.value)} 
                                 className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase transition-all focus:ring-2 focus:ring-indigo-500/20 outline-none disabled:opacity-50"
                              >
@@ -592,7 +680,7 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
              </button>
              <button disabled={isSaving} onClick={handleSave} className="flex gap-2 items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50">
                 {isSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : null}
-                {isSaving ? "Guardando..." : "Guardar Cliente"}
+                {isSaving ? "Guardando..." : editingClient ? "Guardar Cambios" : "Crear Cliente"}
              </button>
           </div>
        </div>

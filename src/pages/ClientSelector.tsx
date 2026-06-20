@@ -9,8 +9,9 @@ export default function ClientSelector() {
   const [, setLocation] = useLocation();
   const [selected, setSelected] = useState<string | null>(null);
   const [showClientModal, setShowClientModal] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const isAdmin = user?.perfil === "administrador";
+  const canSelectClient = isAdmin || user?.perfil === "supervisor" || user?.perfil === "tecnico";
 
   const clients = useAppStore(state => state.clients);
   const isLoading = useAppStore(state => state.isLoading);
@@ -32,7 +33,9 @@ export default function ClientSelector() {
   const handleSelect = (clientId: string) => {
     setSelected(clientId);
     localStorage.setItem("active_client", clientId);
+    localStorage.removeItem("last_sync_timestamp");
     localStorage.removeItem("admin_global_view");
+    localStorage.removeItem("platform_global_view");
     setTimeout(() => {
       // Check if there was a pending tag
       const pendingTag = localStorage.getItem("pending_tag");
@@ -41,21 +44,19 @@ export default function ClientSelector() {
         // For now, let's just go to scanner or dashboard
         localStorage.removeItem("pending_tag");
       }
-      setLocation("/");
+      window.location.href = "/";
     }, 500);
   };
 
   const handleGlobalView = () => {
     localStorage.removeItem("active_client");
     localStorage.setItem("admin_global_view", "true");
+    localStorage.removeItem("platform_global_view");
     setLocation("/");
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("is_authenticated");
-    localStorage.removeItem("auth_pin");
-    localStorage.removeItem("active_client");
-    localStorage.removeItem("admin_global_view");
+    logout();
     window.location.href = "/login";
   };
 
@@ -129,16 +130,16 @@ export default function ClientSelector() {
               {activeClients.map((client) => (
                 <div
                   key={client.uuid_sync}
-                  onClick={() => handleSelect(client.uuid_sync)}
+                  onClick={() => handleSelect(client.id)}
                   className={`group relative bg-white p-6 rounded-2xl border transition-all cursor-pointer hover:shadow-xl hover:-translate-y-1 ${
-                    selected === client.uuid_sync ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'
+                    selected === client.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-3 rounded-xl transition-colors ${selected === client.uuid_sync ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
+                    <div className={`p-3 rounded-xl transition-colors ${selected === client.id ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
                       <Building className="w-6 h-6" />
                     </div>
-                    {selected === client.uuid_sync && <Check className="w-5 h-5 text-blue-500" />}
+                    {selected === client.id && <Check className="w-5 h-5 text-blue-500" />}
                   </div>
 
                   <div className="space-y-1">
@@ -170,17 +171,8 @@ export default function ClientSelector() {
                 </div>
                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">No hay clientes configurados</h3>
                 <p className="text-slate-500 font-medium mb-8 max-w-sm mx-auto">
-                  Debe configurar su primer cliente en el panel de administración o continuar al entorno general.
+                  El administrador debe asignar al menos un cliente a tu usuario.
                 </p>
-                <button 
-                  onClick={() => {
-                    localStorage.removeItem("active_client");
-                    setLocation("/");
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest px-8 py-4 rounded-2xl shadow-xl shadow-blue-600/20 transition-all active:scale-95"
-                >
-                  Ir al Dashboard
-                </button>
               </div>
               )}
               </>
@@ -189,7 +181,7 @@ export default function ClientSelector() {
         </div>
       </main>
 
-      {isAdmin && (
+      {isAdmin && canSelectClient && (
         <ClientModal
           isOpen={showClientModal}
           onClose={() => setShowClientModal(false)}

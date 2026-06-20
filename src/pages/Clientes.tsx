@@ -14,6 +14,8 @@ import { ClientModal } from "../components/modals/ClientModal";
 import { useAppStore } from "../store/useAppStore";
 import { LocalCliente, LocalSucursal } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
+import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 const normalizeText = (value?: string) =>
   (value || "")
@@ -23,6 +25,7 @@ const normalizeText = (value?: string) =>
     .trim();
 
 export default function Clientes() {
+  const { user } = useAuth();
   const [showClientModal, setShowClientModal] = useState(false);
   const [editingClient, setEditingClient] = useState<{ client: LocalCliente; branches: LocalSucursal[] } | null>(null);
   const [clientFilter, setClientFilter] = useState("");
@@ -110,9 +113,18 @@ export default function Clientes() {
     setShowClientModal(true);
   };
 
+  const handleCloseClientModal = () => {
+    setShowClientModal(false);
+    setEditingClient(null);
+  };
+
   const handleRefresh = async () => {
     await syncEngine.triggerSync(true);
   };
+
+  if (user?.perfil !== "administrador") {
+    return <AccessDenied requiredPermission="Crear y editar clientes" />;
+  }
 
   return (
     <div className="flex flex-col gap-8 text-left animate-in fade-in duration-500 pb-20">
@@ -427,7 +439,7 @@ export default function Clientes() {
 
       <ClientModal
         isOpen={showClientModal}
-        onClose={() => setShowClientModal(false)}
+        onClose={handleCloseClientModal}
         editingClient={editingClient}
       />
     </div>
