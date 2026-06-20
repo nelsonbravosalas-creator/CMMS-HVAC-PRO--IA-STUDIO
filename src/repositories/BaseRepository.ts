@@ -18,9 +18,11 @@ export abstract class BaseRepository<T extends LocalBase> {
 
   async create(data: Omit<T, keyof LocalBase> & Partial<LocalBase>): Promise<T> {
     const now = Date.now();
+    const uuidSync = data.uuid_sync || crypto.randomUUID();
     const record = {
       ...data,
-      uuid_sync: data.uuid_sync || crypto.randomUUID(),
+      uuid_sync: uuidSync,
+      id: data.id || `PEND-${uuidSync}`,
       updated_at: now,
       version: 1,
       retry_count: 0,

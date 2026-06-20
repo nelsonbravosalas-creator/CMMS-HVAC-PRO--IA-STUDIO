@@ -7,7 +7,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL, Perfil } from '../types';
-import bcrypt from 'bcryptjs';
 
 /**
  * Definición del contrato del contexto de autenticación.
@@ -137,7 +136,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           perfil: normalizedPerfil,
           activo: json.user.activo,
           puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
-          pin: '***' // No guardamos el PIN real en el objeto del estado por seguridad
+          cliente_id: json.user.cliente_id,
+          cliente_ids: json.user.cliente_ids || []
         };
 
         setUser(loggedUser);
@@ -151,16 +151,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           window.dispatchEvent(new Event('auth-session-started'));
         }
 
-        // Guardar hash del PIN en la tabla 'users' de IndexedDB para fallback offline
-        const pinHash = bcrypt.hashSync(normalizedPin, 10);
+        // Guardar solo metadatos no sensibles para UX y biometría de una sesión vigente.
         const existingLocalUser = await db.users.where('email').equalsIgnoreCase(normalizedCorreo).first();
         if (existingLocalUser) {
           await db.users.update(existingLocalUser.uuid_sync, {
             id: json.user.id || existingLocalUser.id,
             nombre: json.user.nombre || existingLocalUser.nombre,
             rol: loggedUser.perfil,
-            pin: pinHash,
             activo: true,
+            cliente_id: json.user.cliente_id,
+            cliente_ids: json.user.cliente_ids || [],
             updated_at: Date.now()
           });
         } else {
@@ -170,8 +170,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             nombre: json.user.nombre,
             email: normalizedCorreo,
             rol: loggedUser.perfil,
-            pin: pinHash,
             activo: true,
+            cliente_id: json.user.cliente_id,
+            cliente_ids: json.user.cliente_ids || [],
             updated_at: Date.now(),
             sync_status: 'synced'
           });
@@ -181,23 +182,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setAuthError('La API no devolvió una sesión válida.');
     } catch (networkError) {
-      console.warn('API no disponible o error de red, intentando login offline...', networkError);
-      setAuthError('No fue posible contactar el servicio de autenticación.');
-    }
-
-    // Fallback offline-first: solo valida credenciales locales, no abre sesión sin token emitido por el servidor.
-    try {
-      const localUser = await db.users.where('email').equalsIgnoreCase(normalizedCorreo).first();
-      if (localUser && localUser.activo) {
-        // Validar el PIN contra el bcrypt hash almacenado
-        const isMatch = localUser.pin.startsWith('$2')
-          ? bcrypt.compareSync(normalizedPin, localUser.pin)
-          : localUser.pin === normalizedPin;
-
-        if (isMatch) return false;
-      }
-    } catch (dbError) {
-      console.error('Error durante autenticación offline contra IndexedDB', dbError);
+      console.warn('Servicio de autenticación no disponible.', networkError);
+      setAuthError('El inicio de sesión requiere conexión con el servidor.');
     }
 
     return false;
@@ -217,8 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           correo: localUser.email,
           perfil: normalizedPerfil,
           activo: localUser.activo,
-          puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
-          pin: '***'
+          puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente'
         };
 
         setUser(loggedUser);
@@ -240,6 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem('auth_token');
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
+    localStorage.removeItem('admin_global_view');
   }, []);
 
   // BR-AUTH-004: Inactivity Timeout (30 minutes)

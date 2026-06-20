@@ -42,6 +42,7 @@ export async function ensureDbSchema(sql: SqlClient) {
 
   await sql`CREATE TABLE IF NOT EXISTS assets (
     uuid_sync TEXT PRIMARY KEY,
+    id TEXT UNIQUE,
     tag TEXT UNIQUE,
     nombre TEXT NOT NULL,
     tipo TEXT,
@@ -76,11 +77,21 @@ export async function ensureDbSchema(sql: SqlClient) {
     correo TEXT UNIQUE,
     perfil TEXT,
     pin TEXT,
+    pin_hash TEXT,
     activo BOOLEAN DEFAULT true,
     data JSONB,
     updated_at BIGINT,
     created_at BIGINT,
     deleted_at BIGINT
+  )`;
+
+  await sql`CREATE TABLE IF NOT EXISTS user_clientes (
+    uuid_sync TEXT PRIMARY KEY,
+    id TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL REFERENCES users(uuid_sync) ON DELETE CASCADE,
+    cliente_id TEXT NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
+    created_at BIGINT NOT NULL,
+    UNIQUE (user_id, cliente_id)
   )`;
 
   await sql`CREATE TABLE IF NOT EXISTS preventive_maintenance (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT)`;
@@ -104,6 +115,8 @@ export async function ensureDbSchema(sql: SqlClient) {
   )`;
 
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
+  await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS id TEXT`;
+  await sql`ALTER TABLE assets ALTER COLUMN id SET DEFAULT ('PEND-' || gen_random_uuid()::text)`;
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS sucursal_id TEXT REFERENCES sucursales(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
@@ -111,6 +124,9 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE calendar ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_hash TEXT`;
+  await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS estado TEXT`;
+  await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS estado TEXT`;
   await sql`ALTER TABLE catalog_asset_types ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
@@ -122,6 +138,40 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`CREATE INDEX IF NOT EXISTS idx_work_orders_tenant_search ON work_orders (cliente_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_inventory_tenant_search ON inventory (cliente_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_calendar_tenant_search ON calendar (cliente_id, uuid_sync)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_user_clientes_user ON user_clientes (user_id, cliente_id)`;
+
+  await sql`UPDATE assets SET id = COALESCE(NULLIF(id, ''), tag, uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_id_unique ON assets (id)`;
+  await sql`ALTER TABLE assets ALTER COLUMN id SET NOT NULL`;
+  await sql`UPDATE work_orders SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE preventive_maintenance SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE reports SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE events SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE catalog_asset_types SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE settings SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE ordenes_servicio SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE inventory SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE calendar SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
+  await sql`UPDATE work_orders SET estado = COALESCE(NULLIF(estado, ''), data->>'estado', 'abierto')`;
+  await sql`UPDATE ordenes_servicio SET estado = COALESCE(NULLIF(estado, ''), data->>'estado', 'abierto')`;
+  await sql`UPDATE work_orders SET estado = 'firmado' WHERE estado = 'firmada'`;
+  await sql`UPDATE work_orders SET estado = 'completado' WHERE estado = 'completada'`;
+  await sql`UPDATE ordenes_servicio SET estado = 'firmado' WHERE estado = 'firmada'`;
+  await sql`UPDATE ordenes_servicio SET estado = 'completado' WHERE estado = 'completada'`;
+  await sql`UPDATE work_orders SET estado = 'abierto' WHERE estado NOT IN ('abierto', 'en_progreso', 'completado', 'firmado', 'cerrado')`;
+  await sql`UPDATE ordenes_servicio SET estado = 'abierto' WHERE estado NOT IN ('abierto', 'en_progreso', 'completado', 'firmado', 'cerrado')`;
+  await sql`
+    INSERT INTO user_clientes (uuid_sync, id, user_id, cliente_id, created_at)
+    SELECT
+      'UC-' || uuid_sync || '-' || cliente_id,
+      'UC-' || id || '-' || cliente_id,
+      uuid_sync,
+      cliente_id,
+      COALESCE(created_at, ${Date.now()})
+    FROM users
+    WHERE cliente_id IS NOT NULL
+    ON CONFLICT (user_id, cliente_id) DO NOTHING
+  `;
 }
 
 export async function runDbBootstrap(sql?: SqlClient) {

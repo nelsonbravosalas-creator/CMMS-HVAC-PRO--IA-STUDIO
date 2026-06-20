@@ -16,6 +16,7 @@ interface QRLabelModalProps {
   isOpen: boolean;
   onClose: () => void;
   equipment: {
+    uuid_sync: string;
     tag: string;
     desc: string;
   } | null;
@@ -33,7 +34,7 @@ export function QRLabelModal({ isOpen, onClose, equipment }: QRLabelModalProps) 
   if (!equipment) return null;
 
   // URL centralizada para el CMMS (Coincide con el URL Box)
-  const assetUrl = `https://nelsonbravosalas-creator.github.io/APP.-ACTIVOS/EQUIPOS/${equipment.tag}`;
+  const assetUrl = `${window.location.origin}/equipos/${encodeURIComponent(equipment.uuid_sync)}`;
   // API para generar el código QR
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(assetUrl)}&margin=10`;
 

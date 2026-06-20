@@ -41,8 +41,8 @@ export interface Usuario {
   perfil: Perfil;
   activo: boolean;
   puedeEditarMantenimientos: boolean;
-  /** Código de seguridad para validaciones locales rápidas */
-  pin: string;
+  cliente_id?: string;
+  cliente_ids?: string[];
 }
 
 /**

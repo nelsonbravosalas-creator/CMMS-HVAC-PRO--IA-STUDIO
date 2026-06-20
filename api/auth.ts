@@ -1,6 +1,6 @@
 import { getDb } from './_db.js';
 import { signToken } from './_auth.js';
-import bcrypt from 'bcryptjs';
+import { hashPin, needsArgon2Upgrade, verifyPin } from '../server/passwords.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -14,29 +14,29 @@ export default async function handler(req: any, res: any) {
     const emailLower = correo ? correo.toLowerCase() : '';
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
-    // Anti brute-force: check lockout for the given email in the last 15 minutes
+    // Anti brute-force: 5 intentos fallidos bloquean durante 30 minutos.
     if (emailLower) {
-      const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
-      const failuresCount = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${fifteenMinsAgo}`;
+      const lockWindowStart = new Date(Date.now() - 30 * 60 * 1000);
+      const failuresCount = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${lockWindowStart}`;
       
       if (failuresCount[0] && failuresCount[0].count >= 5) {
-        const oldestFailure = await sql`SELECT attempted_at FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${fifteenMinsAgo} ORDER BY attempted_at ASC LIMIT 1`;
-        let delay = 900;
+        const oldestFailure = await sql`SELECT attempted_at FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower} AND attempted_at > ${lockWindowStart} ORDER BY attempted_at ASC LIMIT 1`;
+        let delay = 1800;
         if (oldestFailure[0]) {
           const oldestTime = new Date(oldestFailure[0].attempted_at).getTime();
-          delay = Math.ceil((oldestTime + 15 * 60 * 1000 - Date.now()) / 1000);
+          delay = Math.ceil((oldestTime + 30 * 60 * 1000 - Date.now()) / 1000);
         }
         console.warn({ event: "auth_lockout", email: emailLower, ip });
         return res.status(401).json({
           success: false,
           error: "account_locked",
           message: "Cuenta bloqueada temporalmente por demasiados intentos fallidos.",
-          retryAfter: delay > 0 ? delay : 900
+          retryAfter: delay > 0 ? delay : 1800
         });
       }
     }
 
-    const rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
+    const rows = await sql`SELECT uuid_sync, id, nombre, correo, data, perfil, activo, COALESCE(pin_hash, pin) AS stored_pin_hash, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
     
     if (rows.length === 0) {
       if (emailLower) {
@@ -50,19 +50,8 @@ export default async function handler(req: any, res: any) {
        return res.status(401).json({ success: false, error: 'Usuario inactivo' });
     }
 
-    const storedPin = user.pin || (user.data && user.data.pin);
-    let isMatch = false;
-    
-    if (storedPin && storedPin.startsWith('$2')) {
-       isMatch = bcrypt.compareSync(pin, storedPin);
-    } else {
-       if (process.env.NODE_ENV === 'production') {
-         console.warn({ event: "auth_plaintext_pin_rejected", email: emailLower, ip });
-         isMatch = false;
-       } else {
-       isMatch = storedPin === pin;
-       }
-    }
+    const storedPin = user.stored_pin_hash || (user.data && user.data.pin);
+    const isMatch = await verifyPin(storedPin, pin);
 
     if (!isMatch) {
        if (emailLower) {
@@ -76,6 +65,11 @@ export default async function handler(req: any, res: any) {
       await sql`DELETE FROM cmms_auth_failures WHERE LOWER(email) = ${emailLower}`;
     }
 
+    if (needsArgon2Upgrade(storedPin)) {
+      const upgradedHash = await hashPin(pin);
+      await sql`UPDATE users SET pin_hash = ${upgradedHash}, pin = NULL, updated_at = ${Date.now()} WHERE uuid_sync = ${user.uuid_sync}`;
+    }
+
     const returnUser = {
       id: user.id || (user.data && user.data.id),
       nombre: user.nombre || (user.data && user.data.nombre),
@@ -84,10 +78,18 @@ export default async function handler(req: any, res: any) {
       cliente_id: user.cliente_id || (user.data && user.data.cliente_id),
       activo: true
     };
-    
-    const token = signToken({ id: returnUser.id, perfil: returnUser.perfil, cliente_id: returnUser.cliente_id });
 
-    return res.json({ success: true, user: returnUser, token });
+    const tenantRows = await sql`SELECT cliente_id FROM user_clientes WHERE user_id = ${user.uuid_sync}`;
+    const clienteIds = tenantRows.map((row: any) => row.cliente_id);
+    const token = signToken({
+      id: returnUser.id,
+      uuid_sync: user.uuid_sync,
+      perfil: returnUser.perfil,
+      cliente_id: returnUser.cliente_id,
+      cliente_ids: clienteIds
+    });
+
+    return res.json({ success: true, user: { ...returnUser, cliente_ids: clienteIds }, token });
   } catch (error: any) {
     return res.status(503).json({ success: false, error: 'Servicio no disponible', offline: true });
   }

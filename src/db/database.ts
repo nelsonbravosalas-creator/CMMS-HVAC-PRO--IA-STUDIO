@@ -4,6 +4,7 @@ export type SyncStatus = 'synced' | 'pending_insert' | 'pending_update' | 'pendi
 
 export interface LocalBase {
   uuid_sync: string;
+  id?: string;
   updated_at: number;
   sync_status: SyncStatus;
   version?: number;
@@ -13,6 +14,7 @@ export interface LocalBase {
 }
 
 export interface LocalActivo extends LocalBase {
+  id: string;
   tag: string;
   nombre: string;
   tipo: string;
@@ -89,9 +91,16 @@ export interface LocalUsuario extends LocalBase {
   nombre: string;
   email: string;
   rol: string;
-  pin: string;
   activo: boolean;
   cliente_id?: string;
+  cliente_ids?: string[];
+}
+
+export interface LocalUserCliente extends LocalBase {
+  id: string;
+  user_id: string;
+  cliente_id: string;
+  created_at: number;
 }
 
 export interface LocalSucursal extends LocalBase {
@@ -119,6 +128,7 @@ export interface LocalEvento extends LocalBase {
 }
 
 export interface LocalCatalogAssetType extends LocalBase {
+  id: string;
   codigo: string;
   descripcion: string;
   activo: boolean;
@@ -191,6 +201,7 @@ export class CMMSDatabase extends Dexie {
   preventive_maintenance!: Table<LocalMantenimiento>;
   clients!: Table<LocalCliente>;
   users!: Table<LocalUsuario>;
+  user_clientes!: Table<LocalUserCliente>;
   branches!: Table<LocalSucursal>;
   catalog_asset_types!: Table<LocalCatalogAssetType>;
   ordenes_servicio!: Table<LocalOrdenServicio>;
@@ -210,6 +221,7 @@ export class CMMSDatabase extends Dexie {
       preventive_maintenance: 'uuid_sync, id, equipo_tag, cliente_id, sync_status, updated_at, estado',
       clients: 'uuid_sync, id, sync_status, updated_at',
       users: 'uuid_sync, id, email, sync_status, updated_at',
+      user_clientes: 'uuid_sync, id, [user_id+cliente_id], user_id, cliente_id, sync_status, updated_at',
       branches: 'uuid_sync, id, codigo, cliente_id, sync_status, updated_at',
       catalog_asset_types: 'uuid_sync, codigo, sync_status, updated_at',
       ordenes_servicio: 'uuid_sync, id, draft_key, cliente_id, sync_status, updated_at',
@@ -224,6 +236,72 @@ export class CMMSDatabase extends Dexie {
     
     this.version(10).stores(schema);
     this.version(11).stores(schema);
+    this.version(12).stores(schema).upgrade(async transaction => {
+      const now = Date.now();
+      const entityTables = [
+        'assets',
+        'work_orders',
+        'preventive_maintenance',
+        'clients',
+        'users',
+        'branches',
+        'catalog_asset_types',
+        'ordenes_servicio',
+        'reports',
+        'events',
+        'inventory'
+      ];
+
+      for (const tableName of entityTables) {
+        await transaction.table(tableName).toCollection().modify((record: any) => {
+          record.uuid_sync ||= crypto.randomUUID();
+          record.id ||= record.tag || record.codigo || `PEND-${record.uuid_sync}`;
+        });
+      }
+
+      await transaction.table('users').toCollection().modify((record: any) => {
+        delete record.pin;
+      });
+
+      const normalizeWorkOrderState = (record: any) => {
+        const current = record.estado || record.data?.estado || record.data?.generalData?.estado || 'abierto';
+        const aliases: Record<string, string> = {
+          abierta: 'abierto',
+          completada: 'completado',
+          firmada: 'firmado'
+        };
+        const normalized = aliases[current] || current;
+        record.estado = ['abierto', 'en_progreso', 'completado', 'firmado', 'cerrado'].includes(normalized)
+          ? normalized
+          : 'abierto';
+        if (record.data && typeof record.data === 'object') {
+          record.data.estado = record.estado;
+        }
+      };
+
+      await transaction.table('work_orders').toCollection().modify(normalizeWorkOrderState);
+      await transaction.table('ordenes_servicio').toCollection().modify(normalizeWorkOrderState);
+
+      const users = await transaction.table('users').toArray();
+      for (const user of users) {
+        const clienteIds = Array.from(new Set([
+          ...(Array.isArray(user.cliente_ids) ? user.cliente_ids : []),
+          ...(user.cliente_id ? [user.cliente_id] : [])
+        ]));
+        for (const clienteId of clienteIds) {
+          const uuid = `UC-${user.uuid_sync}-${clienteId}`;
+          await transaction.table('user_clientes').put({
+            uuid_sync: uuid,
+            id: uuid,
+            user_id: user.uuid_sync,
+            cliente_id: clienteId,
+            created_at: now,
+            updated_at: now,
+            sync_status: 'synced'
+          });
+        }
+      }
+    });
     
     this.on('populate', async () => {
       const now = Date.now();
@@ -233,12 +311,12 @@ export class CMMSDatabase extends Dexie {
       ]);
       // Default asset types
       await this.catalog_asset_types.bulkAdd([
-        { uuid_sync: crypto.randomUUID(), codigo: 'AC', descripcion: 'Aire acondicionado', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), codigo: 'VH', descripcion: 'Vehículo', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), codigo: 'GE', descripcion: 'Grupo electrógeno', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), codigo: 'EB', descripcion: 'Equipo de Bodega', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), codigo: 'GO', descripcion: 'Grúa horquilla', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), codigo: 'XX', descripcion: 'Otros Activos', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'AC', codigo: 'AC', descripcion: 'Aire acondicionado', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'VH', codigo: 'VH', descripcion: 'Vehículo', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'GE', codigo: 'GE', descripcion: 'Grupo electrógeno', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'EB', codigo: 'EB', descripcion: 'Equipo de Bodega', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'GO', codigo: 'GO', descripcion: 'Grúa horquilla', activo: true, updated_at: now, sync_status: 'synced' },
+        { uuid_sync: crypto.randomUUID(), id: 'XX', codigo: 'XX', descripcion: 'Otros Activos', activo: true, updated_at: now, sync_status: 'synced' },
       ]);
     });
   }

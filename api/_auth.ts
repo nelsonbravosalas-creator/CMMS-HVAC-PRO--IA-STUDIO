@@ -18,18 +18,22 @@ function normalizeRole(role: string | undefined | null) {
 
 export function isAdminUser(user: any) {
   const role = normalizeRole(user?.perfil);
-  return role.includes('admin') || role.includes('program');
+  return role.includes('admin');
 }
 
 export function getScopedTenantId(user: any, requestedTenantId?: any) {
   if (isAdminUser(user)) {
-    return requestedTenantId || user?.cliente_id || 'cliente-default-001';
+    return requestedTenantId || user?.cliente_id || null;
   }
-  return user?.cliente_id || null;
+  const allowedTenants = Array.isArray(user?.cliente_ids) ? user.cliente_ids : [];
+  const requested = requestedTenantId || user?.cliente_id;
+  return requested && (requested === user?.cliente_id || allowedTenants.includes(requested))
+    ? requested
+    : null;
 }
 
 export function signToken(payload: any) {
-  return jwt.sign(payload, getSecretKey(), { expiresIn: '7d' });
+  return jwt.sign(payload, getSecretKey(), { expiresIn: '12h' });
 }
 
 export function verifyToken(req: any) {

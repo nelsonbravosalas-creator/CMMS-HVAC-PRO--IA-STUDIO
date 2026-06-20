@@ -52,8 +52,8 @@ import { useAssets } from "../hooks/useAssets";
  * Este componente es el puente entre el código QR físico y la base de datos.
  * 
  * FLUJO DE DOCUMENTACIÓN:
- * 1. El usuario escanea un QR que apunta a la URL de Vercel (ej: .../scanner?tag=XXX).
- * 2. Al cargar, el useEffect lee el parámetro 'tag' de la URL.
+ * 1. El usuario escanea una URL web /equipos/{uuid_sync}.
+ * 2. Las etiquetas antiguas con ?tag= siguen aceptándose durante la migración.
  * 3. Se realiza un "llamado a la base de datos" (actualmente a EQUIPOS_DATA) para recuperar la ficha técnica.
  * 
  * INTERACCIONES:
@@ -62,6 +62,7 @@ import { useAssets } from "../hooks/useAssets";
  */
 export default function ScannerQR() {
   const [, setLocation] = useLocation();
+  const [assetUuid] = useState(() => crypto.randomUUID());
 
   /** Modos de la vista: scanner (captura) o generator (creación) */
   const [mode, setMode] = useState<"scanner" | "generator">("scanner");
@@ -117,7 +118,7 @@ export default function ScannerQR() {
   /** 
    * URL final incrustada en el código QR.
    */
-  const qrUrl = `${baseUrl}/?tag=${encodeURIComponent(fullTag)}`;
+  const qrUrl = `${baseUrl}/equipos/${encodeURIComponent(assetUuid)}`;
   /** Endpoint externo para la generación del código QR */
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 
@@ -139,45 +140,42 @@ export default function ScannerQR() {
       // Detenemos el scanner para evitar múltiples lecturas seguidas
       setIsScannerActive(false);
 
-      // LÓGICA DE EXTRACCIÓN DE TAG:
-      // El QR puede contener una URL completa como "https://dominio.com/scanner?tag=21-STK.AC.002"
-      // o un formato antiguo "https://.../EQUIPOS/21-STK.AC.002".
-      // Esta lógica "limpia" la entrada para obtener solo el identificador "21-STK.AC.002".
-      let tagValue = text;
+      let assetIdentifier = text;
       try {
-        if (text.includes('?tag=')) {
-          // Extraemos el valor del parámetro 'tag'
-          const urlObj = new URL(text);
-          tagValue = urlObj.searchParams.get('tag') || text;
-        } else if (text.includes('/EQUIPOS/')) {
-          // Si es formato de ruta, tomamos lo que viene después de /EQUIPOS/
-          tagValue = text.split('/EQUIPOS/').pop() || text;
+        const urlObj = new URL(text);
+        const pathMatch = urlObj.pathname.match(/\/equipos\/([^/]+)$/i);
+        if (pathMatch) {
+          assetIdentifier = decodeURIComponent(pathMatch[1]);
+        } else if (urlObj.searchParams.get('tag')) {
+          assetIdentifier = urlObj.searchParams.get('tag') || text;
         } else if (text.includes('/scanner/')) {
-          // Caso genérico de ruta /scanner/TAG
-          tagValue = text.split('/scanner/').pop() || text;
+          assetIdentifier = text.split('/scanner/').pop() || text;
         }
       } catch (e) {
-        // Si no es una URL (es decir, el QR solo contiene el texto del TAG), lo usamos directo
+        // Compatibilidad con etiquetas antiguas que contienen solo el TAG.
       }
 
-      // Guardamos el resultado "limpio" en el estado para mostrarlo en pantalla
-      setLastResult(tagValue);
+      setLastResult(assetIdentifier);
       
-      // BÚSQUEDA EN BASE DE DATOS LOCAL:
-      assetsRepo.getByTag(tagValue)
+      Promise.all([
+        assetsRepo.getByUuid(assetIdentifier),
+        assetsRepo.getByTag(assetIdentifier)
+      ])
+        .then(([byUuid, byTag]) => byUuid || byTag)
         .then(asset => {
            if (asset) {
              setEquipoEscaneado({
+               uuid_sync: asset.uuid_sync,
                tag: asset.tag,
                nombre: asset.nombre,
                ubicacion: asset.ubicacion || "Ubicación en BD"
              });
            } else {
-             const localFallback = EQUIPOS_DATA.find(eq => eq.tag === tagValue);
+             const localFallback = EQUIPOS_DATA.find(eq => eq.tag === assetIdentifier);
              if (localFallback) {
                setEquipoEscaneado(localFallback);
              } else {
-               setEquipoEscaneado({ error: `TAG "${tagValue}" no registrado en el sistema.` });
+               setEquipoEscaneado({ error: `Activo "${assetIdentifier}" no registrado en el sistema.` });
              }
            }
         })
@@ -216,6 +214,8 @@ export default function ScannerQR() {
     setIsExporting(true);
     try {
       await createAsset({
+        uuid_sync: assetUuid,
+        id: fullTag || `PEND-${assetUuid}`,
         tag: fullTag,
         nombre: tagData.nombreEquipo,
         tipo: tagData.tipo,
@@ -401,7 +401,7 @@ export default function ScannerQR() {
                                  <div><strong className="text-slate-500">Equipo:</strong> {equipoEscaneado.nombre}</div>
                                  <div className="mt-1"><strong className="text-slate-500">Ubicación:</strong> {equipoEscaneado.ubicacion}</div>
                                  <button 
-                                   onClick={() => setLocation(`/equipos/${equipoEscaneado.tag}`)}
+                                   onClick={() => setLocation(`/equipos/${equipoEscaneado.uuid_sync}`)}
                                    className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
                                  >
                                    Ver Ficha Completa

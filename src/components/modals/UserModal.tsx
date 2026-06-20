@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { LocalUsuario } from "../../db/database";
-import { userRepo } from "../../repositories/UserRepository";
+import { db, LocalUsuario } from "../../db/database";
 import { useAppStore } from "../../store/useAppStore";
-import { syncEngine } from "../../sync/syncEngine";
-
-import bcrypt from 'bcryptjs';
 
 interface Props {
   isOpen: boolean;
@@ -33,7 +29,7 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
       setNombre(editingUser.nombre || "");
       setEmail(editingUser.email || "");
       setPerfil(editingUser.rol || "Técnico");
-      setPin(editingUser.pin || "");
+      setPin("");
       setClienteId(localStorage.getItem("active_client") || editingUser.cliente_id || "");
     } else {
       setNombre("");
@@ -49,8 +45,8 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre || !email || !pin) {
-       alert("Nombre, Correo y PIN son obligatorios");
+    if (!nombre || !email || (!editingUser && !pin)) {
+       alert(editingUser ? "Nombre y Correo son obligatorios" : "Nombre, Correo y PIN son obligatorios");
        return;
     }
     if (perfil === "Cliente" && !cliente_id) {
@@ -60,29 +56,44 @@ export function UserModal({ isOpen, onClose, editingUser }: Props) {
     
     setIsSaving(true);
     try {
-       // Si el pin es cambiado o es nuevo (no empieza con $2 que es de bcrypt)
-       const finalPin = pin && !pin.startsWith('$2') ? bcrypt.hashSync(pin, 10) : pin;
-
-       const userPayload: Partial<LocalUsuario> = {
+       const userPayload = {
+          id: editingUser?.id || `U-${Date.now()}`,
+          uuid_sync: editingUser?.uuid_sync || crypto.randomUUID(),
           nombre,
-          email,
-          rol: perfil,
-          pin: finalPin,
+          correo: email,
+          perfil,
           activo: true,
-          cliente_id: perfil === "Cliente" ? cliente_id : undefined
+          cliente_id: cliente_id || undefined,
+          ...(pin ? { pin } : {})
        };
 
-       if (editingUser) {
-          await userRepo.update(editingUser.uuid_sync, userPayload);
-       } else {
-          await userRepo.create({
-             ...userPayload,
-             id: `U-${Date.now()}`
-          } as any);
+       const token = sessionStorage.getItem("auth_token");
+       const response = await fetch("/api/users", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+           ...(token ? { Authorization: `Bearer ${token}` } : {})
+         },
+         body: JSON.stringify(userPayload)
+       });
+       const result = await response.json().catch(() => ({}));
+       if (!response.ok) {
+         throw new Error(result.error || "No fue posible guardar el usuario");
        }
 
+       await db.users.put({
+         uuid_sync: userPayload.uuid_sync,
+         id: userPayload.id,
+         nombre,
+         email,
+         rol: perfil,
+         activo: true,
+         cliente_id: cliente_id || undefined,
+         cliente_ids: cliente_id ? [cliente_id] : [],
+         updated_at: Date.now(),
+         sync_status: "synced"
+       });
        await useAppStore.getState().hydrate();
-       syncEngine.triggerSync();
        onClose();
     } catch (err) {
        console.error(err);

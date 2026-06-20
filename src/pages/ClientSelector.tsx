@@ -1,11 +1,16 @@
-import { Building, LogOut, ChevronRight, Check } from "lucide-react";
+import { Building, LogOut, ChevronRight, Check, Globe2, Plus } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useAppStore } from "../store/useAppStore";
+import { useAuth } from "../context/AuthContext";
+import { ClientModal } from "../components/modals/ClientModal";
 
 export default function ClientSelector() {
   const [, setLocation] = useLocation();
   const [selected, setSelected] = useState<string | null>(null);
+  const [showClientModal, setShowClientModal] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.perfil === "administrador";
 
   const clients = useAppStore(state => state.clients);
   const isLoading = useAppStore(state => state.isLoading);
@@ -15,11 +20,19 @@ export default function ClientSelector() {
     hydrate();
   }, [hydrate]);
 
-  const activeClients = clients.filter(c => c.activo !== false);
+  const allowedClientIds = new Set([
+    ...(user?.cliente_ids || []),
+    ...(user?.cliente_id ? [user.cliente_id] : [])
+  ]);
+  const activeClients = clients.filter(c =>
+    c.activo !== false &&
+    (isAdmin || allowedClientIds.has(c.uuid_sync) || allowedClientIds.has(c.id))
+  );
 
   const handleSelect = (clientId: string) => {
     setSelected(clientId);
     localStorage.setItem("active_client", clientId);
+    localStorage.removeItem("admin_global_view");
     setTimeout(() => {
       // Check if there was a pending tag
       const pendingTag = localStorage.getItem("pending_tag");
@@ -32,10 +45,17 @@ export default function ClientSelector() {
     }, 500);
   };
 
+  const handleGlobalView = () => {
+    localStorage.removeItem("active_client");
+    localStorage.setItem("admin_global_view", "true");
+    setLocation("/");
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("is_authenticated");
     localStorage.removeItem("auth_pin");
     localStorage.removeItem("active_client");
+    localStorage.removeItem("admin_global_view");
     window.location.href = "/login";
   };
 
@@ -55,10 +75,25 @@ export default function ClientSelector() {
       </header>
 
       <main className="flex-1 overflow-auto p-4 md:p-12 flex items-center justify-center">
-        <div className="max-w-2xl w-full">
-          <div className="mb-8 text-center md:text-left">
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Seleccionar Cliente</h1>
-            <p className="text-slate-500 font-medium">Tienes acceso a {activeClients.length} centros de control habilitados.</p>
+        <div className="max-w-4xl w-full">
+          <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-5">
+            <div className="text-center md:text-left">
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Seleccionar Cliente</h1>
+              <p className="text-slate-500 font-medium">
+                {isAdmin
+                  ? "Selecciona un cliente para operar en su contexto o continúa con la vista global."
+                  : `Tienes acceso a ${activeClients.length} centros de control habilitados.`}
+              </p>
+            </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowClientModal(true)}
+                className="self-center md:self-auto bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-slate-900/10 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Nuevo cliente
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -67,8 +102,31 @@ export default function ClientSelector() {
                 <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                 <p className="text-slate-500 font-bold uppercase text-xs tracking-widest">Cargando Clientes...</p>
               </div>
-            ) : activeClients.length > 0 ? (
-              activeClients.map((client) => (
+            ) : (
+              <>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleGlobalView}
+                  className="group relative bg-slate-900 p-6 rounded-2xl border border-slate-900 text-left transition-all cursor-pointer hover:shadow-xl hover:-translate-y-1"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 rounded-xl bg-blue-600 text-white">
+                      <Globe2 className="w-6 h-6" />
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                  </div>
+                  <h3 className="font-bold text-white text-lg uppercase tracking-tight">Vista global</h3>
+                  <p className="text-xs font-medium text-slate-400 mt-1">Operar sin un cliente preseleccionado.</p>
+                  <div className="mt-6 border-t border-white/10 pt-4">
+                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-emerald-500/15 text-emerald-400">
+                      Administrador
+                    </span>
+                  </div>
+                </button>
+              )}
+
+              {activeClients.map((client) => (
                 <div
                   key={client.uuid_sync}
                   onClick={() => handleSelect(client.uuid_sync)}
@@ -103,8 +161,9 @@ export default function ClientSelector() {
                     </div>
                   </div>
                 </div>
-              ))
-            ) : (
+              ))}
+
+              {activeClients.length === 0 && !isAdmin && (
               <div className="col-span-full bg-white p-12 rounded-[32px] border border-slate-200 text-center shadow-sm">
                 <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Building className="w-8 h-8" />
@@ -123,10 +182,20 @@ export default function ClientSelector() {
                   Ir al Dashboard
                 </button>
               </div>
+              )}
+              </>
             )}
           </div>
         </div>
       </main>
+
+      {isAdmin && (
+        <ClientModal
+          isOpen={showClientModal}
+          onClose={() => setShowClientModal(false)}
+          editingClient={null}
+        />
+      )}
     </div>
   );
 }

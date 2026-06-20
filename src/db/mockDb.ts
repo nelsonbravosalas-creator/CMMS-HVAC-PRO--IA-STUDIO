@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import bcrypt from 'bcryptjs';
+const DEV_ARGON2_PIN_1234 = '$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU';
 
 const MOCK_DB_PATH = path.join(process.cwd(), 'src', 'db', 'mock_db_store.json');
 
@@ -10,6 +10,7 @@ interface MockSchema {
   sucursales: any[];
   assets: any[];
   users: any[];
+  user_clientes: any[];
   preventive_maintenance: any[];
   work_orders: any[];
   reports: any[];
@@ -29,6 +30,7 @@ let mockData: MockSchema = {
   sucursales: [],
   assets: [],
   users: [],
+  user_clientes: [],
   preventive_maintenance: [],
   work_orders: [],
   reports: [],
@@ -63,7 +65,7 @@ export const loadMockData = () => {
       const content = fs.readFileSync(MOCK_DB_PATH, 'utf8');
       mockData = JSON.parse(content);
       // Double check all tables exist in loaded data
-      const defaultKeys = ['clientes', 'sucursales', 'assets', 'users', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'audit_logs', 'cmms_auth_failures', 'cmms_idempotency_keys', 'calendar'];
+      const defaultKeys = ['clientes', 'sucursales', 'assets', 'users', 'user_clientes', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'audit_logs', 'cmms_auth_failures', 'cmms_idempotency_keys', 'calendar'];
       for (const key of defaultKeys) {
         if (!mockData[key as keyof MockSchema]) {
           (mockData as any)[key] = [];
@@ -81,14 +83,15 @@ export const loadMockData = () => {
   const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL;
   const mockAdminPin = process.env.DEV_MOCK_ADMIN_PIN;
   if (mockAdminEmail && mockAdminPin) {
-    const pinHash = bcrypt.hashSync(mockAdminPin, 10);
+    const pinHash = mockAdminPin === '1234' ? DEV_ARGON2_PIN_1234 : mockAdminPin;
     const adminUser = {
       uuid_sync: 'dev-mock-admin-uuid',
       id: 'dev-admin',
       nombre: 'Dev Admin',
       correo: mockAdminEmail,
       perfil: 'administrador',
-      pin: pinHash,
+      pin_hash: pinHash,
+      pin: null,
       activo: true,
       data: JSON.stringify({ email: mockAdminEmail, nombre: 'Dev Admin', rol: 'administrador' }),
       updated_at: now,
@@ -107,6 +110,13 @@ export const loadMockData = () => {
     created_at: now
   };
   mockData.clientes = [defaultClient];
+  mockData.user_clientes = mockData.users.map(user => ({
+    uuid_sync: `UC-${user.uuid_sync}-${defaultClient.id}`,
+    id: `UC-${user.id}-${defaultClient.id}`,
+    user_id: user.uuid_sync,
+    cliente_id: defaultClient.id,
+    created_at: now
+  }));
 
   // Default Sucursal & Sucursales
   const defaultBranchData = { nombre: 'Bodega Central', codigo: '21-STK', direccion: 'Las Condes 123', ciudad: 'Santiago', region: 'RM', activo: true };
@@ -241,6 +251,11 @@ export const createMockSql = () => {
         );
       }
 
+      if (tableName === 'user_clientes' && queryLower.includes('user_id =')) {
+        const userId = String(values[0]);
+        return filteredRows.filter(row => String(row.user_id || '') === userId);
+      }
+
       // Case B: WHERE id = $1 or uuid_sync = $1
       if (queryLower.includes('uuid_sync =') || queryLower.includes('id =')) {
         const idVal = String(values[0]);
@@ -359,20 +374,38 @@ export const createMockSql = () => {
         const nombre = values[2];
         const correo = values[3];
         const perfil = values[4];
-        const pin = values[5];
-        const activo = values[6] !== false;
-        const data = values[7] || '{}';
-        const updated_at = values[8] || Date.now();
-        const created_at = values[9] || Date.now();
-        const deleted_at = values[10] || null;
+        const usesPinHash = queryLower.includes('pin_hash');
+        const pin_hash = usesPinHash ? values[5] : undefined;
+        const pin = usesPinHash ? values[6] : values[5];
+        const offset = usesPinHash ? 1 : 0;
+        const activo = values[6 + offset] !== false;
+        const data = values[7 + offset] || '{}';
+        const updated_at = values[8 + offset] || Date.now();
+        const created_at = values[9 + offset] || Date.now();
+        const deleted_at = values[10 + offset] || null;
+        const cliente_id = values[11 + offset] || null;
 
-        const record = { uuid_sync, id, nombre, correo, perfil, pin, activo, data, updated_at, created_at, deleted_at };
+        const record = { uuid_sync, id, nombre, correo, perfil, pin_hash, pin, activo, data, updated_at, created_at, deleted_at, cliente_id };
         const idx = targetTable.findIndex(row => row.uuid_sync === uuid_sync);
         if (idx >= 0) {
           targetTable[idx] = { ...targetTable[idx], ...record };
         } else {
           targetTable.push(record);
         }
+      } else if (tableName === 'user_clientes') {
+        if (queryLower.includes('select')) {
+          saveMockData();
+          return [{ success: true }];
+        }
+        const uuid_sync = values[0];
+        const id = values[1];
+        const user_id = values[2];
+        const cliente_id = values[3];
+        const created_at = values[4] || Date.now();
+        const record = { uuid_sync, id, user_id, cliente_id, created_at, updated_at: created_at };
+        const idx = targetTable.findIndex(row => row.user_id === user_id && row.cliente_id === cliente_id);
+        if (idx >= 0) targetTable[idx] = { ...targetTable[idx], ...record };
+        else targetTable.push(record);
       } else {
         // Standard (id, data, uuid_sync, updated_at, created_at) or similar
         const id = values[0];
@@ -413,6 +446,14 @@ export const createMockSql = () => {
         if (idx >= 0) {
           targetTable[idx].deleted_at = deletedAtVal;
           targetTable[idx].updated_at = deletedAtVal;
+        }
+      } else if (tableName === 'users' && queryLower.includes('pin_hash =')) {
+        const pin_hash = values[0];
+        const updated_at = values[1] || Date.now();
+        const uuid_sync = values[2];
+        const idx = targetTable.findIndex(row => row.uuid_sync === uuid_sync || row.id === uuid_sync);
+        if (idx >= 0) {
+          targetTable[idx] = { ...targetTable[idx], pin_hash, pin: null, updated_at };
         }
       } else if (tableName === 'assets') {
         // Advanced UPDATE assets SET tag = $1 ... WHERE uuid_sync = $20

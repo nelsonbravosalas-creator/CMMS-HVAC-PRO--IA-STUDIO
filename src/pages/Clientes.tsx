@@ -6,7 +6,6 @@ import {
   Edit2,
   Mail,
   MapPin,
-  Plus,
   RotateCcw,
   Search,
   X
@@ -58,20 +57,7 @@ export default function Clientes() {
       .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
   }, [clients, clientFilter]);
 
-  useEffect(() => {
-    if (activeClients.length === 0) {
-      setSelectedClientId(null);
-      return;
-    }
-
-    const selectionIsVisible = activeClients.some(client => client.uuid_sync === selectedClientId);
-    if (!selectionIsVisible) {
-      setSelectedClientId(activeClients[0].uuid_sync);
-    }
-  }, [activeClients, selectedClientId]);
-
   const selectedClient =
-    activeClients.find(client => client.uuid_sync === selectedClientId) ||
     clients.find(client => client.uuid_sync === selectedClientId) ||
     null;
 
@@ -101,13 +87,26 @@ export default function Clientes() {
     setBranchFilter("");
   }, [selectedClientId]);
 
+  useEffect(() => {
+    if (!selectedClient) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedClientId(null);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedClient]);
+
   const handleEditClient = (client: LocalCliente) => {
     setEditingClient({ client, branches: getClientBranches(client) });
-    setShowClientModal(true);
-  };
-
-  const handleAddClient = () => {
-    setEditingClient(null);
+    setSelectedClientId(null);
     setShowClientModal(true);
   };
 
@@ -128,12 +127,6 @@ export default function Clientes() {
             className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
           >
             <RotateCcw className="w-4 h-4" /> Sincronizar
-          </button>
-          <button
-            onClick={handleAddClient}
-            className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-xl shadow-slate-900/10"
-          >
-            <Plus className="w-4 h-4" /> Nuevo Cliente
           </button>
         </div>
       </div>
@@ -195,24 +188,17 @@ export default function Clientes() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {activeClients.map(client => {
-                    const isSelected = client.uuid_sync === selectedClient?.uuid_sync;
                     const branchCount = getClientBranches(client).length;
 
                     return (
                       <tr
                         key={client.uuid_sync}
                         onClick={() => setSelectedClientId(client.uuid_sync)}
-                        className={`cursor-pointer transition-colors ${
-                          isSelected
-                            ? "bg-indigo-50/80 shadow-[inset_4px_0_0_#4f46e5]"
-                            : "hover:bg-slate-50"
-                        }`}
+                        className="group cursor-pointer transition-colors hover:bg-indigo-50/70"
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                              isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
-                            }`}>
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-slate-100 text-slate-600">
                               <Building2 className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
@@ -234,7 +220,7 @@ export default function Clientes() {
                         <td className="px-5 py-4 text-sm text-slate-600 max-w-[220px] truncate">{client.email || client.contacto_correo || "Sin correo"}</td>
                         <td className="px-5 py-4 text-sm font-semibold text-slate-600">{client.region || "Sin región"}</td>
                         <td className="px-5 py-4">
-                          <ChevronRight className={`w-5 h-5 transition-transform ${isSelected ? "text-indigo-600 translate-x-1" : "text-slate-300"}`} />
+                          <ChevronRight className="w-5 h-5 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-indigo-600" />
                         </td>
                       </tr>
                     );
@@ -245,22 +231,21 @@ export default function Clientes() {
 
             <div className="lg:hidden divide-y divide-slate-100">
               {activeClients.map(client => {
-                const isSelected = client.uuid_sync === selectedClient?.uuid_sync;
                 return (
                   <button
                     type="button"
                     key={client.uuid_sync}
                     onClick={() => setSelectedClientId(client.uuid_sync)}
-                    className={`w-full p-5 text-left transition-colors ${isSelected ? "bg-indigo-50" : "hover:bg-slate-50"}`}
+                    className="w-full p-5 text-left transition-colors hover:bg-indigo-50"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-slate-100 text-slate-600">
                         <Building2 className="w-5 h-5" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex justify-between gap-3">
                           <p className="font-black text-sm text-slate-900 uppercase truncate">{client.nombre}</p>
-                          <ChevronRight className={`w-5 h-5 shrink-0 ${isSelected ? "text-indigo-600" : "text-slate-300"}`} />
+                          <ChevronRight className="w-5 h-5 shrink-0 text-slate-300" />
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3 text-xs">
                           <p><span className="text-slate-400 block">Sucursales</span><strong>{getClientBranches(client).length}</strong></p>
@@ -279,7 +264,17 @@ export default function Clientes() {
       </section>
 
       {selectedClient && (
-        <section className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6 backdrop-blur-sm animate-in fade-in duration-200"
+          onMouseDown={() => setSelectedClientId(null)}
+        >
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="client-detail-title"
+          onMouseDown={event => event.stopPropagation()}
+          className="w-full max-w-7xl max-h-[92vh] overflow-y-auto bg-white rounded-[28px] border border-slate-200 shadow-2xl animate-in zoom-in-95 duration-200"
+        >
           <div className="p-5 md:p-7 border-b border-slate-100">
             <div className="flex flex-col sm:flex-row justify-between items-start gap-5">
               <div className="flex items-start gap-4 min-w-0">
@@ -288,16 +283,26 @@ export default function Clientes() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Detalle del cliente</p>
-                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mt-1 truncate">{selectedClient.nombre}</h3>
+                  <h3 id="client-detail-title" className="text-xl font-black text-slate-900 uppercase tracking-tight mt-1 truncate">{selectedClient.nombre}</h3>
                   <p className="text-xs font-bold text-slate-400 mt-1">{selectedClient.rut || "RUT no registrado"}</p>
                 </div>
               </div>
-              <button
-                onClick={() => handleEditClient(selectedClient)}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase rounded-xl transition-all flex items-center gap-2 shrink-0"
-              >
-                <Edit2 className="w-3.5 h-3.5" /> Editar ficha
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleEditClient(selectedClient)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase rounded-xl transition-all flex items-center gap-2"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Editar ficha
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedClientId(null)}
+                  aria-label="Cerrar detalle del cliente"
+                  className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {selectedClient.sync_status === "conflicted" && (
@@ -417,6 +422,7 @@ export default function Clientes() {
             )}
           </div>
         </section>
+        </div>
       )}
 
       <ClientModal

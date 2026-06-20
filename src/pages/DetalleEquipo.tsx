@@ -54,12 +54,16 @@ type Tab = "info" | "historial" | "historico" | "documentos";
 
 export default function DetalleEquipo() {
   const { user, permisos } = useAuth();
-  const [, params] = useRoute<{ tag: string }>("/equipos/:tag");
-  const tag = params ? params.tag : undefined;
+  const [, params] = useRoute<{ assetId: string }>("/equipos/:assetId");
+  const assetId = params ? params.assetId : undefined;
   
   const assets = useAppStore(state => state.assets);
   const loading = useAppStore(state => state.isLoading);
-  const equipo = useMemo(() => assets.find(a => a.tag === tag), [assets, tag]);
+  const equipo = useMemo(
+    () => assets.find(a => a.uuid_sync === assetId || a.id === assetId || a.tag === assetId),
+    [assets, assetId]
+  );
+  const tag = equipo?.tag;
 
   const { editAsset } = useAssets();
   

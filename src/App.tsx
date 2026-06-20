@@ -82,6 +82,15 @@ function App() {
   ));
   const [location, setLocation] = useLocation();
   const clients = useAppStore(state => state.clients);
+  const savedUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("auth_user") || "null");
+    } catch {
+      return null;
+    }
+  })();
+  const isAdmin = savedUser?.perfil === "administrador";
+  const isAdminGlobalView = isAdmin && localStorage.getItem("admin_global_view") === "true";
 
   useEffect(() => {
     // 1. Hidratar datos locales (IndexedDB -> Zustand)
@@ -100,6 +109,7 @@ function App() {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("is_authenticated");
       localStorage.removeItem("active_client");
+      localStorage.removeItem("admin_global_view");
       sessionStorage.removeItem("auth_token");
       setIsAuthenticated(false);
       setHasClientSelected(false);
@@ -121,6 +131,7 @@ function App() {
       logger.info("Session", "Session disconnected due to 30 minutes of inactivity.");
       localStorage.setItem("is_authenticated", "false");
       localStorage.removeItem("active_client");
+      localStorage.removeItem("admin_global_view");
       setIsAuthenticated(false);
       setHasClientSelected(false);
       setLocation("/login");
@@ -154,7 +165,7 @@ function App() {
     setIsAuthenticated(auth);
     setHasClientSelected(client);
 
-    // Middleware de Redirección para Código QR (?tag=...)
+    // Compatibilidad temporal con códigos QR legados que usan ?tag=...
     const params = new URLSearchParams(window.location.search);
     const tagParam = params.get("tag");
 
@@ -184,16 +195,16 @@ function App() {
       return;
     }
 
-    if (auth && !client && clients.length > 0 && location !== "/client-selector") {
+    if (auth && !client && !isAdminGlobalView && clients.length > 0 && location !== "/client-selector") {
       setLocation("/client-selector");
     }
-  }, [location, setLocation]);
+  }, [location, setLocation, clients.length, isAdminGlobalView]);
 
   return (
     <AuthProvider>
       {!isAuthenticated ? (
         <Login />
-      ) : (isAuthenticated && !hasClientSelected && clients.length > 0) ? (
+      ) : (isAuthenticated && !hasClientSelected && !isAdminGlobalView && clients.length > 0) ? (
         <ClientSelector />
       ) : (
         <>
@@ -202,8 +213,8 @@ function App() {
               <Route path="/" component={Dashboard} />
               <Route path="/scanner" component={ScannerQR} />
               <Route path="/equipos" component={Equipos} />
-              <Route path="/equipos/:tag" component={DetalleEquipo} />
-              <Route path="/EQUIPOS/:tag" component={DetalleEquipo} />
+              <Route path="/equipos/:assetId" component={DetalleEquipo} />
+              <Route path="/EQUIPOS/:assetId" component={DetalleEquipo} />
               <Route path="/mapa" component={Mapa} />
               <Route path="/mantenimientos" component={Mantenimientos} />
               <Route path="/ordenes-servicio" component={OrdenesServicio} />

@@ -43,7 +43,7 @@ export default function OrdenesServicio() {
     equipoNombre: os.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
     tipoServicio: os.data?.generalData?.tipoServicio || "Preventivo",
     tecnico: os.data?.generalData?.tecnico || "No Asignado",
-    estado: os.estado || "borrador"
+    estado: os.estado || "abierto"
   }));
   const statusCounts = filtered.reduce((acc, order) => {
     acc[order.estado] = (acc[order.estado] || 0) + 1;
@@ -71,10 +71,10 @@ export default function OrdenesServicio() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatusSummary label="Borradores" count={(statusCounts.borrador || 0).toString()} color="slate" />
-        <StatusSummary label="Enviados" count={((statusCounts.enviada || 0) + (statusCounts.enviado || 0)).toString()} color="blue" />
-        <StatusSummary label="Firmados" count={((statusCounts.firmada || 0) + (statusCounts.firmado || 0)).toString()} color="emerald" />
-        <StatusSummary label="Cerrados" count={((statusCounts.cerrada || 0) + (statusCounts.cerrado || 0)).toString()} color="amber" />
+        <StatusSummary label="Abiertos" count={(statusCounts.abierto || 0).toString()} color="slate" />
+        <StatusSummary label="En progreso" count={(statusCounts.en_progreso || 0).toString()} color="blue" />
+        <StatusSummary label="Completados" count={(statusCounts.completado || 0).toString()} color="amber" />
+        <StatusSummary label="Firmados/Cerrados" count={((statusCounts.firmado || 0) + (statusCounts.cerrado || 0)).toString()} color="emerald" />
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
@@ -91,8 +91,11 @@ export default function OrdenesServicio() {
         <div className="flex items-center gap-2">
            <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none min-w-[120px]">
               <option>Cualquier Estado</option>
-              <option>Borrador</option>
-              <option>Firmada</option>
+              <option>Abierto</option>
+              <option>En progreso</option>
+              <option>Completado</option>
+              <option>Firmado</option>
+              <option>Cerrado</option>
            </select>
            <button className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200"><Filter className="w-4 h-4" /></button>
         </div>
@@ -124,7 +127,8 @@ export default function OrdenesServicio() {
                 <td className="px-6 py-4">
                   <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 w-fit ${
                     os.estado === 'firmado' ? 'bg-emerald-100 text-emerald-600' : 
-                    os.estado === 'enviado' ? 'bg-blue-100 text-blue-600' : 
+                    os.estado === 'completado' ? 'bg-blue-100 text-blue-600' :
+                    os.estado === 'en_progreso' ? 'bg-amber-100 text-amber-600' :
                     os.estado === 'cerrado' ? 'bg-slate-200 text-slate-600' : 
                     'bg-slate-100 text-slate-600'
                   }`}>

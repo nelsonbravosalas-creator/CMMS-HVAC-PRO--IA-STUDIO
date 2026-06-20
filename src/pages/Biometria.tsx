@@ -15,7 +15,6 @@ import {
 import { useAppStore } from "../store/useAppStore";
 import { db } from "../db/database";
 import { motion } from "motion/react";
-import bcrypt from "bcryptjs";
 
 export default function Biometria() {
   const [activeTab, setActiveTab] = useState<"biometry" | "pin">("biometry");
@@ -93,66 +92,26 @@ export default function Biometria() {
     setIsSavingPin(true);
 
     try {
-      // Find current user in dexie to compare current pin
-      const email = currentUserEmail;
-      if (!email) {
-        setPinError("No hay usuario autenticado para actualizar el PIN.");
-        setIsSavingPin(false);
-        return;
+      if (!navigator.onLine) {
+        throw new Error("El cambio de PIN requiere conexión con el servidor.");
       }
-      const dbUser = await db.users.where("email").equalsIgnoreCase(email).first();
-      
-      if (dbUser) {
-        // Check current pin
-        const isMatch = dbUser.pin.startsWith("$2")
-          ? bcrypt.compareSync(currentPin, dbUser.pin)
-          : dbUser.pin === currentPin;
-
-        if (!isMatch) {
-          setPinError("El PIN actual ingresado es incorrecto.");
-          setIsSavingPin(false);
-          return;
-        }
-
-        // Generate bcrypt hash for safety guidelines (business rule 17)
-        const salt = bcrypt.genSaltSync(10);
-        const hashedNewPin = bcrypt.hashSync(newPin, salt);
-
-        // Update in Dexie (offline-first database)
-        await db.users.update(dbUser.id, { 
-          pin: hashedNewPin,
-          updated_at: Date.now(),
-          sync_status: 'pending_update'
-        });
-
-        // Trigger reactive sync if online
-        if (navigator.onLine) {
-          // Sync changes
-        }
-
-        // Update local state
-        setPinChangeSuccess(true);
-        setCurrentPin("");
-        setNewPin("");
-        setConfirmPin("");
-      } else {
-        // If user not in DB (first boot/demo state) let's register them in offline DB first
-        const salt = bcrypt.genSaltSync(10);
-        const hashedNewPin = bcrypt.hashSync(newPin, salt);
-
-        const newUserIdx = {
-          id: "U1",
-          nombre: currentUser?.nombre || "Nelson Bravo",
-          email: email,
-          rol: "administrador",
-          pin: hashedNewPin,
-          activo: true,
-          updated_at: Date.now(),
-          sync_status: 'pending_insert'
-        };
-        await db.users.put(newUserIdx as any);
-        setPinChangeSuccess(true);
+      const token = sessionStorage.getItem("auth_token");
+      const response = await fetch("/api/change-pin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ currentPin, newPin })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "No fue posible actualizar el PIN.");
       }
+      setPinChangeSuccess(true);
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
     } catch (err: any) {
       setPinError("Ocurrió un error al guardar el PIN: " + err.message);
     } finally {
@@ -507,7 +466,7 @@ export default function Biometria() {
             <div className="bg-white rounded-[40px] border border-slate-200 p-8 shadow-sm">
               <div className="mb-6">
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Cambio de PIN Operacional</h3>
-                <p className="text-sm text-slate-500 font-medium">Reemplace su PIN estático e incremente la robustez aplicando encriptación bcrypt unidireccional.</p>
+                <p className="text-sm text-slate-500 font-medium">El cambio se valida online y el servidor protege el PIN mediante Argon2id.</p>
               </div>
 
               {pinChangeSuccess && (
@@ -517,7 +476,7 @@ export default function Biometria() {
                   </div>
                   <div>
                     <span className="block font-black text-emerald-500 uppercase tracking-widest mb-1 text-[10px]">Actualización Exitosa</span>
-                    <span className="text-slate-300 pt-0.5 inline-block">¡Clave de Acceso actualizada de forma segura! El nuevo PIN ha sido cifrado (bcrypt/IndexedDB) y se programó la actualización correspondiente en el servidor central.</span>
+                    <span className="text-slate-300 pt-0.5 inline-block">Clave actualizada en el servidor. El PIN y su hash no se almacenan en este dispositivo.</span>
                   </div>
                 </div>
               )}

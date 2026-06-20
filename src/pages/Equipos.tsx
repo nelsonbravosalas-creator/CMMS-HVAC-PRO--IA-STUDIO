@@ -336,7 +336,7 @@ export default function Equipos() {
                  <Box className={`w-8 h-8 transition-transform group-hover:scale-110 ${eq.estado === 'falla' ? 'text-red-500' : 'text-blue-500'}`} />
                  <div className="text-[10px] font-black text-slate-900 line-clamp-1">{eq.tag}</div>
                  <button 
-                   onClick={(e) => { e.stopPropagation(); setSelectedEqLabel({ tag: eq.tag, desc: eq.nombre }); }}
+                   onClick={(e) => { e.stopPropagation(); setSelectedEqLabel({ uuid_sync: eq.uuid_sync, tag: eq.tag, desc: eq.nombre }); }}
                    className="absolute top-2 right-2 p-1 bg-white shadow-sm border border-slate-100 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                  >
                    <QrCode className="w-3 h-3 text-slate-400 hover:text-blue-500" />
@@ -370,7 +370,7 @@ const EquipoCardGrid: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> 
           <div className="flex items-center gap-2">
             <StatusIndicator status={equipo.sync_status} />
             <button 
-              onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
+              onClick={(e) => { e.stopPropagation(); onShowLabel({ uuid_sync: equipo.uuid_sync, tag: equipo.tag, desc: equipo.nombre }); }}
               className="p-3 bg-slate-100 hover:bg-white rounded-xl shadow-sm transition-all border border-transparent hover:border-slate-200"
             >
                <QrCode className="w-4 h-4 text-slate-400 hover:text-blue-600" />
@@ -422,7 +422,7 @@ const EquipoRowList: React.FC<{ equipo: any, onShowLabel: (eq: any) => void }> =
         <div className="flex items-center gap-4">
            <StatusIndicator status={equipo.sync_status} />
            <button 
-             onClick={(e) => { e.stopPropagation(); onShowLabel({ tag: equipo.tag, desc: equipo.nombre }); }}
+             onClick={(e) => { e.stopPropagation(); onShowLabel({ uuid_sync: equipo.uuid_sync, tag: equipo.tag, desc: equipo.nombre }); }}
              className="p-2 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-lg transition-all"
            >
               <QrCode className="w-4 h-4" />

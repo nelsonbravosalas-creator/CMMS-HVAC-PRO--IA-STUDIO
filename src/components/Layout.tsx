@@ -153,8 +153,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 
 export default function Layout({ children }: LayoutProps) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [, setLocation] = useLocation();
+  const isAdmin = user?.perfil === "administrador";
 
   const handleHeaderLogout = () => {
     logout();
@@ -167,7 +168,7 @@ export default function Layout({ children }: LayoutProps) {
     if (!activeClientId) return null;
     const client = await db.clients.get(activeClientId);
     return client ? client.nombre : null;
-  }, [activeClientId]) || "Entorno General";
+  }, [activeClientId]) || "Vista Global";
 
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -210,37 +211,37 @@ export default function Layout({ children }: LayoutProps) {
   // Real-time queries for badges
   const ticketsAbiertos = useLiveQuery(() => 
     db.work_orders.filter(item =>
-      item.cliente_id === activeClientId &&
+      (!activeClientId || item.cliente_id === activeClientId) &&
       (item.estado === 'abierto' || item.estado === 'en_proceso')
     ).count()
   , [activeClientId]) ?? 0;
 
   const mantenimientosPendientes = useLiveQuery(() => 
     db.preventive_maintenance.filter(item =>
-      item.cliente_id === activeClientId && item.estado !== 'ejecutado'
+      (!activeClientId || item.cliente_id === activeClientId) && item.estado !== 'ejecutado'
     ).count()
   , [activeClientId]) ?? 0;
 
   const informesTotal = useLiveQuery(() =>
     db.reports.filter(item =>
       item.sync_status !== 'pending_delete' &&
-      (item.data?.generalData?.cliente || (item as any).cliente_id) === activeClientId
+      (!activeClientId || (item.data?.generalData?.cliente || (item as any).cliente_id) === activeClientId)
     ).count()
   , [activeClientId]) ?? 0;
   
   const equiposTotal = useLiveQuery(() => 
-    db.assets.filter(a => !a.deleted_at && a.cliente_id === activeClientId).count()
+    db.assets.filter(a => !a.deleted_at && (!activeClientId || a.cliente_id === activeClientId)).count()
   , [activeClientId]) ?? 0;
 
   const ordenesServicioTotal = useLiveQuery(() =>
     db.ordenes_servicio.filter(item =>
       item.sync_status !== 'pending_delete' &&
-      (item.cliente_id || item.data?.generalData?.cliente) === activeClientId
+      (!activeClientId || (item.cliente_id || item.data?.generalData?.cliente) === activeClientId)
     ).count()
   , [activeClientId]) ?? 0;
 
   const equiposEnFalla = useLiveQuery(() => 
-    db.assets.filter(a => !a.deleted_at && a.cliente_id === activeClientId && a.estado === 'falla').count()
+    db.assets.filter(a => !a.deleted_at && (!activeClientId || a.cliente_id === activeClientId) && a.estado === 'falla').count()
   , [activeClientId]) ?? 0;
 
   /** 
@@ -429,20 +430,24 @@ export default function Layout({ children }: LayoutProps) {
             </button>
 
             {/* Active Client Badge (Simple Capsule) */}
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black tracking-wider uppercase ${
+            <button
+              type="button"
+              onClick={() => isAdmin && setLocation("/client-selector")}
+              title={isAdmin ? "Cambiar contexto de cliente" : undefined}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[10px] font-black tracking-wider uppercase ${
               isDarkMode 
                 ? 'bg-slate-900/60 border-slate-800 text-slate-300' 
                 : 'bg-white/80 border-slate-200 text-slate-700 shadow-sm'
-            }`}>
+            } ${isAdmin ? "cursor-pointer hover:border-blue-300 hover:text-blue-700" : "cursor-default"}`}>
               <Database className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
               <span className="max-w-[120px] sm:max-w-[180px] truncate">{activeClientName}</span>
-            </div>
+            </button>
 
             {/* Profile Badge */}
             <div className={`flex items-center gap-3 border-l pl-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-200'}`}>
               <div className="hidden lg:flex flex-col items-end">
-                <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Nelson Bravo</span>
-                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-tight">Admin</span>
+                <span className={`text-xs font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{user?.nombre || "Usuario"}</span>
+                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-tight">{user?.perfil || "Sin perfil"}</span>
               </div>
               <div className="relative">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-blue-600/30 ring-2 ring-blue-600/20">

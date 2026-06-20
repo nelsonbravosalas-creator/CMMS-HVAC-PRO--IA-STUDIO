@@ -69,7 +69,7 @@ export default function EditorOrdenServicio() {
   const [viewMode, setViewMode] = useState<'normal' | 'industrial'>('industrial');
   const [appLogo] = useState<string | null>(() => localStorage.getItem("system_logo"));
   const [isSyncing, setIsSyncing] = useState(false);
-  const [status, setStatus] = useState<'borrador'|'firmada'|'enviada'>('borrador');
+  const [status, setStatus] = useState<'abierto'|'en_progreso'|'completado'|'firmado'|'cerrado'>('abierto');
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
   const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('tecnico');
   const [activePhotoField, setActivePhotoField] = useState<string | null>(null);
@@ -210,7 +210,7 @@ export default function EditorOrdenServicio() {
   }, [isNew, uuid, activeClientId, activeClient?.id, setLocation]);
 
   useEffect(() => {
-    if (!activeClientId || status === 'enviada' || status === 'firmada') return;
+    if (!activeClientId || status === 'firmado' || status === 'cerrado') return;
     setGeneralData(prev => prev.cliente === activeClientId ? prev : {
       ...prev,
       cliente: activeClientId,
@@ -704,7 +704,13 @@ export default function EditorOrdenServicio() {
       hallazgos,
       galeria,
       ubicacionGeografica,
-      status: 'firmada',
+      status: 'firmado',
+      estadoHistorial: [
+        { estado: 'abierto', at: new Date().toISOString() },
+        { estado: 'en_progreso', at: new Date().toISOString() },
+        { estado: 'completado', at: new Date().toISOString() },
+        { estado: 'firmado', at: new Date().toISOString() }
+      ],
       firmas: {
         tecnico: canvasTecRef.current?.toDataURL() || '',
         cliente: canvasCliRef.current?.toDataURL() || ''
@@ -717,7 +723,7 @@ export default function EditorOrdenServicio() {
       uuid_sync: uuid,
       id: rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`,
       draft_key: OS_DRAFT_KEY,
-      estado: 'firmada',
+      estado: 'firmado',
       cliente_id: generalData.cliente,
       sync_status: 'pending_insert' as const,
       updated_at: Date.now(),
@@ -749,7 +755,7 @@ export default function EditorOrdenServicio() {
       // Triggers background sync to Neon
       syncEngine.triggerSync().catch(console.error);
 
-      setStatus('firmada');
+      setStatus('firmado');
       localStorage.removeItem(OS_DRAFT_KEY);
       
       // Export PDF via Email Automáticamente
@@ -799,7 +805,7 @@ export default function EditorOrdenServicio() {
     setHallazgos(prev => ({ ...prev, [field]: value }));
   };
 
-  const isReadOnly = status === 'enviada' || status === 'firmada';
+  const isReadOnly = status === 'firmado' || status === 'cerrado';
 
   const renderSection = () => {
     switch (activeSection) {
@@ -1591,8 +1597,10 @@ export default function EditorOrdenServicio() {
                </h2>
                <div className="flex items-center gap-2 mt-1">
                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
-                   status === 'firmada' ? 'bg-emerald-100 text-emerald-700' :
-                   status === 'enviada' ? 'bg-blue-100 text-blue-700' :
+                   status === 'firmado' ? 'bg-emerald-100 text-emerald-700' :
+                   status === 'cerrado' ? 'bg-slate-300 text-slate-700' :
+                   status === 'completado' ? 'bg-blue-100 text-blue-700' :
+                   status === 'en_progreso' ? 'bg-amber-100 text-amber-700' :
                    'bg-slate-200 text-slate-600'
                  }`}>
                    {status}

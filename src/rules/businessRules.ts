@@ -31,10 +31,11 @@ export const REPORT_STATES = {
 } as const;
 
 export const SERVICE_ORDER_STATES = {
-  BORRADOR: 'borrador',
-  FIRMADA: 'firmada',
-  ENVIADA: 'enviada',
-  ANULADA: 'anulada'
+  ABIERTO: 'abierto',
+  EN_PROGRESO: 'en_progreso',
+  COMPLETADO: 'completado',
+  FIRMADO: 'firmado',
+  CERRADO: 'cerrado'
 } as const;
 
 export const ROLES = {

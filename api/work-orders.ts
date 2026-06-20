@@ -6,13 +6,27 @@
 import { getDb } from './_db.js';
 import { getScopedTenantId, requireAuth } from './_auth.js';
 
+const WORK_ORDER_TRANSITIONS: Record<string, string[]> = {
+  abierto: ['en_progreso'],
+  en_progreso: ['completado'],
+  completado: ['firmado'],
+  firmado: ['cerrado'],
+  cerrado: []
+};
+
+const normalizeWorkOrderState = (value: unknown) => {
+  const aliases: Record<string, string> = { abierta: 'abierto', completada: 'completado', firmada: 'firmado' };
+  const state = String(value || 'abierto').toLowerCase();
+  return aliases[state] || state;
+};
+
 function mapToNeon(frontData: any, tenantId: string) {
   return {
     id: frontData.id,
     titulo: frontData.titulo,
     descripcion: frontData.descripcion,
     prioridad: frontData.prioridad,
-    estado: frontData.estado,
+    estado: normalizeWorkOrderState(frontData.estado),
     equipo_tag: frontData.equipo_tag || frontData.equipoTag,
     cliente_id: tenantId,
     creado_por: frontData.creado_por || frontData.creadoPor,
@@ -83,20 +97,47 @@ export default async function handler(req: any, res: any) {
 
     if (method === 'POST') {
       const action = query.action;
-      if (action === 'complete') {
+      if (action && ['start', 'complete', 'sign', 'close'].includes(action)) {
         if (!id) {
           return res.status(400).json({ error: 'Falta identificador (id)' });
+        }
+        const targetByAction: Record<string, string> = {
+          start: 'en_progreso',
+          complete: 'completado',
+          sign: 'firmado',
+          close: 'cerrado'
+        };
+        const existing = await sql`
+          SELECT estado FROM work_orders
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
+          LIMIT 1
+        `;
+        if (!existing[0]) {
+          return res.status(404).json({ success: false, error: 'Orden de trabajo no encontrada' });
+        }
+        const currentState = normalizeWorkOrderState(existing[0].estado);
+        const targetState = targetByAction[action];
+        if (!WORK_ORDER_TRANSITIONS[currentState]?.includes(targetState)) {
+          return res.status(409).json({
+            success: false,
+            error: 'INVALID_TRANSITION',
+            currentState,
+            targetState
+          });
+        }
+        if (targetState === 'cerrado' && String(user.perfil || '').toLowerCase() !== 'administrador') {
+          return res.status(403).json({ success: false, error: 'Solo el administrador puede cerrar la OT' });
         }
         const now = Date.now();
         await sql`
           UPDATE work_orders 
-          SET estado = 'cerrado', 
-              fecha_cierre = ${new Date().toISOString()},
+          SET estado = ${targetState},
+              fecha_cierre = ${targetState === 'cerrado' ? new Date().toISOString() : null},
               updated_at = ${now},
-              data = jsonb_set(coalesce(data, '{}'::jsonb), '{estado}', '"cerrado"')
+              data = jsonb_set(coalesce(data, '{}'::jsonb), '{estado}', to_jsonb(${targetState}::text))
           WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
         `;
-        return res.json({ success: true, message: 'Orden de trabajo completada y guardada con éxito.' });
+        return res.json({ success: true, estado: targetState });
       }
 
       const mapped = mapToNeon(body, tenantId);
@@ -129,12 +170,25 @@ export default async function handler(req: any, res: any) {
       }
       const d = body;
       const now = Date.now();
+      const existing = await sql`
+        SELECT estado FROM work_orders
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${tenantId}
+        LIMIT 1
+      `;
+      const currentState = normalizeWorkOrderState(existing[0]?.estado);
+      const nextState = normalizeWorkOrderState(d.estado || currentState);
+      if (nextState !== currentState && !WORK_ORDER_TRANSITIONS[currentState]?.includes(nextState)) {
+        return res.status(409).json({ success: false, error: 'INVALID_TRANSITION', currentState, targetState: nextState });
+      }
+      if (nextState === 'cerrado' && String(user.perfil || '').toLowerCase() !== 'administrador') {
+        return res.status(403).json({ success: false, error: 'Solo el administrador puede cerrar la OT' });
+      }
       await sql`
         UPDATE work_orders SET
           titulo = ${d.titulo || ''},
           descripcion = ${d.descripcion || ''},
           prioridad = ${d.prioridad || 'media'},
-          estado = ${d.estado || 'abierto'},
+          estado = ${nextState},
           equipo_tag = ${d.equipo_tag || d.equipoTag || ''},
           asignado_a = ${d.asignado_a || d.asignadoA || ''},
           updated_at = ${d.updated_at || now},

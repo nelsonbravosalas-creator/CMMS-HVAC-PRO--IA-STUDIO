@@ -140,7 +140,7 @@ export const PARAMETRIC_USERS = [
     perfil: "programador",
     activo: true,
     cliente_id: "C1",
-    pinHash: "$2b$10$GerltwE8Ge4g8zMbWccl9OE/31GG/NtDhFI1bvoKhSvcT8MeuybmK",
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU",
     data: {
       id: "U1",
       nombre: "Programador CMMS",
@@ -159,7 +159,7 @@ export const PARAMETRIC_USERS = [
     perfil: "administrador",
     activo: true,
     cliente_id: "C1",
-    pinHash: "$2b$10$CdDnynaPc4VwIU78X8OjsuxHnMRRX9rkojU30RZQCLVj3ftzZeSQq",
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU",
     data: {
       id: "U2",
       nombre: "Administrador CMMS",

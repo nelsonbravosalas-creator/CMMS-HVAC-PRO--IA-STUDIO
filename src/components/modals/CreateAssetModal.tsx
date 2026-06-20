@@ -19,6 +19,7 @@ interface CreateAssetModalProps {
 
 export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) => {
   const { createAsset } = useAssets();
+  const [assetUuid] = useState(() => crypto.randomUUID());
   const [tagData, setTagData] = useState({
     almacen: '21-STK',
     tipo: 'AC',
@@ -32,7 +33,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
    * URL dinámico para los códigos QR. 
    * Al estar en Vercel, window.location.origin detectará automáticamente el dominio de producción. 
    */
-  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin + '/scanner' : "https://cmms-hvac-pro-ia-studio.vercel.app/scanner");
+  const [baseUrl, setBaseUrl] = useState(typeof window !== 'undefined' ? window.location.origin : "https://cmms-hvac-pro-ia-studio.vercel.app");
 
   const correlativoMostrado = useMemo(() => {
     if (tagData.correlativo) {
@@ -122,7 +123,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   }, [localSucursales, tagData.almacen]);
 
   const fullTag = `${tagData.almacen}.${tagData.tipo}.${correlativoMostrado.padStart(3, '0')}`;
-  const qrUrl = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}tag=${encodeURIComponent(fullTag)}`;
+  const qrUrl = `${baseUrl}/equipos/${encodeURIComponent(assetUuid)}`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 
   const handleOCR = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,7 +273,8 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       }
 
       await createAsset({
-        uuid_sync: crypto.randomUUID(),
+        uuid_sync: assetUuid,
+        id: fullTag || `PEND-${assetUuid}`,
         tag: fullTag || `EQUIPO-${Date.now()}`,
         nombre: tagData.nombreEquipo,
         tipo: tagData.tipo,

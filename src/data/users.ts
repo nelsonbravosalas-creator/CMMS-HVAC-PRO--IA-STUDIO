@@ -1,6 +1,3 @@
-import { db } from '../db/database';
-import bcrypt from 'bcryptjs';
-
 export interface Usuario {
   id: string;
   nombre: string;
@@ -8,49 +5,22 @@ export interface Usuario {
   perfil: 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'programador' | 'cliente' | 'contratista';
   activo: boolean;
   puedeEditarMantenimientos: boolean;
-  pin: string;
 }
 
 export const validatePin = async (pinIngresado: string, correo?: string) => {
-  if (navigator.onLine) {
-    const res = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: pinIngresado, correo })
-    });
-    const data = await res.json();
-    if (!data.success) {
-      throw new Error("Credenciales inválidas");
-    }
-    return data;
-  } else {
-    // Fallback offline seguro contra DB Local
-    if (correo) {
-      const user = await db.users.where('email').equalsIgnoreCase(correo).first();
-      if (!user || !user.activo) {
-        throw new Error("Credenciales inválidas");
-      }
-      const isMatch = user.pin.startsWith('$2')
-        ? bcrypt.compareSync(pinIngresado, user.pin)
-        : user.pin === pinIngresado;
-      if (!isMatch) {
-        throw new Error("Credenciales inválidas");
-      }
-      return user;
-    } else {
-      const allUsers = await db.users.toArray();
-      const user = allUsers.find(u => {
-        if (!u.activo) return false;
-        return u.pin.startsWith('$2')
-          ? bcrypt.compareSync(pinIngresado, u.pin)
-          : u.pin === pinIngresado;
-      });
-      if (!user) {
-        throw new Error("Credenciales inválidas");
-      }
-      return user;
-    }
+  if (!navigator.onLine) {
+    throw new Error("El inicio de sesión requiere conexión");
   }
+  const res = await fetch('/api/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin: pinIngresado, correo })
+  });
+  const data = await res.json();
+  if (!data.success) {
+    throw new Error("Credenciales inválidas");
+  }
+  return data;
 };
 
 export interface Cliente {

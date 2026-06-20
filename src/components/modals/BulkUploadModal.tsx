@@ -251,6 +251,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose }) => 
 
         const asset: LocalActivo = {
           uuid_sync: uuid,
+          id: cleanString(row.TAG) || `PEND-${uuid}`,
           tag: cleanString(row.TAG),
           nombre: cleanString(row.Nombre),
           tipo: cleanString(row.Tipo),

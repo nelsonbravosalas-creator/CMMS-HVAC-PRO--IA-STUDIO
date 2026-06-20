@@ -102,6 +102,7 @@ export function CodificacionModal({ isOpen, onClose }: CodificacionModalProps) {
       const uuid_sync = crypto.randomUUID();
       const newEquipo = {
         uuid_sync,
+        id: equipoCodigo.toUpperCase(),
         codigo: equipoCodigo.toUpperCase(),
         descripcion: equipoDescripcion,
         activo: true,
