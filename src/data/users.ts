@@ -2,7 +2,7 @@ export interface Usuario {
   id: string;
   nombre: string;
   correo: string;
-  perfil: 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'programador' | 'cliente' | 'contratista';
+  perfil: 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'cliente' | 'contratista';
   activo: boolean;
   puedeEditarMantenimientos: boolean;
 }

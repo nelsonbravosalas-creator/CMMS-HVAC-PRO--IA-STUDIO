@@ -303,6 +303,18 @@ export class CMMSDatabase extends Dexie {
         }
       }
     });
+    this.version(13).stores(schema).upgrade(async transaction => {
+      const obsoleteUsers = await transaction.table('users')
+        .filter((record: any) => String(record.rol || '').toLowerCase() === 'programador')
+        .toArray();
+      for (const obsoleteUser of obsoleteUsers) {
+        await transaction.table('user_clientes')
+          .where('user_id')
+          .equals(obsoleteUser.uuid_sync)
+          .delete();
+        await transaction.table('users').delete(obsoleteUser.uuid_sync);
+      }
+    });
     
     this.on('populate', async () => {
       const now = Date.now();

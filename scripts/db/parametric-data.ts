@@ -1,4 +1,4 @@
-export const PARAMETRIC_SEED_VERSION = 2026061601;
+export const PARAMETRIC_SEED_VERSION = 2026062001;
 
 export const PARAMETRIC_CLIENTS = [
   {
@@ -18,7 +18,7 @@ export const PARAMETRIC_CLIENTS = [
       rut: "78.928.030-4",
       plan: "enterprise",
       activo: true,
-      usuariosIds: ["U1", "U2"]
+      usuariosIds: ["U2", "U-SUPERVISOR", "U-TECNICO", "U-CONTRATISTA", "U-CLIENTE", "U-VISITA"]
     }
   }
 ];
@@ -133,41 +133,129 @@ export const PARAMETRIC_SETTINGS = [
 
 export const PARAMETRIC_USERS = [
   {
-    id: "U1",
-    uuid_sync: "U1",
-    nombre: "Programador CMMS",
-    correo: "programador@cmms.local",
-    perfil: "programador",
-    activo: true,
-    cliente_id: "C1",
-    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU",
-    data: {
-      id: "U1",
-      nombre: "Programador CMMS",
-      email: "programador@cmms.local",
-      rol: "programador",
-      cliente_id: "C1",
-      activo: true,
-      puedeEditarMantenimientos: true
-    }
-  },
-  {
     id: "U2",
     uuid_sync: "U2",
     nombre: "Administrador CMMS",
     correo: "admin@cmms.local",
     perfil: "administrador",
     activo: true,
-    cliente_id: "C1",
-    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU",
+    cliente_id: null,
+    cliente_ids: [],
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$XqRlg9SKzWBcO3NCRqJYlA$PlvFYatvALb1Rz2iLyeznT4Jc73I2WtMRZ+8V2cuAus",
     data: {
       id: "U2",
       nombre: "Administrador CMMS",
       email: "admin@cmms.local",
       rol: "administrador",
-      cliente_id: "C1",
+      cliente_id: null,
+      cliente_ids: [],
       activo: true,
       puedeEditarMantenimientos: true
+    }
+  },
+  {
+    id: "U-SUPERVISOR",
+    uuid_sync: "U-SUPERVISOR",
+    nombre: "Supervisor CMMS",
+    correo: "supervisor@cmms.local",
+    perfil: "supervisor",
+    activo: true,
+    cliente_id: "C1",
+    cliente_ids: ["C1"],
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$lApne4Cp9bsb5HDwz5WpiQ$EPhzn27/j9IzLJecpG0rV78pDoqnwCWq5gvzOmZESm0",
+    data: {
+      id: "U-SUPERVISOR",
+      nombre: "Supervisor CMMS",
+      email: "supervisor@cmms.local",
+      rol: "supervisor",
+      cliente_id: "C1",
+      cliente_ids: ["C1"],
+      activo: true,
+      puedeEditarMantenimientos: true
+    }
+  },
+  {
+    id: "U-TECNICO",
+    uuid_sync: "U-TECNICO",
+    nombre: "Técnico CMMS",
+    correo: "tecnico@cmms.local",
+    perfil: "tecnico",
+    activo: true,
+    cliente_id: "C1",
+    cliente_ids: ["C1"],
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$awbmINuVsVmqamRmdVmxKQ$YzOlv0vBJKwiZAX03Z88mUpE0V/r3Hi41wkJDcaGr0Y",
+    data: {
+      id: "U-TECNICO",
+      nombre: "Técnico CMMS",
+      email: "tecnico@cmms.local",
+      rol: "tecnico",
+      cliente_id: "C1",
+      cliente_ids: ["C1"],
+      activo: true,
+      puedeEditarMantenimientos: true
+    }
+  },
+  {
+    id: "U-CONTRATISTA",
+    uuid_sync: "U-CONTRATISTA",
+    nombre: "Contratista CMMS",
+    correo: "contratista@cmms.local",
+    perfil: "contratista",
+    activo: true,
+    cliente_id: "C1",
+    cliente_ids: ["C1"],
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$ErEopfkvQTbgzWjMaNbm4A$AhsxdEiMks1GrsCI6PuLYT2h6HpvKh2DNAlfQCXGgSA",
+    data: {
+      id: "U-CONTRATISTA",
+      nombre: "Contratista CMMS",
+      email: "contratista@cmms.local",
+      rol: "contratista",
+      cliente_id: "C1",
+      cliente_ids: ["C1"],
+      activo: true,
+      puedeEditarMantenimientos: true
+    }
+  },
+  {
+    id: "U-CLIENTE",
+    uuid_sync: "U-CLIENTE",
+    nombre: "Cliente CMMS",
+    correo: "cliente@cmms.local",
+    perfil: "cliente",
+    activo: true,
+    cliente_id: "C1",
+    cliente_ids: ["C1"],
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$ky7IpXpgkK54thZDKIFebg$wiHPFoe/J+YRZVw8gK18wH63Db8GsCnwKdHvTkETkpY",
+    data: {
+      id: "U-CLIENTE",
+      nombre: "Cliente CMMS",
+      email: "cliente@cmms.local",
+      rol: "cliente",
+      cliente_id: "C1",
+      cliente_ids: ["C1"],
+      activo: true,
+      puedeEditarMantenimientos: false
+    }
+  },
+  {
+    id: "U-VISITA",
+    uuid_sync: "U-VISITA",
+    nombre: "Visita CMMS",
+    correo: "visita@cmms.local",
+    perfil: "visita",
+    activo: true,
+    cliente_id: "C1",
+    cliente_ids: ["C1"],
+    pinHash: "$argon2id$v=19$m=19456,t=2,p=1$kuNvfeFBVKqi3pkGJh/DpA$wk0jo4w808wyGu76mvT+hs0ZzzB+Gyt0DoxmWQr6CHI",
+    data: {
+      id: "U-VISITA",
+      nombre: "Visita CMMS",
+      email: "visita@cmms.local",
+      rol: "visita",
+      cliente_id: "C1",
+      cliente_ids: ["C1"],
+      activo: true,
+      puedeEditarMantenimientos: false
     }
   }
 ];

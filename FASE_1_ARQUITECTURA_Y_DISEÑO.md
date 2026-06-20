@@ -15,20 +15,19 @@
 
 | Rol | Descripción | Alcance |
 |---|---|---|
-| **Programador** | Mantiene configuración técnica, catálogos y capacidades de plataforma. Puede prestar soporte técnico global, pero no crea ni administra el ciclo de vida de clientes. | Plataforma global |
 | **Administrador** | Rol global. Crea clientes, cambia de contexto y puede operar en vista global sin cliente preseleccionado. | Global, todos los clientes |
 | **Supervisor** | Supervisa técnicos, crea OT, edita reportes, cierra tickets. | Por cliente |
 | **Técnico** | Emite OT, checklist, cierra tickets. | Equipos asignados |
 | **Cliente** | Crea tickets, mantenimientos, lee informes, descarga datos. | Su cliente |
 | **Proveedor** | Accede a tickets asignados, actualiza estado. | Tickets asignados |
 
-El Administrador global utiliza el selector para entrar a vista global o a un cliente. El Programador inicia en la plataforma técnica global. Supervisor y Técnico eligen al iniciar uno de sus clientes asignados y mantienen ese contexto durante la sesión, con opción de cambiarlo desde el encabezado. Cliente y Proveedor ingresan directamente con su cliente predeterminado. La sucursal nunca se solicita al iniciar sesión y se selecciona únicamente como filtro dentro de los módulos que corresponda.
+El Administrador global utiliza el selector para entrar a vista global o a un cliente. Supervisor y Técnico eligen al iniciar uno de sus clientes asignados y mantienen ese contexto durante la sesión, con opción de cambiarlo desde el encabezado. Cliente y Proveedor ingresan directamente con su cliente predeterminado. La sucursal nunca se solicita al iniciar sesión y se selecciona únicamente como filtro dentro de los módulos que corresponda.
 
 ---
 
 ### 1.1 MATRIZ DETALLADA DE PERMISOS
 
-| **Permiso / Acción** | **Programador** | **Admin** | **Supervisor** | **Técnico** | **Cliente** | **Proveedor** |
+| **Permiso / Acción** | **Sistema** | **Admin** | **Supervisor** | **Técnico** | **Cliente** | **Proveedor** |
 |---|---|---|---|---|---|---|
 | **ADMINISTRACIÓN & CONFIGURACIÓN** | | | | | | |
 | Crear Cliente | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |

@@ -4,14 +4,13 @@ import { hashPin } from '../server/passwords.js';
 
 const ALLOWED_ROLES = new Set([
   'administrador',
-  'programador',
   'supervisor',
   'tecnico',
   'contratista',
   'cliente',
   'visita'
 ]);
-const GLOBAL_ROLES = new Set(['administrador', 'programador']);
+const GLOBAL_ROLES = new Set(['administrador']);
 
 function normalizeRole(value: unknown) {
   return String(value || 'tecnico')

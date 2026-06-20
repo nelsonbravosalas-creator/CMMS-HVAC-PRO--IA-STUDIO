@@ -46,8 +46,7 @@ export const ROLES = {
   CLIENTE: 'cliente',
   VISITA: 'visita',
   CONTRATISTA: 'contratista',
-  SUPERVISOR: 'supervisor',
-  PROGRAMADOR: 'programador'
+  SUPERVISOR: 'supervisor'
 } as const;
 
 export const PERMISSIONS = {

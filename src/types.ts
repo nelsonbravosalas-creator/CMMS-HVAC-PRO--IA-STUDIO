@@ -9,7 +9,7 @@
  * Perfiles de usuario disponibles en el sistema.
  * Determinan el nivel de acceso y las funcionalidades habilitadas.
  */
-export type Perfil = 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'programador' | 'cliente' | 'contratista';
+export type Perfil = 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'cliente' | 'contratista';
 
 /**
  * Matriz de capacidades funcionales.
@@ -84,12 +84,6 @@ export const PERMISOS_POR_PERFIL: Record<Perfil, Permisos> = {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
     crear_informe: true, crear_ticket: true, ver_reportes: true,
     gestionar_usuarios: true, crear_equipo: true, crear_mantenimiento: true,
-    puedeEditarMantenimientos: true, ver_historial: true, ver_specs: true, ver_ubicacion: true
-  },
-  programador: {
-    ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
-    crear_informe: true, crear_ticket: true, ver_reportes: true,
-    gestionar_usuarios: false, crear_equipo: true, crear_mantenimiento: true,
     puedeEditarMantenimientos: true, ver_historial: true, ver_specs: true, ver_ubicacion: true
   }
 };

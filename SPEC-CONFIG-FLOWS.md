@@ -1,7 +1,7 @@
 # SPEC-CONFIG-FLOWS — Centro de Configuración de Flujos
 ## CMMS HVAC PRO · Versión 1.0 · 2026-06-13
 
-> **Alineación normativa:** el Administrador es global y es el único rol que crea, edita, activa, desactiva o elimina clientes y sus sucursales. Puede cambiar de contexto para configurar cada cliente. El Programador mantiene capacidades técnicas de plataforma, sin administrar clientes ni obtener acceso implícito a datos operativos.
+> **Alineación normativa:** el Administrador es global y es el único rol que crea, edita, activa, desactiva o elimina clientes y sus sucursales. También administra las capacidades técnicas de plataforma.
 
 ---
 
@@ -11,7 +11,7 @@ El sistema no tiene flujos de trabajo fijos. La mayoría de los comportamientos 
 
 Este documento define:
 - Qué flujos son configurables
-- Quién puede cambiar cada uno (Programador de plataforma vs. Administrador global)
+- Qué configuraciones pertenecen a plataforma y cuáles al contexto de cliente
 - Cómo se persiste la configuración en la base de datos
 - Cómo la consultan los módulos del sistema en tiempo de ejecución
 
@@ -20,23 +20,21 @@ Este documento define:
 ## 2. Principio de diseño
 
 ```
-Programador (dueño de la plataforma)
-  └── configura: módulos activos, límites del plan, flujos que afectan facturación
-
 Administrador global
+  ├── configura módulos activos, límites del plan y capacidades técnicas
   └── crea clientes y configura su comportamiento operativo al seleccionar un contexto
 ```
 
 **Regla:** el Administrador global es el único creador de clientes. Al operar dentro de un cliente no puede activar módulos fuera del plan técnico habilitado por plataforma.
 
-**Entrada al sistema:** el Administrador global utiliza el selector para elegir vista global o cliente. El Programador entra al contexto técnico global. Supervisor y Técnico eligen un cliente asignado al iniciar y pueden cambiarlo durante su sesión. Los demás usuarios reciben automáticamente su cliente predeterminado. Las sucursales no forman parte del inicio de sesión; se presentan como filtros internos cuando un módulo las necesita.
+**Entrada al sistema:** el Administrador global utiliza el selector para elegir vista global o cliente. Supervisor y Técnico eligen un cliente asignado al iniciar y pueden cambiarlo durante su sesión. Los demás usuarios reciben automáticamente su cliente predeterminado. Las sucursales no forman parte del inicio de sesión; se presentan como filtros internos cuando un módulo las necesita.
 
 ---
 
 ## 3. Tabla maestra de configuraciones
 
-### 3.1 Controladas SOLO por el Programador
-> Afectan el plan de suscripción o la arquitectura de datos. El Administrador las ve como lectura.
+### 3.1 Configuraciones globales de plataforma
+> Afectan el plan de suscripción o la arquitectura de datos y solo las modifica el Administrador global.
 
 | Clave | Descripción | Valores posibles | Default |
 |---|---|---|---|
@@ -146,7 +144,7 @@ vencido = (días_desde_ultimo_mp >= frecuencia_equipo_dias)
 | `pdf.pie_empresa_servicio` | Muestra nombre de la empresa de servicio en pie de página | `true` / `false` | `true` |
 | `pdf.white_label` | Oculta completamente la marca de la empresa de servicio | `true` / `false` | `false` |
 
-**Nota:** `pdf.white_label=true` es una capacidad técnica del plan que habilita el Programador; el Administrador global configura su uso por cliente.
+**Nota:** `pdf.white_label=true` es una capacidad técnica del plan que habilita y configura el Administrador global.
 
 ---
 
@@ -182,7 +180,7 @@ CREATE TABLE configuracion_cliente (
   cliente_id      UUID NOT NULL REFERENCES clientes(cliente_id),
   clave           TEXT NOT NULL,        -- 'firma.supervisor', 'mp.modo_generacion', etc.
   valor           JSONB NOT NULL,       -- true, false, "automatico", 42, ["es","pt"]
-  nivel           TEXT NOT NULL CHECK (nivel IN ('programador', 'admin')),
+  nivel           TEXT NOT NULL CHECK (nivel IN ('plataforma', 'admin')),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by      UUID REFERENCES users(user_id),
   UNIQUE (cliente_id, clave)
@@ -200,7 +198,7 @@ export interface ConfiguracionCliente {
   cliente_id: string;
   clave: string;
   valor: boolean | string | number | string[];
-  nivel: 'programador' | 'admin';
+  nivel: 'plataforma' | 'admin';
   updated_at: Date;
 }
 
@@ -251,7 +249,7 @@ if (firmaCliente) {
 
 ```
 Configuración del Cliente
-├── 📋 Plan y módulos        ← Programador: capacidad técnica; Administrador: lectura por cliente
+├── 📋 Plan y módulos        ← Administrador global
 │   ├── Módulos activos (inventario, cotizaciones, IoT, flota)
 │   └── Límites del plan (técnicos, activos, templates)
 │
@@ -274,13 +272,13 @@ Configuración del Cliente
 │   ├── Reporte mensual automático
 │   └── Permisos de generación del cliente
 │
-├── 📄  PDF e Informes       ← Administrador global (capacidad white label habilitada por Programador)
+├── 📄  PDF e Informes       ← Administrador global
 │   └── Logos y branding del informe
 │
 ├── 📍  GPS y Presencia      ← Administrador global en contexto de cliente
 │   └── Modo de captura de ubicación
 │
-└── 🔒  Seguridad            ← Administrador global (capacidad 2FA habilitada por Programador)
+└── 🔒  Seguridad            ← Administrador global
     ├── Biométrico para técnicos
     └── Duración de sesión
 ```
@@ -308,6 +306,6 @@ Agregar a `shared/contracts/sync.ts`:
 |---|---|---|
 | D-01 | Configuración en tabla de clave-valor (no columnas) | Permite agregar nuevas configuraciones sin migración de schema |
 | D-02 | Valor en JSONB (no TEXT) | Soporta boolean, número, array de strings sin conversión |
-| D-03 | Nivel `programador` vs `admin` en la misma tabla | El Programador habilita capacidades técnicas; el Administrador global configura cada cliente |
+| D-03 | Nivel `plataforma` vs `admin` en la misma tabla | El Administrador global distingue capacidades técnicas globales de configuración por cliente |
 | D-04 | Siempre hay default definido en código | El sistema funciona aunque nunca se haya tocado la configuración |
 | D-05 | Configuración es pull-only (solo el servidor la escribe) | Evita conflictos de sync; la configuración es autoridad del servidor |

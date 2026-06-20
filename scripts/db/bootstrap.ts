@@ -161,6 +161,14 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`UPDATE work_orders SET estado = 'abierto' WHERE estado NOT IN ('abierto', 'en_progreso', 'completado', 'firmado', 'cerrado')`;
   await sql`UPDATE ordenes_servicio SET estado = 'abierto' WHERE estado NOT IN ('abierto', 'en_progreso', 'completado', 'firmado', 'cerrado')`;
   await sql`
+    UPDATE users
+    SET activo = false,
+        deleted_at = COALESCE(deleted_at, ${Date.now()}),
+        updated_at = ${Date.now()}
+    WHERE LOWER(perfil) = 'programador'
+       OR LOWER(data->>'rol') = 'programador'
+  `;
+  await sql`
     INSERT INTO user_clientes (uuid_sync, id, user_id, cliente_id, created_at)
     SELECT
       'UC-' || uuid_sync || '-' || cliente_id,

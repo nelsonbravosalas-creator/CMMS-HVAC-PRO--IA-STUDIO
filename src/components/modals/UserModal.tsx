@@ -13,7 +13,6 @@ interface Props {
 
 const ROLE_OPTIONS = [
   { value: "administrador", label: "Administrador global", requiresClient: false, allowsMultiple: false },
-  { value: "programador", label: "Programador de plataforma", requiresClient: false, allowsMultiple: false },
   { value: "supervisor", label: "Supervisor", requiresClient: true, allowsMultiple: true },
   { value: "tecnico", label: "Técnico", requiresClient: true, allowsMultiple: true },
   { value: "contratista", label: "Contratista", requiresClient: true, allowsMultiple: false },

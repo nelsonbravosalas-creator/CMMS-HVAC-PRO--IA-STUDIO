@@ -466,6 +466,14 @@ async function ensureTables() {
       await sql`UPDATE ordenes_servicio SET estado = 'firmado' WHERE estado = 'firmada'`;
       await sql`UPDATE ordenes_servicio SET estado = 'completado' WHERE estado = 'completada'`;
       await sql`
+        UPDATE users
+        SET activo = false,
+            deleted_at = COALESCE(deleted_at, ${Date.now()}),
+            updated_at = ${Date.now()}
+        WHERE LOWER(perfil) = 'programador'
+           OR LOWER(data->>'rol') = 'programador'
+      `;
+      await sql`
         INSERT INTO user_clientes (uuid_sync, id, user_id, cliente_id, created_at)
         SELECT 'UC-' || uuid_sync || '-' || cliente_id, 'UC-' || id || '-' || cliente_id, uuid_sync, cliente_id, COALESCE(created_at, ${Date.now()})
         FROM users
@@ -687,8 +695,8 @@ async function startServer() {
     try {
       const d = req.body || {};
       const perfil = normalizeRole(d.perfil || "tecnico");
-      const allowedRoles = new Set(["administrador", "programador", "supervisor", "tecnico", "contratista", "cliente", "visita"]);
-      const globalRoles = new Set(["administrador", "programador"]);
+      const allowedRoles = new Set(["administrador", "supervisor", "tecnico", "contratista", "cliente", "visita"]);
+      const globalRoles = new Set(["administrador"]);
       if (!allowedRoles.has(perfil)) {
         return res.status(400).json({ success: false, error: "Perfil de usuario no válido" });
       }
@@ -936,7 +944,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/assets", requireRole(["administrador", "programador", "tecnico", "supervisor"]), async (req, res) => {
+  app.post("/api/assets", requireRole(["administrador", "tecnico", "supervisor"]), async (req, res) => {
     try {
       const sql = getSql();
       const clienteId = getTenantFromAuth(req, res);
@@ -998,7 +1006,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.delete("/api/assets", requireRole(["administrador", "programador", "supervisor"]), async (req, res) => {
+  app.delete("/api/assets", requireRole(["administrador", "supervisor"]), async (req, res) => {
     try {
       const sql = getSql();
       const clienteId = getTenantFromAuth(req, res);
@@ -2396,7 +2404,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.get("/api/health/db", requireRole(["administrador", "programador"]), async (req, res) => {
+  app.get("/api/health/db", requireRole(["administrador"]), async (req, res) => {
     try {
       const sql = getSql();
       const tables = await sql`
@@ -2424,7 +2432,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/health/db", requireRole(["administrador", "programador"]), async (req, res) => {
+  app.post("/api/health/db", requireRole(["administrador"]), async (req, res) => {
     try {
       await ensureTables();
       res.json({ migrated: true, schema: "ok" });
@@ -2433,7 +2441,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/admin/clone-production-db", requireRole(["administrador", "programador"]), express.json(), async (req, res) => {
+  app.post("/api/admin/clone-production-db", requireRole(["administrador"]), express.json(), async (req, res) => {
     try {
       const sourceUrl = req.body.prodUrl || process.env.PROD_DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
       const mode = req.body.mode || 'merge'; // 'merge' or 'overwrite'

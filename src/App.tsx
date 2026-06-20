@@ -71,9 +71,8 @@ export default /**
  * FLUJO DE ARRANQUE:
  * 1. Verifica si hay sesión. Si no, manda a /login.
  * 2. El administrador elige vista global o cliente.
- * 3. El programador entra a la plataforma técnica global.
- * 4. Supervisor y Técnico eligen un cliente asignado para la sesión.
- * 5. Los demás perfiles usan automáticamente su cliente asignado.
+ * 3. Supervisor y Técnico eligen un cliente asignado para la sesión.
+ * 4. Los demás perfiles usan automáticamente su cliente asignado.
  */
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => (
@@ -93,10 +92,9 @@ function App() {
     }
   })();
   const isAdmin = savedUser?.perfil === "administrador";
-  const isProgrammer = savedUser?.perfil === "programador";
   const selectsClient = savedUser?.perfil === "supervisor" || savedUser?.perfil === "tecnico";
   const isAdminGlobalView = isAdmin && localStorage.getItem("admin_global_view") === "true";
-  const isMissingAssignedClient = !!savedUser && !isAdmin && !isProgrammer && !selectsClient && !hasClientSelected;
+  const isMissingAssignedClient = !!savedUser && !isAdmin && !selectsClient && !hasClientSelected;
 
   useEffect(() => {
     // 1. Hidratar datos locales (IndexedDB -> Zustand)
@@ -116,7 +114,6 @@ function App() {
       localStorage.removeItem("is_authenticated");
       localStorage.removeItem("active_client");
       localStorage.removeItem("admin_global_view");
-      localStorage.removeItem("platform_global_view");
       sessionStorage.removeItem("auth_token");
       setIsAuthenticated(false);
       setHasClientSelected(false);
@@ -139,7 +136,6 @@ function App() {
       localStorage.setItem("is_authenticated", "false");
       localStorage.removeItem("active_client");
       localStorage.removeItem("admin_global_view");
-      localStorage.removeItem("platform_global_view");
       setIsAuthenticated(false);
       setHasClientSelected(false);
       setLocation("/login");
@@ -225,7 +221,7 @@ function App() {
         <>
           <Layout>
             <Switch>
-              <Route path="/">{isProgrammer ? <Configuracion /> : <Dashboard />}</Route>
+              <Route path="/" component={Dashboard} />
               <Route path="/scanner" component={ScannerQR} />
               <Route path="/equipos" component={Equipos} />
               <Route path="/equipos/:assetId" component={DetalleEquipo} />

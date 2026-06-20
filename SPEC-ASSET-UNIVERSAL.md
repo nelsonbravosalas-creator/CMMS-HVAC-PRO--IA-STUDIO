@@ -214,7 +214,7 @@ export interface CatalogoTipoActivo {
 }
 ```
 
-### 6.2 Tipos públicos predefinidos (mantenidos por el Programador)
+### 6.2 Tipos públicos predefinidos (mantenidos por el Administrador global)
 
 | Tipo | Código | Categoría | Variables fijas clave |
 |---|---|---|---|
@@ -236,15 +236,15 @@ export interface CatalogoTipoActivo {
 
 ### 6.3 Tipos privados por cliente
 
-El Administrador global puede solicitar un tipo privado dentro del contexto de un cliente. El Programador revisa su consistencia técnica y lo publica. El tipo privado:
+El Administrador global puede crear un tipo privado dentro del contexto de un cliente, revisar su consistencia técnica y publicarlo. El tipo privado:
 - Solo aparece en la biblioteca del cliente que lo solicitó
 - No es visible para otros clientes
 - Sigue el mismo esquema de `variables_fijas` que los tipos públicos
 
 **Flujo de solicitud:**
 ```
-Admin cliente → "Solicitar tipo personalizado" → Formulario (nombre, código, variables fijas)
-→ Programador recibe notificación → Aprueba y crea → Cliente recibe notificación → Disponible
+Administrador → "Crear tipo personalizado" → Formulario (nombre, código, variables fijas)
+→ Revisa y publica → Cliente recibe notificación → Disponible
 ```
 
 ---
@@ -370,5 +370,5 @@ RETIRO (baja definitiva)
 | D-03 | El TAG lo genera siempre el servidor | Garantiza unicidad global. El offline usa un TAG temporal `PEND-{uuid}` hasta sincronizar |
 | D-04 | Los activos retirados nunca se borran | ISO 55000 requiere trazabilidad de ciclo de vida completo |
 | D-05 | En v1 todos los activos tienen sucursal fija | Simplifica el modelo de datos. Los camiones van en su sucursal base |
-| D-06 | Tipos públicos los mantiene el Programador | Control de calidad y consistencia de la biblioteca |
+| D-06 | Tipos públicos los mantiene el Administrador global | Control de calidad y consistencia de la biblioteca |
 | D-07 | Los campos HVAC-específicos se eliminan del schema fijo | El modelo debe ser agnóstico. Los campos técnicos viven en el template |

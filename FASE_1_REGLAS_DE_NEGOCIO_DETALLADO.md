@@ -200,7 +200,7 @@ CREATE TABLE catalog_asset_types (
 }
 ```
 
-**Editable por:** Programador para catálogos técnicos globales; Administrador global para catálogos asociados a un cliente.
+**Editable por:** Administrador global para catálogos técnicos globales y catálogos asociados a un cliente.
 **Extensible:** Sí, cliente puede agregar tipos custom
 
 ---

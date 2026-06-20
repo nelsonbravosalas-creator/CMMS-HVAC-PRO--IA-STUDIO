@@ -7,7 +7,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const user = requireRole(['administrador', 'programador'])(req, res);
+  const user = requireRole(['administrador'])(req, res);
   if (!user) return;
 
   try {

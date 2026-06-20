@@ -19,6 +19,15 @@ export async function seedParametricData(sql: SqlClient, options: SeedOptions = 
   const logger = options.logger || console;
   const ts = PARAMETRIC_SEED_VERSION;
 
+  await sql`
+    UPDATE users
+    SET activo = false,
+        deleted_at = COALESCE(deleted_at, ${ts}),
+        updated_at = ${ts}
+    WHERE LOWER(perfil) = 'programador'
+       OR LOWER(data->>'rol') = 'programador'
+  `;
+
   for (const client of PARAMETRIC_CLIENTS) {
     await sql`
       INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at, deleted_at)
@@ -71,10 +80,18 @@ export async function seedParametricData(sql: SqlClient, options: SeedOptions = 
   }
 
   for (const user of PARAMETRIC_USERS) {
+    const existingUsers = await sql`
+      SELECT uuid_sync
+      FROM users
+      WHERE id = ${user.id} OR LOWER(correo) = LOWER(${user.correo})
+      LIMIT 1
+    `;
+    const userUuid = existingUsers[0]?.uuid_sync || user.uuid_sync;
+
     await sql`
       INSERT INTO users (uuid_sync, id, nombre, correo, perfil, pin_hash, pin, activo, data, updated_at, created_at, deleted_at, cliente_id)
       VALUES (
-        ${user.uuid_sync},
+        ${userUuid},
         ${user.id},
         ${user.nombre},
         ${user.correo},
@@ -102,14 +119,15 @@ export async function seedParametricData(sql: SqlClient, options: SeedOptions = 
         cliente_id = EXCLUDED.cliente_id
     `;
 
-    if (user.cliente_id) {
+    await sql`DELETE FROM user_clientes WHERE user_id = ${userUuid}`;
+    for (const clienteId of user.cliente_ids) {
       await sql`
         INSERT INTO user_clientes (uuid_sync, id, user_id, cliente_id, created_at)
         VALUES (
-          ${`UC-${user.uuid_sync}-${user.cliente_id}`},
-          ${`UC-${user.id}-${user.cliente_id}`},
-          ${user.uuid_sync},
-          ${user.cliente_id},
+          ${`UC-${userUuid}-${clienteId}`},
+          ${`UC-${user.id}-${clienteId}`},
+          ${userUuid},
+          ${clienteId},
           ${ts}
         )
         ON CONFLICT (user_id, cliente_id) DO NOTHING

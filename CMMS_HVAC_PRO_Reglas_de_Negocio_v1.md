@@ -226,9 +226,9 @@ erDiagram
 - **Conflicto:** Si el `cliente_id` no coincide con el del JWT → `TENANT_MISMATCH` permanente.
 
 ### RN-TEN-02 — Aislamiento de lectura
-- **Enunciado:** Un usuario solo recibe en el pull los registros de los clientes presentes en su relación `user_clientes`. El rol `administrador` es global, puede consultar todos los tenants, operar sin cliente preseleccionado y es el único que puede crear, editar, activar, desactivar o eliminar clientes y sus sucursales. El rol `programador` conserva acceso técnico global para soporte y configuración de plataforma, pero no administra el ciclo de vida de clientes.
+- **Enunciado:** Un usuario solo recibe en el pull los registros de los clientes presentes en su relación `user_clientes`. El rol `administrador` es global, puede consultar todos los tenants, operar sin cliente preseleccionado y es el único que puede crear, editar, activar, desactivar o eliminar clientes y sus sucursales.
 - **Datos mínimos del cliente:** Tanto al crear como al editar son obligatorios `nombre`, `rut` válido, `direccion`, `region` y al menos una sucursal de tipo `Casa Matriz`. La Casa Matriz hereda la dirección y región principales y no puede eliminarse.
-- **Inicio por rol:** El administrador elige vista global o contexto de cliente. El programador entra directamente a la plataforma técnica global. Supervisor y Técnico deben elegir al iniciar uno de los clientes asignados en `user_clientes`; ese contexto permanece durante la sesión y puede cambiarse desde el encabezado. Los demás roles ingresan con su `cliente_id` predeterminado. Las sucursales se usan como filtros internos de los módulos.
+- **Inicio por rol:** El administrador elige vista global o contexto de cliente. Supervisor y Técnico deben elegir al iniciar uno de los clientes asignados en `user_clientes`; ese contexto permanece durante la sesión y puede cambiarse desde el encabezado. Los demás roles ingresan con su `cliente_id` predeterminado. Las sucursales se usan como filtros internos de los módulos.
 - **Dónde se evalúa:** Servidor (filtro en `/api/sync/pull`).
 - **Offline:** El cliente solo tiene en Dexie los datos de su tenant; no hay fuga posible.
 - **Conflicto:** No aplica.

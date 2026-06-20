@@ -43,9 +43,6 @@ class SyncEngine {
     } catch {
       savedUser = null;
     }
-    if (savedUser?.perfil === 'programador' && !localStorage.getItem('active_client')) {
-      return;
-    }
     if (this.processing || !networkMonitor.isOnline()) return;
     if (!force && this.cooldownUntil && Date.now() < this.cooldownUntil) {
       // Gracefully postpone syncing during active cooldown to avoid spamming the server/logs

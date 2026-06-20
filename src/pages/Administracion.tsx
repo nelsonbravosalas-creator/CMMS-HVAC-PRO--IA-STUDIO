@@ -6,7 +6,6 @@ import {
   ToggleLeft, 
   ToggleRight, 
   Edit2, 
-  Shield, 
   User as UserIcon,
   Search,
   Building2,
@@ -165,7 +164,6 @@ export default function Administracion() {
             <div className="bg-slate-900 p-8 rounded-[40px] text-white space-y-6">
                <h3 className="text-xs font-black uppercase tracking-widest opacity-60">Matriz de Perfiles</h3>
                <div className="space-y-4">
-                  <ProfileBadge label="Programador" desc="Configuración técnica global" icon={<Shield className="w-3.5 h-3.5" />} color="text-red-400" />
                   <ProfileBadge label="Administrador" desc="Clientes y usuarios" icon={<ShieldCheck className="w-3.5 h-3.5" />} color="text-emerald-400" />
                   <ProfileBadge label="Supervisor" desc="Revisión y firmas" icon={<Users className="w-3.5 h-3.5" />} color="text-blue-400" />
                   <ProfileBadge label="Técnico" desc="Operación de terreno" icon={<UserIcon className="w-3.5 h-3.5" />} color="text-slate-400" />

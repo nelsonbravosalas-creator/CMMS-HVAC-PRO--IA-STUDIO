@@ -40,7 +40,6 @@ function requiresClientSelection(perfil: Perfil) {
 
 function configureRoleContext(user: Usuario, resetSessionContext = true) {
   if (user.perfil === 'administrador') {
-    localStorage.removeItem('platform_global_view');
     if (resetSessionContext) {
       localStorage.removeItem('active_client');
       localStorage.removeItem('admin_global_view');
@@ -49,12 +48,6 @@ function configureRoleContext(user: Usuario, resetSessionContext = true) {
   }
 
   localStorage.removeItem('admin_global_view');
-
-  if (user.perfil === 'programador') {
-    localStorage.removeItem('active_client');
-    localStorage.setItem('platform_global_view', 'true');
-    return true;
-  }
 
   if (requiresClientSelection(user.perfil)) {
     if (!user.cliente_ids?.length && !user.cliente_id) {
@@ -90,7 +83,6 @@ export function normalizePerfil(rol: string | undefined | null): Perfil {
   if (r.includes('visita')) return 'visita';
   if (r.includes('client')) return 'cliente';
   if (r.includes('contrat')) return 'contratista';
-  if (r.includes('program')) return 'programador';
   return 'visita';
 }
 
@@ -299,7 +291,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
     localStorage.removeItem('admin_global_view');
-    localStorage.removeItem('platform_global_view');
   }, []);
 
   // BR-AUTH-004: Inactivity Timeout (30 minutes)

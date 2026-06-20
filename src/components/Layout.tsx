@@ -158,10 +158,7 @@ export default function Layout({ children }: LayoutProps) {
   const isAdmin = user?.perfil === "administrador";
   const canChangeClient = isAdmin || user?.perfil === "supervisor" || user?.perfil === "tecnico";
   const visibleNavItems = NAV_ITEMS
-    .filter(item => !item.adminOnly || isAdmin)
-    .map(item => user?.perfil === "programador" && item.href === "/"
-      ? { ...item, label: "Plataforma Técnica" }
-      : item);
+    .filter(item => !item.adminOnly || isAdmin);
 
   const handleHeaderLogout = () => {
     logout();
@@ -172,7 +169,7 @@ export default function Layout({ children }: LayoutProps) {
   const activeClientId = localStorage.getItem("active_client");
   const activeClientName = useLiveQuery(async () => {
     if (!activeClientId) {
-      return user?.perfil === "programador" ? "Plataforma Técnica" : null;
+      return null;
     }
     const client = await db.clients
       .filter(item => item.uuid_sync === activeClientId || item.id === activeClientId)
@@ -410,11 +407,7 @@ export default function Layout({ children }: LayoutProps) {
               <MenuIcon className="w-6 h-6" />
             </button>
             <h1 className={`text-xs font-bold uppercase tracking-widest hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-              {user?.perfil === "programador"
-                ? "Plataforma Técnica Global"
-                : isAdmin
-                  ? "Panel Operativo Global"
-                  : "Panel Operativo del Cliente"}
+              {isAdmin ? "Panel Operativo Global" : "Panel Operativo del Cliente"}
             </h1>
           </div>
 

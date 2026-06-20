@@ -122,7 +122,7 @@ export interface User extends BaseEntity {
   user_id: string;                    // UUID
   email: string;
   nombre: string;
-  rol: 'programador' | 'administrador' | 'supervisor' | 'tecnico' | 'cliente' | 'proveedor';
+  rol: 'administrador' | 'supervisor' | 'tecnico' | 'cliente' | 'proveedor';
   estado: 'activo' | 'inactivo' | 'bloqueado';
   jwt_token_hash?: string;            // Hash del JWT actual
   push_subscription?: Record<string, any>;  // Suscripción VAPID

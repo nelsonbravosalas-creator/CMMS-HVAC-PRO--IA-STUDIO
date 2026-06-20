@@ -180,7 +180,7 @@ Esta edición extendida corrige y profundiza las reglas previas. El cambio princ
 | `email` | text UNIQUE NOT NULL | identidad global. |
 | `nombre` | text NOT NULL | display. |
 | `pinHash` | text NOT NULL | SHA-256(`email::pin::SESSION_SECRET`). |
-| `rol` | text NOT NULL CHECK in (`administrador,programador,supervisor,tecnico,visita`) | rol global. |
+| `rol` | text NOT NULL CHECK in (`administrador,supervisor,tecnico,cliente,contratista,visita`) | rol del sistema. |
 | `perfil` | text NOT NULL CHECK in (`tecnico,visita`) | capacidades en campo. |
 | `mustChangePin` | boolean DEFAULT false | fuerza cambio al primer ingreso (Tarea #176). |
 | `activo` | boolean DEFAULT true | desactivar sin borrar. |
@@ -385,7 +385,6 @@ Precedencia de resolución (server-side): `(tipoMant + tipoEquipo)` > `(solo tip
 | Rol | Capacidades clave |
 |---|---|
 | `administrador` | Todo: usuarios, clientes, SLA, plantillas, equipos, datos, reaperturas. |
-| `programador` | Configurar plantillas, SLA, planes PM, equipos. Sin gestionar clientes. |
 | `supervisor` | Asignar OT, ver KPIs, aprobar informes, cerrar OT. |
 | `tecnico` | Resolver sus OT, registrar mantenimientos, firmar informe técnico. |
 | `visita` | Solo lectura + scanner + crear mantenimiento si toggle on. |
@@ -411,7 +410,7 @@ abierta  ─► cancelada / rechazada
 | Transición | Permitida a | Side-effects |
 |---|---|---|
 | `borrador → abierta` | creador / supervisor | calcula `slaResponseDueAt + slaResolutionDueAt`. |
-| `abierta → asignada` | supervisor / programador | Setea `asignadoUserId + asignadaAt`. Push al técnico. |
+| `abierta → asignada` | supervisor / administrador | Setea `asignadoUserId + asignadaAt`. Push al técnico. |
 | `asignada → en-progreso` | técnico asignado | Setea `inProgresoAt`. Cierra ventana SLA respuesta (compara con `slaResponseDueAt + pausa`). |
 | `en-progreso → en-pausa` | técnico asignado | Setea `slaPausedAt`. Push al supervisor. |
 | `en-pausa → en-progreso` | técnico asignado | Suma `(now - slaPausedAt)` a `slaPausedAccumMs`, limpia `slaPausedAt`. |
@@ -654,7 +653,7 @@ Mientras no exista `cmms_sucursales + cmms_tipos_equipo`, los TAGs siguen el pat
 | 8 | Mapa | `/mapa` | equipos lat/lng | vista por almacén; marker → detalle. | filtros estado/área/sucursal. | z-index ≥ 1100 sobre Leaflet. |
 | 9 | Mantenimientos | `/mantenimientos` | mantenimientos | crear/editar/completar offline + fotos + checklist. | + edición libre. | bloqueado si tag no existe. |
 | 10 | Calendario | `/calendario` | mantenimientos + PM | lectura. | programar fechas. | — |
-| 11 | Plantillas PM | `/pm-plantillas` | `cmms_pm_plantillas` | lectura. | CRUD. | solo programador/admin. |
+| 11 | Plantillas PM | `/pm-plantillas` | `cmms_pm_plantillas` | lectura. | CRUD. | solo administrador. |
 | 12 | Planes PM | `/pm-planes` | `cmms_pm_planes` | lectura. | CRUD + materialización. | — |
 | 13 | KPIs | `/kpis` | agregados | vista limitada. | full. | KPI §14. |
 | 14 | Informes HVAC | `/informes` | informes | crear borrador, capturar mediciones+firma técnico. | revisar, reabrir si admin. | firma cliente exige segundo usuario. |
@@ -663,7 +662,7 @@ Mientras no exista `cmms_sucursales + cmms_tipos_equipo`, los TAGs siguen el pat
 | 17 | OT detalle | `/tickets/:id` | + eventos + comentarios | transiciones one-tap, comentarios offline. | asignar, reabrir. | optimistic lock + idempotencia. |
 | 18 | SLA Config | `/sla-config` | `cmms_sla_config` | lectura informativa. | edición grilla 4×4. | permiso `configurar_sla`. |
 | 19 | Reportes | `/reportes` | agregados | export CSV/PDF cached. | export full. | no muta. |
-| 20 | Administración | `/usuarios` | usuarios + usuarios_clientes | — | CRUD + per-cliente toggles. | admin (clientes) y programador (usuarios). |
+| 20 | Administración | `/usuarios` | usuarios + usuarios_clientes | — | CRUD + per-cliente toggles. | solo administrador. |
 | 21 | Consola | `/consola` | `cmms_consola_eventos` | log local. | log completo. | sin secretos. |
 | 22 | Configuración | `/configuracion` | settings + push | activar push, cambio PIN, sync manual. | igual. | cambio PIN registra evento. |
 
@@ -826,7 +825,7 @@ Mientras no exista `cmms_sucursales + cmms_tipos_equipo`, los TAGs siguen el pat
 
 ### 13.4 SLA config
 
-1. Admin/programador → `/sla-config`.
+1. Administrador → `/sla-config`.
 2. Grilla 4×4 (prioridad × tipo) con dos inputs por celda (responseMin, resolutionMin).
 3. Click "Guardar": `PUT /api/sla-config` con array completo y `If-Match`.
 4. Server upserts por `(clienteId, prioridad, tipo)`.

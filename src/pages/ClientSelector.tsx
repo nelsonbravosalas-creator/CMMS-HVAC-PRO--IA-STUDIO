@@ -35,7 +35,6 @@ export default function ClientSelector() {
     localStorage.setItem("active_client", clientId);
     localStorage.removeItem("last_sync_timestamp");
     localStorage.removeItem("admin_global_view");
-    localStorage.removeItem("platform_global_view");
     setTimeout(() => {
       // Check if there was a pending tag
       const pendingTag = localStorage.getItem("pending_tag");
@@ -51,7 +50,6 @@ export default function ClientSelector() {
   const handleGlobalView = () => {
     localStorage.removeItem("active_client");
     localStorage.setItem("admin_global_view", "true");
-    localStorage.removeItem("platform_global_view");
     setLocation("/");
   };
 
