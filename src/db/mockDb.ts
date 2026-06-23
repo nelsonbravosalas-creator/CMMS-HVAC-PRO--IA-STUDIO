@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 const DEV_ARGON2_PIN_1234 = '$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU';
+const DEFAULT_DEV_ADMIN_EMAIL = 'admin@local.test';
+const DEFAULT_DEV_ADMIN_PIN = '1234';
 
 const MOCK_DB_PATH = path.join(process.cwd(), 'src', 'db', 'mock_db_store.json');
 
@@ -58,6 +60,54 @@ const saveMockData = () => {
   }
 };
 
+const buildDevAdminUser = (now = Date.now()) => {
+  const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL || DEFAULT_DEV_ADMIN_EMAIL;
+  const mockAdminPin = process.env.DEV_MOCK_ADMIN_PIN || DEFAULT_DEV_ADMIN_PIN;
+  const pinHash = mockAdminPin === DEFAULT_DEV_ADMIN_PIN ? DEV_ARGON2_PIN_1234 : mockAdminPin;
+
+  return {
+    uuid_sync: 'dev-mock-admin-uuid',
+    id: 'dev-admin',
+    nombre: 'Dev Admin',
+    correo: mockAdminEmail,
+    perfil: 'administrador',
+    pin_hash: pinHash,
+    pin: null,
+    activo: true,
+    data: JSON.stringify({ email: mockAdminEmail, nombre: 'Dev Admin', rol: 'administrador' }),
+    updated_at: now,
+    created_at: now
+  };
+};
+
+const ensureDevAdmin = (now = Date.now()) => {
+  const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL || DEFAULT_DEV_ADMIN_EMAIL;
+  const existingAdmin = mockData.users.find(user =>
+    user.uuid_sync === 'dev-mock-admin-uuid'
+    || String(user.correo || '').toLowerCase() === mockAdminEmail.toLowerCase()
+  );
+
+  if (!existingAdmin) {
+    mockData.users.unshift(buildDevAdminUser(now));
+    return true;
+  }
+
+  const shouldApplyExplicitDevPin = Boolean(process.env.DEV_MOCK_ADMIN_PIN);
+  const shouldRepairMissingPin = !existingAdmin.pin_hash && !existingAdmin.pin;
+  if (shouldApplyExplicitDevPin || shouldRepairMissingPin) {
+    const devAdmin = buildDevAdminUser(now);
+    Object.assign(existingAdmin, {
+      ...devAdmin,
+      uuid_sync: existingAdmin.uuid_sync || devAdmin.uuid_sync,
+      id: existingAdmin.id || devAdmin.id,
+      created_at: existingAdmin.created_at || devAdmin.created_at
+    });
+    return true;
+  }
+
+  return false;
+};
+
 // Helper to load DB from local JSON file or seed defaults
 export const loadMockData = () => {
   try {
@@ -71,6 +121,9 @@ export const loadMockData = () => {
           (mockData as any)[key] = [];
         }
       }
+      if (ensureDevAdmin()) {
+        saveMockData();
+      }
       return;
     }
   } catch (error) {
@@ -79,26 +132,7 @@ export const loadMockData = () => {
 
   // Seed default data
   const now = Date.now();
-  
-  const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL;
-  const mockAdminPin = process.env.DEV_MOCK_ADMIN_PIN;
-  if (mockAdminEmail && mockAdminPin) {
-    const pinHash = mockAdminPin === '1234' ? DEV_ARGON2_PIN_1234 : mockAdminPin;
-    const adminUser = {
-      uuid_sync: 'dev-mock-admin-uuid',
-      id: 'dev-admin',
-      nombre: 'Dev Admin',
-      correo: mockAdminEmail,
-      perfil: 'administrador',
-      pin_hash: pinHash,
-      pin: null,
-      activo: true,
-      data: JSON.stringify({ email: mockAdminEmail, nombre: 'Dev Admin', rol: 'administrador' }),
-      updated_at: now,
-      created_at: now
-    };
-    mockData.users = [adminUser];
-  }
+  mockData.users = [buildDevAdminUser(now)];
 
   // Default Client & Clientes
   const eecolClientData = { nombre: 'EECOL Default', empresa: 'EECOL' };
