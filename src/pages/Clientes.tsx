@@ -6,6 +6,7 @@ import {
   Edit2,
   Mail,
   MapPin,
+  Plus,
   RotateCcw,
   Search,
   X
@@ -134,6 +135,15 @@ export default function Clientes() {
           <p className="text-slate-500 text-sm font-medium">Administración de clientes y sus respectivas sucursales en terreno.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => {
+              setEditingClient(null);
+              setShowClientModal(true);
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20"
+          >
+            <Plus className="w-4 h-4" /> Nuevo cliente
+          </button>
           <button
             onClick={handleRefresh}
             className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"

@@ -197,14 +197,16 @@ export default function Login() {
             )}
 
             <div>
-              <label className={`text-xs font-bold uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>USER : Correo Electrónico </label>
+              <label className={`text-xs font-bold uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Correo electrónico</label>
               <input
                 type="email"
                 required
+                autoCapitalize="none"
+                autoCorrect="off"
                 className={`w-full px-4 py-3 rounded-xl border outline-none transition-all focus:ring-2 focus:ring-blue-500/20 font-medium ${
                   isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500'
                 }`}
-                placeholder="ejemplo@eecol.cl"
+                placeholder="admin@cmms.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
