@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { neon } from "@neondatabase/serverless";
@@ -5,6 +6,14 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { createMockSql } from "./src/db/mockDb";
+
+// [SEC C-03] El secreto JWT es obligatorio. Sin fallback hardcodeado: el proceso
+// falla al arrancar si no está configurado, evitando que se firmen/verifiquen
+// tokens con un secreto público conocido.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET no configurado en variables de entorno. El servidor no arrancará sin él.");
+}
 
 let mockSqlInstance: any = null;
 
@@ -38,8 +47,7 @@ const verifyToken = (req: any, res: any, next: any) => {
       return res.status(401).json({ success: false, error: 'Acceso denegado: Token no proporcionado o inválido.' });
     }
 
-    const JWT_SECRET = process.env.JWT_SECRET || "cmms-default-ultra-secure-key";
-    jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
+    jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }, (err: any, decoded: any) => {
       if (err) {
         return res.status(401).json({ success: false, error: 'Token inválido o expirado.' });
       }
@@ -52,55 +60,46 @@ const verifyToken = (req: any, res: any, next: any) => {
   }
 };
 
+// [SEC C-04] requireCliente ahora EXIGE un JWT válido y deriva el tenant del token,
+// no de headers/query controlables por el cliente. Rechaza (403) si el cliente_id de
+// la URL no coincide con el clienteId del token verificado.
 const requireCliente = async (req: any, res: any, next: any) => {
   try {
-    const clienteId = req.params.cliente_id || req.headers['x-client-id'] || req.headers['x-cliente-id'] || req.query.clienteId || req.query.cliente_id || 'cliente-default-001';
-    if (!clienteId) {
-      return res.status(403).json({ success: false, error: 'Tenant (cliente_id) es obligatorio y requerido.' });
-    }
-    
-    req.clienteId = clienteId;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : (req.query.token || req.headers['x-access-token'] || req.body?.token);
 
-    const sql = getSql();
-
-    // VALIDACIÓN DE AUTORIZACIÓN: Validar que el token/user corresponda a un técnico asignado al cliente consultado
-    const userIdHeader = req.headers['x-user-id'] || req.headers['x-userid'] || req.query.userId || req.query.user_id;
-    if (userIdHeader) {
-      const uId = String(userIdHeader).trim();
-      const queryUser = await sql`
-        SELECT u.uuid_sync, u.cliente_id
-        FROM users u
-        WHERE u.id = ${uId} OR u.uuid_sync = ${uId}
-      `;
-      if (queryUser.length > 0) {
-        const uClienteId = queryUser[0].cliente_id;
-        if (uClienteId && uClienteId !== clienteId && uClienteId !== 'cliente-default-001') {
-          return res.status(403).json({
-            success: false,
-            error: `Acceso no autorizado: usuario ${uId} pertenece al cliente ${uClienteId}, no a ${clienteId}.`
-          });
-        }
-      }
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Acceso denegado: Token no proporcionado.' });
     }
 
-    // Verificar asociacion del usuario autenticado si se pasa cabecera de autenticacion
-    const userHeader = req.headers['x-user-email'] || req.headers['authorization'];
-    if (userHeader) {
-      const email = userHeader.replace('Bearer ', '').trim().toLowerCase();
-      if (email && !email.includes('mock') && !email.includes('test')) {
-        const queryRes = await sql`SELECT uuid_sync, cliente_id FROM users WHERE LOWER(correo) = ${email} OR LOWER(data->>'email') = ${email}`;
-        if (queryRes.length > 0) {
-          const u = queryRes[0];
-          const uClienteId = u.cliente_id;
-          if (uClienteId && uClienteId !== clienteId && uClienteId !== 'cliente-default-001') {
-            return res.status(403).json({ 
-              success: false, 
-              error: `Acceso Denegado: Su usuario (${email}) esta asignado al cliente ${uClienteId} y no coincide con el tenant solicitado (${clienteId}).` 
-            });
-          }
-        }
-      }
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+    } catch (e) {
+      return res.status(401).json({ success: false, error: 'Token inválido o expirado.' });
     }
+
+    const tokenClienteId = decoded.clienteId || decoded.cliente_id;
+    const urlClienteId = req.params.cliente_id;
+
+    if (!tokenClienteId) {
+      return res.status(403).json({ success: false, error: 'El token no tiene un cliente_id asignado.' });
+    }
+
+    // El tenant efectivo es SIEMPRE el del token. Si la URL especifica otro cliente_id,
+    // debe coincidir con el del token (salvo rol de plataforma explícito).
+    const isPlatformAdmin = decoded.perfil === 'programador';
+    if (urlClienteId && urlClienteId !== tokenClienteId && !isPlatformAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: `Acceso denegado: su token pertenece al cliente ${tokenClienteId}, no a ${urlClienteId}.`
+      });
+    }
+
+    req.user = decoded;
+    req.clienteId = isPlatformAdmin && urlClienteId ? urlClienteId : tokenClienteId;
 
     next();
   } catch (error: any) {
@@ -512,7 +511,6 @@ async function startServer() {
         activo: true
       };
 
-      const JWT_SECRET = process.env.JWT_SECRET || "cmms-default-ultra-secure-key";
       const token = jwt.sign(
         {
           userId: returnUser.id,
@@ -521,7 +519,7 @@ async function startServer() {
           clienteId: user.cliente_id || 'cliente-default-001'
         },
         JWT_SECRET,
-        { expiresIn: "1d" }
+        { expiresIn: "1d", algorithm: 'HS256' }
       );
 
       res.json({ success: true, user: returnUser, token });
@@ -531,7 +529,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/ocr", async (req, res) => {
+  app.post("/api/ocr", verifyToken, async (req, res) => {
     try {
       const imageBase64 = req.body.imageBase64 || req.body.image;
       const mimeType = req.body.mimeType;
@@ -1449,7 +1447,8 @@ function resolveTable(name: string): string | null {
       else if (resource === 'planning') targetTable = 'preventive_maintenance';
       else if (resource === 'work-orders') targetTable = 'work_orders';
       else if (resource === 'audit-logs') targetTable = 'audit_logs';
-      else targetTable = resource; // Dynamic fallback
+      // [SEC C-12] Sin fallback dinámico: nombre de tabla desde whitelist para evitar inyección de identificador.
+      else return res.status(400).json({ success: false, error: `Recurso no permitido: ${resource}` });
 
       const id = payload.id || payload.uuid_sync || `gen-${Date.now()}`;
       const uuid_sync = payload.uuid_sync || id;
@@ -1526,7 +1525,8 @@ function resolveTable(name: string): string | null {
       else if (resource === 'planning') targetTable = 'preventive_maintenance';
       else if (resource === 'work-orders') targetTable = 'work_orders';
       else if (resource === 'audit-logs') targetTable = 'audit_logs';
-      else targetTable = resource;
+      // [SEC C-12] Sin fallback dinámico: nombre de tabla desde whitelist para evitar inyección de identificador.
+      else return res.status(400).json({ success: false, error: `Recurso no permitido: ${resource}` });
 
       if (targetTable === 'work_orders') {
         validateWorkOrderPayload(payload);
@@ -1981,7 +1981,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/sync/:table", async (req, res) => {
+  app.post("/api/sync/:table", verifyToken, async (req, res) => {
     const rawTable = req.params.table;
     const table = resolveTable(rawTable);
     const { records, operation } = req.body;
@@ -2245,11 +2245,13 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/admin/clone-production-db", express.json(), async (req, res) => {
+  app.post("/api/admin/clone-production-db", express.json(), verifyToken, requireRole(['gestionar_usuarios']), async (req: any, res) => {
     try {
-      const sourceUrl = req.body.prodUrl || process.env.PROD_DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
+      // [SEC C-02] La URL de origen NO se acepta desde el body (evita SSRF/exfiltración).
+      // Solo se usa una variable de entorno controlada por infraestructura.
+      const sourceUrl = process.env.PROD_DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
       const mode = req.body.mode || 'merge'; // 'merge' or 'overwrite'
-      
+
       if (!sourceUrl) {
          return res.status(400).json({ 
            success: false, 

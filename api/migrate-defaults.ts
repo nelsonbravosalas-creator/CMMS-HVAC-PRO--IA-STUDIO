@@ -3,11 +3,14 @@
 // Safe to call multiple times (idempotent).
 
 import { getDb } from './_db.js';
+import { requireBootstrapSecret } from './_guard.js';
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST' && req.method !== 'GET') {
+  // [SEC A-02] Migración masiva de cliente_id: solo POST + secreto de infraestructura.
+  if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Método no permitido' });
   }
+  if (!requireBootstrapSecret(req, res)) return;
 
   try {
     const sql = getDb();

@@ -7,6 +7,8 @@ import { INFORMES_MOCK } from '../src/data/reports.js';
 import { EVENTOS_MOCK } from '../src/data/events.js';
 import { SUCURSALES } from '../src/data/branches.js';
 
+// [SEC C-15/A-03] PINs eliminados del código fuente. El PIN inicial se define por
+// variable de entorno y se persiste hasheado (ver init-db). Aquí se siembra sin PIN.
 const BACKEND_USUARIOS_SEED = [
   {
     id: 'U1',
@@ -15,7 +17,6 @@ const BACKEND_USUARIOS_SEED = [
     perfil: 'programador',
     activo: true,
     puedeEditarMantenimientos: true,
-    pin: '3517'
   },
   {
     id: 'U2',
@@ -24,11 +25,17 @@ const BACKEND_USUARIOS_SEED = [
     perfil: 'administrador',
     activo: true,
     puedeEditarMantenimientos: true,
-    pin: '3210'
   }
 ];
 
 export default async function handler(req, res) {
+  // [SEC A-03] Endpoint de siembra/importación masiva: solo POST + secreto de infraestructura.
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Método no permitido' });
+  }
+  const { requireBootstrapSecret } = await import('./_guard.js');
+  if (!requireBootstrapSecret(req, res)) return;
+
   let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!connectionString) {
     return res.status(500).json({ success: false, error: "Missing DATABASE_URL / POSTGRES_URL" });

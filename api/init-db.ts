@@ -1,15 +1,26 @@
 import { getDb } from './_db.js';
+import { requireBootstrapSecret } from './_guard.js';
+import bcrypt from 'bcryptjs';
 
 export default async function handler(req: any, res: any) {
   try {
+    // [SEC C-01] Endpoint destructivo (DROP SCHEMA CASCADE). Solo POST + secreto de infraestructura.
+    if (req.method !== 'POST') {
+      return res.status(405).json({ success: false, error: "Método no permitido" });
+    }
+    if (!requireBootstrapSecret(req, res)) return;
+
     let dbUrl = process.env.DATABASE_URL;
     if (!dbUrl) {
       return res.status(500).json({ success: false, error: "DATABASE_URL no configurado en variables de entorno" });
     }
 
-    if (req.method !== 'POST' && req.method !== 'GET') {
-      return res.status(405).json({ success: false, error: "Método no permitido" });
+    // [SEC C-01/C-15] PIN inicial del admin desde variable de entorno, almacenado como hash bcrypt.
+    const initialAdminPin = process.env.INITIAL_ADMIN_PIN;
+    if (!initialAdminPin) {
+      return res.status(500).json({ success: false, error: "INITIAL_ADMIN_PIN no configurado; no se sembrará el usuario administrador." });
     }
+    const initialAdminPinHash = bcrypt.hashSync(initialAdminPin, 10);
 
     const sql = getDb();
 
@@ -273,7 +284,7 @@ export default async function handler(req: any, res: any) {
         'Nelson Bravo',
         'nelson.bravo.salas@gmail.com',
         'administrador',
-        '3517',
+        '${initialAdminPinHash}',
         true,
         'cliente-default-001',
         0, 0

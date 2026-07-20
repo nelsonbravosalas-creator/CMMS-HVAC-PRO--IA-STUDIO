@@ -4,11 +4,24 @@
 // Tablas Neon: clientes, sucursales
 
 import { getDb } from './_db.js';
+import { verifyToken, requireRole } from './_auth.js';
 
 export default async function handler(req: any, res: any) {
   try {
     const sql = getDb();
     const { method, query, body } = req;
+
+    // [SEC C-07] Cualquier acceso a clientes/sucursales exige JWT válido.
+    const auth: any = verifyToken(req);
+    if (!auth) {
+      return res.status(401).json({ success: false, error: 'No autorizado - falta token' });
+    }
+    // [SEC C-07] Crear/editar/eliminar clientes o sucursales requiere rol administrador.
+    if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+      const admin = requireRole(['administrador'])(req, res);
+      if (!admin) return; // requireRole ya respondió 401/403
+    }
+
     const isBranches = query.resource === 'branches' || query.resource === 'sucursales';
     const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 

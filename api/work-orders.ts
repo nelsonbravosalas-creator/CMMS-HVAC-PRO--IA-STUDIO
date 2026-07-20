@@ -4,6 +4,7 @@
 // Tablas Neon: work_orders
 
 import { getDb } from './_db.js';
+import { verifyToken } from './_auth.js';
 
 function mapToNeon(frontData: any) {
   return {
@@ -54,11 +55,18 @@ export default async function handler(req: any, res: any) {
     const { method, body, query } = req;
     const id = query.id || query.uuid || body?.uuid_sync || body?.id;
 
+    // [SEC C-08] Toda operación exige JWT válido; el tenant se deriva del token, no del payload.
+    const auth: any = verifyToken(req);
+    if (!auth) {
+      return res.status(401).json({ success: false, error: 'No autorizado - falta token' });
+    }
+    const clienteIdFromToken = auth.clienteId || auth.cliente_id;
+
     if (method === 'GET') {
       if (id) {
         const rows = await sql`
-          SELECT * FROM work_orders 
-          WHERE (id = ${id} OR uuid_sync = ${id}) AND deleted_at IS NULL
+          SELECT * FROM work_orders
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken} AND deleted_at IS NULL
         `;
         if (rows.length === 0) {
           return res.status(404).json({ success: false, message: 'Orden de trabajo no encontrada' });
@@ -66,7 +74,7 @@ export default async function handler(req: any, res: any) {
         return res.json({ success: true, data: mapToDexie(rows[0]) });
       }
 
-      const rows = await sql`SELECT * FROM work_orders WHERE deleted_at IS NULL ORDER BY fecha_creacion DESC LIMIT 500`;
+      const rows = await sql`SELECT * FROM work_orders WHERE cliente_id = ${clienteIdFromToken} AND deleted_at IS NULL ORDER BY fecha_creacion DESC LIMIT 500`;
       const mapped = rows.map(mapToDexie);
       return res.json({ success: true, data: mapped });
     }
@@ -79,12 +87,12 @@ export default async function handler(req: any, res: any) {
         }
         const now = Date.now();
         await sql`
-          UPDATE work_orders 
-          SET estado = 'cerrado', 
+          UPDATE work_orders
+          SET estado = 'cerrado',
               fecha_cierre = ${new Date().toISOString()},
               updated_at = ${now},
               data = jsonb_set(coalesce(data, '{}'::jsonb), '{estado}', '"cerrado"')
-          WHERE id = ${id} OR uuid_sync = ${id}
+          WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken}
         `;
         return res.json({ success: true, message: 'Orden de trabajo completada y guardada con éxito.' });
       }
@@ -93,13 +101,14 @@ export default async function handler(req: any, res: any) {
       const finalId = mapped.id || `TK-${Date.now()}`;
       const now = Date.now();
 
+      // [SEC C-08/C-10] El cliente_id se fuerza desde el token, ignorando el del payload.
       await sql`
         INSERT INTO work_orders (id, titulo, descripcion, prioridad, estado,
           equipo_tag, cliente_id, creado_por, asignado_a, fecha_creacion,
           uuid_sync, updated_at, data)
         VALUES (
           ${finalId}, ${mapped.titulo || ''}, ${mapped.descripcion || ''}, ${mapped.prioridad || 'media'},
-          ${mapped.estado || 'abierto'}, ${mapped.equipo_tag || ''}, ${mapped.cliente_id || ''},
+          ${mapped.estado || 'abierto'}, ${mapped.equipo_tag || ''}, ${clienteIdFromToken},
           ${mapped.creado_por || ''}, ${mapped.asignado_a || ''}, ${mapped.fecha_creacion || new Date().toISOString()},
           ${mapped.uuid_sync || finalId}, ${mapped.updated_at || now}, ${JSON.stringify(body)}
         )
@@ -108,7 +117,8 @@ export default async function handler(req: any, res: any) {
           prioridad = EXCLUDED.prioridad, estado = EXCLUDED.estado,
           asignado_a = EXCLUDED.asignado_a, fecha_cierre = EXCLUDED.fecha_cierre,
           updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
-        WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL
+        WHERE (EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL)
+          AND work_orders.cliente_id = ${clienteIdFromToken}
       `;
       return res.json({ success: true, data: { id: finalId } });
     }
@@ -129,7 +139,7 @@ export default async function handler(req: any, res: any) {
           asignado_a = ${d.asignado_a || d.asignadoA || ''},
           updated_at = ${d.updated_at || now},
           data = ${JSON.stringify(d)}
-        WHERE id = ${id} OR uuid_sync = ${id}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken}
       `;
       return res.json({ success: true, message: 'Orden de trabajo actualizada' });
     }
@@ -138,9 +148,9 @@ export default async function handler(req: any, res: any) {
       if (!id) return res.status(400).json({ error: 'Falta id' });
       const now = Date.now();
       await sql`
-        UPDATE work_orders 
-        SET deleted_at = ${now}, updated_at = ${now} 
-        WHERE id = ${id} OR uuid_sync = ${id}
+        UPDATE work_orders
+        SET deleted_at = ${now}, updated_at = ${now}
+        WHERE (id = ${id} OR uuid_sync = ${id}) AND cliente_id = ${clienteIdFromToken}
       `;
       return res.json({ success: true, message: 'Orden de trabajo eliminada' });
     }

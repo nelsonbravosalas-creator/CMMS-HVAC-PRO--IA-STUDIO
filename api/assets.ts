@@ -63,14 +63,9 @@ export default async function handler(req: any, res: any) {
       if (!d.tag) return res.status(400).json({ error: 'El campo tag es obligatorio' });
       if (!d.nombre) return res.status(400).json({ error: 'El campo nombre es obligatorio' });
       
-      let final_cliente_id = d.cliente_id || d.clienteId || clienteIdFromToken || 'cliente-eecol-default-001';
+      // [SEC C-10/A-01] El cliente_id se fuerza desde el token; se ignora el del payload.
+      let final_cliente_id = clienteIdFromToken;
       let final_sucursal_id = d.sucursal_id || d.sucursalId || 'default-sucursal';
-
-      // Fallback verification
-      const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
-      if (!clientExists || clientExists.length === 0) {
-        final_cliente_id = 'cliente-eecol-default-001';
-      }
 
       const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
       if (!branchExists || branchExists.length === 0) {
@@ -123,14 +118,9 @@ export default async function handler(req: any, res: any) {
       if (!id) return res.status(400).json({ error: 'Falta identificador (id/tag)' });
       const d = body;
 
-      let final_cliente_id = d.cliente_id || d.clienteId || clienteIdFromToken || 'cliente-eecol-default-001';
+      // [SEC C-10/A-01] El cliente_id se fuerza desde el token; se ignora el del payload.
+      let final_cliente_id = clienteIdFromToken;
       let final_sucursal_id = d.sucursal_id || d.sucursalId || 'default-sucursal';
-
-      // Fallback verification
-      const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${final_cliente_id}`;
-      if (!clientExists || clientExists.length === 0) {
-        final_cliente_id = 'cliente-eecol-default-001';
-      }
 
       const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
       if (!branchExists || branchExists.length === 0) {
@@ -169,7 +159,7 @@ export default async function handler(req: any, res: any) {
           latitud = ${lat},
           longitud = ${lng},
           updated_at = ${d.updated_at || now}
-        WHERE uuid_sync = ${id} OR tag = ${id}
+        WHERE (uuid_sync = ${id} OR tag = ${id}) AND cliente_id = ${clienteIdFromToken}
       `;
       return res.json({ success: true, message: 'Equipo actualizado con éxito' });
     }
@@ -178,9 +168,9 @@ export default async function handler(req: any, res: any) {
       if (!id) return res.status(400).json({ error: 'Falta identificador (id/tag)' });
       const now = Date.now();
       await sql`
-        UPDATE assets 
-        SET deleted_at = ${now}, estado = 'baja', updated_at = ${now} 
-        WHERE uuid_sync = ${id} OR tag = ${id}
+        UPDATE assets
+        SET deleted_at = ${now}, estado = 'baja', updated_at = ${now}
+        WHERE (uuid_sync = ${id} OR tag = ${id}) AND cliente_id = ${clienteIdFromToken}
       `;
       return res.json({ success: true, message: 'Equipo eliminado/dado de baja' });
     }

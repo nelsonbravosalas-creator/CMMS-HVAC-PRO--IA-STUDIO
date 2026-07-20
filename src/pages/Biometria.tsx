@@ -13,6 +13,7 @@ import {
   EyeOff
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import { useAuthStore } from "../store/useAuthStore";
 import { db } from "../db/database";
 import { motion } from "motion/react";
 import bcrypt from "bcryptjs";
@@ -39,27 +40,19 @@ export default function Biometria() {
   const [scanTimeoutCountdown, setScanTimeoutCountdown] = useState<number | null>(null);
 
   useEffect(() => {
-    // Get currently logged-in user from store or db
+    // [SEC C-13] El usuario es SIEMPRE el autenticado en sesión. Sin fallback hardcodeado
+    // al administrador: si no hay sesión, no se carga ningún usuario.
     const loadCurrentUser = async () => {
-      const email = localStorage.getItem("current_user_email") || "nelson@example.com";
-      const user = await db.users.where("correo").equalsIgnoreCase(email).first();
-      if (user) {
-        setCurrentUser(user);
-        // Check if biometry is already configured in localdb data (simulated or real)
-        if (localStorage.getItem(`biometry_active_${user.correo}`) === "true") {
-          setBiometryStatus("registered");
-        }
-      } else {
-        // Fallback default
-        setCurrentUser({
-          nombre: "Nelson Bravo",
-          correo: "nelson.bravo.salas@gmail.com",
-          perfil: "Administrador / Auditor",
-          id: "1"
-        });
-        if (localStorage.getItem(`biometry_active_nelson.bravo.salas@gmail.com`) === "true") {
-          setBiometryStatus("registered");
-        }
+      const authUser = useAuthStore.getState().user;
+      if (!authUser?.correo) {
+        setCurrentUser(null);
+        return;
+      }
+      const user = await db.users.where("correo").equalsIgnoreCase(authUser.correo).first();
+      const resolved = user || authUser;
+      setCurrentUser(resolved);
+      if (localStorage.getItem(`biometry_active_${resolved.correo}`) === "true") {
+        setBiometryStatus("registered");
       }
     };
     loadCurrentUser();

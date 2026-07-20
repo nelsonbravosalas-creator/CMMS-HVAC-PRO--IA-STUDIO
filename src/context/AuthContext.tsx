@@ -191,6 +191,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('auth_token');
     localStorage.removeItem('cmms_token');
     try {
+      // [SEC C-13] Solo se permite login biométrico si la biometría fue registrada en
+      // ESTE dispositivo para ESTE correo. Evita que un usuario inicie sesión como otro
+      // (p. ej. el administrador) sin haber registrado su propia huella.
+      const enrolledForEmail = localStorage.getItem(`biometry_active_${correo}`) === 'true';
+      const registeredEmail = (localStorage.getItem('biometry_registered_email') || '').toLowerCase();
+      if (!enrolledForEmail || registeredEmail !== correo.toLowerCase()) {
+        console.warn('Biometría no registrada en este dispositivo para el usuario solicitado.');
+        return false;
+      }
+
       const localUser = await db.users.where('correo').equalsIgnoreCase(correo).first();
       if (localUser && localUser.activo) {
         const normalizedPerfil = normalizePerfil(localUser.perfil);

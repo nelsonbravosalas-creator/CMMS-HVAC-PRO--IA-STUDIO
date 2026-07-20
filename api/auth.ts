@@ -35,18 +35,12 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    let rows;
-    if (correo) {
-       rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
-    } else {
-      const failsByIp = await sql`SELECT COUNT(*)::int as count FROM cmms_auth_failures
-        WHERE ip = ${ip} AND email = '' AND attempted_at > ${new Date(Date.now() - 15*60*1000)}`;
-      if (failsByIp[0]?.count >= 10) {
-        return res.status(401).json({ success: false, error: 'account_locked', retryAfter: 900 });
-      }
-      // Fallback: solo funciona con PINs en texto plano (sin bcrypt). Solo compatibilidad backward.
-      rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol FROM users WHERE pin = ${pin} AND activo = true LIMIT 1`;
+    // [SEC C-14] El correo es obligatorio. Se elimina el login solo-por-PIN, que buscaba
+    // el PIN contra la tabla de usuarios de TODOS los tenants (adivinable con 4 dígitos).
+    if (!correo) {
+      return res.status(400).json({ success: false, error: 'El correo es obligatorio para iniciar sesión.' });
     }
+    const rows = await sql`SELECT id, nombre, correo, data, perfil, activo, pin, cliente_id, data->>'rol' as json_rol, data->>'email' as json_email FROM users WHERE LOWER(correo) = ${emailLower} OR LOWER(data->>'email') = ${emailLower}`;
 
     if (rows.length === 0) {
       await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${emailLower}, ${ip}, NOW())`;
