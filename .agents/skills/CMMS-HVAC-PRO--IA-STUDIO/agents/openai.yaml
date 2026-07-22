@@ -1,0 +1,6 @@
+interface:
+  display_name: "CMMS HVAC PRO IA STUDIO"
+  short_description: "Repo-specific patterns and workflows for CMMS-HVAC-PRO--IA-STUDIO"
+  default_prompt: "Use the CMMS-HVAC-PRO--IA-STUDIO repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
