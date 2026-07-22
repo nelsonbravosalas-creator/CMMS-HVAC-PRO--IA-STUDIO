@@ -1,2 +1,0 @@
-- Equipment inventory with search/filter — persisted in PostgreSQL (`cmms_equipos` table, 90 records seeded from JSON)
-- Maintenance history tracking — persisted in PostgreSQL (`cmms_mantenimientos` table, 21 records seeded from JSON)

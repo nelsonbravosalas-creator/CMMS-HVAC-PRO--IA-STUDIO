@@ -1,3 +1,6 @@
+> ⚠️ **OBSOLETO — Documento archivado (2026-07-21).**
+> Fusionado en [`CMMS_HVAC_PRO_Especificacion_Tecnica.md`](../../CMMS_HVAC_PRO_Especificacion_Tecnica.md), el único documento normativo técnico. Ver [`DOCS_INDEX.md`](../../DOCS_INDEX.md). No usar para desarrollo ni para agentes de IA — se conserva solo por trazabilidad histórica.
+
 # FE-INFRA-01 — EVOLUCIÓN DEL SCHEMA DEXIE + MIGRACIONES
 ## CMMS HVAC PRO — Specificación Detallada
 

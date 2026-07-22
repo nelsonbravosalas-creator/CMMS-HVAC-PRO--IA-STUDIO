@@ -1,3 +1,7 @@
+> ⚠️ **OBSOLETO — Documento archivado (2026-07-21).**
+> Reemplazado por [`CMMS_HVAC_PRO_Reglas_de_Negocio.md`](CMMS_HVAC_PRO_Reglas_de_Negocio.md), el único documento normativo de reglas de negocio.
+> Ver [`DOCS_INDEX.md`](DOCS_INDEX.md) para la matriz de precedencia. No usar este documento para desarrollo ni para agentes de IA — se conserva solo por trazabilidad histórica.
+
 # CMMS HVAC PRO — Reglas de negocio offline-first (v2026-05-24, edición extendida)
 
 > **Versión:** 2026-05-24 (rev. 2 — extendida)

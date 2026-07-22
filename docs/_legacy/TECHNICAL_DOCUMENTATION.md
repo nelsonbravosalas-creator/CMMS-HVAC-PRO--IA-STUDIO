@@ -1,3 +1,7 @@
+> ⚠️ **OBSOLETO — Documento archivado (2026-07-21).**
+> Reemplazado por [`CMMS_HVAC_PRO_Especificacion_Tecnica.md`](CMMS_HVAC_PRO_Especificacion_Tecnica.md), el único documento normativo técnico.
+> Ver [`DOCS_INDEX.md`](DOCS_INDEX.md) para la matriz de precedencia. No usar este documento para desarrollo ni para agentes de IA — se conserva solo por trazabilidad histórica.
+
 # Documentación Técnica - Sistema CMMS NBYB
 
 ## 1. Introducción

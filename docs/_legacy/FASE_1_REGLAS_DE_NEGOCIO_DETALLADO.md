@@ -1,3 +1,6 @@
+> ⚠️ **OBSOLETO — Documento archivado (2026-07-21).**
+> Fusionado en [`CMMS_HVAC_PRO_Reglas_de_Negocio.md`](../../CMMS_HVAC_PRO_Reglas_de_Negocio.md), el único documento normativo de reglas de negocio. Ver [`DOCS_INDEX.md`](../../DOCS_INDEX.md). No usar para desarrollo ni para agentes de IA — se conserva solo por trazabilidad histórica.
+
 # FASE 1 — REGLAS DE NEGOCIO DETALLADO
 ## CMMS HVAC PRO — Sistema de Gestión de Mantenimiento
 

@@ -1,6 +1,8 @@
 # FASE 2 — PLAN DE IMPLEMENTACIÓN FRONTEND
 ## CMMS HVAC PRO — Sistema de Gestión de Mantenimiento
 
+> **Plan vivo, no normativo.** El contenido técnico normativo (arquitectura, sync engine, modelo de datos, contratos) fue extraído y consolidado en [`CMMS_HVAC_PRO_Especificacion_Tecnica.md`](CMMS_HVAC_PRO_Especificacion_Tecnica.md) — ante cualquier conflicto, ese documento prevalece. Este plan conserva el seguimiento de sprints, estimaciones y checklist de desarrollo. Ver [`DOCS_INDEX.md`](DOCS_INDEX.md).
+
 **Versión:** 1.1  
 **Fecha:** 2026-06-14  
 **Duración Estimada:** 39 días  
