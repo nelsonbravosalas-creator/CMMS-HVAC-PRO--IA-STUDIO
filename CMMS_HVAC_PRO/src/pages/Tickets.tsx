@@ -1,0 +1,337 @@
+import React, { useState, useMemo, useEffect } from "react";
+import { db } from "../db/database";
+import { 
+  Ticket as TicketIcon, 
+  AlertCircle, 
+  Clock, 
+  CheckCircle2, 
+  Plus, 
+  Search, 
+  Filter, 
+  MoreVertical, 
+  Trash2, 
+  Play, 
+  Check, 
+  X,
+  User,
+  Tag as TagIcon,
+  AlertTriangle,
+  Image as ImageIcon,
+  MessageSquare,
+  Download,
+  Cloud,
+  CheckSquare
+} from "lucide-react";
+import { TicketForm } from "../components/modals/TicketForm";
+import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
+import { useAuth } from "../context/AuthContext";
+import { useAppStore } from "../store/useAppStore";
+import { useTickets } from "../hooks/useTickets";
+import { useGoogleTasks } from "../hooks/useGoogleTasks";
+import { StatusIndicator } from "../components/StatusIndicator";
+import AccessDenied from "../components/AccessDenied";
+
+export default function Tickets() {
+  const { permisos } = useAuth();
+  const work_orders = useAppStore(state => state.work_orders);
+  const loading = useAppStore(state => state.isLoading);
+  const { updateTicket } = useTickets();
+  const { syncTicketsToTasks, isSyncing } = useGoogleTasks();
+  const [showModal, setShowModal] = useState(false);
+  const [filter, setFilter] = useState("");
+
+  if (!permisos?.ver_dashboard) {
+    return <AccessDenied requiredPermission="Visualizar Dashboard" />;
+  }
+
+  const filtered = useMemo(() => {
+    const activeClientUuid = localStorage.getItem("active_client");
+    return work_orders.filter(t => {
+      if (activeClientUuid && t.cliente_id !== activeClientUuid) {
+        return false;
+      }
+      const tituloLower = (t.titulo || "").toLowerCase();
+      const tagLower = (t.equipo_tag || "").toLowerCase();
+      const idLower = (t.id || "").toLowerCase();
+      const filterLower = (filter || "").toLowerCase();
+
+      return tituloLower.includes(filterLower) ||
+             tagLower.includes(filterLower) ||
+             idLower.includes(filterLower);
+    });
+  }, [work_orders, filter]);
+
+  if (loading && work_orders.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 animate-pulse">
+        <Clock className="w-12 h-12 text-slate-200 mb-4 animate-spin-slow" />
+        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Sincronizando Historial de Tickets...</p>
+      </div>
+    );
+  }
+
+  const exportToCSV = () => {
+    const headers = ["ID", "TAG", "Título", "Estado", "Prioridad", "Fecha", "Creador", "Asignado", "Sync"];
+    const rows = filtered.map(t => [
+      t.id || `OT-PENDIENTE-${t.uuid_sync.substring(0,6)}`,
+      t.equipo_tag,
+      t.titulo,
+      t.estado,
+      t.prioridad,
+      t.fecha_creacion,
+      t.creado_por,
+      t.asignado_a,
+      t.sync_status
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `tickets_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  const handleGoogleTasksSync = async () => {
+     try {
+        await syncTicketsToTasks(work_orders);
+        alert("✅ Tickets sincronizados con Google Tasks exitosamente.");
+     } catch (err: any) {
+        alert("❌ Hubo un error al sincronizar con Google Tasks: " + err.message);
+     }
+  };
+
+  const handleCloseTicket = async (ticket: any) => {
+    await updateTicket(ticket.uuid_sync, { estado: 'cerrado' });
+    
+    // Export PDF via Email Automáticamente
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF('p', 'mm', 'a4');
+      doc.setFont("helvetica", "bold");
+      doc.text(`TICKET CERRADO: ${ticket.id}`, 10, 10);
+      doc.setFontSize(10);
+      doc.text(`Título: ${ticket.titulo}`, 10, 20);
+      doc.text(`Equipo: ${ticket.equipo_tag || 'N/A'}`, 10, 25);
+      doc.text(`Asignado a: ${ticket.asignado_a || 'N/A'}`, 10, 30);
+      
+      const pdfBase64 = doc.output('datauristring');
+      const { DocumentExportService } = await import('../lib/DocumentExportService');
+      
+      const exportResult = await DocumentExportService.exportDocument({
+        documentId: ticket.id,
+        documentType: 'ticket',
+        method: 'email',
+        assetTag: ticket.equipo_tag, // Usa el activo para encontrar el cliente en el endpoint
+        pdfBase64
+      });
+      alert(`Ticket cerrado exitosamente.\n${exportResult.message}`);
+    } catch (e: any) {
+      console.warn("Export PDF Error:", e);
+      alert(`Ticket cerrado exitosamente.\nNota: Módulo de notificaciones asíncronas no logró procesar el email: ${e.message}`);
+    }
+  };
+
+  const statuses = [
+    { id: 'abierto', label: 'Abiertos', color: 'bg-red-500', bg: 'bg-red-50' },
+    { id: 'en_proceso', label: 'En Proceso', color: 'bg-amber-500', bg: 'bg-amber-50' },
+    { id: 'resuelto', label: 'Resueltos', color: 'bg-emerald-500', bg: 'bg-emerald-50' },
+    { id: 'cerrado', label: 'Cerrados', color: 'bg-slate-500', bg: 'bg-slate-50' }
+  ];
+
+  return (
+    <div className="flex flex-col gap-6 text-left">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Centro de Tickets</h2>
+          <p className="text-slate-500 text-sm font-medium">Gestión de incidencias y solicitudes técnicas.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleGoogleTasksSync}
+            disabled={isSyncing}
+            className={`bg-[#4285F4]/10 hover:bg-[#4285F4]/20 text-[#4285F4] px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all border border-[#4285F4]/20 ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {isSyncing ? <Clock className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />} 
+            {isSyncing ? "Sincronizando..." : "Google Tasks"}
+          </button>
+          <button 
+            onClick={exportToCSV}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
+          >
+            <Download className="w-4 h-4" /> Exportar CSV
+          </button>
+          {permisos?.crear_ticket && (
+            <button 
+              onClick={() => setShowModal(true)}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-red-600/20"
+            >
+              <Plus className="w-4 h-4" /> Nuevo Ticket
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="flex-1 relative">
+           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+           <input 
+             type="text" 
+             placeholder="Buscar por Título o TAG..." 
+             className="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold uppercase outline-none focus:ring-2 focus:ring-red-500/10 focus:border-red-500 shadow-sm"
+             value={filter}
+             onChange={(e) => setFilter(e.target.value)}
+           />
+        </div>
+        <div className="flex items-center gap-2 col-span-3">
+           <FilterPresetsDropdown onApply={() => {}} />
+           {statuses.map(s => (
+             <button key={s.id} className={`${s.bg} border border-slate-200 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase text-slate-600 hover:bg-white transition-all flex items-center gap-2`}>
+                <div className={`w-2 h-2 rounded-full ${s.color}`}></div>
+                {s.label}
+             </button>
+           ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filtered.length === 0 ? (
+          <div className="col-span-full py-20 bg-white rounded-3xl border border-slate-200 border-dashed flex flex-col items-center justify-center gap-4">
+             <TicketIcon className="w-16 h-16 text-slate-100" />
+             <div className="text-center">
+                <h3 className="text-sm font-black text-slate-900 uppercase">Sin Actividad</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No hay tickets que coincidan con la búsqueda</p>
+             </div>
+             {permisos?.crear_ticket && <button onClick={() => setShowModal(true)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Crear primer ticket</button>}
+          </div>
+        ) : (
+          filtered.map(t => (
+            <TicketCard key={t.uuid_sync} ticket={t} />
+          ))
+        )}
+      </div>
+
+      {showModal && <TicketForm onClose={() => setShowModal(false)} />}
+    </div>
+  );
+}
+
+const TicketImagePreview: React.FC<{ imageRef: string }> = ({ imageRef }) => {
+  const [url, setUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (imageRef.startsWith('blob:')) {
+      const uuid = imageRef.replace('blob:', '');
+      db.blobs.get(uuid).then(b => {
+        if (b && b.blob) {
+          setUrl(URL.createObjectURL(b.blob));
+        }
+      }).catch(console.error);
+    } else {
+      setUrl(imageRef);
+    }
+  }, [imageRef]);
+
+  if (!url) return <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300"><ImageIcon className="w-3 h-3" /></div>;
+
+  return <img src={url} alt="Evidencia" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />;
+};
+
+const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
+  const { updateTicket } = useTickets();
+  const priorities: Record<string, string> = {
+    Alta: "bg-orange-100 text-orange-600",
+    Critica: "bg-red-100 text-red-600",
+    Media: "bg-blue-100 text-blue-600",
+    Baja: "bg-slate-100 text-slate-600",
+    alta: "bg-orange-100 text-orange-600",
+    critica: "bg-red-100 text-red-600",
+    media: "bg-blue-100 text-blue-600",
+    baja: "bg-slate-100 text-slate-600"
+  };
+
+  return (
+    <div className="bg-white rounded-[40px] border border-slate-200 p-8 shadow-sm hover:shadow-2xl transition-all group flex flex-col gap-6 relative overflow-hidden">
+       <div className="flex justify-between items-start">
+          <div className={`p-2.5 rounded-2xl ${priorities[ticket.prioridad] || "bg-slate-100 text-slate-600"}`}>
+             <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusIndicator status={ticket.sync_status} />
+            <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+          </div>
+       </div>
+
+       <div>
+          <div className="flex items-center gap-2 mb-1">
+             <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+               {ticket.id || `OT-PENDIENTE-${ticket.uuid_sync.substring(0,6)}`}
+             </span>
+             <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+             <span className="text-[9px] font-black uppercase tracking-widest text-blue-600">{ticket.equipo_tag}</span>
+          </div>
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight line-clamp-1">{ticket.titulo}</h3>
+          <p className="text-[10px] font-medium text-slate-500 mt-2 line-clamp-2">{ticket.descripcion}</p>
+       </div>
+
+       <div className="flex items-center gap-4 pt-4 border-t border-slate-50">
+          <div className="flex -space-x-2">
+             <div className="w-6 h-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-slate-600">NB</div>
+             <div className="w-6 h-6 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-blue-600">GB</div>
+          </div>
+          
+          {ticket.imagenes && ticket.imagenes.length > 0 && (
+            <div className="flex gap-1 ml-auto">
+              {ticket.imagenes.slice(0, 3).map((imgRef: string, idx: number) => (
+                <TicketImagePreview key={idx} imageRef={imgRef} />
+              ))}
+              {ticket.imagenes.length > 3 && (
+                <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-[9px] font-black text-slate-500">
+                  +{ticket.imagenes.length - 3}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400">
+             <MessageSquare className="w-3 h-3" /> 4 Notas
+          </div>
+       </div>
+
+       <div className="flex items-center gap-2">
+          {ticket.estado === 'abierto' && (
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'en_proceso' })}
+              className="flex-1 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all font-black"
+            >
+               <Play className="w-3.5 h-3.5 fill-current" /> Iniciar
+            </button>
+          )}
+          {(ticket.estado === 'abierto' || ticket.estado === 'en_proceso') && (
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'resuelto' })}
+              className="flex-1 py-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all font-black"
+            >
+               <Check className="w-3.5 h-3.5" /> Resolver
+            </button>
+          )}
+          {ticket.estado === 'resuelto' && (
+            <button 
+              onClick={() => updateTicket(ticket.uuid_sync, { estado: 'cerrado' })}
+              className="w-full py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl font-black"
+            >
+               Cerrar Ticket
+            </button>
+          )}
+       </div>
+    </div>
+  );
+}

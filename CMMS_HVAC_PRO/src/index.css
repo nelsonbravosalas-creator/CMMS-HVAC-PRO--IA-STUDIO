@@ -1,0 +1,259 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap");
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* 
+   CORE DESIGN TOKENS (Derived from Professional Reference)
+*/
+:root {
+  --app-font-sans: "Inter", "system-ui", sans-serif;
+  --app-font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --radius: 0.75rem;
+
+  /* Color Definitions - Professional CMMS Interface */
+  --cmms-bg-base: #0a0d14;
+  --cmms-bg-surface: #0f1320;
+  --cmms-bg-card: #1a1f2e;
+  --cmms-bg-modal: #0d1117;
+  --cmms-text-primary: #f3f4f6;
+  --cmms-text-secondary: #e5e7eb;
+  --cmms-text-muted: #9ca3af;
+  --cmms-text-faint: #6b7280;
+  --cmms-border: rgba(255, 255, 255, 0.05);
+  --cmms-overlay-subtle: rgba(255, 255, 255, 0.03);
+
+  /* Functional HSL Tokens for Tailwind */
+  --background: 222 47% 7%;
+  --foreground: 210 40% 98%;
+  --border: 217 33% 18%;
+  --card: 222 47% 9%;
+  --card-foreground: 210 40% 98%;
+  --primary: 199 89% 48%; /* Electric Cyan */
+  --primary-foreground: 222 47% 5%;
+  --secondary: 222 47% 14%;
+  --accent: 222 47% 12%;
+  --muted: 215 25% 27%;
+  --muted-foreground: 215 20% 65%;
+  --ring: 199 89% 48%;
+
+  /* Shadow & Depth System */
+  --shadow-sm: 0px 1px 3px 0px rgba(0,0,0,0.4);
+  --shadow-md: 0px 10px 15px -3px rgba(0,0,0,0.5);
+  --shadow-lg: 0px 20px 25px -5px rgba(0,0,0,0.6);
+  --shadow-xl: 0px 25px 50px -12px rgba(0,0,0,0.7);
+}
+
+/* Light Theme Adjustments */
+[data-theme="light"] {
+  color-scheme: light;
+  --cmms-bg-base: #f8fafc;
+  --cmms-bg-surface: #f1f5f9;
+  --cmms-bg-card: #ffffff;
+  --cmms-bg-modal: #ffffff;
+  --cmms-text-primary: #0f172a;
+  --cmms-text-secondary: #1e293b;
+  --cmms-text-muted: #64748b;
+  --cmms-border: rgba(0,0,0,0.06);
+
+  --background: 210 40% 98%;
+  --foreground: 222 47% 10%;
+  --border: 214 32% 91%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 10%;
+  --primary: 221 83% 53%;
+  --secondary: 210 40% 96.1%;
+  --accent: 210 40% 96.1%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+}
+
+/* 
+   THEME CUSTOMIZATIONS (User Feedback)
+*/
+
+.dark button:has(svg.lucide-x),
+.dark button:has(svg[class*="lucide-x"]) {
+  border-color: #39FF14 !important;
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.3) !important;
+  color: #39FF14 !important;
+}
+
+/* Regla de contraste: Contenedores de texto en colores opuestos */
+.dark .text-container-contrast {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.dark select,
+.dark .dropdown-dark {
+  background-color: #1a1f2e !important;
+  color: #f3f4f6 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+@layer base {
+  * {
+    border-color: var(--cmms-border);
+    border-style: solid;
+    outline: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background-color: var(--cmms-bg-base);
+    color: var(--cmms-text-primary);
+  }
+
+  /* Force white background for printable tags */
+  #printable-tag-preview, 
+  #preview-tag-box, 
+  #printable-tag {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border-color: #e2e8f0 !important;
+  }
+  #printable-tag-preview *, 
+  #preview-tag-box *, 
+  #printable-tag * {
+    color: inherit !important;
+  }
+}
+
+@layer utilities {
+  .bg-surface { background-color: var(--cmms-bg-surface); }
+  .bg-card-custom { background-color: var(--cmms-bg-card); }
+  .border-custom { border-color: var(--cmms-border); }
+  
+  .glass-effect {
+    @apply backdrop-blur-md bg-white/5 border border-white/10;
+  }
+
+  /* Smooth Entry Animations */
+  @keyframes fadeSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .animate-pro-entry {
+    animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+/* 
+   THIRD-PARTY INTERFACE OPTIMIZATION 
+*/
+
+/* Leaflet Map Tech Dark Styling */
+.leaflet-container {
+  background: var(--cmms-bg-surface) !important;
+  border-radius: var(--radius);
+  font-family: inherit;
+  @apply shadow-xl;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--cmms-bg-modal) !important;
+  color: var(--cmms-text-primary) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--cmms-border) !important;
+}
+
+.leaflet-tile {
+  filter: grayscale(1) invert(0.9) brightness(0.7) contrast(1.1) !important;
+}
+
+/* Sonner / Toaster Adjustment */
+[data-sonner-toast] {
+  background: var(--cmms-bg-modal) !important;
+  border: 1px solid var(--cmms-border) !important;
+  color: var(--cmms-text-primary) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* --- REGLAS DE UI SOLICITADAS POR EL USUARIO --- */
+
+/* 1. "en el modo oscuro, resalta los bordes de los botones de cerrar con un contorno verde electrico" */
+.dark button:has(svg.lucide-x) {
+  border: 1px solid #39FF14 !important;
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.5) !important;
+}
+
+/* 2. "Los fondos de los menues desplegables si esta en modo oscuro, hazlo oscuros." */
+.dark select,
+.dark [role="listbox"],
+.dark [role="menu"] {
+  background-color: #0f172a !important; /* bg-slate-900 */
+  color: #f8fafc !important; /* text-slate-50 */
+}
+
+.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* 3. "regla. el fondo de un contenedor de texto deben ser de colores opuesto. Negro -> Blanco" */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="number"],
+.dark textarea {
+  background-color: #ffffff !important;
+  color: #020617 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* 
+   RESPONSIVE MOBILE GRAPHIC & VIEWPORT CUSTOMIZATION (§4)
+   Applies high-definition aspect ratios for images and polished device-like 
+   rounded borders for the main application viewport on mobile screens.
+*/
+@media (max-width: 1024px) {
+  /* Guard aspect ratios and premium borders for all images on mobile viewports */
+  img:not(.leaflet-marker-icon):not(.qr-code-img) {
+    aspect-ratio: 4 / 3 !important;
+    object-fit: cover !important;
+    border-radius: 1rem !important;
+    border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  }
+
+  /* Exclude technical components like canvas drawing/signature containers */
+  canvas {
+    border-radius: 0.75rem !important;
+  }
+
+  /* Turn the entire main application frame on mobile into a polished native app frame with rounded borders */
+  main {
+    border-radius: 1.5rem !important;
+    border: 2px solid var(--cmms-border) !important;
+    margin: 0.75rem !important;
+    padding: 1.25rem !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    background-color: var(--cmms-bg-card) !important;
+    overflow-y: auto !important;
+  }
+}

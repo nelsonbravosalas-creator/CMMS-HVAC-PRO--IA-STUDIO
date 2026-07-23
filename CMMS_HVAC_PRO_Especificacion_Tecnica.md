@@ -629,7 +629,7 @@ export class CMSSHVACDatabase extends Dexie {
 export const db = new CMSSHVACDatabase();
 ```
 
-> ⚠️ REVISAR: la fuente `FE-INFRA-01_DEXIE_V16_SCHEMA.md` usa `NEXT_SCHEMA_VERSION` como placeholder simbólico (no un número fijo), consistente con su propia advertencia de que "v16" es histórico y la implementación real debe determinarse contra la versión actual de `src/db/database.ts`. Este documento preserva ese placeholder intencionalmente — no se debe fijar un número de versión aquí sin verificar antes el número real vigente en `src/db/database.ts`.
+> **✅ RESUELTO (2026-07-21):** verificado en `src/db/database.ts` — la versión actual del schema Dexie es **13** (`this.version(13).stores(schema)...`, la más alta declarada; existen además `this.version(10)`, `this.version(11)` y `this.version(12)` como migraciones previas). Cualquier migración nueva debe usar `this.version(14)` en adelante. El placeholder `NEXT_SCHEMA_VERSION` de la fuente original debe entenderse hoy como `14`. El código de ejemplo de esta sección conserva `NEXT_SCHEMA_VERSION` como placeholder simbólico del patrón — no representa el valor literal usado en el código real.
 
 ### 5.4 Índices — Documentación y Notas de Performance
 
@@ -1105,52 +1105,80 @@ Este documento es el dueño de **W-04** y **W-05**; se desarrollan con mayor det
 
 ### W-04 — Sincronización Offline → Online
 
-**Disparo:** recuperación de conectividad detectada por `useNetworkStatus` / evento `online` del navegador, o ejecución manual de sincronización.
+> **Nota de fuente:** esta sección fue reescrita a partir del código real del cliente — `src/sync/syncEngine.ts` (clase `SyncEngine`, método `fullSync`) y `src/sync/syncQueue.ts` — que reemplaza por completo la descripción anterior basada en pseudocódigo genérico (`runFullSync` / `uploadPendingChanges`), la cual no correspondía a la implementación real.
 
-**Motor de sincronización (cliente), `runFullSync`:**
+**Disparo:** `SyncEngine.init()` registra tres disparadores:
 
-1. **Upload** — sube cambios locales pendientes (`db.sync_queue` con `status = 'pending'`).
-2. **Download** — descarga cambios remotos desde el último `last_sync_timestamp`.
-3. **Merge** — aplica los cambios remotos sobre Dexie con resolución de conflictos.
+1. Evento `network-reconnected` (recuperación de conectividad).
+2. Evento `auth-session-started` (nueva sesión autenticada).
+3. Un ciclo automático `setInterval` que ejecuta `fullSync()` cada **15 segundos**.
 
-```typescript
-export async function runFullSync(user_id: string) {
-  await uploadPendingChanges();          // PASO 1: local → servidor
-  const updates = await downloadRemoteChanges(); // PASO 2: servidor → local
-  await mergeChanges(updates);           // PASO 3: merge + resolución de conflictos
-}
-```
+Adicionalmente existe `triggerSync(force)` para disparo manual (p. ej. botón "Sincronizar ahora" en la UI).
 
-**Upload (cliente → servidor):**
+**Motor de sincronización (cliente), `SyncEngine.fullSync()` — un único request bulk, no por-tabla:**
+
+1. Junta **todos** los items pendientes de `db.sync_queue`, filtrando fuera los que ya tienen `retry_count >= 3` (fallo permanente) o cuyo `next_retry_at` todavía no venció.
+2. Separa esos items en tres listas — `inserts`, `updates`, `deletes` — según su tipo de operación.
+3. Realiza **una sola** llamada `POST /api/sync` con body `{ inserts, updates, deletes, lastSync, cliente_id }`, con headers `X-Client-ID` y `Authorization: Bearer <token>`.
 
 ```typescript
-async function uploadPendingChanges() {
-  const items = await db.sync_queue.where('status').equals('pending').toArray();
-  for (const item of items) {
-    try {
-      const response = await fetch(`/api/sync/upload/${item.tabla}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(item.data)
-      });
-      if (response.ok) {
-        const result = await response.json();
-        await db[item.tabla].update(item.record_id, {
-          server_id: result.id, folio: result.folio, synced: true
-        });
-        await db.sync_queue.update(item.sync_queue_id, { status: 'synced' });
-      } else if (response.status === 409) {
-        const conflict = await response.json();
-        await resolveConflict(item, conflict);   // ver W-05
-      }
-    } catch (err) {
-      item.retry_count++;
-      item.next_retry = scheduleNextRetry(item.retry_count);
-      await db.sync_queue.update(item.sync_queue_id, item);
-    }
+// src/sync/syncEngine.ts (resumen conceptual del flujo real)
+class SyncEngine {
+  init() {
+    window.addEventListener('network-reconnected', () => this.fullSync());
+    window.addEventListener('auth-session-started', () => this.fullSync());
+    setInterval(() => this.fullSync(), 15_000);
+  }
+
+  async triggerSync(force = false) { /* disparo manual */ await this.fullSync(force); }
+
+  async fullSync(force = false) {
+    const pending = await syncQueue.getPending(); // excluye retry_count >= 3 y next_retry_at no vencido
+    const { inserts, updates, deletes } = splitByOperation(pending);
+
+    const response = await fetch('/api/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Client-ID': clientId,
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ inserts, updates, deletes, lastSync, cliente_id })
+    });
+
+    // manejo de errores de transporte (ver más abajo) antes de parsear la respuesta
+
+    const { success, results, serverChanges } = await response.json();
+    await this.applyResults(pending, results);      // marca synced/conflicted/failed por item
+    await this.applyServerChanges(serverChanges);    // aplica cambios remotos, misma respuesta
   }
 }
 ```
+
+**Respuesta y aplicación de resultados por item:** el servidor responde `{ success, results: { inserts, updates, deletes }, serverChanges }`. El cliente arma un mapa `uuid_sync → resultado` y, por cada item pendiente:
+
+- Si el resultado es `'applied'`, `'noop'` o `success: true` → marca el registro local con `sync_status: 'synced'`, resetea `retry_count` a 0 y elimina el item de `sync_queue`.
+- En cualquier otro caso → marca el registro local como `'conflicted'` (si `rStatus === 'conflict'`) o `'failed'`, y llama a `syncQueue.markFailed(item.id, error)` (política de reintentos abajo).
+
+**Descarga de cambios del servidor (`serverChanges`):** viaja en la **misma respuesta** del `POST /api/sync` — no es un `GET` aparte. Para cada tabla incluida, cada fila remota se aplica con `table.put(...)` si no existe localmente, o si `remoteRecord.updated_at > local.updated_at` (mismo criterio LWW usado en el servidor). Nota de nomenclatura: las tablas locales `clientes` y `sucursales` se mapean a los nombres remotos `clients` y `branches` respectivamente al aplicar `serverChanges` — el resto de tablas comparte nombre entre cliente y servidor.
+
+**Política de reintentos real (`src/sync/syncQueue.ts`, método `markFailed`) — NO es backoff exponencial, es un esquema fijo de 2 pasos:**
+
+| Intento que falla | Espera antes de reintentar |
+|---|---|
+| 1 | 30 segundos |
+| 2 | 5 minutos (300 s) |
+| 3 | **Fallo permanente** — el item queda excluido de la cola de pendientes; requiere intervención manual, no hay reintento automático posterior |
+
+El ciclo de 15 s de `fullSync()` es el mecanismo que efectivamente reintenta un item una vez vencido su `next_retry_at` — no existe un job de retry separado.
+
+> **Nota de deuda técnica:** existe una clase `RetryManager` en `src/sync/retryManager.ts` (`maxRetries = 5`, backoff exponencial con jitter) que **no se usa en ningún lugar del código activo** — es código muerto. No representa el mecanismo de reintentos vigente (que es el esquema fijo de 2 pasos de `syncQueue.markFailed` descrito arriba); se documenta aquí únicamente como candidata a eliminación en una limpieza técnica futura.
+
+**Manejo de errores de red y rate-limit (antes de interpretar la respuesta como éxito/fallo por item):**
+
+- **HTTP 401** → dispara el evento `auth-session-invalid` y detiene la sincronización indefinidamente hasta que exista una nueva sesión (no hay reintento automático).
+- **HTTP 429 (rate limit)** → cooldown de **50 segundos** antes de reintentar.
+- **Error de red genérico** (fetch failed, timeout, sin conectividad, etc.) → cooldown de **25 segundos**.
 
 **Endpoint real de sincronización masiva (servidor), `POST /api/sync`** (`server.ts`): recibe `{ inserts: [], updates: [], deletes: [], lastSync }` y procesa cada fase en paralelo (`Promise.all`) por razones de latencia en entorno serverless Neon. Cada item trae `{ table, uuid_sync, data, updated_at }`.
 
@@ -1158,32 +1186,10 @@ async function uploadPendingChanges() {
 - Se valida permiso de escritura por tabla con `isSyncWritableTable` (set `SYNC_WRITABLE_TABLES`: `assets`, `preventive_maintenance`, `work_orders`, `reports`, `events`, `catalog_asset_types`, `ordenes_servicio`, `inventory`, `calendar`; `clientes`/`sucursales`/`audit_logs` solo si el usuario es administrador).
 - Para la mayoría de tablas (patrón genérico `uuid_sync`/`data JSONB`), el insert usa `INSERT ... ON CONFLICT (uuid_sync) DO UPDATE SET ... WHERE EXCLUDED.updated_at > <tabla>.updated_at OR <tabla>.updated_at IS NULL` — esto es la implementación real de **Last-Write-Wins basado en `updated_at`**: si el registro entrante es más antiguo o igual que el que ya existe en servidor, el `UPDATE` simplemente no se aplica (no genera error ni 409).
 - Para `assets` (tabla con columnas propias, no JSONB genérico) aplica el mismo patrón LWW por `updated_at` pero con columnas explícitas, y además resuelve `cliente_id`/`sucursal_id` a valores por defecto si el cliente o sucursal referenciados no existen.
-- Si la escritura falla por violación de unicidad, el item se marca `result: 'conflict'`; cualquier otro error se marca `result: 'error'`. La respuesta agrega `{ inserts: [...], updates: [...], deletes: [...] }` con el resultado por item — **este endpoint no responde HTTP 409 a nivel de request**, el conflicto se resuelve item a item dentro de un 200/error genérico.
+- Si la escritura falla por violación de unicidad, el item se marca `result: 'conflict'`; cualquier otro error se marca `result: 'error'`. La respuesta agrega `{ inserts: [...], updates: [...], deletes: [...] }` con el resultado por item — **este endpoint no responde HTTP 409 a nivel de request**, el conflicto se resuelve item a item dentro de un 200/error genérico. Esto es coherente con lo descrito arriba: el cliente real (`SyncEngine.fullSync`) nunca espera un 409 de `/api/sync` — interpreta `results` por item.
+- La misma respuesta agrega `serverChanges` (cambios remotos posteriores a `lastSync`, acotados al tenant), que es lo que el cliente aplica en el paso "Descarga" descrito arriba. El endpoint `GET /api/:table` (alias `GET /api/sync/:table`) también existe en `server.ts` como vía de descarga incremental de propósito general (`?since=<timestamp>&cliente_id=<id>`), pero el flujo de `fullSync()` no depende de él — obtiene sus cambios remotos embebidos en la respuesta del `POST /api/sync`.
 
-**Download (servidor → cliente):** `GET /api/:table` (alias `GET /api/sync/:table`), con `?since=<timestamp>&cliente_id=<id>`; retorna filas con `updated_at` mayor al timestamp solicitado (o `updated_at IS NULL`), acotadas al tenant del usuario autenticado (o alcance global si es administrador operando sin cliente).
-
-**Merge (cliente):**
-
-```typescript
-async function mergeChanges(updates: any) {
-  for (const table in updates) {
-    for (const record of updates[table]) {
-      const existing = await db[table].get(record.id);
-      if (!existing) {
-        await db[table].add(record);
-      } else if (record.updated_at > existing.updated_at) {
-        await db[table].update(record.id, record);   // servidor más nuevo → overwrite
-      }
-      // si local es más nuevo, se mantiene local (ya está en la cola de sync)
-    }
-  }
-  localStorage.setItem('last_sync_timestamp', new Date().toISOString());
-}
-```
-
-**Flujo end-to-end de referencia (OT creada offline):** técnico crea OT offline → folio temporal `OT-{uuid corto}` → insert en Dexie (`work_orders` + `work_order_assets`) → item agregado a `sync_queue` (`status='pending'`) → badge "⏳ Pendiente" → al reconectar, Service Worker dispara sync → upload → backend valida y genera folio oficial `INF-{cod_sucursal}.{cod_tipo}-{tag_corr}-{folio_seq}` → respuesta con `folio_oficial`, `server_id`, `status: 'synced'` → cliente actualiza el registro Dexie con el folio oficial y marca el item de cola como `synced` → UI muestra "✓ Sincronizado".
-
-**Retry exponencial** ante fallos de red (no ante conflictos de negocio): `delay = min(2^retryCount * 1000ms, 300000ms)`, evaluado por un job cada 30 segundos sobre items en estado `pending`/`error` cuyo `next_retry` ya venció.
+**Flujo end-to-end de referencia (OT creada offline):** técnico crea OT offline → folio temporal `OT-{uuid corto}` → insert en Dexie (`work_orders` + `work_order_assets`) → item agregado a `sync_queue` → badge "⏳ Pendiente" → al reconectar (o en el siguiente ciclo de 15 s), `SyncEngine.fullSync()` agrupa el item en el `POST /api/sync` bulk → backend valida y genera folio oficial `INF-{cod_sucursal}.{cod_tipo}-{tag_corr}-{folio_seq}` → resultado `'applied'` para ese `uuid_sync` en la respuesta → cliente actualiza el registro Dexie con el folio oficial, marca `sync_status: 'synced'` y elimina el item de la cola → UI muestra "✓ Sincronizado".
 
 ### W-05 — Resolución de Conflictos (409)
 

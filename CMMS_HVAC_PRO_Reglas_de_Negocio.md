@@ -150,17 +150,18 @@ flowchart TD
 
 ### 3.3 Catálogo de roles (consolidado)
 
-Ambas fuentes coinciden en que el control de acceso opera por rol, pero ninguna de las dos enumera exhaustivamente los "6 roles" que la especificación de Fase 1 menciona como alcance (§6). Los roles que sí aparecen explícitamente nombrados en las fuentes fusionadas son:
+Ambas fuentes coincidían en que el control de acceso opera por rol, pero ninguna enumeraba exhaustivamente los "6 roles" que la especificación de Fase 1 mencionaba como alcance (§6). El catálogo se verificó contra el tipo real del código (`src/data/users.ts`, campo `perfil: 'visita' | 'tecnico' | 'supervisor' | 'administrador' | 'cliente' | 'contratista'`), que define exactamente **6 roles**. No existe un rol `proveedor` en el código; las fuentes fusionadas usaban ese nombre de forma imprecisa para lo que el código implementa como `contratista`.
 
 | Rol | Alcance | Origen |
 |---|---|---|
-| `administrador` | Global. Único que crea/edita/activa/desactiva/elimina clientes y sucursales; único que crea/edita usuarios; puede operar sin cliente activo; valida cierre final de OT (`firmado → cerrado`). | v1 + Fase 1 |
-| `supervisor` | Todas las sucursales de su tenant. Puede dar de baja/retirar activos, anular instancias de formulario, reasignar técnicos, resolver/cerrar tickets junto al cliente. | v1 + Fase 1 |
-| `tecnico` | Solo sus `sucursales_asignadas`. Crea y ejecuta OT, diligencia checklists, no puede dar de baja activos ni cerrar OT administrativamente. | v1 + Fase 1 |
-| `cliente` | Rol externo/portal: recibe informes, puede devolver un informe a "Observado" con evidencia, cierra tickets cuando está conforme. No crea/edita equipos. | Fase 1 |
-| `proveedor` | Referenciado como `proveedor_asignado_user_id` en tickets; asignable como responsable externo de una incidencia. | Fase 1 |
+| `administrador` | Global. Único que crea/edita/activa/desactiva/elimina clientes y sucursales; único que crea/edita usuarios; puede operar sin cliente activo; valida cierre final de OT (`firmado → cerrado`). | v1 + Fase 1 — confirmado en código |
+| `supervisor` | Todas las sucursales de su tenant. Puede dar de baja/retirar activos, anular instancias de formulario, reasignar técnicos, resolver/cerrar tickets junto al cliente. | v1 + Fase 1 — confirmado en código |
+| `tecnico` | Solo sus `sucursales_asignadas`. Crea y ejecuta OT, diligencia checklists, no puede dar de baja activos ni cerrar OT administrativamente. | v1 + Fase 1 — confirmado en código |
+| `cliente` | Rol externo/portal: recibe informes, puede devolver un informe a "Observado" con evidencia, cierra tickets cuando está conforme. No crea/edita equipos. | Fase 1 — confirmado en código |
+| `contratista` | Rol externo asignable como responsable de una incidencia/intervención (el nombre real en código es `contratista`, no `proveedor`). | Código real (`src/data/users.ts`) |
+| `visita` | Rol de alcance más restringido del catálogo. Acceso de solo consulta, sin permisos de edición (descripción conservadora: el código define el nombre del rol pero este documento no tiene evidencia adicional de una matriz de permisos específica para `visita`; queda pendiente detallar sus permisos exactos en una revisión posterior). | Código real (`src/data/users.ts`) |
 
-> ⚠️ REVISAR: las fuentes fusionadas mencionan "6 roles" (Fase 1 §6, resumen ejecutivo) pero solo nombran 5 explícitamente (`administrador`, `supervisor`, `tecnico`, `cliente`, `proveedor`). La matriz completa de permisos se referencia como vivienda en `FASE_1_ARQUITECTURA_Y_DISEÑO.md § 1.1`, documento que no fue fusionado aquí (fuera del alcance de esta tarea). Se recomienda que el dueño del producto confirme el nombre del sexto rol y, si corresponde, se incorpore la matriz completa a este documento en una revisión posterior.
+> ✅ Verificado contra código real (2026-07-21). El catálogo son estos 6 roles exactos. Nota abierta (no bloqueante): la fuente Fase 1 referenciaba en tickets un campo `proveedor_asignado_user_id` (ver §9, RN-TKT-01) — no fue posible confirmar en el código si ese campo debe renombrarse a `contratista_asignado_user_id` para ser consistente con el nombre real del rol; se deja constancia en `§ Conflictos detectados y resueltos` al final del documento para que se revise a mano.
 
 ---
 

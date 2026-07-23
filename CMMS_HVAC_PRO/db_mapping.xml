@@ -1,0 +1,614 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+          xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:x="urn:schemas-microsoft-com:office:excel"
+          xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+          xmlns:html="http://www.w3.org/TR/REC-html40">
+  
+  <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+    <Author>AI Studio CMMS Framework</Author>
+    <LastAuthor>AI Studio Build Creator</LastAuthor>
+    <Created>2026-05-31T02:46:00Z</Created>
+    <Version>16.00</Version>
+  </DocumentProperties>
+
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal">
+      <Alignment ss:Vertical="Bottom"/>
+      <Borders/>
+      <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+      <Interior/>
+      <NumberFormat/>
+      <Protection/>
+    </Style>
+    <Style ss:ID="Header">
+      <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+      <Interior ss:Color="#1B365D" ss:Pattern="Solid"/>
+      <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+        <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="RowEven">
+      <Interior ss:Color="#F2F4F7" ss:Pattern="Solid"/>
+      <Alignment ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D0D5DD"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="RowOdd">
+      <Interior ss:Color="#FFFFFF" ss:Pattern="Solid"/>
+      <Alignment ss:Vertical="Center"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D0D5DD"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="CommentStyle">
+      <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="10" ss:Color="#344054"/>
+      <Interior ss:Color="#FFFAEB" ss:Pattern="Solid"/>
+    </Style>
+  </Styles>
+
+  <!-- PANTALLA 1: INVENTARIO DE ACTIVOS HVAC -->
+  <Worksheet ss:Name="1. Activos HVAC">
+    <Table ss:ExpandedColumnCount="5" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">
+      <Column ss:Width="120"/>
+      <Column ss:Width="100"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="280"/>
+      <Column ss:Width="180"/>
+      
+      <Row ss:Height="24">
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Campo</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Tipo de Dato</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Clave</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Detalle y Propósito (Español)</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Ejemplo de Origen</Data></Cell>
+      </Row>
+      
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">uuid_sync</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">PRIMARY KEY (UUID)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Identificador global único de sincronización. Asegura la total integridad referencial offline-online.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Garantiza el correcto merge de datos síncronos en ambientes móviles sin conectividad.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">"4d54737a-4ab7-47b7-b088-30113f39dcee"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">tag</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">UNIQUE INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Etiqueta QR única del equipo de climatización (HVAC) para identificación física e inspección directa.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Utilizado por los técnicos para escanear y acceder directamente al historial del equipo.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">"CL-STGO-CHILLER-01"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">cliente_id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">FOREIGN KEY</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Identificador del cliente maestro (Tenant) al cual pertenece el equipo climatizado.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Asocia el activo con la cuenta del corporativo para la facturación y mantenimiento de SLAs contratados.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">"datacenter-stgo"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">sucursal_id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">FOREIGN KEY</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Sede física específica o sucursal donde se halla operando el equipo.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Permite organizar hojas de ruta de mantenimiento geográficamente.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">"sucursal-providencia"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">data</Data></Cell>
+        <Cell><Data ss:Type="String">JSONB</Data></Cell>
+        <Cell><Data ss:Type="String">METADATA</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Información técnica flexible del activo: Marca, modelo, capacidad (BTU), refrigerante (R410, R22), año de instalación.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Estructura extensible para alojar campos variables sin alterar la base relacional del motor.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">{"marca": "Carrier", "capacidad": "50 TR"}</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">created_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Marca temporal epoch en milisegundos de la fecha de alta del equipo en el sistema global.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748644000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">updated_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP (INDEX)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Última modificación del equipo. Columna crucial para resolución de conflictos basada en 'Last-Write-Wins'.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748648000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">deleted_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Marca de borrado lógico (soft-delete) para evitar la pérdida accidental de datos históricos.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">null (no eliminado)</Data></Cell>
+      </Row>
+    </Table>
+  </Worksheet>
+
+  <!-- PANTALLA 2: CONTROL DE INVENTARIO INTERNO -->
+  <Worksheet ss:Name="2. Inventario Interno">
+    <Table ss:ExpandedColumnCount="5" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">
+      <Column ss:Width="120"/>
+      <Column ss:Width="100"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="280"/>
+      <Column ss:Width="180"/>
+      
+      <Row ss:Height="24">
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Campo</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Tipo de Dato</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Clave</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Detalle y Propósito (Español)</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Ejemplo de Origen</Data></Cell>
+      </Row>
+      
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">uuid_sync</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">PRIMARY KEY (UUID)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">ID de sincronización único. Garantiza control de existencias sin duplicaciones en sincronías concurrentes.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"fd3532c1-2309-42b4-8cf1-9bc930a00df1"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">UNIQUE INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Identificador físico amigable visible para el operador técnico.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Ejemplo prefijo: INV para identificar materiales físicos rápidamente.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">"INV-1748648210344"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">data</Data></Cell>
+        <Cell><Data ss:Type="String">JSONB</Data></Cell>
+        <Cell><Data ss:Type="String">SCHEMA BLOB</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Datos de control: Categoría, Nombre del Recurso, Stock físico, Unidad (kits, metros, unid), Marca, Modelo, Asignado_a (Técnico).</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Almacena información operativa estructurada para la manipulación y despacho de herramientas físicas.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">{"nombre": "Fluke 117", "stock": 5, "categoria": "instrumentos"}</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">created_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Epoch milisegundos de alta de la herramienta o material.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748644000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">updated_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP (INDEX)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Epoch de última actualización de cantidad de stock físico disponible.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748648000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">deleted_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Soft-delete para recursos que fueron dados de baja, dañados o descartados.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">null (activo)</Data></Cell>
+      </Row>
+    </Table>
+  </Worksheet>
+
+  <!-- PANTALLA 3: MANTENIMIENTOS Y PLANIFICACIÓN -->
+  <Worksheet ss:Name="3. Planificacion Calendario">
+    <Table ss:ExpandedColumnCount="5" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">
+      <Column ss:Width="120"/>
+      <Column ss:Width="100"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="280"/>
+      <Column ss:Width="180"/>
+      
+      <Row ss:Height="24">
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Campo</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Tipo de Dato</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Clave</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Detalle y Propósito (Español)</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Ejemplo de Origen</Data></Cell>
+      </Row>
+      
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">uuid_sync</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">PRIMARY KEY (UUID)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">ID de mapeo único en la sincronización del calendario y tareas preventivas.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"ac8745ea-2beb-451e-9dd2-6789aa123b32"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">UNIQUE INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Identificador amigable de la pauta de mantenimiento programada.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"PM-2026-CHILLER-01"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">data</Data></Cell>
+        <Cell><Data ss:Type="String">JSONB</Data></Cell>
+        <Cell><Data ss:Type="String">SCHEMA BLOB</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Detalle del mantenimiento: técnico líder asignado, emails de notificación (técnico, supervisor, cliente), fechas de Google Calendar de aviso directo, recursos físicos asignados, check-lists técnicos obligatorios.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Contiene los links directos para agendar en Google Calendar de manera automatizada y sin dolores de cabeza.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">{"tecnico": "Nelson Bravo", "tipo": "preventivo", "gcalUrlTech": "https://..."}</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">created_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Epoch de la creación de la cita del calendario preventivo.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748644000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">updated_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP (INDEX)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Epoch del último re-agendamiento o reprogramación por contingencia.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748648000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">deleted_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Cancelación o borrado del evento preventivo planificado.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">null</Data></Cell>
+      </Row>
+    </Table>
+  </Worksheet>
+
+  <!-- PANTALLA 4: CLIENTES Y SUCURSALES -->
+  <Worksheet ss:Name="4. Clientes Master">
+    <Table ss:ExpandedColumnCount="5" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">
+      <Column ss:Width="120"/>
+      <Column ss:Width="100"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="280"/>
+      <Column ss:Width="180"/>
+      
+      <Row ss:Height="24">
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Campo</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Tipo de Dato</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Clave</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Detalle y Propósito (Español)</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Ejemplo de Origen</Data></Cell>
+      </Row>
+      
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">uuid_sync</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">PRIMARY KEY (UUID)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Identificador síncrono único del Cliente o Empresa mandante.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"e92348aa-fc4b-48af-bc46-231afdec001a"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">UNIQUE INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">ID de la ficha del cliente industrial.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"default"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">data</Data></Cell>
+        <Cell><Data ss:Type="String">JSONB</Data></Cell>
+        <Cell><Data ss:Type="String">SCHEMA BLOB</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Atributos del cliente: Razón Social, RUT (Ej: 76.222.112-K), Dirección Comercial, Persona de Contacto, Teléfono, Alertas de SLA especiales.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Permite realizar Fusiones de Ficha Maestra en caso de RUT duplicado.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">{"razon_social": "DataCenter Santiago S.A.", "rut": "77.123.456-7"}</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">created_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Fecha de ingreso de la cuenta corporativa.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748644000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">updated_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP (INDEX)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Fecha de edición de la cuenta (teléfonos, direcciones o fusión).</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748648000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">deleted_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Baja de la cuenta corporativa comercial del cliente.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">null</Data></Cell>
+      </Row>
+    </Table>
+  </Worksheet>
+
+  <!-- PANTALLA 5: PLANES / ÓRDENES DE SERVICIO Y TICKETS -->
+  <Worksheet ss:Name="5. Ordenes de Servicio">
+    <Table ss:ExpandedColumnCount="5" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">
+      <Column ss:Width="120"/>
+      <Column ss:Width="100"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="280"/>
+      <Column ss:Width="180"/>
+      
+      <Row ss:Height="24">
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Campo</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Tipo de Dato</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Clave</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Detalle y Propósito (Español)</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Ejemplo de Origen</Data></Cell>
+      </Row>
+      
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">uuid_sync</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">PRIMARY KEY (UUID)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Identificador único de sincronización. Relaciona el estado del flujo de facturación y SLAs.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"901235cb-1122-3344-aa55-66778899ffee"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">UNIQUE INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">ID corto amigable correlativo de la Orden de Trabajo (OT) / Orden de Servicio.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"OT-2209"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">data</Data></Cell>
+        <Cell><Data ss:Type="String">JSONB</Data></Cell>
+        <Cell><Data ss:Type="String">SCHEMA BLOB</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Detalles de atención: Estado de la OT (Borrador, En Proceso, Pendiente de Firma, Cerrado), tipo de falla reportada (correctivo, preventivo), materiales consumidos (del stock de Inventario), firma táctil electrónica en base64 de conformidad del cliente, tiempos límite de SLA pactado.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Permite validar legal y técnicamente el cierre ante inspecciones o auditorías de clientes.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">{"estado": "firmada", "tecnico": "Nelson Bravo", "firma": "data:image/png;base64,..."}</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">created_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Epoch de emisión de la solicitud u Orden de Trabajo.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748644000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">updated_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP (INDEX)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Epoch del último cambio de estado operativo en campo.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748648000000</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">deleted_at</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Anulación administrativa de la orden.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">null</Data></Cell>
+      </Row>
+    </Table>
+  </Worksheet>
+
+  <!-- PANTALLA 6: INFORMES TÉCNICOS Y AUDITORÍA LOGS -->
+  <Worksheet ss:Name="6. Informes y Auditoria">
+    <Table ss:ExpandedColumnCount="5" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">
+      <Column ss:Width="120"/>
+      <Column ss:Width="100"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="280"/>
+      <Column ss:Width="180"/>
+      
+      <Row ss:Height="24">
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Campo</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Tipo de Dato</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Clave</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Detalle y Propósito (Español)</Data></Cell>
+        <Cell ss:StyleID="Header"><Data ss:Type="String">Ejemplo de Origen</Data></Cell>
+      </Row>
+      
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">PRIMARY KEY (UUID)</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Identificador único del registro de auditoría o informe oficial.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"LOG-992384"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">action</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Acción ejecutada: Creación, Edición, Sincronización, Borrado, Fusión de Ficha o Carga Masiva.</Data>
+          <Comment ss:Author="AI Studio">
+            <ss:Data xmlns="http://www.w3.org/TR/REC-html40">
+              <Font face="Calibri" size="9" color="#000000">Provee trazabilidad absoluta de las acciones realizadas por cada técnico.</Font>
+            </ss:Data>
+          </Comment>
+        </Cell>
+        <Cell><Data ss:Type="String">"BULK_ASSET_UPLOAD"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">entity_type</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Tipo de entidad afectada: 'assets', 'inventory', 'clients', 'work_orders'.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"inventory"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">entity_id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">FOREIGN KEY</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">ID único o tag de la entidad modificada.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"FLU-117"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">user_id</Data></Cell>
+        <Cell><Data ss:Type="String">TEXT</Data></Cell>
+        <Cell><Data ss:Type="String">INDEX</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">ID del usuario o correo del técnico que realizó la modificación respectiva.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">"nelson.bravo.salas@gmail.com"</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowEven">
+        <Cell><Data ss:Type="String">payload</Data></Cell>
+        <Cell><Data ss:Type="String">JSONB</Data></Cell>
+        <Cell><Data ss:Type="String">METADATA</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Detalles y estado previo de los datos modificados para propósitos de rollbacks ante desastres.</Data>
+        </Cell>
+        <Cell><Data ss:Type="String">{"stock_previo": 4, "stock_nuevo": 5}</Data></Cell>
+      </Row>
+
+      <Row ss:StyleID="RowOdd">
+        <Cell><Data ss:Type="String">timestamp</Data></Cell>
+        <Cell><Data ss:Type="String">BIGINT</Data></Cell>
+        <Cell><Data ss:Type="String">TIMESTAMP</Data></Cell>
+        <Cell>
+          <Data ss:Type="String">Epoch de la ejecución física de la acción auditada.</Data>
+        </Cell>
+        <Cell><Data ss:Type="Number">1748648000000</Data></Cell>
+      </Row>
+    </Table>
+  </Worksheet>
+</Workbook>
