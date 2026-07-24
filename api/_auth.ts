@@ -16,9 +16,22 @@ function normalizeRole(role: string | undefined | null) {
     .trim();
 }
 
+export function canonicalRole(role: string | undefined | null) {
+  const normalized = normalizeRole(role);
+  if (normalized.includes('admin')) return 'administrador';
+  if (normalized.includes('superv')) return 'supervisor';
+  if (normalized.includes('tecn') || normalized.includes('ingeniero')) return 'tecnico';
+  if (normalized.includes('client')) return 'cliente';
+  if (normalized.includes('contrat')) return 'contratista';
+  return 'visita';
+}
+
 export function isAdminUser(user: any) {
-  const role = normalizeRole(user?.perfil);
-  return role.includes('admin');
+  return canonicalRole(user?.perfil) === 'administrador';
+}
+
+export function canWrite(user: any) {
+  return ['administrador', 'supervisor', 'tecnico'].includes(canonicalRole(user?.perfil));
 }
 
 export function getScopedTenantId(user: any, requestedTenantId?: any) {
@@ -36,11 +49,29 @@ export function signToken(payload: any) {
   return jwt.sign(payload, getSecretKey(), { expiresIn: '12h' });
 }
 
+export function setAuthCookie(res: any, token: string) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `cmms_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200${secure}`);
+}
+
+function getCookie(req: any, name: string) {
+  for (const cookie of String(req.headers?.cookie || '').split(';')) {
+    const [key, ...value] = cookie.trim().split('=');
+    if (key === name) return decodeURIComponent(value.join('='));
+  }
+  return null;
+}
+
 export function verifyToken(req: any) {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-    const token = authHeader.slice('Bearer '.length).trim();
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length).trim()
+      : null;
+    const token = bearer && bearer !== 'cookie-session'
+      ? bearer
+      : getCookie(req, 'cmms_session');
+    if (!token) return null;
     return jwt.verify(token, getSecretKey());
   } catch (e) {
     return null;
@@ -62,8 +93,8 @@ export function requireRole(allowedRoles: string[]) {
     if (!user) {
       return null;
     }
-    const allowed = allowedRoles.map(normalizeRole);
-    if (!allowed.includes(normalizeRole(user.perfil))) {
+    const allowed = allowedRoles.map(canonicalRole);
+    if (!allowed.includes(canonicalRole(user.perfil))) {
       res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
       return null;
     }

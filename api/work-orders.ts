@@ -4,7 +4,7 @@
 // Tablas Neon: work_orders
 
 import { getDb } from './_db.js';
-import { getScopedTenantId, requireAuth } from './_auth.js';
+import { canWrite, getScopedTenantId, requireAuth } from './_auth.js';
 
 const WORK_ORDER_TRANSITIONS: Record<string, string[]> = {
   abierto: ['en_progreso'],
@@ -70,6 +70,9 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, body, query } = req;
+    if (method !== 'GET' && !canWrite(user)) {
+      return res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
+    }
     const tenantId = getScopedTenantId(
       user,
       req.headers['x-client-id'] || req.headers['x-cliente-id'] || query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId
@@ -162,7 +165,8 @@ export default async function handler(req: any, res: any) {
           prioridad = EXCLUDED.prioridad, estado = EXCLUDED.estado,
           asignado_a = EXCLUDED.asignado_a, fecha_cierre = EXCLUDED.fecha_cierre,
           updated_at = EXCLUDED.updated_at, data = EXCLUDED.data
-        WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL
+        WHERE work_orders.cliente_id = EXCLUDED.cliente_id
+          AND (EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL)
       `;
       return res.json({ success: true, data: { id: finalId } });
     }
@@ -214,6 +218,6 @@ export default async function handler(req: any, res: any) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

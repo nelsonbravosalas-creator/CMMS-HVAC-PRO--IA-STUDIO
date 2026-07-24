@@ -31,17 +31,11 @@ export default function Configuracion() {
   const { isSyncing, pendingCount, lastSync, isOnline } = useSyncStore();
   const [syncStatus, setSyncStatus] = useState<string>("");
 
-  const [prodUrl, setProdUrl] = useState("");
   const [cloneMode, setCloneMode] = useState<'merge' | 'overwrite'>('merge');
   const [isCloning, setIsCloning] = useState(false);
   const [cloneMessage, setCloneMessage] = useState("");
 
   const handleCloneProductionDb = async () => {
-    if (!prodUrl) {
-      alert("Por favor ingrese el Connection String de la base de datos de producción.");
-      return;
-    }
-    
     if (cloneMode === 'overwrite') {
       if (!confirm("⚠️ ADVERTENCIA: Has seleccionado el modo REEMPLAZO TOTAL. Esto vaciará todas las tablas locales de desarrollo antes de insertar los datos de producción. ¿Está completamente seguro?")) {
         return;
@@ -62,7 +56,10 @@ export default function Configuracion() {
           "Content-Type": "application/json",
           ...(sessionStorage.getItem("auth_token") ? { Authorization: `Bearer ${sessionStorage.getItem("auth_token")}` } : {}),
         },
-        body: JSON.stringify({ prodUrl, mode: cloneMode })
+        body: JSON.stringify({
+          mode: cloneMode,
+          confirmation: cloneMode === 'overwrite' ? 'CLONE_PRODUCTION_OVERWRITE' : undefined
+        })
       });
 
       const data = await response.json();
@@ -317,18 +314,9 @@ export default function Configuracion() {
 
             <SectionBox title="Clonar Prod a Desarrollo" icon={<Database className="w-4 h-4" />} variant="dark">
                <div className="space-y-4 text-left">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-white/60 tracking-widest block mb-2">
-                       DATABASE_URL Producción
-                    </label>
-                    <input 
-                      type="password"
-                      placeholder="postgres://user:pass@ep.neon.tech/neondb"
-                      value={prodUrl}
-                      onChange={(e) => setProdUrl(e.target.value)}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs font-semibold text-emerald-400 placeholder:text-white/20 outline-none focus:border-emerald-500 transition-all font-mono"
-                    />
-                  </div>
+                  <p className="text-[10px] font-semibold text-white/60">
+                    La conexión de producción se obtiene exclusivamente del secreto servidor <code>PROD_DATABASE_URL</code>.
+                  </p>
 
                   <div>
                      <span className="text-[10px] font-black uppercase text-white/60 tracking-widest block mb-1.5">Método de Sincronización</span>
@@ -360,7 +348,7 @@ export default function Configuracion() {
 
                   <button 
                      onClick={handleCloneProductionDb}
-                     disabled={isCloning || !prodUrl}
+                     disabled={isCloning}
                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded-2xl transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(99,102,241,0.3)] disabled:opacity-50 cursor-pointer"
                   >
                      <RefreshCw className={`w-4 h-4 ${isCloning ? 'animate-spin' : ''}`} />

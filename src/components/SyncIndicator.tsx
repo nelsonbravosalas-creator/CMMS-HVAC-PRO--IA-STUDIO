@@ -3,6 +3,7 @@ import { Cloud, CloudOff, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useSyncStore } from '../store/useSyncStore';
 import { db } from '../db/database';
+import { syncEngine } from '../sync/syncEngine';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const SyncIndicator = () => {
@@ -51,9 +52,7 @@ export const SyncIndicator = () => {
 
       <button 
         onClick={() => {
-          import('../sync/syncEngine').then(({ syncEngine }) => {
-            syncEngine.triggerSync(true);
-          });
+          syncEngine.triggerSync(true);
         }}
         disabled={isSyncing || !isOnline}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm border cursor-pointer hover:scale-105 transition-transform active:scale-95 ${

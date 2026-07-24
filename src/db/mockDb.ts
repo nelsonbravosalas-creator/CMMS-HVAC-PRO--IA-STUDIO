@@ -302,7 +302,9 @@ export const createMockSql = () => {
 
       // Case C: WHERE cliente_id = $1
       if (queryLower.includes('cliente_id =')) {
-        const clientIdVal = String(values[0]);
+        const clientIdMatch = query.match(/cliente_id\s*=\s*__VAL(\d+)__/i);
+        const clientIdIndex = clientIdMatch ? Number(clientIdMatch[1]) : 0;
+        const clientIdVal = String(values[clientIdIndex]);
         filteredRows = filteredRows.filter(row => 
           String(row.cliente_id || '') === clientIdVal ||
           (row.data && JSON.parse(row.data).cliente_id && String(JSON.parse(row.data).cliente_id) === clientIdVal)
@@ -311,7 +313,9 @@ export const createMockSql = () => {
 
       // Case D: WHERE tag = $1 or tag LIKE ...
       if (queryLower.includes('tag =')) {
-        const tagVal = String(values[0]);
+        const tagMatch = query.match(/tag\s*=\s*__VAL(\d+)__/i);
+        const tagIndex = tagMatch ? Number(tagMatch[1]) : 0;
+        const tagVal = String(values[tagIndex]);
         filteredRows = filteredRows.filter(row => String(row.tag || '') === tagVal);
       }
 
@@ -362,6 +366,14 @@ export const createMockSql = () => {
       // Detect standard generic insert: INSERT INTO table (id, data, uuid_sync, updated_at, created_at) VALUES ($1,$2,$3,$4,$5)
       // Or INSERT INTO assets (...) VALUES (...)
       if (tableName === 'assets') {
+        const columnMatch = query.match(/INSERT\s+INTO\s+"?assets"?\s*\(([\s\S]*?)\)\s*VALUES/i);
+        const columns = columnMatch
+          ? columnMatch[1].split(',').map(column => column.trim().replace(/"/g, '').toLowerCase())
+          : [];
+        const byColumn = (name: string, fallbackIndex: number, fallback: any = undefined) => {
+          const idx = columns.indexOf(name);
+          return idx >= 0 ? values[idx] : (values[fallbackIndex] ?? fallback);
+        };
         const tag = values[0];
         const nombre = values[1];
         const tipo = values[2] || '';
@@ -380,12 +392,12 @@ export const createMockSql = () => {
         const ultimo_mantenimiento = values[15] || null;
         const proximo_mantenimiento = values[16] || null;
         const horas_operacion = values[17] || 0;
-        const notas = values[18] || '';
-        const uuid_sync = values[19] || tag;
-        const updated_at = values[20] || Date.now();
-        const created_at = values[21] || Date.now();
-        const cliente_id = values[22] || 'cliente-eecol-default-001';
-        const sucursal_id = values[23] || 'default-sucursal';
+        const notas = byColumn('notas', 18, '') || '';
+        const uuid_sync = byColumn('uuid_sync', 19, tag) || tag;
+        const updated_at = byColumn('updated_at', 20, Date.now()) || Date.now();
+        const created_at = byColumn('created_at', 21, Date.now()) || Date.now();
+        const cliente_id = byColumn('cliente_id', 22, 'cliente-eecol-default-001') || 'cliente-eecol-default-001';
+        const sucursal_id = byColumn('sucursal_id', 23, 'default-sucursal') || 'default-sucursal';
 
         const record = {
           uuid_sync, tag, nombre, tipo, marca, modelo, serie, ubicacion, area, 
@@ -394,7 +406,7 @@ export const createMockSql = () => {
           cliente_id, sucursal_id, updated_at, created_at
         };
 
-        const idx = targetTable.findIndex(row => row.uuid_sync === uuid_sync);
+        const idx = targetTable.findIndex(row => row.uuid_sync === uuid_sync || row.tag === tag);
         if (idx >= 0) {
           // conflict do update
           targetTable[idx] = { ...targetTable[idx], ...record, updated_at };
@@ -446,17 +458,46 @@ export const createMockSql = () => {
         if (idx >= 0) targetTable[idx] = { ...targetTable[idx], ...record };
         else targetTable.push(record);
       } else {
-        // Standard (id, data, uuid_sync, updated_at, created_at) or similar
-        const id = values[0];
-        const data = typeof values[1] === 'object' ? JSON.stringify(values[1]) : values[1];
-        const uuid_sync = values[2] || id;
-        const updated_at = values[3] || Date.now();
-        const created_at = values[4] || Date.now();
+        const columnMatch = query.match(/INSERT\s+INTO\s+"?\w+"?\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)/i);
+        const columns = columnMatch
+          ? columnMatch[1].split(',').map(column => column.trim().replace(/"/g, '').toLowerCase())
+          : [];
+        const valueTokens = columnMatch
+          ? columnMatch[2].split(',').map(token => token.trim())
+          : [];
+        const record: Record<string, any> = {};
 
-        const record = { id, data, uuid_sync, updated_at, created_at };
-        const idx = targetTable.findIndex(row => row.uuid_sync === uuid_sync);
+        columns.forEach((column, index) => {
+          const marker = valueTokens[index]?.match(/__VAL(\d+)__/i);
+          if (marker) {
+            const value = values[Number(marker[1])];
+            record[column] = column === 'data' && typeof value === 'object'
+              ? JSON.stringify(value)
+              : value;
+          } else if (/^null$/i.test(valueTokens[index] || '')) {
+            record[column] = null;
+          }
+        });
+
+        // The offline adapter does not parse fully literal INSERT statements.
+        // Defaults represented by those statements are already created by loadMockData.
+        if (Object.keys(record).length === 0 && values.length === 0) {
+          saveMockData();
+          return [{ success: true }];
+        }
+
+        const id = record.id ?? values[0];
+        const uuid_sync = record.uuid_sync ?? id;
+        record.id = id;
+        record.uuid_sync = uuid_sync;
+        record.updated_at = record.updated_at ?? Date.now();
+        record.created_at = record.created_at ?? record.updated_at;
+
+        const idx = targetTable.findIndex(row =>
+          row.uuid_sync === uuid_sync || (id !== undefined && row.id === id)
+        );
         if (idx >= 0) {
-          targetTable[idx] = { ...targetTable[idx], ...record, updated_at };
+          targetTable[idx] = { ...targetTable[idx], ...record };
         } else {
           targetTable.push(record);
         }

@@ -4,7 +4,7 @@
 // Tablas Neon: inventory
 
 import { getDb } from './_db.js';
-import { getScopedTenantId, requireAuth } from './_auth.js';
+import { canWrite, getScopedTenantId, requireAuth } from './_auth.js';
 
 function mapToNeon(frontData: any, tenantId: string) {
   return {
@@ -54,6 +54,9 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, body, query } = req;
+    if (method !== 'GET' && !canWrite(user)) {
+      return res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
+    }
     const tenantId = getScopedTenantId(
       user,
       req.headers['x-client-id'] || req.headers['x-cliente-id'] || query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId
@@ -131,7 +134,8 @@ export default async function handler(req: any, res: any) {
           nombre = EXCLUDED.nombre, cantidad = EXCLUDED.cantidad,
           unidad_medida = EXCLUDED.unidad_medida, updated_at = EXCLUDED.updated_at,
           data = EXCLUDED.data
-        WHERE EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL
+        WHERE inventory.cliente_id = EXCLUDED.cliente_id
+          AND (EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL)
       `;
       return res.json({ success: true, data: { id: finalId } });
     }
@@ -169,6 +173,6 @@ export default async function handler(req: any, res: any) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

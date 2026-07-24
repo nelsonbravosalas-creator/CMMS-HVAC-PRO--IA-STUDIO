@@ -37,6 +37,6 @@ export default async function handler(req: any, res: any) {
     `;
     return res.json({ success: true });
   } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

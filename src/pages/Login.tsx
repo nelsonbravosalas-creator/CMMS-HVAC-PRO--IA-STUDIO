@@ -49,6 +49,8 @@ export default function Login() {
 
   const handleBiometricLogin = async () => {
     setBiometricError("");
+    setBiometricError("El acceso biométrico está temporalmente deshabilitado hasta completar la validación WebAuthn del servidor.");
+    return;
     const userEmail = email.trim();
     if (!userEmail) {
       setBiometricError("Por favor ingrese su correo electrónico para buscar la huella vinculada.");

@@ -19,7 +19,7 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     return res.status(500).json({
       success: false,
-      error: error.message || 'Error aplicando bootstrap de base de datos'
+      error: 'Error interno del servidor'
     });
   }
 }

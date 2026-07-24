@@ -79,7 +79,8 @@ export default async function handler(req: any, res: any) {
           horas_operacion = EXCLUDED.horas_operacion, tecnicos = EXCLUDED.tecnicos,
           notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id,
           sucursal_id = EXCLUDED.sucursal_id, updated_at = EXCLUDED.updated_at
-        WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL
+        WHERE assets.cliente_id = EXCLUDED.cliente_id
+          AND (EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL)
       `;
       return res.json({ success: true, data: { tag: d.tag } });
     }
@@ -131,6 +132,6 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
     console.error('Error en /api/assets:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

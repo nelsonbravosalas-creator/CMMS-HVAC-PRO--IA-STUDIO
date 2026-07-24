@@ -11,32 +11,10 @@
  */
 
 import { Route, Switch, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import Layout from "./components/Layout";
-import Dashboard from "./pages/Dashboard";
-import ScannerQR from "./pages/ScannerQR";
-import Equipos from "./pages/Equipos";
-import DetalleEquipo from "./pages/DetalleEquipo";
-import Mapa from "./pages/Mapa";
-import Mantenimientos from "./pages/Mantenimientos";
-import EditorOrdenServicio from "./pages/EditorOrdenServicio";
-import OrdenesServicio from "./pages/OrdenesServicio";
-import InformesHVAC from "./pages/InformesHVAC";
-import EditorInforme from "./pages/EditorInforme";
-import Tickets from "./pages/Tickets";
-import Reportes from "./pages/Reportes";
-import Administracion from "./pages/Administracion";
-import Clientes from "./pages/Clientes";
-import Biometria from "./pages/Biometria";
-import Consola from "./pages/Consola";
-import Configuracion from "./pages/Configuracion";
-import Login from "./pages/Login";
-import Planificacion from "./pages/Planificacion";
-import ClientSelector from "./pages/ClientSelector";
 import AccessDenied from "./components/AccessDenied";
-import EFIEnergia from "./pages/EFIEnergia";
-import InventarioInterno from "./pages/InventarioInterno";
 import { syncEngine } from "./sync/syncEngine";
 import { useAppStore } from "./store/useAppStore";
 import { useSyncStore } from "./store/useSyncStore";
@@ -44,6 +22,29 @@ import { SyncIndicator } from "./components/SyncIndicator";
 import { SyncInspectorPanel } from "./components/debug/SyncInspectorPanel";
 import { networkMonitor } from "./sync/networkMonitor";
 import { logger } from "./lib/logger";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ScannerQR = lazy(() => import("./pages/ScannerQR"));
+const Equipos = lazy(() => import("./pages/Equipos"));
+const DetalleEquipo = lazy(() => import("./pages/DetalleEquipo"));
+const Mapa = lazy(() => import("./pages/Mapa"));
+const Mantenimientos = lazy(() => import("./pages/Mantenimientos"));
+const EditorOrdenServicio = lazy(() => import("./pages/EditorOrdenServicio"));
+const OrdenesServicio = lazy(() => import("./pages/OrdenesServicio"));
+const InformesHVAC = lazy(() => import("./pages/InformesHVAC"));
+const EditorInforme = lazy(() => import("./pages/EditorInforme"));
+const Tickets = lazy(() => import("./pages/Tickets"));
+const Reportes = lazy(() => import("./pages/Reportes"));
+const Administracion = lazy(() => import("./pages/Administracion"));
+const Clientes = lazy(() => import("./pages/Clientes"));
+const Biometria = lazy(() => import("./pages/Biometria"));
+const Consola = lazy(() => import("./pages/Consola"));
+const Configuracion = lazy(() => import("./pages/Configuracion"));
+const Login = lazy(() => import("./pages/Login"));
+const Planificacion = lazy(() => import("./pages/Planificacion"));
+const ClientSelector = lazy(() => import("./pages/ClientSelector"));
+const EFIEnergia = lazy(() => import("./pages/EFIEnergia"));
+const InventarioInterno = lazy(() => import("./pages/InventarioInterno"));
 
 /**
  * Componente funcional App.
@@ -211,6 +212,7 @@ function App() {
 
   return (
     <AuthProvider>
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-slate-500">Cargando módulo…</div>}>
       {!isAuthenticated ? (
         <Login />
       ) : (isAuthenticated && ((isAdmin && !isAdminGlobalView) || selectsClient) && !hasClientSelected) ? (
@@ -266,6 +268,7 @@ function App() {
           <SyncInspectorPanel />
         </>
       )}
+      </Suspense>
     </AuthProvider>
   );
 }

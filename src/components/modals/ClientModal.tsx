@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Building2 } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
 import { REGIONES_CHILE } from '../../data/regions';
-import { LocalCliente, LocalSucursal } from '../../db/database';
+import { db, LocalCliente, LocalSucursal } from '../../db/database';
 import { ClientRepository } from '../../repositories/ClientRepository';
 import { BranchRepository } from '../../repositories/BranchRepository';
 import { syncEngine } from '../../sync/syncEngine';
@@ -357,7 +357,6 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         // Soft delete missing branches
         for (const [uuid, branchToRemove] of Array.from(existingBranchMap.entries())) {
           // Rule: Do not delete if it has assets
-          const db = (await import('../../db/database')).db;
           const assetsCount = await db.assets.where('sucursal_id').equals(uuid).filter(a => !a.deleted_at).count();
           if (assetsCount > 0) {
              alert(`No se puede eliminar la sucursal ${branchToRemove.nombre} porque tiene ${assetsCount} activo(s) asociado(s). Se marcará como inactiva.`);

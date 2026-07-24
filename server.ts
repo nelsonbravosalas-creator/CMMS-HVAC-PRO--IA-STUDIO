@@ -23,9 +23,18 @@ const normalizeRole = (role: string | undefined | null) => String(role || "")
   .toLowerCase()
   .trim();
 
+const canonicalRole = (role: string | undefined | null) => {
+  const normalized = normalizeRole(role);
+  if (normalized.includes("admin")) return "administrador";
+  if (normalized.includes("superv")) return "supervisor";
+  if (normalized.includes("tecn") || normalized.includes("ingeniero")) return "tecnico";
+  if (normalized.includes("client")) return "cliente";
+  if (normalized.includes("contrat")) return "contratista";
+  return "visita";
+};
+
 const isAdminAuthUser = (user: any) => {
-  const role = normalizeRole(user?.perfil);
-  return role.includes("admin");
+  return canonicalRole(user?.perfil) === "administrador";
 };
 
 const SYNC_WRITABLE_TABLES = new Set([
@@ -75,11 +84,35 @@ const sanitizeSyncRows = (table: string, rows: any[]) => {
 
 const signAuthToken = (payload: any) => jwt.sign(payload, getJwtSecret(), { expiresIn: "12h" });
 
+const getCookie = (req: any, name: string) => {
+  const cookies = String(req.headers?.cookie || "").split(";");
+  for (const cookie of cookies) {
+    const [key, ...value] = cookie.trim().split("=");
+    if (key === name) return decodeURIComponent(value.join("="));
+  }
+  return null;
+};
+
+const setAuthCookie = (res: any, token: string) => {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  res.setHeader("Set-Cookie", `cmms_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200${secure}`);
+};
+
+const clearAuthCookie = (res: any) => {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  res.setHeader("Set-Cookie", `cmms_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`);
+};
+
 const verifyAuthToken = (req: any) => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !String(authHeader).startsWith("Bearer ")) return null;
-    const token = String(authHeader).slice("Bearer ".length).trim();
+    const bearer = authHeader && String(authHeader).startsWith("Bearer ")
+      ? String(authHeader).slice("Bearer ".length).trim()
+      : null;
+    const token = bearer && bearer !== "cookie-session"
+      ? bearer
+      : getCookie(req, "cmms_session");
+    if (!token) return null;
     return jwt.verify(token, getJwtSecret()) as any;
   } catch (e) {
     return null;
@@ -100,13 +133,67 @@ const requireRole = (allowedRoles: string[]) => (req: any, res: any, next: any) 
   if (!user) {
     return res.status(401).json({ success: false, error: "No autorizado - token inválido o ausente" });
   }
-  const allowed = allowedRoles.map(normalizeRole);
-  if (!allowed.includes(normalizeRole(user.perfil))) {
+  const allowed = allowedRoles.map(canonicalRole);
+  if (!allowed.includes(canonicalRole(user.perfil))) {
     return res.status(403).json({ success: false, error: "No autorizado - rol insuficiente" });
   }
   req.authUser = user;
   next();
 };
+
+const requireWriteRole = (req: any, res: any, next: any) => {
+  const user = verifyAuthToken(req);
+  if (!user) {
+    return res.status(401).json({ success: false, error: "No autorizado - token inválido o ausente" });
+  }
+  if (!["administrador", "supervisor", "tecnico"].includes(canonicalRole(user.perfil))) {
+    return res.status(403).json({ success: false, error: "No autorizado - rol insuficiente" });
+  }
+  req.authUser = user;
+  next();
+};
+
+const publicError = (error: unknown, fallback = "Error interno del servidor") =>
+  process.env.NODE_ENV === "production"
+    ? fallback
+    : error instanceof Error
+      ? error.message
+      : fallback;
+
+const securityHeaders = (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(self), geolocation=(self), microphone=(self)");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com; connect-src 'self' https: wss:; worker-src 'self' blob:"
+    );
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+};
+
+const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
+const rateLimit = (name: string, max: number, windowMs: number) =>
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    const key = `${name}:${forwarded || req.socket.remoteAddress || "unknown"}`;
+    const now = Date.now();
+    const bucket = rateLimitBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      rateLimitBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    bucket.count += 1;
+    if (bucket.count > max) {
+      res.setHeader("Retry-After", String(Math.ceil((bucket.resetAt - now) / 1000)));
+      return res.status(429).json({ success: false, error: "Demasiadas solicitudes" });
+    }
+    next();
+  };
 
 // Neon DB connection OR Mock SQL Simulator fallback
 // Exigido por el usuario: utilizar exclusivamente DATABASE_URL
@@ -127,6 +214,11 @@ const getSql = () => {
   return neon(dbUrl);
 };
 
+const hasPostgresDatabase = () => {
+  const dbUrl = process.env.DATABASE_URL;
+  return Boolean(dbUrl && dbUrl.startsWith("postgres"));
+};
+
 const requireCliente = async (req: any, res: any, next: any) => {
   try {
     const authUser = verifyAuthToken(req);
@@ -135,15 +227,27 @@ const requireCliente = async (req: any, res: any, next: any) => {
     }
     req.authUser = authUser;
 
-    const requestedClienteId = req.params.cliente_id || req.headers['x-client-id'] || req.headers['x-cliente-id'] || req.query.clienteId || req.query.cliente_id;
-    let clienteId = authUser.cliente_id;
-    if (!clienteId && !isAdminAuthUser(authUser)) {
-      return res.status(403).json({ success: false, error: 'Tenant (cliente_id) es obligatorio y requerido.' });
-    }
-
+    const requestedClienteId = String(req.params.cliente_id || req.headers['x-client-id'] || req.headers['x-cliente-id'] || req.query.clienteId || req.query.cliente_id || '').trim();
     const sql = getSql();
 
-    // VALIDACIÓN DE AUTORIZACIÓN: validar el usuario firmado en el JWT contra el tenant solicitado.
+    if (isAdminAuthUser(authUser)) {
+      const clienteId = requestedClienteId || authUser.cliente_id;
+      if (!clienteId) {
+        return res.status(403).json({ success: false, error: 'Tenant (cliente_id) no asociado al usuario.' });
+      }
+      req.clienteId = clienteId;
+      return next();
+    }
+
+    const allowedTenants = new Set<string>();
+    if (authUser.cliente_id) allowedTenants.add(String(authUser.cliente_id));
+    if (Array.isArray(authUser.cliente_ids)) {
+      for (const id of authUser.cliente_ids) {
+        if (id) allowedTenants.add(String(id));
+      }
+    }
+
+    // Validar el usuario firmado contra la base y sus relaciones tenant.
     if (authUser.id) {
       const uId = String(authUser.id).trim();
       const queryUser = await sql`
@@ -154,27 +258,75 @@ const requireCliente = async (req: any, res: any, next: any) => {
       if (queryUser.length === 0) {
         return res.status(403).json({ success: false, error: 'Usuario autenticado no existe en la base de datos.' });
       }
-      const uClienteId = queryUser[0].cliente_id;
-      if (!clienteId) clienteId = uClienteId || requestedClienteId;
-      if (uClienteId) {
-        if (uClienteId && uClienteId !== clienteId && uClienteId !== 'cliente-default-001') {
-          return res.status(403).json({
-            success: false,
-            error: `Acceso no autorizado: usuario ${uId} pertenece al cliente ${uClienteId}, no a ${clienteId}.`
-          });
-        }
+      const userUuid = queryUser[0].uuid_sync;
+      if (queryUser[0].cliente_id) allowedTenants.add(String(queryUser[0].cliente_id));
+      const tenantRows = await sql`SELECT cliente_id FROM user_clientes WHERE user_id = ${userUuid}`;
+      for (const row of tenantRows) {
+        if (row.cliente_id) allowedTenants.add(String(row.cliente_id));
       }
     }
+
+    const clienteId = requestedClienteId || authUser.cliente_id || Array.from(allowedTenants)[0];
     if (!clienteId) {
       return res.status(403).json({ success: false, error: 'Tenant (cliente_id) no asociado al usuario.' });
+    }
+    if (!allowedTenants.has(String(clienteId))) {
+      return res.status(403).json({
+        success: false,
+        error: `Acceso no autorizado al cliente ${clienteId}.`
+      });
     }
     
     req.clienteId = clienteId;
 
     next();
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: publicError(error) });
   }
+};
+
+const cleanRut = (value: any) => String(value || '').replace(/[^0-9kK]/g, '').toUpperCase();
+
+const isValidRut = (value: any) => {
+  const cleaned = cleanRut(value);
+  if (cleaned.length < 2) return false;
+
+  const body = cleaned.slice(0, -1);
+  const dv = cleaned.slice(-1);
+  let sum = 0;
+  let multiplier = 2;
+
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+
+  const expected = 11 - (sum % 11);
+  const expectedDv = expected === 11 ? '0' : expected === 10 ? 'K' : String(expected);
+  return dv === expectedDv;
+};
+
+const validateClientPayload = (body: any) => {
+  const source = body?.data && typeof body.data === 'object' ? body.data : body;
+  const nombre = String(source?.nombre || source?.empresa || '').trim();
+  const rut = String(source?.rut || '').trim();
+  const plan = source?.plan ? String(source.plan).trim().toLowerCase() : '';
+  const allowedPlans = new Set(['basico', 'basic', 'standard', 'starter', 'profesional', 'professional', 'premium', 'empresarial', 'enterprise', 'demo']);
+
+  if (!nombre) {
+    return { valid: false, error: 'El campo nombre es obligatorio' };
+  }
+  if (!rut) {
+    return { valid: false, error: 'El campo rut es obligatorio' };
+  }
+  if (!isValidRut(rut)) {
+    return { valid: false, error: 'El RUT ingresado no es valido' };
+  }
+  if (plan && !allowedPlans.has(plan)) {
+    return { valid: false, error: 'El plan informado no es valido' };
+  }
+
+  return { valid: true, data: { ...source, nombre, empresa: source?.empresa || nombre, rut } };
 };
 
 const validateWorkOrderPayload = (data: any) => {
@@ -240,25 +392,30 @@ function getGeminiClient(): GoogleGenAI {
 async function ensureTables() {
   try {
     const sql = getSql();
-    console.log("🧹 [MIGRACIÓN QA SENIOR] - Depurando tablas 'cmms_' inactivas y normalizando base de datos...");
+    console.log("🧹 [MIGRACIÓN QA SENIOR] - Normalizando base de datos...");
 
-    // 1. Eliminar de forma segura todas las tablas cmms_* obsoletas
-    const obsoleteTables = [
-      'clients', 'branches',
-      'cmms_usuarios_clientes', 
-      'cmms_informes_mantenimiento', 'cmms_sla_config', 'cmms_pm_planes', 
-      'cmms_pm_plantillas', 'cmms_checklist_plantillas', 'cmms_push_subscriptions', 
-      'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_tickets', 
-      'cmms_mantenimientos', 'cmms_equipos', 'cmms_users', 'cmms_clientes',
-      'playing_with_neon', 'providers', 'cmms_one_shot_migrations'
-    ];
+    // La simulación offline implementa consultas etiquetadas, no SQL arbitrario.
+    // Las eliminaciones de tablas obsoletas sólo corresponden a PostgreSQL/Neon.
+    if (hasPostgresDatabase()) {
+      const obsoleteTables = [
+        'clients', 'branches',
+        'cmms_usuarios_clientes',
+        'cmms_informes_mantenimiento', 'cmms_sla_config', 'cmms_pm_planes',
+        'cmms_pm_plantillas', 'cmms_checklist_plantillas', 'cmms_push_subscriptions',
+        'cmms_ot_eventos', 'cmms_ot_comentarios', 'cmms_tickets',
+        'cmms_mantenimientos', 'cmms_equipos', 'cmms_users', 'cmms_clientes',
+        'playing_with_neon', 'providers'
+      ];
 
-    for (const table of obsoleteTables) {
-      try {
-        await sql.unsafe(`DROP TABLE IF EXISTS ${table} CASCADE`);
-      } catch (err: any) {
-        console.log(`Info: No se pudo eliminar la tabla obsoleta ${table}:`, err.message);
+      for (const table of obsoleteTables) {
+        try {
+          await sql.unsafe(`DROP TABLE IF EXISTS ${table} CASCADE`);
+        } catch (err: any) {
+          console.log(`Info: No se pudo eliminar la tabla obsoleta ${table}:`, err.message);
+        }
       }
+    } else {
+      console.log("ℹ️ Modo offline: limpieza de tablas PostgreSQL omitida.");
     }
 
     // 2. Crear las tablas principales de la Aplicación si no existen
@@ -497,8 +654,11 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+  app.disable("x-powered-by");
+  app.set("trust proxy", 1);
+  app.use(securityHeaders);
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '2mb', extended: true }));
   app.use((req, res, next) => {
     if (req.url.startsWith('/api')) {
       console.log(`[REQ] ${req.method} ${req.url}`);
@@ -511,7 +671,7 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
-  app.post("/api/auth", async (req, res) => {
+  app.post("/api/auth", rateLimit("auth", 20, 15 * 60 * 1000), async (req, res) => {
     try {
       const correo = String(req.body.correo || req.body.email || '').trim();
       const pin = String(req.body.pin || req.body.password || '').trim();
@@ -619,6 +779,7 @@ async function startServer() {
         cliente_id: defaultClientId,
         cliente_ids: clienteIds
       });
+      setAuthCookie(res, token);
       res.json({
         success: true,
         user: {
@@ -626,13 +787,17 @@ async function startServer() {
           cliente_id: defaultClientId,
           cliente_ids: clienteIds,
           assigned_clients: assignedClients
-        },
-        token
+        }
       });
     } catch (e: any) {
       console.error("Auth error:", e);
-      res.status(500).json({ success: false, error: e.message });
+      res.status(500).json({ success: false, error: publicError(e) });
     }
+  });
+
+  app.post("/api/logout", (_req, res) => {
+    clearAuthCookie(res);
+    return res.json({ success: true });
   });
 
   app.post("/api/change-pin", requireAuth, async (req: any, res: any) => {
@@ -657,7 +822,7 @@ async function startServer() {
       await sql`UPDATE users SET pin_hash = ${nextHash}, pin = NULL, updated_at = ${Date.now()} WHERE uuid_sync = ${rows[0].uuid_sync}`;
       return res.json({ success: true });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -687,7 +852,7 @@ async function startServer() {
         }))
       });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -793,15 +958,53 @@ async function startServer() {
         }
       });
     } catch (error: any) {
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/ocr", async (req, res) => {
+  app.post("/api/auth/biometric-verify", requireAuth, rateLimit("biometric", 20, 15 * 60 * 1000), async (req: any, res: any) => {
+    return res.status(501).json({
+      success: false,
+      error: "Autenticación biométrica temporalmente deshabilitada"
+    });
+    /*
+    try {
+      const email = String(req.body?.email || "").trim().toLowerCase();
+      const deviceId = String(req.body?.deviceId || "").trim();
+      if (!email || !deviceId || deviceId.length > 256) {
+        return res.status(400).json({ success: false, error: "Datos biométricos inválidos" });
+      }
+      const sql = getSql();
+      const users = await sql`
+        SELECT uuid_sync, id, correo, activo, data
+        FROM users
+        WHERE (uuid_sync = ${req.authUser.uuid_sync} OR id = ${req.authUser.id})
+        LIMIT 1
+      `;
+      const user = users[0];
+      const storedEmail = String(user?.correo || user?.data?.email || "").trim().toLowerCase();
+      if (!user || user.activo === false || storedEmail !== email) {
+        return res.status(403).json({ success: false, error: "Verificación rechazada" });
+      }
+      return res.json({ success: true });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: publicError(error) });
+    }
+    */
+  });
+
+  app.post("/api/ocr", requireWriteRole, rateLimit("ocr", 10, 60 * 1000), async (req, res) => {
     try {
       const imageBase64 = req.body.imageBase64 || req.body.image;
-      const mimeType = req.body.mimeType;
+      const mimeType = String(req.body.mimeType || "image/jpeg").toLowerCase();
       if (!imageBase64) return res.status(400).json({ error: 'imageBase64 requerido' });
+      if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
+        return res.status(415).json({ success: false, error: "Formato de imagen no permitido" });
+      }
+      const normalizedImage = String(imageBase64).replace(/^data:[^;]+;base64,/, "");
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalizedImage) || normalizedImage.length > 7_000_000) {
+        return res.status(413).json({ success: false, error: "Imagen inválida o demasiado grande" });
+      }
       
       const client = getGeminiClient();
       const prompt = "Extrae de esta placa HVAC o similares: Marca, Modelo, N Serie, Refrigerante, Voltaje, Amperaje Nominal y Capacidad. REGLA: Si la capacidad esta en kW convierte: 1kW=3412 BTU. Si en Toneladas: 1TR=12000 BTU. Devuelve SOLO un objeto JSON con estas keys: {'marca':'','modelo':'','n_serie':'','refrigerante':'','capacidad_btu':'','voltaje':'','amperaje':''}";
@@ -809,7 +1012,7 @@ async function startServer() {
       const imagePart = {
         inlineData: {
           mimeType: mimeType || 'image/jpeg',
-          data: imageBase64,
+          data: normalizedImage,
         },
       };
 
@@ -831,7 +1034,7 @@ async function startServer() {
       }
     } catch (error: any) {
       console.error("OCR API error:", error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error, "No fue posible procesar la imagen") });
     }
   });
 
@@ -884,7 +1087,19 @@ function resolveTable(name: string): string | null {
       let rows;
       
       switch (table) {
-        case 'assets': rows = globalScope ? await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'assets': {
+          const tag = req.query.tag ? String(req.query.tag) : '';
+          if (tag) {
+            rows = globalScope
+              ? await sql`SELECT * FROM assets WHERE tag = ${tag} AND deleted_at IS NULL`
+              : await sql`SELECT * FROM assets WHERE tag = ${tag} AND cliente_id = ${clienteId} AND deleted_at IS NULL`;
+          } else {
+            rows = globalScope
+              ? await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
+              : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`;
+          }
+          break;
+        }
         case 'users': {
           const rawUsers = globalScope
             ? await sql`SELECT * FROM users WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
@@ -919,7 +1134,7 @@ function resolveTable(name: string): string | null {
       res.json({ success: true, data: rows });
     } catch (error: any) {
       console.error(`Error en GET /api/${table}:`, error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -940,7 +1155,7 @@ function resolveTable(name: string): string | null {
       }
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -949,7 +1164,7 @@ function resolveTable(name: string): string | null {
       const sql = getSql();
       const clienteId = getTenantFromAuth(req, res);
       if (!clienteId) return;
-      const tag = req.query.tag || req.body.tag;
+      const tag = String(req.query.tag || req.body.tag || '').trim();
       
       if (req.query.action === 'mantenimiento' || req.body.mantenimiento) {
         if (!tag) return res.status(400).json({ error: "Falta tag" });
@@ -970,11 +1185,17 @@ function resolveTable(name: string): string | null {
         `;
         return res.json({ success: true, message: "Mantenimiento registrado." });
       } else {
+        const nombreValue = String(req.body.nombre || '').trim();
+        if (!tag) return res.status(400).json({ success: false, error: "El campo tag es obligatorio" });
+        if (!nombreValue) return res.status(400).json({ success: false, error: "El campo nombre es obligatorio" });
         const { nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas } = req.body;
+        const now = Date.now();
+        const uuidSync = req.body.uuid_sync || tag;
+        const sucursalId = req.body.sucursal_id || req.body.sucursalId || 'sucursal-default-001';
         
         const resData = await sql`
-          INSERT INTO assets (tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas, cliente_id)
-          VALUES (${tag}, ${nombre}, ${tipo || ''}, ${marca || ''}, ${modelo || ''}, ${serie || ''}, ${ubicacion || ''}, ${area || ''}, ${capacidad || ''}, ${voltaje || ''}, ${corriente || ''}, ${refrigerante || ''}, ${fecha_instalacion || ''}, ${vida_util || 0}, ${estado || 'operativo'}, ${ultimo_mantenimiento || null}, ${proximo_mantenimiento || null}, ${horas_operacion || 0}, ${tecnicos ? JSON.stringify(tecnicos) : null}, ${notas || ''}, ${clienteId})
+          INSERT INTO assets (tag, nombre, tipo, marca, modelo, serie, ubicacion, area, capacidad, voltaje, corriente, refrigerante, fecha_instalacion, vida_util, estado, ultimo_mantenimiento, proximo_mantenimiento, horas_operacion, tecnicos, notas, uuid_sync, updated_at, created_at, cliente_id, sucursal_id)
+          VALUES (${tag}, ${nombreValue}, ${tipo || ''}, ${marca || ''}, ${modelo || ''}, ${serie || ''}, ${ubicacion || ''}, ${area || ''}, ${capacidad || ''}, ${voltaje || ''}, ${corriente || ''}, ${refrigerante || ''}, ${fecha_instalacion || ''}, ${vida_util || 0}, ${estado || 'operativo'}, ${ultimo_mantenimiento || null}, ${proximo_mantenimiento || null}, ${horas_operacion || 0}, ${tecnicos ? JSON.stringify(tecnicos) : null}, ${notas || ''}, ${uuidSync}, ${req.body.updated_at || now}, ${req.body.created_at || now}, ${clienteId}, ${sucursalId})
           ON CONFLICT (tag) DO UPDATE SET
             nombre = EXCLUDED.nombre,
             tipo = EXCLUDED.tipo,
@@ -995,14 +1216,18 @@ function resolveTable(name: string): string | null {
             horas_operacion = EXCLUDED.horas_operacion,
             tecnicos = EXCLUDED.tecnicos,
             notas = EXCLUDED.notas,
-            cliente_id = EXCLUDED.cliente_id
+            uuid_sync = EXCLUDED.uuid_sync,
+            updated_at = EXCLUDED.updated_at,
+            cliente_id = EXCLUDED.cliente_id,
+            sucursal_id = EXCLUDED.sucursal_id
+          WHERE assets.cliente_id = EXCLUDED.cliente_id
           RETURNING *;
         `;
         return res.json({ success: true, data: resData[0] });
       }
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1017,7 +1242,7 @@ function resolveTable(name: string): string | null {
       res.json({ success: true, message: "Registro dado de baja exitosamente." });
     } catch (error: any) {
       console.error(error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1030,7 +1255,7 @@ function resolveTable(name: string): string | null {
       const rows = await sql`SELECT * FROM clientes WHERE deleted_at IS NULL`;
       res.json({ success: true, data: rows });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1043,18 +1268,23 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
   app.post("/api/v1/clients", requireRole(["administrador"]), async (req: any, res: any) => {
     try {
-      const { id, uuid_sync, data } = req.body;
+      const validation = validateClientPayload(req.body);
+      if (!validation.valid) {
+        return res.status(400).json({ success: false, error: validation.error });
+      }
+      const { id, uuid_sync } = req.body;
+      const data = validation.data;
       const sql = getSql();
       const finalId = id || uuid_sync || `client-${Date.now()}`;
       const finalUuid = uuid_sync || finalId;
       const updated_at = req.body.updated_at || Date.now();
-      const strData = typeof data === 'object' ? JSON.stringify(data) : (data || '{}');
+      const strData = JSON.stringify(data);
 
       await sql`
         INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at)
@@ -1064,7 +1294,7 @@ function resolveTable(name: string): string | null {
 
       res.status(201).json({ success: true, id: finalId, uuid_sync: finalUuid });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1084,7 +1314,7 @@ function resolveTable(name: string): string | null {
 
       res.json({ success: true, message: "Cliente actualizado con éxito" });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1098,7 +1328,7 @@ function resolveTable(name: string): string | null {
 
       res.json({ success: true, message: "Cliente dado de baja" });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1109,7 +1339,7 @@ function resolveTable(name: string): string | null {
       const rows = await sql`SELECT * FROM sucursales WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
       res.json({ success: true, data: rows });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1122,11 +1352,11 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/v1/:cliente_id/branches", requireCliente, async (req: any, res: any) => {
+  app.post("/api/v1/:cliente_id/branches", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { id, uuid_sync, data } = req.body;
@@ -1138,21 +1368,23 @@ function resolveTable(name: string): string | null {
       await sql`
         INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at)
         VALUES (${finalId}, ${req.clienteId}, ${finalUuid}, ${strData}::jsonb, ${updated_at}, ${updated_at})
-        ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id;
+        ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+        WHERE sucursales.cliente_id = EXCLUDED.cliente_id;
       `;
       await sql`
         INSERT INTO branches (id, data, uuid_sync, updated_at, created_at, cliente_id)
         VALUES (${finalId}, ${strData}::jsonb, ${finalUuid}, ${updated_at}, ${updated_at}, ${req.clienteId})
-        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
+        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+        WHERE branches.cliente_id = EXCLUDED.cliente_id;
       `;
 
       res.status(201).json({ success: true, id: finalId, uuid_sync: finalUuid });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.put("/api/v1/:cliente_id/branches/:branch_id", requireCliente, async (req: any, res: any) => {
+  app.put("/api/v1/:cliente_id/branches/:branch_id", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { branch_id } = req.params;
@@ -1173,11 +1405,11 @@ function resolveTable(name: string): string | null {
 
       res.json({ success: true, message: "Branch actualizada exitosamente" });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.delete("/api/v1/:cliente_id/branches/:branch_id", requireCliente, async (req: any, res: any) => {
+  app.delete("/api/v1/:cliente_id/branches/:branch_id", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { branch_id } = req.params;
@@ -1188,7 +1420,7 @@ function resolveTable(name: string): string | null {
 
       res.json({ success: true, message: "Sucursal dada de baja con éxito" });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1227,7 +1459,7 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1244,11 +1476,11 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/v1/:cliente_id/branches/:branch_id/assets", requireCliente, async (req: any, res: any) => {
+  app.post("/api/v1/:cliente_id/branches/:branch_id/assets", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { branch_id } = req.params;
@@ -1290,11 +1522,11 @@ function resolveTable(name: string): string | null {
       `;
       res.status(201).json({ success: true, uuid_sync });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.put("/api/v1/:cliente_id/branches/:branch_id/assets/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.put("/api/v1/:cliente_id/branches/:branch_id/assets/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { branch_id, uuid_sync } = req.params;
@@ -1318,11 +1550,11 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Asset actualizado con éxito" });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.delete("/api/v1/:cliente_id/branches/:branch_id/assets/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.delete("/api/v1/:cliente_id/branches/:branch_id/assets/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { branch_id, uuid_sync } = req.params;
@@ -1333,7 +1565,7 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Asset dado de baja exitosamente" });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1344,7 +1576,7 @@ function resolveTable(name: string): string | null {
       const rows = await sql`SELECT * FROM inventory WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
       res.json({ success: true, data: rows });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1357,11 +1589,11 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/v1/:cliente_id/inventory", requireCliente, async (req: any, res: any) => {
+  app.post("/api/v1/:cliente_id/inventory", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { id, uuid_sync, data } = req.body;
@@ -1373,15 +1605,16 @@ function resolveTable(name: string): string | null {
       await sql`
         INSERT INTO inventory (id, uuid_sync, data, updated_at, created_at, cliente_id)
         VALUES (${finalId}, ${finalUuid}, ${strData}::jsonb, ${updated_at}, ${updated_at}, ${req.clienteId})
-        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
+        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+        WHERE inventory.cliente_id = EXCLUDED.cliente_id;
       `;
       res.status(201).json({ success: true, id: finalId, uuid_sync: finalUuid });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.put("/api/v1/:cliente_id/inventory/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.put("/api/v1/:cliente_id/inventory/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { data } = req.body;
@@ -1395,11 +1628,11 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Item de inventario actualizado" });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.delete("/api/v1/:cliente_id/inventory/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.delete("/api/v1/:cliente_id/inventory/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const ts = Date.now();
@@ -1409,7 +1642,7 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Item de inventario eliminado" });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1420,7 +1653,7 @@ function resolveTable(name: string): string | null {
       const rows = await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
       res.json({ success: true, data: rows });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1436,11 +1669,11 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/v1/:cliente_id/planning", requireCliente, async (req: any, res: any) => {
+  app.post("/api/v1/:cliente_id/planning", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { id, uuid_sync, data } = req.body;
@@ -1452,15 +1685,16 @@ function resolveTable(name: string): string | null {
       await sql`
         INSERT INTO preventive_maintenance (id, uuid_sync, data, updated_at, created_at, cliente_id)
         VALUES (${finalId}, ${finalUuid}, ${strData}::jsonb, ${updated_at}, ${updated_at}, ${req.clienteId})
-        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
+        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+        WHERE preventive_maintenance.cliente_id = EXCLUDED.cliente_id;
       `;
       res.status(201).json({ success: true, id: finalId, uuid_sync: finalUuid });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.put("/api/v1/:cliente_id/planning/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.put("/api/v1/:cliente_id/planning/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const { data } = req.body;
@@ -1474,11 +1708,11 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Planificación actualizada" });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.delete("/api/v1/:cliente_id/planning/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.delete("/api/v1/:cliente_id/planning/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const ts = Date.now();
@@ -1488,7 +1722,7 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Planificación eliminada exitosamente" });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1499,7 +1733,7 @@ function resolveTable(name: string): string | null {
       const rows = await sql`SELECT * FROM work_orders WHERE cliente_id = ${req.clienteId} AND deleted_at IS NULL`;
       res.json({ success: true, data: rows });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1515,11 +1749,11 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/v1/:cliente_id/work-orders", requireCliente, async (req: any, res: any) => {
+  app.post("/api/v1/:cliente_id/work-orders", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const d = req.body;
@@ -1536,15 +1770,16 @@ function resolveTable(name: string): string | null {
       await sql`
         INSERT INTO work_orders (id, uuid_sync, data, updated_at, created_at, cliente_id)
         VALUES (${id}, ${uuid_sync}, ${strData}::jsonb, ${updated_at}, ${updated_at}, ${req.clienteId})
-        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at;
+        ON CONFLICT (uuid_sync) DO UPDATE SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+        WHERE work_orders.cliente_id = EXCLUDED.cliente_id;
       `;
       res.status(201).json({ success: true, id, uuid_sync });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.put("/api/v1/:cliente_id/work-orders/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.put("/api/v1/:cliente_id/work-orders/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const d = req.body;
@@ -1562,11 +1797,11 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Órden de trabajo actualizada exitosamente" });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.delete("/api/v1/:cliente_id/work-orders/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.delete("/api/v1/:cliente_id/work-orders/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const ts = Date.now();
@@ -1576,7 +1811,7 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, message: "Órden de trabajo eliminada" });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1591,11 +1826,11 @@ function resolveTable(name: string): string | null {
       `;
       res.json({ success: true, data: rows });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/v1/:cliente_id/audit-logs", requireCliente, async (req: any, res: any) => {
+  app.post("/api/v1/:cliente_id/audit-logs", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const d = req.body;
@@ -1610,7 +1845,7 @@ function resolveTable(name: string): string | null {
       `;
       res.status(201).json({ success: true, id });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -1624,24 +1859,29 @@ function resolveTable(name: string): string | null {
       }
       res.json({ success: true, data: rows[0] });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/v1/:cliente_id/:resource", requireCliente, async (req: any, res: any) => {
+  const V1_WRITABLE_RESOURCES: Record<string, string> = {
+    assets: "assets",
+    inventory: "inventory",
+    planning: "preventive_maintenance",
+    "work-orders": "work_orders",
+    "audit-logs": "audit_logs"
+  };
+
+  app.post("/api/v1/:cliente_id/:resource", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const resource = req.params.resource;
       const sql = getSql();
       const payload = req.body;
       const clienteId = req.clienteId;
 
-      let targetTable = '';
-      if (resource === 'assets') targetTable = 'assets';
-      else if (resource === 'inventory') targetTable = 'inventory';
-      else if (resource === 'planning') targetTable = 'preventive_maintenance';
-      else if (resource === 'work-orders') targetTable = 'work_orders';
-      else if (resource === 'audit-logs') targetTable = 'audit_logs';
-      else targetTable = resource; // Dynamic fallback
+      const targetTable = V1_WRITABLE_RESOURCES[resource];
+      if (!targetTable) {
+        return res.status(400).json({ success: false, error: `Recurso inválido: ${resource}` });
+      }
 
       const id = payload.id || payload.uuid_sync || `gen-${Date.now()}`;
       const uuid_sync = payload.uuid_sync || id;
@@ -1685,7 +1925,8 @@ function resolveTable(name: string): string | null {
             ${d.proximo_mantenimiento || null}, ${d.horas_operacion || 0}, ${d.notas || ''},
             ${uuid_sync}, ${updated_at}, ${created_at}, ${final_cliente_id}, ${final_sucursal_id}, ${latVal}, ${lngVal}
           ) ON CONFLICT (uuid_sync) DO UPDATE SET
-            tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, updated_at = EXCLUDED.updated_at;
+            tag = EXCLUDED.tag, nombre = EXCLUDED.nombre, updated_at = EXCLUDED.updated_at
+          WHERE assets.cliente_id = EXCLUDED.cliente_id;
         `;
       } else {
         const query = `
@@ -1693,18 +1934,19 @@ function resolveTable(name: string): string | null {
           VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (uuid_sync) DO UPDATE SET
             data = EXCLUDED.data,
-            updated_at = EXCLUDED.updated_at;
+            updated_at = EXCLUDED.updated_at
+          WHERE ${targetTable}.cliente_id = EXCLUDED.cliente_id;
         `;
         await (sql as any)(query, [id, strData, uuid_sync, updated_at, created_at, clienteId]);
       }
 
       res.status(200).json({ success: true, uuid_sync, resolved_id: id });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.put("/api/v1/:cliente_id/:resource/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.put("/api/v1/:cliente_id/:resource/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const resource = req.params.resource;
       const uuid_sync = req.params.uuid_sync;
@@ -1712,13 +1954,10 @@ function resolveTable(name: string): string | null {
       const payload = req.body;
       const clienteId = req.clienteId;
 
-      let targetTable = '';
-      if (resource === 'assets') targetTable = 'assets';
-      else if (resource === 'inventory') targetTable = 'inventory';
-      else if (resource === 'planning') targetTable = 'preventive_maintenance';
-      else if (resource === 'work-orders') targetTable = 'work_orders';
-      else if (resource === 'audit-logs') targetTable = 'audit_logs';
-      else targetTable = resource;
+      const targetTable = V1_WRITABLE_RESOURCES[resource];
+      if (!targetTable) {
+        return res.status(400).json({ success: false, error: `Recurso inválido: ${resource}` });
+      }
 
       if (targetTable === 'work_orders') {
         validateWorkOrderPayload(payload);
@@ -1770,11 +2009,11 @@ function resolveTable(name: string): string | null {
 
       res.json({ success: true, message: "Registro actualizado exitosamente" });
     } catch (error: any) {
-      res.status(400).json({ success: false, error: error.message });
+      res.status(400).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.delete("/api/v1/:cliente_id/:resource/:uuid_sync", requireCliente, async (req: any, res: any) => {
+  app.delete("/api/v1/:cliente_id/:resource/:uuid_sync", requireCliente, requireWriteRole, async (req: any, res: any) => {
     try {
       const resource = req.params.resource;
       const uuid_sync = req.params.uuid_sync;
@@ -1799,12 +2038,17 @@ function resolveTable(name: string): string | null {
 
       res.json({ success: true, message: "Registro dado de baja exitosamente" });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
   // NEW: GRANULAR REST ENDPOINTS (Replaces Bulk Sync for Modern CMMS)
-  app.post("/api/cmms/:resource", requireCliente, async (req: any, res: any) => {
+  app.post("/api/cmms/:resource", requireCliente, requireWriteRole, async (req: any, res: any) => {
+    return res.status(410).json({
+      success: false,
+      error: "Endpoint granular retirado. Utilice /api/sync para persistir cambios."
+    });
+    /*
     try {
       const resource = req.params.resource;
       const idempotencyKey = req.headers['idempotency-key'];
@@ -1878,12 +2122,13 @@ function resolveTable(name: string): string | null {
 
     } catch (e: any) {
       console.error("Granular rest endpoint error:", e);
-      return res.status(500).json({ success: false, error: e.message });
+      return res.status(500).json({ success: false, error: publicError(e) });
     }
+    */
   });
 
   // NEW GLOBAL SYNC ENDPOINT
-  app.post('/api/sync', requireAuth, async (req, res) => {
+  app.post('/api/sync', requireWriteRole, async (req, res) => {
     const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body;
     try {
       const sql = getSql();
@@ -1959,22 +2204,22 @@ function resolveTable(name: string): string | null {
                 ultimo_mantenimiento = EXCLUDED.ultimo_mantenimiento, proximo_mantenimiento = EXCLUDED.proximo_mantenimiento,
                 horas_operacion = EXCLUDED.horas_operacion, notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id,
                 updated_at = EXCLUDED.updated_at
-              WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL;
+              WHERE assets.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL);
             `;
           } else {
             const id = data.id || uuid_sync;
             const strData = JSON.stringify(data);
             
             switch (table) {
-              case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL`; break;
-              case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL`; break;
-              case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL`; break;
-              case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL`; break;
-              case 'calendar': await sql`INSERT INTO calendar (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > calendar.updated_at OR calendar.updated_at IS NULL`; break;
-              case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL`; break;
-              case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL`; break;
-              case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL`; break;
-              case 'inventory': await sql`INSERT INTO inventory (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL`; break;
+              case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE preventive_maintenance.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL)`; break;
+              case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE work_orders.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL)`; break;
+              case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE reports.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL)`; break;
+              case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE events.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL)`; break;
+              case 'calendar': await sql`INSERT INTO calendar (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE calendar.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > calendar.updated_at OR calendar.updated_at IS NULL)`; break;
+              case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE catalog_asset_types.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL)`; break;
+              case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE settings.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL)`; break;
+              case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE ordenes_servicio.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL)`; break;
+              case 'inventory': await sql`INSERT INTO inventory (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE inventory.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL)`; break;
               case 'clientes': {
                 const clientRowId = uuid_sync;
                 await sql`INSERT INTO clientes (id, uuid_sync, data, updated_at, created_at) VALUES (${clientRowId}, ${uuid_sync}, ${strData}, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET uuid_sync = EXCLUDED.uuid_sync, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > clientes.updated_at OR clientes.updated_at IS NULL`;
@@ -1985,7 +2230,7 @@ function resolveTable(name: string): string | null {
                 if (!branchClienteId) throw new Error('cliente_id requerido para sincronizar sucursal');
                 const clientExists = await sql`SELECT 1 FROM clientes WHERE id = ${branchClienteId} OR uuid_sync = ${branchClienteId}`;
                 if (!clientExists || clientExists.length === 0) throw new Error(`Cliente ${branchClienteId} no existe para sincronizar sucursal`);
-                await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${branchClienteId}, ${uuid_sync}, ${strData}, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET cliente_id = EXCLUDED.cliente_id, uuid_sync = EXCLUDED.uuid_sync, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL`;
+                await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${branchClienteId}, ${uuid_sync}, ${strData}, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET cliente_id = EXCLUDED.cliente_id, uuid_sync = EXCLUDED.uuid_sync, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE sucursales.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL)`;
                 break;
               }
               case 'audit_logs':
@@ -1999,7 +2244,7 @@ function resolveTable(name: string): string | null {
           }
         } catch (err: any) {
           status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
-          errorMsg = err.message;
+          errorMsg = publicError(err, "No fue posible sincronizar el registro");
         }
         return { uuid_sync, table, result: status, error: errorMsg, folio_oficial: data.tag || data.id };
       });
@@ -2085,7 +2330,7 @@ function resolveTable(name: string): string | null {
           }
         } catch (err: any) {
           status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
-          errorMsg = err.message;
+          errorMsg = publicError(err, "No fue posible sincronizar el registro");
         }
         return { uuid_sync, table, result: status, error: errorMsg };
       });
@@ -2174,11 +2419,11 @@ function resolveTable(name: string): string | null {
       res.json({ success: true, results, serverChanges, serverTime });
     } catch (error: any) {
       console.error('[SYNC ERROR]:', error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
-  app.post("/api/sync/:table", requireAuth, async (req, res) => {
+  app.post("/api/sync/:table", requireWriteRole, async (req, res) => {
     const rawTable = req.params.table;
     const table = resolveTable(rawTable);
     const { records, operation } = req.body;
@@ -2333,7 +2578,7 @@ function resolveTable(name: string): string | null {
       res.json({ success: true, message: "Sync successful", results });
     } catch (error: any) {
       console.error("Sync Error:", error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -2400,7 +2645,7 @@ function resolveTable(name: string): string | null {
       res.status(400).json({ error: "Unsupported method" });
     } catch (error: any) {
       console.error("[EXPORT ERROR]", error);
-      res.status(500).json({ success: false, error: error.message });
+      res.status(500).json({ success: false, error: publicError(error) });
     }
   });
 
@@ -2428,7 +2673,7 @@ function resolveTable(name: string): string | null {
 
       res.json({ connected: true, missingTables, counts });
     } catch (e: any) {
-       res.status(500).json({ connected: false, error: e.message });
+       res.status(500).json({ connected: false, error: publicError(e) });
     }
   });
 
@@ -2437,19 +2682,19 @@ function resolveTable(name: string): string | null {
       await ensureTables();
       res.json({ migrated: true, schema: "ok" });
     } catch (e: any) {
-       res.status(500).json({ migrated: false, error: e.message });
+       res.status(500).json({ migrated: false, error: publicError(e) });
     }
   });
 
   app.post("/api/admin/clone-production-db", requireRole(["administrador"]), express.json(), async (req, res) => {
     try {
-      const sourceUrl = req.body.prodUrl || process.env.PROD_DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
-      const mode = req.body.mode || 'merge'; // 'merge' or 'overwrite'
+      const sourceUrl = process.env.PROD_DATABASE_URL || process.env.PRODUCTION_DATABASE_URL;
+      const mode = req.body.mode === 'overwrite' ? 'overwrite' : 'merge';
       
       if (!sourceUrl) {
          return res.status(400).json({ 
            success: false, 
-           error: "Debe proporcionar el Connection String (DATABASE_URL) de la base de datos de producción como 'prodUrl' en el cuerpo de la solicitud o configurar la variable de entorno PROD_DATABASE_URL." 
+           error: "PROD_DATABASE_URL no está configurada en el servidor."
          });
       }
 
@@ -2458,6 +2703,12 @@ function resolveTable(name: string): string | null {
            success: false, 
            error: "El Connection String de la base de datos de producción debe comenzar con 'postgres://' o 'postgresql://'." 
          });
+      }
+      if (mode === 'overwrite' && req.body.confirmation !== 'CLONE_PRODUCTION_OVERWRITE') {
+        return res.status(400).json({
+          success: false,
+          error: "La sobrescritura requiere confirmación explícita."
+        });
       }
 
       const targetSql = getSql();
@@ -2474,7 +2725,7 @@ function resolveTable(name: string): string | null {
       } catch (err: any) {
          return res.status(450).json({ 
            success: false, 
-           error: `Error de conexión a la base de datos de producción: ${err.message}` 
+           error: "No fue posible conectar con la base de datos de producción configurada."
          });
       }
 
@@ -2712,7 +2963,7 @@ function resolveTable(name: string): string | null {
           }
           syncStats[table].upserted = upsertedCount;
         } catch (tableErr: any) {
-          syncStats[table] = { fetched: 0, upserted: 0, error: tableErr.message };
+          syncStats[table] = { fetched: 0, upserted: 0, error: publicError(tableErr) };
         }
       }
 
@@ -2723,7 +2974,7 @@ function resolveTable(name: string): string | null {
         stats: syncStats
       });
     } catch (e: any) {
-       res.status(500).json({ success: false, error: e.message });
+       res.status(500).json({ success: false, error: publicError(e) });
     }
   });
 
@@ -2773,7 +3024,7 @@ self.addEventListener('activate', event => {
     res.status(500).json({ 
       success: false, 
       error: "Internal Server Error",
-      message: err.message,
+      message: publicError(err),
       path: req.path
     });
   });

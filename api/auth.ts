@@ -1,5 +1,5 @@
 import { getDb } from './_db.js';
-import { signToken } from './_auth.js';
+import { setAuthCookie, signToken } from './_auth.js';
 import { hashPin, needsArgon2Upgrade, verifyPin } from '../server/passwords.js';
 
 export default async function handler(req: any, res: any) {
@@ -112,6 +112,7 @@ export default async function handler(req: any, res: any) {
       cliente_id: defaultClientId,
       cliente_ids: clienteIds
     });
+    setAuthCookie(res, token);
 
     return res.json({
       success: true,
@@ -120,8 +121,7 @@ export default async function handler(req: any, res: any) {
         cliente_id: defaultClientId,
         cliente_ids: clienteIds,
         assigned_clients: assignedClients
-      },
-      token
+      }
     });
   } catch (error: any) {
     return res.status(503).json({ success: false, error: 'Servicio no disponible', offline: true });

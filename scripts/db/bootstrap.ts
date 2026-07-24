@@ -1,10 +1,18 @@
 import { neon } from "@neondatabase/serverless";
 import { pathToFileURL } from "url";
 import { seedParametricData } from "./parametric-seed";
+import {
+  ensureOneShotMigrationTable,
+  markFreshStartComplete,
+  needsFreshStartReset,
+  resetApplicationData
+} from "./one-time-fresh-start";
 
 type SqlClient = (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>;
 
 export async function ensureDbSchema(sql: SqlClient) {
+  await ensureOneShotMigrationTable(sql);
+
   await sql`CREATE TABLE IF NOT EXISTS cmms_auth_failures (
     email TEXT NOT NULL,
     ip TEXT,
@@ -194,7 +202,16 @@ export async function runDbBootstrap(sql?: SqlClient) {
   }
 
   await ensureDbSchema(client);
+  const shouldReset = await needsFreshStartReset(client);
+  if (shouldReset) {
+    console.log("Applying one-time fresh-start reset...");
+    await resetApplicationData(client);
+  }
   await seedParametricData(client);
+  if (shouldReset) {
+    await markFreshStartComplete(client);
+    console.log("One-time fresh-start reset completed.");
+  }
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

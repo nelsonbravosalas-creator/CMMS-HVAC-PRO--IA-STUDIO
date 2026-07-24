@@ -30,6 +30,8 @@
 
     { "source": "/api/users", "destination": "/api/users.ts" },
     { "source": "/api/auth", "destination": "/api/auth.ts" },
+    { "source": "/api/auth/biometric-verify", "destination": "/api/biometric-verify.ts" },
+    { "source": "/api/logout", "destination": "/api/logout.ts" },
     { "source": "/api/import-data", "destination": "/api/import-data.ts" },
     { "source": "/api/init-db", "destination": "/api/init-db.ts" },
 

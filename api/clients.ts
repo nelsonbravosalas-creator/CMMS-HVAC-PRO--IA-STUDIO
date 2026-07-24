@@ -6,6 +6,42 @@
 import { getDb } from './_db.js';
 import { requireRole } from './_auth.js';
 
+const cleanRut = (value: any) => String(value || '').replace(/[^0-9kK]/g, '').toUpperCase();
+
+const isValidRut = (value: any) => {
+  const cleaned = cleanRut(value);
+  if (cleaned.length < 2) return false;
+
+  const body = cleaned.slice(0, -1);
+  const dv = cleaned.slice(-1);
+  let sum = 0;
+  let multiplier = 2;
+
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+
+  const expected = 11 - (sum % 11);
+  const expectedDv = expected === 11 ? '0' : expected === 10 ? 'K' : String(expected);
+  return dv === expectedDv;
+};
+
+const validateClientPayload = (body: any) => {
+  const source = body?.data && typeof body.data === 'object' ? body.data : body;
+  const nombre = String(source?.nombre || source?.empresa || '').trim();
+  const rut = String(source?.rut || '').trim();
+  const plan = source?.plan ? String(source.plan).trim().toLowerCase() : '';
+  const allowedPlans = new Set(['basico', 'basic', 'standard', 'starter', 'profesional', 'professional', 'premium', 'empresarial', 'enterprise', 'demo']);
+
+  if (!nombre) return { valid: false, error: 'El campo nombre es obligatorio' };
+  if (!rut) return { valid: false, error: 'El campo rut es obligatorio' };
+  if (!isValidRut(rut)) return { valid: false, error: 'El RUT ingresado no es valido' };
+  if (plan && !allowedPlans.has(plan)) return { valid: false, error: 'El plan informado no es valido' };
+
+  return { valid: true, data: { ...source, nombre, empresa: source?.empresa || nombre, rut } };
+};
+
 export default async function handler(req: any, res: any) {
   try {
     const user = requireRole(['administrador'])(req, res);
@@ -115,7 +151,11 @@ export default async function handler(req: any, res: any) {
       }
 
       if (method === 'POST') {
-        const d = body;
+        const validation = validateClientPayload(body);
+        if (!validation.valid) {
+          return res.status(400).json({ success: false, error: validation.error });
+        }
+        const d = validation.data;
         const finalId = d.id || `C-${Date.now()}`;
         const now = Date.now();
         const strData = JSON.stringify(d);
@@ -164,6 +204,6 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
     console.error('Error en /api/clients:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

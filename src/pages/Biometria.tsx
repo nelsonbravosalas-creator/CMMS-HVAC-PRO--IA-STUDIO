@@ -121,6 +121,9 @@ export default function Biometria() {
 
   const startBiometryEnrollment = async () => {
     setBiometriaError("");
+    setBiometryStatus("failed");
+    setBiometriaError("El registro biométrico está temporalmente deshabilitado hasta completar WebAuthn seguro en el servidor.");
+    return;
     setBiometryStatus("scanning");
     setScanProgress(0);
     setScansLeft(3);
@@ -188,45 +191,14 @@ export default function Biometria() {
         }
       }
     } catch (e: any) {
-      console.warn("La API WebAuthn no se pudo completar (posiblemente por estar en un iframe seguro o sin SSL). Activando calibración y firma local certificada.");
+      console.warn("La API WebAuthn no se pudo completar.", e);
+      setBiometryStatus("failed");
+      setBiometriaError("El dispositivo no pudo completar una verificación WebAuthn segura. No se registró ninguna huella.");
     } finally {
       clearInterval(timer);
       setScanTimeoutCountdown(null);
     }
-
-    // Fallback: Proceso de calibración táctil visual
-    const interval = setInterval(() => {
-      setScanProgress(p => {
-        if (p >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return p + 10;
-      });
-    }, 250);
   };
-
-  useEffect(() => {
-    if (biometryStatus === "scanning" && scanProgress === 100 && scansLeft > 0) {
-      if (scansLeft > 1) {
-        setTimeout(() => {
-          setScansLeft(prev => prev - 1);
-          setScanProgress(0);
-        }, 600);
-      } else {
-        // Registro finalizado mediante calibración local certificada
-        setBiometryStatus("registered");
-        const userEmail = currentUserEmail;
-        if (!userEmail) return;
-        const simulatedCredId = `SIM_FINGERPRINT_${userEmail.toUpperCase()}_${Date.now()}`;
-        
-        // Guardar el archivo simulado de huella digital en local storage
-        localStorage.setItem(`biometry_credential_id_${userEmail}`, simulatedCredId);
-        localStorage.setItem(`biometry_active_${userEmail}`, "true");
-        localStorage.setItem(`biometry_registered_email`, userEmail);
-      }
-    }
-  }, [scanProgress, biometryStatus, scansLeft, currentUser]);
 
   const removeBiometry = () => {
     setBiometryStatus("not_configured");

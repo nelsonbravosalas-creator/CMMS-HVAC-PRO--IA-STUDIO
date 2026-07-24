@@ -128,7 +128,8 @@ export default async function handler(req: any, res: any) {
           hallazgos = EXCLUDED.hallazgos, acciones = EXCLUDED.acciones,
           repuestos = EXCLUDED.repuestos, updated_at = EXCLUDED.updated_at,
           data = EXCLUDED.data
-        WHERE EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL
+        WHERE preventive_maintenance.cliente_id = EXCLUDED.cliente_id
+          AND (EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL)
       `;
       return res.json({ success: true, data: { id: finalId } });
     }
@@ -170,6 +171,6 @@ export default async function handler(req: any, res: any) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

@@ -139,10 +139,14 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         reader.readAsDataURL(file);
       });
       const base64Data = await base64Promise;
+      const token = sessionStorage.getItem('auth_token');
 
       const response = await fetch('/api/ocr', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ 
           image: base64Data,
           mimeType: file.type 

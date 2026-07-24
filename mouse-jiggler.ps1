@@ -60,6 +60,8 @@ $pauseStartBase = "13:30"
 $pauseStartJitterMinutes = 5
 $pauseEndBase = "14:40"
 $pauseEndJitterMinutes = 10
+$stopBase = "18:10"
+$stopJitterMinutes = 4
 
 function New-DailyPauseWindow {
     param(
@@ -82,6 +84,15 @@ function New-DailyPauseWindow {
     }
 }
 
+function New-DailyStopTime {
+    param(
+        [datetime]$Date
+    )
+
+    $Date.Date.Add([TimeSpan]::Parse($stopBase)).
+        AddMinutes((Get-Random -Minimum (-$stopJitterMinutes) -Maximum ($stopJitterMinutes + 1)))
+}
+
 function Enable-KeepAwake {
     [IdleBlocker]::SetThreadExecutionState(
         [IdleBlocker+EXECUTION_STATE]::ES_CONTINUOUS -bor
@@ -97,22 +108,32 @@ function Disable-KeepAwake {
 Write-Host "Mouse jiggler activo. Mueve el mouse cada $intervalSeconds segundos."
 Write-Host "Movimiento configurado: $movePixels pixeles."
 Write-Host "Pausa diaria: $pauseStartBase +/- $pauseStartJitterMinutes min hasta $pauseEndBase +/- $pauseEndJitterMinutes min."
+Write-Host "Desactivacion diaria: $stopBase +/- $stopJitterMinutes min."
 Write-Host "Presiona Ctrl+C para detener."
 
 try {
     $pauseWindow = New-DailyPauseWindow -Date (Get-Date)
+    $stopTime = New-DailyStopTime -Date (Get-Date)
     $keepAwakeEnabled = $false
     $pauseAnnounced = $false
 
     Write-Host ("Horario de pausa de hoy: {0:HH:mm} a {1:HH:mm}." -f $pauseWindow.Start, $pauseWindow.End)
+    Write-Host ("Horario de desactivacion de hoy: {0:HH:mm}." -f $stopTime)
 
     while ($true) {
         $now = Get-Date
 
         if ($now.Date -ne $pauseWindow.Date) {
             $pauseWindow = New-DailyPauseWindow -Date $now
+            $stopTime = New-DailyStopTime -Date $now
             $pauseAnnounced = $false
             Write-Host ("Horario de pausa de hoy: {0:HH:mm} a {1:HH:mm}." -f $pauseWindow.Start, $pauseWindow.End)
+            Write-Host ("Horario de desactivacion de hoy: {0:HH:mm}." -f $stopTime)
+        }
+
+        if ($now -ge $stopTime) {
+            Write-Host ("Hora de desactivacion alcanzada ({0:HH:mm})." -f $stopTime)
+            break
         }
 
         if (($now -ge $pauseWindow.Start) -and ($now -lt $pauseWindow.End)) {

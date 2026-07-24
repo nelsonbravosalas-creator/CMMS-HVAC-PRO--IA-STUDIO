@@ -84,6 +84,7 @@ export interface LocalCliente extends LocalBase {
   contacto_cargo?: string;
   region?: string;
   activo?: boolean;
+  data?: string | Record<string, unknown>;
 }
 
 export interface LocalUsuario extends LocalBase {

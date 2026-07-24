@@ -165,6 +165,6 @@ export default async function handler(req: any, res: any) {
     if (String(error?.message || '').toLowerCase().includes('correo')) {
       return res.status(409).json({ success: false, error: 'El correo ya está registrado' });
     }
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

@@ -47,9 +47,9 @@ import { SUCURSALES, ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
-import { jsPDF } from "jspdf";
 import { GoogleGenAI } from "@google/genai";
 import { db, SyncStatus } from "../db/database";
+import { syncEngine } from "../sync/syncEngine";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -836,7 +836,7 @@ export default function EditorInforme() {
   const saveReport = async (finalStatus: 'borrador' | 'firmado' | 'bloqueado' | 'offline_draft') => {
     // Generate folio if not exists
     const activeClient = localStorage.getItem("active_client") || '';
-    const currentFolio = generalData.folio || (finalStatus === 'firmado' ? `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}` : `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`);
+    const currentFolio = generalData.folio || (finalStatus === 'firmado' ? `INF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}` : `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`);
     const normalizedGeneralData = {
       ...generalData,
       cliente: generalData.cliente || activeClient,
@@ -878,7 +878,6 @@ export default function EditorInforme() {
 
     // 2. Trigger sync background task if online
     try {
-      const { syncEngine } = await import('../sync/syncEngine');
       await syncEngine.triggerSync();
     } catch(e) {
       console.warn("Sync engine trigger failed:", e);
@@ -997,6 +996,7 @@ export default function EditorInforme() {
 
   // Generador de Informe Premium con Estructura Climasol
   const generateClimasolPDF = async (forcedFolio?: string) => {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF('p', 'mm', 'a4');
     
     // Resolve dynamic labels
@@ -1004,7 +1004,7 @@ export default function EditorInforme() {
     const selectedSuc = branches.find(b => b.uuid_sync === generalData.sucursal || b.id === generalData.sucursal);
     const branchName = selectedSuc?.nombre || generalData.sucursal || "Vitacura Base";
     const branchAddress = selectedSuc?.direccion || "Av. Vitacura 2670, Santiago, Chile";
-    const reportFolio = forcedFolio || generalData.folio || `INF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const reportFolio = forcedFolio || generalData.folio || `INF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     const docDate = generalData.fecha || new Date().toLocaleDateString('es-CL');
     
     // Helper to draw status circle
@@ -2274,10 +2274,14 @@ export default function EditorInforme() {
         reader.readAsDataURL(file);
       });
       const base64Data = await base64Promise;
+      const token = sessionStorage.getItem("auth_token");
 
       const res = await fetch("/api/ocr", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type })
       });
       

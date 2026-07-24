@@ -127,7 +127,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedUserJson && !sessionStorage.getItem('auth_token')) {
       localStorage.removeItem('auth_user');
       localStorage.removeItem('is_authenticated');
-      localStorage.removeItem('auth_token_backup'); // Limpiar backup también
       return null;
     }
 
@@ -142,7 +141,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return u;
       } catch (e) {
         localStorage.removeItem('auth_user');
-        localStorage.removeItem('auth_token_backup');
       }
     }
     return null;
@@ -231,12 +229,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('is_authenticated', 'true');
         
         // BUG #3 FIX: Guardar token en AMBOS storage de forma coherente
-        if (json.token) {
-          sessionStorage.setItem('auth_token', json.token);
-          // Guardar backup en localStorage para recuperación
-          localStorage.setItem('auth_token_backup', json.token);
-          window.dispatchEvent(new Event('auth-session-started'));
-        }
+        sessionStorage.setItem('auth_token', 'cookie-session');
+        window.dispatchEvent(new Event('auth-session-started'));
 
         // Sincronizar clientes asignados
         for (const assignedClient of json.user.assigned_clients || []) {
@@ -298,6 +292,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * AHORA: Valida contra servidor para máxima seguridad
    */
   const biometricLogin = async (correo: string): Promise<boolean> => {
+    setAuthError('El acceso biométrico está temporalmente deshabilitado.');
+    return false;
+    /*
     try {
       const normalizedCorreo = correo.trim().toLowerCase();
       
@@ -389,6 +386,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error durante autenticación biométrica:', dbError);
     }
     return false;
+    */
   };
 
   /**
@@ -416,11 +414,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const logout = useCallback(() => {
+    void fetch('/api/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
     setAuthError(null);
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_token_backup'); // BUG #3: Limpiar backup también
     sessionStorage.removeItem('auth_token');
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
