@@ -139,7 +139,7 @@ export default function Planificacion() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [activitiesList, setActivitiesList] = useState<Activity[]>(ACTIVITIES_MOCK);
+  const [activitiesList, setActivitiesList] = useState<Activity[]>([]);
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -198,13 +198,17 @@ export default function Planificacion() {
           start: new Date(item.start.dateTime || item.start.date),
           end: new Date(item.end.dateTime || item.end.date),
           resource: {
-             ...ACTIVITIES_MOCK[0],
              id: item.id,
              title: item.summary || 'Sin Título',
              status: 'programada',
              tech: 'Google Calendar',
              client: 'Externo',
-             branch: 'N/A'
+             branch: 'N/A',
+             address: '',
+             type: 'evento',
+             category: 'externo',
+             ticketNum: '',
+             attendees: []
           }
         }));
         setGoogleEvents(events);
@@ -281,7 +285,7 @@ export default function Planificacion() {
   };
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500 pb-32">
+    <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500 pb-32 overflow-x-hidden">
       <ActivityEventModal 
         isOpen={!!selectedEvent} 
         onClose={() => setSelectedEvent(null)} 

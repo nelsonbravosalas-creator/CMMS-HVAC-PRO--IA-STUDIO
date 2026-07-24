@@ -253,22 +253,10 @@ export default function DetalleEquipo() {
                         <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><BarChart3 className="w-4 h-4" /></div>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">Resumen de Costos e Incidencias (12 meses)</h3>
                       </div>
-                      <div className="text-[10px] font-black text-emerald-600 uppercase">Ahorro Estimado: +12% vs Promedio</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase">Sin costos registrados</div>
                    </div>
-                   <div className="h-[250px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={mockChartData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
-                          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
-                            labelStyle={{ textTransform: 'uppercase', fontSize: '10px', fontWeight: 900, marginBottom: '4px' }}
-                          />
-                          <Bar dataKey="costo" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="incidencias" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
+                   <div className="h-[250px] w-full flex items-center justify-center rounded-2xl bg-slate-50">
+                      <p className="text-xs font-bold text-slate-400 uppercase">No hay costos ni incidencias cuantificadas</p>
                    </div>
                 </div>
              </div>
@@ -318,39 +306,14 @@ export default function DetalleEquipo() {
 
            {activeTab === "historico" && (
               <div className="flex flex-col gap-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="bg-white p-6 rounded-3xl border border-slate-200">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                          <Clock className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">24/04/2026 - 10:22 AM</p>
-                          <h4 className="text-sm font-black text-slate-900 uppercase">Cambio de Ubicación</h4>
-                        </div>
-                      </div>
-                      <button className="p-2 hover:bg-slate-50 rounded-xl text-slate-400"><ChevronDown className="w-4 h-4" /></button>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-slate-50 grid grid-cols-2 gap-4">
-                       <div className="p-3 bg-red-50 text-red-700 rounded-2xl">
-                          <span className="text-[9px] font-black uppercase opacity-60 block">Anterior</span>
-                          <span className="text-xs font-bold uppercase tracking-tight">Bodega 01 - Estantería B</span>
-                       </div>
-                       <div className="p-3 bg-emerald-50 text-emerald-700 rounded-2xl">
-                          <span className="text-[9px] font-black uppercase opacity-60 block">Nuevo</span>
-                          <span className="text-xs font-bold uppercase tracking-tight">Bodega 01 - Mesón Ventas</span>
-                       </div>
-                    </div>
-                  </div>
-                ))}
+                <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center text-xs font-bold text-slate-400 uppercase">
+                  No hay eventos de auditoría registrados para este equipo
+                </div>
               </div>
            )}
 
            {activeTab === "documentos" && (
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <DocumentCard type="pdf" title="Informe de Instalación Original" date="02/02/2026" />
-                <DocumentCard type="html" title="Ficha Técnica del Fabricante (Manual)" date="N/A" />
                 <div className="border-2 border-dashed border-slate-200 rounded-3xl p-8 flex flex-col items-center justify-center text-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer">
                    <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center"><Download className="w-6 h-6" /></div>
                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Arrastra o sube nuevos documentos</p>

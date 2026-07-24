@@ -69,6 +69,19 @@ export default function Mantenimientos() {
     });
   }, [preventive_maintenance, filter, assetToClientMap]);
 
+  const stats = useMemo(() => {
+    const realizados = filtered.filter(m => m.estado === "ejecutado" || m.estado === "realizado").length;
+    const programados = filtered.filter(m => m.estado === "programado" || m.estado === "pendiente").length;
+    const atrasados = filtered.filter(m => m.estado === "atrasado").length;
+    const totalCerrados = realizados + atrasados;
+    return {
+      realizados,
+      programados,
+      atrasados,
+      rendimiento: totalCerrados > 0 ? `${Math.round((realizados / totalCerrados) * 100)}%` : "—",
+    };
+  }, [filtered]);
+
   if (loading && preventive_maintenance.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-20 animate-pulse">
@@ -103,10 +116,10 @@ export default function Mantenimientos() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard label="Realizados" value="128" color="emerald" />
-        <StatCard label="Programados" value="12" color="blue" />
-        <StatCard label="Atrasados" value="3" color="red" />
-        <StatCard label="Rendimiento" value="98%" color="slate" />
+        <StatCard label="Realizados" value={String(stats.realizados)} color="emerald" />
+        <StatCard label="Programados" value={String(stats.programados)} color="blue" />
+        <StatCard label="Atrasados" value={String(stats.atrasados)} color="red" />
+        <StatCard label="Cumplimiento" value={stats.rendimiento} color="slate" />
       </div>
 
       {/* Filter Bar */}
@@ -123,12 +136,12 @@ export default function Mantenimientos() {
         </div>
         <div className="flex items-center gap-2">
            <FilterPresetsDropdown onApply={() => {}} />
-           <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none min-w-[120px]">
+           <select aria-label="Filtrar por tipo de mantenimiento" className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none min-w-[120px]">
               <option>Todos los Tipos</option>
               <option>Preventivo</option>
               <option>Correctivo</option>
            </select>
-           <button className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200"><Filter className="w-4 h-4" /></button>
+           <button type="button" aria-label="Aplicar filtros" className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200"><Filter className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -168,9 +181,11 @@ export default function Mantenimientos() {
                 <td className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">{m.tecnico}</td>
                 <td className="px-6 py-4 text-right">
                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
-                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><Edit3 className="w-3.5 h-3.5" /></button>
+                      <button type="button" aria-label={`Ver mantenimiento ${m.id}`} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
+                      <button type="button" aria-label={`Editar mantenimiento ${m.id}`} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><Edit3 className="w-3.5 h-3.5" /></button>
                       <button 
+                        type="button"
+                        aria-label={`Eliminar mantenimiento ${m.id}`}
                         onClick={() => deleteMantenimiento(m.uuid_sync)}
                         className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"
                       >
@@ -201,7 +216,7 @@ function StatCard({ label, value, color }: { label: string, value: string, color
     <div className={`p-6 rounded-3xl border border-slate-200 bg-white space-y-1 text-left`}>
        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
        <div className="text-2xl font-black text-slate-900">{value}</div>
-       <div className={`inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase ${colors[color]}`}>+12% vs mes anterior</div>
+       <div className={`inline-block px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase ${colors[color]}`}>Datos registrados</div>
     </div>
   );
 }

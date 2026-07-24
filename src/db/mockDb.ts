@@ -290,9 +290,11 @@ export const createMockSql = () => {
         return filteredRows.filter(row => String(row.user_id || '') === userId);
       }
 
-      // Case B: WHERE id = $1 or uuid_sync = $1
-      if (queryLower.includes('uuid_sync =') || queryLower.includes('id =')) {
-        const idVal = String(values[0]);
+      // Case B: WHERE id = $1 or uuid_sync = $1.
+      // Match complete column names so cliente_id/user_id are not mistaken for id.
+      const identityMatch = query.match(/(?:^|[\s(])(?:uuid_sync|id)\s*=\s*__VAL(\d+)__/i);
+      if (identityMatch) {
+        const idVal = String(values[Number(identityMatch[1])]);
         filteredRows = filteredRows.filter(row => 
           String(row.uuid_sync || '') === idVal || 
           String(row.id || '') === idVal || 
@@ -340,7 +342,7 @@ export const createMockSql = () => {
         filteredRows.sort((a, b) => (a.updated_at || 0) - (b.updated_at || 0));
       }
 
-      if (queryLower.includes('limit 1')) {
+      if (/limit\s+1(?:\s|$|;)/i.test(query)) {
         return filteredRows.slice(0, 1);
       } else if (queryLower.includes('limit')) {
         const matchLimit = queryLower.match(/limit\s+(\d+)/);

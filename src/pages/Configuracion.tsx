@@ -257,18 +257,15 @@ export default function Configuracion() {
 
             <SectionBox title="Estadísticas de Uso Local" icon={<HardDrive className="w-4 h-4" />}>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <StatRow label="Almacenamiento Local" value="4.2 MB / 10 MB" percent={42} />
-                  <StatRow label="Tickets en Caché" value="12 Registrados" percent={10} />
-                  <StatRow label="Presets Guardados" value="8 Configuraciones" percent={80} />
-                  <StatRow label="Informes Offline" value="0 Pendientes" percent={0} />
+                  <StatRow label="Almacenamiento Local" value="Gestionado por el navegador" percent={0} />
+                  <StatRow label="Operaciones Pendientes" value={`${pendingCount} registros`} percent={0} />
                </div>
             </SectionBox>
 
             <SectionBox title="Fuentes de Datos" icon={<Server className="w-4 h-4" />}>
                <div className="space-y-4">
-                  <SourceItem label="Master Equipment DB" status="ONLINE" latency="12ms" />
-                  <SourceItem label="Service History API" status="ONLINE" latency="45ms" />
-                  <SourceItem label="User Auth Provider" status="ONLINE" latency="8ms" />
+                  <SourceItem label="API del sistema" status={isOnline ? "DISPONIBLE" : "SIN RED"} latency="No medido" />
+                  <SourceItem label="Base local Dexie" status="DISPONIBLE" latency="Local" />
                </div>
             </SectionBox>
          </div>
@@ -459,12 +456,13 @@ function StatRow({ label, value, percent }: { label: string, value: string, perc
 }
 
 function SourceItem({ label, status, latency }: { label: string, status: string, latency: string }) {
+  const available = status === "DISPONIBLE";
   return (
     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 italic">
        <span className="text-xs font-bold uppercase text-slate-700">{label}</span>
        <div className="flex items-center gap-4">
           <span className="text-[10px] font-black text-slate-400 uppercase">{latency}</span>
-          <span className="text-[9px] font-black text-emerald-600 uppercase px-2 py-0.5 bg-emerald-50 rounded-full">{status}</span>
+          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${available ? "text-emerald-600 bg-emerald-50" : "text-red-600 bg-red-50"}`}>{status}</span>
        </div>
     </div>
   );

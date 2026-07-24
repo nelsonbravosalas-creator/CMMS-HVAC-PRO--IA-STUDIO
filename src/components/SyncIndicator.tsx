@@ -22,7 +22,7 @@ export const SyncIndicator = () => {
   }, [isOnline]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2 pointer-events-auto">
+    <div className="fixed bottom-24 lg:bottom-4 right-4 z-40 flex flex-col items-end gap-2 pointer-events-auto">
       <AnimatePresence>
         {pendingCount > 0 && (
           <motion.div
@@ -51,6 +51,8 @@ export const SyncIndicator = () => {
       </AnimatePresence>
 
       <button 
+        type="button"
+        aria-label="Forzar sincronización"
         onClick={() => {
           syncEngine.triggerSync(true);
         }}
