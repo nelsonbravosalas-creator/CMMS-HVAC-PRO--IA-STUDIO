@@ -1,6 +1,6 @@
-import { getDb } from './_db.js';
-import { requireRole } from './_auth.js';
-import { hashPin } from '../server/passwords.js';
+import { getDb } from '../db.js';
+import { requireRole } from '../auth.js';
+import { hashPin } from '../../passwords.js';
 
 const ALLOWED_ROLES = new Set([
   'administrador',

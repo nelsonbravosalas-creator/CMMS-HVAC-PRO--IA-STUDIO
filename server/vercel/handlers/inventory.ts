@@ -3,8 +3,8 @@
 // Vercel function: /api/inventory
 // Tablas Neon: inventory
 
-import { getDb } from './_db.js';
-import { canWrite, getScopedTenantId, requireAuth } from './_auth.js';
+import { getDb } from '../db.js';
+import { canWrite, getScopedTenantId, requireAuth } from '../auth.js';
 
 function mapToNeon(frontData: any, tenantId: string) {
   return {

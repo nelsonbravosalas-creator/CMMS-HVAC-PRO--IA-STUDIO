@@ -3,8 +3,8 @@
 // Vercel function: /api/work-orders
 // Tablas Neon: work_orders
 
-import { getDb } from './_db.js';
-import { canWrite, getScopedTenantId, requireAuth } from './_auth.js';
+import { getDb } from '../db.js';
+import { canWrite, getScopedTenantId, requireAuth } from '../auth.js';
 
 const WORK_ORDER_TRANSITIONS: Record<string, string[]> = {
   abierto: ['en_progreso'],

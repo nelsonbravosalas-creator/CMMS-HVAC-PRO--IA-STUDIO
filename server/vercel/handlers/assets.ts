@@ -3,8 +3,8 @@
 // Vercel function: /api/assets
 // Tablas Neon: assets
 
-import { getDb } from './_db.js';
-import { getScopedTenantId, requireRole } from './_auth.js';
+import { getDb } from '../db.js';
+import { getScopedTenantId, requireRole } from '../auth.js';
 
 export default async function handler(req: any, res: any) {
   try {

@@ -16,7 +16,7 @@ test('Express write and sync endpoints require write authorization', async () =>
 });
 
 test('tenant upserts cannot update a row owned by another tenant', async () => {
-  for (const file of ['server.ts', 'api/sync.ts']) {
+  for (const file of ['server.ts', 'server/vercel/handlers/sync.ts']) {
     const source = await read(file);
     for (const table of ['assets', 'work_orders', 'inventory', 'preventive_maintenance']) {
       assert.match(
@@ -46,12 +46,24 @@ test('incomplete biometric authentication is disabled', async () => {
 test('Vercel Hobby function count stays within the deployment limit', async () => {
   const apiFiles = (await readdir(new URL('../api/', import.meta.url)))
     .filter(file => /\.(?:js|ts)$/.test(file));
-  assert.ok(apiFiles.length <= 12, `expected at most 12 Vercel functions, found ${apiFiles.length}`);
+  assert.deepEqual(
+    apiFiles.sort(),
+    ['admin.ts', 'auth.ts', 'core.ts', 'operations.ts', 'sync.ts'],
+    `expected exactly five grouped Vercel functions, found: ${apiFiles.join(', ')}`
+  );
 
   const vercelConfig = await read('vercel.json');
   for (const action of ['biometric-verify', 'change-pin', 'logout', 'health']) {
     assert.match(vercelConfig, new RegExp(`auth\\.ts\\?action=${action}`));
   }
+  for (const handler of ['assets', 'clients', 'users']) {
+    assert.match(vercelConfig, new RegExp(`core\\.ts\\?handler=${handler}`));
+  }
+  for (const handler of ['maintenance', 'work-orders', 'inventory']) {
+    assert.match(vercelConfig, new RegExp(`operations\\.ts\\?handler=${handler}`));
+  }
+  assert.match(vercelConfig, /sync\.ts\?handler=import-data/);
+  assert.match(vercelConfig, /admin\.ts\?handler=init-db/);
 });
 
 test('retired granular endpoint cannot claim successful persistence', async () => {

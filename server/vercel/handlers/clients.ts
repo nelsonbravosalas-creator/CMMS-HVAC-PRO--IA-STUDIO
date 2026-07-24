@@ -3,8 +3,8 @@
 // Vercel function: /api/clients
 // Tablas Neon: clientes, sucursales
 
-import { getDb } from './_db.js';
-import { requireRole } from './_auth.js';
+import { getDb } from '../db.js';
+import { requireRole } from '../auth.js';
 
 const cleanRut = (value: any) => String(value || '').replace(/[^0-9kK]/g, '').toUpperCase();
 

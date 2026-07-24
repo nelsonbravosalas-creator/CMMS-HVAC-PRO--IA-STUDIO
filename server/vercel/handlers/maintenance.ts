@@ -3,8 +3,8 @@
 // Vercel function: /api/maintenance
 // Tablas Neon: preventive_maintenance
 
-import { getDb } from './_db.js';
-import { getScopedTenantId, requireRole } from './_auth.js';
+import { getDb } from '../db.js';
+import { getScopedTenantId, requireRole } from '../auth.js';
 
 function mapToNeon(frontData: any, tenantId: string) {
   return {
