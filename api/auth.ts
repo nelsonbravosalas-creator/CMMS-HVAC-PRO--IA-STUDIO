@@ -1,8 +1,22 @@
 import { getDb } from './_db.js';
-import { setAuthCookie, signToken } from './_auth.js';
+import { requireAuth, setAuthCookie, signToken } from './_auth.js';
 import { hashPin, needsArgon2Upgrade, verifyPin } from '../server/passwords.js';
 
 export default async function handler(req: any, res: any) {
+  const action = String(req.query?.action || 'login');
+  if (action === 'health') {
+    return res.status(200).json({ status: 'ok' });
+  }
+  if (action === 'logout') {
+    return handleLogout(req, res);
+  }
+  if (action === 'change-pin') {
+    return handleChangePin(req, res);
+  }
+  if (action === 'biometric-verify') {
+    return handleBiometricVerify(req, res);
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
@@ -126,4 +140,64 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     return res.status(503).json({ success: false, error: 'Servicio no disponible', offline: true });
   }
+}
+
+function handleLogout(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `cmms_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`);
+  return res.json({ success: true });
+}
+
+async function handleChangePin(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+
+  const authUser: any = requireAuth(req, res);
+  if (!authUser) return;
+
+  const currentPin = String(req.body.currentPin || '').trim();
+  const newPin = String(req.body.newPin || '').trim();
+  if (!currentPin || newPin.length < 4) {
+    return res.status(400).json({ success: false, error: 'PIN actual y nuevo PIN válido son requeridos' });
+  }
+
+  try {
+    const sql = getDb();
+    const rows = await sql`
+      SELECT uuid_sync, COALESCE(pin_hash, pin) AS stored_pin_hash
+      FROM users
+      WHERE uuid_sync = ${authUser.uuid_sync} OR id = ${authUser.id}
+      LIMIT 1
+    `;
+    const storedPinHash = rows[0]?.stored_pin_hash || rows[0]?.pin_hash || rows[0]?.pin;
+    if (!rows[0] || !(await verifyPin(storedPinHash, currentPin))) {
+      return res.status(401).json({ success: false, error: 'El PIN actual es incorrecto' });
+    }
+
+    const nextHash = await hashPin(newPin);
+    await sql`
+      UPDATE users
+      SET pin_hash = ${nextHash}, pin = NULL, updated_at = ${Date.now()}
+      WHERE uuid_sync = ${rows[0].uuid_sync}
+    `;
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
+  }
+}
+
+function handleBiometricVerify(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+  const authUser = requireAuth(req, res);
+  if (!authUser) return;
+  return res.status(501).json({
+    success: false,
+    error: 'Autenticación biométrica temporalmente deshabilitada'
+  });
 }
