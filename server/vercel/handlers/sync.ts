@@ -447,7 +447,15 @@ export default async function handler(req: any, res: any) {
         let errorMsg = '';
         try {
           switch (table) {
-            case 'assets': await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
+            case 'assets':
+              if (authUser.perfil === 'administrador') {
+                // Los administradores pueden sanear activos heredados cuyo
+                // cliente_id fue creado antes del modelo actual de tenants.
+                await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`;
+              } else {
+                await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`;
+              }
+              break;
             case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
