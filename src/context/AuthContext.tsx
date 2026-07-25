@@ -81,6 +81,7 @@ function configureRoleContext(user: Usuario, resetSessionContext = true) {
   const defaultClientId = getDefaultClientId(user);
   if (!defaultClientId) {
     localStorage.removeItem('active_client');
+    localStorage.removeItem('active_client_name');
     return false;
   }
 

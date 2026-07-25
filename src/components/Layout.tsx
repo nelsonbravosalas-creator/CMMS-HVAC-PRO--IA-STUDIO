@@ -72,7 +72,7 @@ const NAV_ITEMS = [
   { href: "/administracion", icon: Users, label: "Usuarios", section: "Configuración", adminOnly: true },
   { href: "/biometria", icon: Fingerprint, label: "Acceso Biométrico", section: "Configuración" },
   { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración" },
-  { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración" },
+  { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración", adminOnly: true },
 ];
 
 /**
@@ -175,7 +175,10 @@ export default function Layout({ children }: LayoutProps) {
       .filter(item => item.uuid_sync === activeClientId || item.id === activeClientId)
       .first();
     return client ? client.nombre : null;
-  }, [activeClientId, user?.perfil]) || (isAdmin ? "Vista Global" : activeClientId || "Sin cliente");
+  }, [activeClientId, user?.perfil])
+    || (isAdmin && !activeClientId
+      ? "Vista Global"
+      : localStorage.getItem("active_client_name") || activeClientId || "Sin cliente");
 
   /** Control de apertura del menú lateral en dispositivos móviles */
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

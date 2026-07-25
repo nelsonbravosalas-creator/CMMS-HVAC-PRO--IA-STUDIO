@@ -244,3 +244,25 @@ El release no debe aprobarse hasta cumplir, como mínimo:
 - Perfiles autenticados: 6/6
 - Request ID crítico: `gru1::wzl89-1784937793444-34d7c336672a`
 - No se efectuaron mutaciones de datos.
+
+## Mejoras implementadas después del QA
+
+Estado local validado antes del despliegue:
+
+- **QA-001:** la función consolidada de sincronización ahora carga cada handler bajo demanda, captura fallos de inicialización y responde un error JSON controlado en vez de derribar la invocación completa.
+- **QA-002:** la lista local de usuarios se reemplaza con la respuesta autoritativa del servidor y además se deduplica por correo normalizado.
+- **QA-003:** se integraron en `main` las correcciones que eliminan métricas demostrativas y cálculos ficticios.
+- **QA-004:** Configuración se ocultó del menú y se protegió a nivel de página para perfiles que no sean administrador.
+- **QA-005:** las tarjetas de selección de cliente ahora son botones semánticos navegables con teclado.
+- **QA-007:** los estilos del calendario se movieron fuera del contenido renderizado a la hoja CSS global.
+- **QA-008:** el nombre del cliente activo se conserva como contexto estable y se limpia al cambiar a vista global o cerrar sesión.
+- Se corrigió también el orden de inicialización de `isProduction` en el servidor integrado desde `develop`.
+
+Validaciones realizadas:
+
+- TypeScript sin errores.
+- 6 pruebas de regresión y seguridad aprobadas.
+- Build de producción aprobado.
+- Empaquetado aislado de las 5 funciones Vercel aprobado.
+
+Los puntos relacionados con producción quedan **pendientes de revalidación en el dominio desplegado** después de publicar este commit.

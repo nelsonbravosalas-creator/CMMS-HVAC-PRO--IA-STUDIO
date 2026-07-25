@@ -7,6 +7,7 @@ import { createMockSql } from "./src/db/mockDb";
 import { seedParametricData } from "./scripts/db/parametric-seed";
 import { hashPin, needsArgon2Upgrade, verifyPin } from "./server/passwords";
 
+const isProduction = process.env.NODE_ENV === "production" || process.env.npm_lifecycle_event === "start";
 let mockSqlInstance: any = null;
 
 const getJwtSecret = () => {
@@ -3039,4 +3040,3 @@ self.addEventListener('activate', event => {
 }
 
 startServer();
-const isProduction = process.env.NODE_ENV === "production" || process.env.npm_lifecycle_event === "start";

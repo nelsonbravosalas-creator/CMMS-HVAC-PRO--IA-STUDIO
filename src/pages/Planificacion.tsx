@@ -382,34 +382,6 @@ export default function Planificacion() {
             {view === 'calendar' ? (
               <div className="h-[700px] p-6 calendar-container overflow-x-auto relative">
                 <div className="min-w-[800px] h-full">
-                  <style>{`
-                    .rbc-calendar { font-family: 'Inter', sans-serif; }
-                    .rbc-btn-group button { 
-                      color: #94a3b8; 
-                      text-transform: uppercase;
-                      font-size: 10px;
-                      font-weight: 900;
-                      letter-spacing: 0.1em;
-                      border-color: rgba(255,255,255,0.1);
-                      padding: 8px 16px;
-                    }
-                    .rbc-btn-group button.rbc-active {
-                      background: #f1f5f9;
-                      color: #0f172a;
-                      border-color: #e2e8f0;
-                    }
-                    .rbc-toolbar-label { font-weight: 900; text-transform: uppercase; color: #f8fafc; font-size: 18px; }
-                    .rbc-header { padding: 12px 0; font-weight: 900; font-size: 12px; text-transform: uppercase; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1); }
-                    .rbc-day-bg { border-color: rgba(255,255,255,0.05); }
-                    .rbc-month-view, .rbc-time-view, .rbc-agenda-view { border-color: rgba(255,255,255,0.1); border-radius: 16px; background: rgba(0,0,0,0.2) }
-                    .rbc-month-row { border-color: rgba(255,255,255,0.05); }
-                    .rbc-off-range-bg { background: rgba(255,255,255,0.02); }
-                    .rbc-today { background: rgba(59, 130, 246, 0.05); }
-                    .rbc-event { background: transparent; padding: 2px; }
-                    .rbc-time-content { border-top: 1px solid rgba(255,255,255,0.1); }
-                    .rbc-timeslot-group { border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 40px; }
-                    .rbc-time-gutter .rbc-timeslot-group { color: #94a3b8; font-size: 10px; font-weight: bold; }
-                  `}</style>
                   <Calendar
                     localizer={localizer}
                     events={calendarEvents}

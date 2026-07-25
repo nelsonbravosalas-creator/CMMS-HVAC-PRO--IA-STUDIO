@@ -30,9 +30,10 @@ export default function ClientSelector() {
     (isAdmin || allowedClientIds.has(c.uuid_sync) || allowedClientIds.has(c.id))
   );
 
-  const handleSelect = (clientId: string) => {
-    setSelected(clientId);
-    localStorage.setItem("active_client", clientId);
+  const handleSelect = (client: typeof activeClients[number]) => {
+    setSelected(client.id);
+    localStorage.setItem("active_client", client.id);
+    localStorage.setItem("active_client_name", client.nombre);
     localStorage.removeItem("last_sync_timestamp");
     localStorage.removeItem("admin_global_view");
     setTimeout(() => {
@@ -49,6 +50,7 @@ export default function ClientSelector() {
 
   const handleGlobalView = () => {
     localStorage.removeItem("active_client");
+    localStorage.removeItem("active_client_name");
     localStorage.setItem("admin_global_view", "true");
     setLocation("/");
   };
@@ -126,10 +128,11 @@ export default function ClientSelector() {
               )}
 
               {activeClients.map((client) => (
-                <div
+                <button
+                  type="button"
                   key={client.uuid_sync}
-                  onClick={() => handleSelect(client.id)}
-                  className={`group relative bg-white p-6 rounded-2xl border transition-all cursor-pointer hover:shadow-xl hover:-translate-y-1 ${
+                  onClick={() => handleSelect(client)}
+                  className={`group relative bg-white p-6 rounded-2xl border text-left transition-all cursor-pointer hover:shadow-xl hover:-translate-y-1 ${
                     selected === client.id ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'
                   }`}
                 >
@@ -159,7 +162,7 @@ export default function ClientSelector() {
                       Configurar <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
 
               {activeClients.length === 0 && !isAdmin && (

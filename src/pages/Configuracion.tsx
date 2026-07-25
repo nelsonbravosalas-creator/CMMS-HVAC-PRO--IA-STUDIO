@@ -25,8 +25,11 @@ import { xmlSyncService } from "../lib/xmlSync";
 import { logger } from "../lib/logger";
 import { syncEngine } from "../sync/syncEngine";
 import { useSyncStore } from "../store/useSyncStore";
+import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 export default function Configuracion() {
+  const { user } = useAuth();
   const [currency, setCurrency] = useState(() => localStorage.getItem("system_currency") || "CLP");
   const { isSyncing, pendingCount, lastSync, isOnline } = useSyncStore();
   const [syncStatus, setSyncStatus] = useState<string>("");
@@ -166,6 +169,10 @@ export default function Configuracion() {
       await resetApplicationData();
     }
   };
+
+  if (user?.perfil !== "administrador") {
+    return <AccessDenied requiredPermission="Configurar el sistema" />;
+  }
 
   return (
     <div className="flex flex-col gap-8 text-left animate-in fade-in duration-500 pb-20">

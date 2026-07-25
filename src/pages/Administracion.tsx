@@ -47,8 +47,7 @@ export default function Administracion() {
       if (!response.ok) {
         throw new Error(result.error || "No fue posible cargar los usuarios.");
       }
-      for (const item of result.data || []) {
-        await db.users.put({
+      const remoteUsers = (result.data || []).map((item: any) => ({
           uuid_sync: item.uuid_sync,
           id: item.id,
           nombre: item.nombre,
@@ -59,8 +58,11 @@ export default function Administracion() {
           cliente_ids: item.cliente_ids || [],
           updated_at: item.updated_at || Date.now(),
           sync_status: "synced"
-        });
-      }
+      }));
+      await db.transaction("rw", db.users, async () => {
+        await db.users.clear();
+        if (remoteUsers.length > 0) await db.users.bulkPut(remoteUsers);
+      });
       await useAppStore.getState().hydrate();
     } catch (error: any) {
       setLoadError(error?.message || "Error cargando usuarios.");
@@ -112,7 +114,19 @@ export default function Administracion() {
     return map;
   }, [clients]);
 
-  const activeUsers = users.filter(u => {
+  const uniqueUsers = useMemo(() => {
+    const byIdentity = new Map<string, typeof users[number]>();
+    for (const candidate of users) {
+      const key = candidate.email?.trim().toLowerCase() || candidate.uuid_sync || candidate.id;
+      const current = byIdentity.get(key);
+      if (!current || Number(candidate.updated_at || 0) >= Number(current.updated_at || 0)) {
+        byIdentity.set(key, candidate);
+      }
+    }
+    return Array.from(byIdentity.values());
+  }, [users]);
+
+  const activeUsers = uniqueUsers.filter(u => {
     const query = filter.trim().toLowerCase();
     const clientName = clientNameById.get(u.cliente_id || "") || "";
     return !query
