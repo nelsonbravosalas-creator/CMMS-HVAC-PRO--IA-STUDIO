@@ -281,3 +281,21 @@ Corrección aplicada:
 - Las escrituras por `POST` responden al terminar el push; el pull incremental se ejecuta en el siguiente ciclo.
 - Esto reduce duración, consultas y riesgo de timeout en funciones del plan Hobby.
 - Las pruebas autenticadas restantes y las mutaciones controladas se reanudarán después de desplegar esta corrección.
+
+### Resultado posterior al despliegue `0994913`
+
+- Bundle de producción confirmado: `index-Bnoakuay.js`.
+- Sincronización incremental: ciclo automático superior a 15 segundos sin errores del bundle vigente.
+- Clientes cargados desde Neon: EECOL ELECTRIC y Cliente Internacional.
+- Administración: 6 identidades y 6 filas, sin duplicados.
+- Acceso válido: administrador, supervisor, técnico, contratista, cliente y visita.
+- Configuración y Administración: restringidas correctamente en los cinco perfiles no administradores.
+- Selector de cliente: tarjetas expuestas como botones semánticos.
+- Contexto del cliente: EECOL ELECTRIC se muestra por nombre, sin degradar a `C1`.
+- Planificación móvil: sin CSS expuesto ni scroll horizontal global.
+
+Hallazgo adicional:
+
+- El resumen “Estado hoy” de Planificación mostraba `01` fijo para todos los estados y había controles iconográficos sin nombre accesible.
+- Se reemplazaron los valores fijos por conteos derivados de los eventos del día y se etiquetaron los controles de vista, filtro, detalle y opciones.
+- Se ocultó “Nueva Actividad” para cliente y visita, manteniendo ambos perfiles en modo de solo lectura.

@@ -30,6 +30,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { ActivityEventModal } from '../components/modals/ActivityEventModal';
 import { CrearActividadModal } from '../components/modals/CrearActividadModal';
 import { initAuth, googleSignIn, getAccessToken, logout } from '../lib/auth';
+import { useAuth } from '../context/AuthContext';
 
 const locales = {
   'es': es,
@@ -134,6 +135,8 @@ const STATUS_CONFIG: Record<ActivityStatus, { label: string; icon: any; color: s
 };
 
 export default function Planificacion() {
+  const { user } = useAuth();
+  const canEditActivities = user?.perfil !== 'visita' && user?.perfil !== 'cliente';
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [calendarView, setCalendarView] = useState<any>(Views.MONTH);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -257,6 +260,16 @@ export default function Planificacion() {
   };
 
   const calendarEvents = [...baseEvents, ...googleEvents];
+  const statusCountsToday = Object.keys(STATUS_CONFIG).reduce<Record<string, number>>((counts, status) => {
+    counts[status] = calendarEvents.filter((event: any) => {
+      const eventDate = new Date(event.start);
+      return event.resource?.status === status
+        && eventDate.getFullYear() === currentDate.getFullYear()
+        && eventDate.getMonth() === currentDate.getMonth()
+        && eventDate.getDate() === currentDate.getDate();
+    }).length;
+    return counts;
+  }, {});
 
   const monthNames = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -307,7 +320,9 @@ export default function Planificacion() {
         
         <div className="flex items-center gap-3">
           <div className="bg-white p-1 rounded-2xl border border-slate-100 shadow-sm flex items-center">
-            <button 
+            <button
+              type="button"
+              aria-label="Vista calendario"
               onClick={() => setView('calendar')}
               className={`rounded-xl transition-all flex items-center justify-center ${view === 'calendar' ? 'bg-slate-900 shadow-lg' : 'hover:bg-slate-50'}`}
               style={{ 
@@ -322,6 +337,8 @@ export default function Planificacion() {
               <LayoutGrid size={25} />
             </button>
             <button 
+              type="button"
+              aria-label="Vista de lista"
               onClick={() => setView('list')}
               className={`p-2 rounded-xl transition-all ${view === 'list' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
               style={{ width: '43.9766px', height: '46.9766px' }}
@@ -329,13 +346,15 @@ export default function Planificacion() {
               <List size={25} className="mx-auto" />
             </button>
           </div>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Nueva Actividad
-          </button>
+          {canEditActivities && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva Actividad
+            </button>
+          )}
           {!isAuthenticated ? (
             <button 
               onClick={handleLogin}
@@ -373,7 +392,7 @@ export default function Planificacion() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input type="text" placeholder="BUSCAR..." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black outline-none focus:ring-2 focus:ring-blue-500/10 text-slate-900" />
                 </div>
-                <button className="p-3 text-slate-400 hover:bg-slate-50 rounded-xl transition-all border border-slate-100 group shrink-0">
+                <button type="button" aria-label="Filtrar actividades" className="p-3 text-slate-400 hover:bg-slate-50 rounded-xl transition-all border border-slate-100 group shrink-0">
                   <Filter className="w-5 h-5 group-hover:text-blue-500" />
                 </button>
               </div>
@@ -485,6 +504,8 @@ export default function Planificacion() {
                         </td>
                         <td className="p-4 text-right">
                           <button 
+                            type="button"
+                            aria-label={`Abrir actividad ${act.title}`}
                             className="p-2 hover:bg-white rounded-xl transition-all border border-transparent hover:border-slate-100"
                             onClick={() => {
                               const event = calendarEvents.find(e => e.id === act.id);
@@ -517,7 +538,9 @@ export default function Planificacion() {
                 <div key={key} className={`${config.bg} p-4 rounded-2xl border border-slate-100 flex flex-col gap-1`}>
                   <div className="flex items-center justify-between">
                     <config.icon className={`w-4 h-4 ${config.color}`} />
-                    <span className="text-xs font-black text-slate-900">01</span>
+                    <span className="text-xs font-black text-slate-900">
+                      {String(statusCountsToday[key] || 0).padStart(2, '0')}
+                    </span>
                   </div>
                   <span className="text-[9px] font-black uppercase text-slate-400 mt-1">{config.label}</span>
                 </div>
@@ -547,7 +570,7 @@ export default function Planificacion() {
                       <div className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[act.status].color.replace('text-', 'bg-')}`} />
                       <span className={`text-[9px] font-black uppercase ${STATUS_CONFIG[act.status].color}`}>{act.status}</span>
                     </div>
-                    <button className="p-1 hover:bg-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4 text-slate-300" /></button>
+                    <button type="button" aria-label={`Más opciones para ${act.title}`} className="p-1 hover:bg-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4 text-slate-300" /></button>
                   </div>
                   
                   <h4 className="text-sm font-black text-slate-900 uppercase leading-snug group-hover:text-blue-600 transition-colors">{act.title}</h4>
