@@ -43,6 +43,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
   const PM_DRAFT_KEY = "cmms_pm_draft";
 
   React.useEffect(() => {
+    let cancelled = false;
     const draft = localStorage.getItem(PM_DRAFT_KEY);
     if (draft && !initialTag) {
       try {
@@ -53,7 +54,6 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
         if (parsed.tipoServicio) setTipoServicio(parsed.tipoServicio);
         if (parsed.estadoFinal) setEstadoFinal(parsed.estadoFinal);
         if (parsed.descripcion) setDescripcion(parsed.descripcion);
-        if (parsed.equipoTag) setEquipoTag(parsed.equipoTag);
         if (parsed.tecnico) setTecnico(parsed.tecnico);
         if (parsed.duracion) setDuracion(parsed.duracion);
         if (parsed.costoMateriales) setCostoMateriales(parsed.costoMateriales);
@@ -61,10 +61,33 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
         if (parsed.recomendaciones) setRecomendaciones(parsed.recomendaciones);
         if (parsed.repuestos) setRepuestos(parsed.repuestos);
         if (parsed.ubicacionGeografica) setUbicacionGeografica(parsed.ubicacionGeografica);
+
+        if (parsed.equipoTag) {
+          const activeClientId = localStorage.getItem("active_client");
+          void db.assets.where('tag').equals(parsed.equipoTag).first().then(asset => {
+            if (cancelled) return;
+            if (
+              asset
+              && !asset.deleted_at
+              && asset.estado !== 'baja'
+              && (!activeClientId || asset.cliente_id === activeClientId)
+            ) {
+              setEquipoTag(parsed.equipoTag);
+              return;
+            }
+
+            const cleanedDraft = { ...parsed };
+            delete cleanedDraft.equipoTag;
+            localStorage.setItem(PM_DRAFT_KEY, JSON.stringify(cleanedDraft));
+          });
+        }
       } catch (e) {
         console.error("Failed to parse PM draft", e);
       }
     }
+    return () => {
+      cancelled = true;
+    };
   }, [initialTag]);
 
   React.useEffect(() => {

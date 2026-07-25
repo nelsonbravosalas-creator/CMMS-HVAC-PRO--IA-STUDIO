@@ -65,6 +65,16 @@ export default function EditorOrdenServicio() {
 
   const OS_DRAFT_KEY = `OS_DRAFT_${uuid}`;
 
+  const handleBack = () => {
+    // A new order receives a fresh UUID on every mount, so its draft key
+    // cannot be resumed after leaving this screen. Remove the orphaned draft
+    // instead of accumulating abandoned QA/user data in localStorage.
+    if (isNew) {
+      localStorage.removeItem(OS_DRAFT_KEY);
+    }
+    setLocation("/ordenes-servicio");
+  };
+
   const [activeSection, setActiveSection] = useState<Section>('general');
   const [viewMode, setViewMode] = useState<'normal' | 'industrial'>('industrial');
   const [appLogo] = useState<string | null>(() => localStorage.getItem("system_logo"));
@@ -1607,7 +1617,7 @@ export default function EditorOrdenServicio() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
          <div className="flex items-center gap-4">
             <button 
-              onClick={() => setLocation("/ordenes-servicio")}
+              onClick={handleBack}
               className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
             >
               <ChevronLeft className="w-5 h-5" />

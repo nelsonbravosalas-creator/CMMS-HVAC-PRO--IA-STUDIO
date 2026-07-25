@@ -82,7 +82,8 @@ export default function Mantenimientos() {
     };
   }, [filtered]);
 
-  if (loading && preventive_maintenance.length === 0) {
+  // Background synchronization must not unmount an open maintenance form.
+  if (loading && preventive_maintenance.length === 0 && !showModal) {
     return (
       <div className="flex flex-col items-center justify-center p-20 animate-pulse">
         <Wrench className="w-12 h-12 text-slate-200 mb-4 animate-bounce" />

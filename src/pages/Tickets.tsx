@@ -217,7 +217,7 @@ export default function Tickets() {
           </div>
         ) : (
           filtered.map(t => (
-            <TicketCard key={t.uuid_sync} ticket={t} />
+            <TicketCard key={t.uuid_sync} ticket={t} canDelete={!!permisos?.crear_ticket} />
           ))
         )}
       </div>
@@ -248,8 +248,8 @@ const TicketImagePreview: React.FC<{ imageRef: string }> = ({ imageRef }) => {
   return <img src={url} alt="Evidencia" className="w-8 h-8 rounded-lg object-cover border border-slate-200" />;
 };
 
-const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
-  const { updateTicket } = useTickets();
+const TicketCard: React.FC<{ ticket: any; canDelete: boolean }> = ({ ticket, canDelete }) => {
+  const { updateTicket, deleteTicket } = useTickets();
   const priorities: Record<string, string> = {
     Alta: "bg-orange-100 text-orange-600",
     Critica: "bg-red-100 text-red-600",
@@ -269,7 +269,21 @@ const TicketCard: React.FC<{ ticket: any }> = ({ ticket }) => {
           </div>
           <div className="flex items-center gap-2">
             <StatusIndicator status={ticket.sync_status} />
-            <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors"><MoreVertical className="w-4 h-4" /></button>
+            {canDelete && (
+              <button
+                type="button"
+                aria-label={`Eliminar ticket ${ticket.titulo}`}
+                title="Eliminar ticket"
+                onClick={() => {
+                  if (window.confirm(`¿Eliminar el ticket "${ticket.titulo}"?`)) {
+                    void deleteTicket(ticket.uuid_sync);
+                  }
+                }}
+                className="p-2 text-slate-300 hover:text-red-600 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
        </div>
 
