@@ -266,3 +266,18 @@ Validaciones realizadas:
 - Empaquetado aislado de las 5 funciones Vercel aprobado.
 
 Los puntos relacionados con producción quedan **pendientes de revalidación en el dominio desplegado** después de publicar este commit.
+
+## Revalidación del 25/07/2026
+
+- El endpoint sin sesión ya responde `401` controlado y dejó de producir `FUNCTION_INVOCATION_FAILED`.
+- El inicio de sesión de administrador y el selector global funcionan.
+- El Dashboard ya muestra estados vacíos reales (`0`, `—` y mensajes sin datos), sin métricas demostrativas.
+- Los filtros del Dashboard tienen nombres accesibles.
+- La sincronización normal seguía generando `500` porque cada ciclo sin cambios ejecutaba un `POST` con escritura y pull masivo combinado.
+
+Corrección aplicada:
+
+- Los ciclos sin cambios pendientes utilizan ahora un pull incremental por `GET`.
+- Las escrituras por `POST` responden al terminar el push; el pull incremental se ejecuta en el siguiente ciclo.
+- Esto reduce duración, consultas y riesgo de timeout en funciones del plan Hobby.
+- Las pruebas autenticadas restantes y las mutaciones controladas se reanudarán después de desplegar esta corrección.

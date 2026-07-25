@@ -76,8 +76,12 @@ class SyncEngine {
 
       logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
 
-      const response = await fetch('/api/sync', {
-        method: 'POST',
+      const hasPendingChanges = pendingItems.length > 0;
+      const syncUrl = hasPendingChanges
+        ? '/api/sync'
+        : `/api/sync?since=${encodeURIComponent(String(this.lastSync))}`;
+      const response = await fetch(syncUrl, {
+        method: hasPendingChanges ? 'POST' : 'GET',
         headers: {
           'Content-Type': 'application/json',
           ...(localStorage.getItem('active_client')
@@ -85,13 +89,18 @@ class SyncEngine {
             : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({
-          inserts,
-          updates,
-          deletes,
-          lastSync: this.lastSync,
-          cliente_id: localStorage.getItem('active_client') || undefined
-        })
+        ...(hasPendingChanges
+          ? {
+              body: JSON.stringify({
+                inserts,
+                updates,
+                deletes,
+                lastSync: this.lastSync,
+                cliente_id: localStorage.getItem('active_client') || undefined,
+                skipPull: true
+              })
+            }
+          : {})
       });
 
       if (!response.ok) {
@@ -117,7 +126,11 @@ class SyncEngine {
       if (responseText.trim().startsWith('<')) {
          throw new Error(`Sync Error: Server returned HTML (likely waking up or proxy loading). Retry later.`);
       }
-      const { success, results, serverChanges } = JSON.parse(responseText);
+      const {
+        success,
+        results = { inserts: [], updates: [], deletes: [] },
+        serverChanges = {}
+      } = JSON.parse(responseText);
 
       if (success) {
          // Gather all results

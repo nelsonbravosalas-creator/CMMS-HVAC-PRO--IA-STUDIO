@@ -460,6 +460,18 @@ export default async function handler(req: any, res: any) {
       const resDeletes = await Promise.all(deletePromises);
       results.deletes = resDeletes.filter(Boolean);
 
+      // Las escrituras se confirman sin ejecutar además un pull masivo en la
+      // misma invocación. El cliente hará el pull incremental por GET en el
+      // siguiente ciclo, evitando timeouts de funciones Hobby.
+      if (body.skipPull === true) {
+        return res.json({
+          success: true,
+          results,
+          serverChanges: {},
+          serverTime: Date.now()
+        });
+      }
+
       // 4. Combined Pull changes (from lastSync timestamp)
       const serverChanges: any = {};
       const pullPromises = ALLOWED_TABLES.map(async (table) => {
