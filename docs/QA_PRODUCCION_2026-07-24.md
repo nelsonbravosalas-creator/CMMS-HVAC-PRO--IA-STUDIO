@@ -320,3 +320,5 @@ Durante la limpieza se detectó que una baja podía convivir con un insert falli
 Al iniciar el QA de equipos se detectó además que el pull perdía columnas estructurales guardadas fuera de `data` (`id`, `cliente_id` y `created_at`). Esto impedía asociar correctamente sucursales y activos al cliente seleccionado. El merge local ahora conserva explícitamente esas columnas.
 
 Los registros ya descargados tenían el mismo `updated_at`, por lo que la reparación no se aplicaba con una comparación estrictamente mayor. El pull ahora repara campos estructurales y tombstones también cuando la versión es la misma, sin sobrescribir cambios locales pendientes.
+
+La revalidación mostró que `triggerSync(true)` ignoraba el cooldown, pero mantenía el timestamp incremental. Ahora una sincronización forzada usa realmente `since=0`, permitiendo reconstruir relaciones antiguas y recuperar tombstones ya existentes.

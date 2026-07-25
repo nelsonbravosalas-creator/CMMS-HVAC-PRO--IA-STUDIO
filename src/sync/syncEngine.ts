@@ -55,6 +55,7 @@ class SyncEngine {
     try {
       const allPending = await syncQueue.peekAll();
       const now = Date.now();
+      const pullSince = force ? 0 : this.lastSync;
       
       const pendingItems = allPending.filter((item) => {
         if ((item.retry_count || 0) >= 3) return false;
@@ -74,12 +75,12 @@ class SyncEngine {
         else if (item.operation === 'delete') deletes.push(item);
       }
 
-      logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${this.lastSync}`);
+      logger.info('SyncEngine', `Pushing bulk: ${inserts.length} ins, ${updates.length} upd, ${deletes.length} del. Pulling since ${pullSince}`);
 
       const hasPendingChanges = pendingItems.length > 0;
       const syncUrl = hasPendingChanges
         ? '/api/sync'
-        : `/api/sync?since=${encodeURIComponent(String(this.lastSync))}`;
+        : `/api/sync?since=${encodeURIComponent(String(pullSince))}`;
       const response = await fetch(syncUrl, {
         method: hasPendingChanges ? 'POST' : 'GET',
         headers: {
@@ -95,7 +96,7 @@ class SyncEngine {
                 inserts,
                 updates,
                 deletes,
-                lastSync: this.lastSync,
+                lastSync: pullSince,
                 cliente_id: localStorage.getItem('active_client') || undefined,
                 skipPull: true
               })
