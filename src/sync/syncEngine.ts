@@ -53,7 +53,16 @@ class SyncEngine {
     store.setSyncing(true);
 
     try {
-      const allPending = await syncQueue.peekAll();
+      let allPending = await syncQueue.peekAll();
+      for (const item of allPending) {
+        if ((item.retry_count || 0) < 3 || !item.id) continue;
+        const localTable = db[item.table as keyof typeof db] as any;
+        const localRecord = localTable ? await localTable.get(item.uuid_sync) : null;
+        if (!localRecord || localRecord.deleted_at || localRecord.sync_status === 'pending_delete') {
+          await syncQueue.remove(item.id);
+        }
+      }
+      allPending = await syncQueue.peekAll();
       const now = Date.now();
       const pullSince = force ? 0 : this.lastSync;
       
@@ -192,7 +201,7 @@ class SyncEngine {
                const localUpdatedAt = local?.updated_at || 0;
                const needsStructuralRepair = Boolean(
                  local
-                 && local.sync_status === 'synced'
+                 && !String(local.sync_status || '').startsWith('pending_')
                  && remoteUpdatedAt >= localUpdatedAt
                  && (
                    (remoteRecord.id != null && local.id !== remoteRecord.id)
