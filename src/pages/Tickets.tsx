@@ -250,6 +250,7 @@ const TicketImagePreview: React.FC<{ imageRef: string }> = ({ imageRef }) => {
 
 const TicketCard: React.FC<{ ticket: any; canDelete: boolean }> = ({ ticket, canDelete }) => {
   const { updateTicket, deleteTicket } = useTickets();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const priorities: Record<string, string> = {
     Alta: "bg-orange-100 text-orange-600",
     Critica: "bg-red-100 text-red-600",
@@ -270,19 +271,36 @@ const TicketCard: React.FC<{ ticket: any; canDelete: boolean }> = ({ ticket, can
           <div className="flex items-center gap-2">
             <StatusIndicator status={ticket.sync_status} />
             {canDelete && (
-              <button
-                type="button"
-                aria-label={`Eliminar ticket ${ticket.titulo}`}
-                title="Eliminar ticket"
-                onClick={() => {
-                  if (window.confirm(`¿Eliminar el ticket "${ticket.titulo}"?`)) {
-                    void deleteTicket(ticket.uuid_sync);
-                  }
-                }}
-                className="p-2 text-slate-300 hover:text-red-600 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              confirmingDelete ? (
+                <div className="flex items-center gap-1" role="group" aria-label={`Confirmar eliminación de ${ticket.titulo}`}>
+                  <button
+                    type="button"
+                    aria-label={`Confirmar eliminar ticket ${ticket.titulo}`}
+                    onClick={() => void deleteTicket(ticket.uuid_sync)}
+                    className="px-2 py-1.5 rounded-lg bg-red-600 text-white text-[9px] font-black uppercase hover:bg-red-700"
+                  >
+                    Eliminar
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Cancelar eliminación de ${ticket.titulo}`}
+                    onClick={() => setConfirmingDelete(false)}
+                    className="px-2 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-[9px] font-black uppercase hover:bg-slate-200"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`Eliminar ticket ${ticket.titulo}`}
+                  title="Eliminar ticket"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="p-2 text-slate-300 hover:text-red-600 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )
             )}
           </div>
        </div>
