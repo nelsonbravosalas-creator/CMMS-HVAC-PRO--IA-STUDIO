@@ -15,6 +15,7 @@ import {
   Link as LinkIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { useAppStore } from "../../store/useAppStore";
 
 interface CrearActividadModalProps {
   isOpen: boolean;
@@ -101,20 +102,15 @@ export function CrearActividadModal({ isOpen, onClose, onSave }: CrearActividadM
       item.cliente_id === activeClientId && 
       item.estado === "disponible" && 
       item.stock > 0 &&
-      item.sync_status !== "pending_delete"
+      item.sync_status !== "pending_delete" &&
+      !item.deleted_at
     );
   }, [activeClientId]) || [];
 
-  // Clients options
-  const clientsList = [
-    { id: "datacenter", nombre: "DataCenter Santiago" },
-    { id: "bme_la_vara", nombre: "BME La Vara" },
-    { id: "iquique_port", nombre: "Iquique Port" },
-    { id: "clinica_las_condes", nombre: "Clínica Las Condes" },
-    { id: "default", nombre: "Cliente General" }
-  ];
-
-  const activeClientName = clientsList.find(c => c.id === activeClientId)?.nombre || "Cliente General";
+  const clients = useAppStore(state => state.clients);
+  const activeClientName = clients.find(
+    client => client.id === activeClientId || client.uuid_sync === activeClientId
+  )?.nombre || localStorage.getItem("active_client_name") || "Cliente General";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,6 +174,7 @@ Sincronizado vía AI Studio CMMS Framework.`;
       gcalUrlTech,
       gcalUrlSupervisor,
       gcalUrlClient,
+      cliente_id: activeClientId,
       start: startDateTime,
       end: endDateTime
     };

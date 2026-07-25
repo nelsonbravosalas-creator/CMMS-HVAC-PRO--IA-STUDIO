@@ -31,6 +31,10 @@ import { ActivityEventModal } from '../components/modals/ActivityEventModal';
 import { CrearActividadModal } from '../components/modals/CrearActividadModal';
 import { initAuth, googleSignIn, getAccessToken, logout } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db/database';
+import { eventRepo } from '../repositories/EventRepository';
+import { syncEngine } from '../sync/syncEngine';
 
 const locales = {
   'es': es,
@@ -47,6 +51,7 @@ const localizer = dateFnsLocalizer({
 type ActivityStatus = 'programada' | 'ejecutada' | 'pendiente' | 're-coordinada';
 
 interface Activity {
+  uuid_sync?: string;
   id: string;
   title: string;
   tech: string;
@@ -143,6 +148,21 @@ export default function Planificacion() {
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activitiesList, setActivitiesList] = useState<Activity[]>([]);
+  const activeClientId = localStorage.getItem('active_client') || 'default';
+  const storedActivities = useLiveQuery(async () => {
+    const rows = await db.events.toArray();
+    return rows
+      .filter(row =>
+        !row.deleted_at
+        && row.sync_status !== 'pending_delete'
+        && row.data?.cliente_id === activeClientId
+      )
+      .map(row => ({ ...row.data, uuid_sync: row.uuid_sync } as Activity));
+  }, [activeClientId]) || [];
+
+  useEffect(() => {
+    setActivitiesList(storedActivities);
+  }, [storedActivities]);
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -246,8 +266,12 @@ export default function Planificacion() {
     };
   });
 
-  const handleSaveActivity = (newAct: any) => {
-    setActivitiesList(prev => [newAct, ...prev]);
+  const handleSaveActivity = async (newAct: any) => {
+    const saved = await eventRepo.create({
+      id: newAct.id,
+      data: { ...newAct, cliente_id: activeClientId }
+    });
+    syncEngine.triggerSync();
     setShowAddModal(false);
     // Open event detail immediately so users can test instant Google Calendar additions
     setSelectedEvent({
@@ -255,8 +279,16 @@ export default function Planificacion() {
       title: newAct.title,
       start: newAct.start,
       end: newAct.end,
-      resource: newAct
+      resource: { ...newAct, uuid_sync: saved.uuid_sync }
     });
+  };
+
+  const handleDeleteActivity = async () => {
+    const uuid = selectedEvent?.resource?.uuid_sync;
+    if (!uuid || !window.confirm('¿Eliminar esta actividad de la planificación?')) return;
+    await eventRepo.delete(uuid);
+    await syncEngine.triggerSync();
+    setSelectedEvent(null);
   };
 
   const calendarEvents = [...baseEvents, ...googleEvents];
@@ -302,6 +334,7 @@ export default function Planificacion() {
       <ActivityEventModal 
         isOpen={!!selectedEvent} 
         onClose={() => setSelectedEvent(null)} 
+        onDelete={canEditActivities && selectedEvent?.resource?.uuid_sync ? handleDeleteActivity : undefined}
         event={selectedEvent} 
       />
 

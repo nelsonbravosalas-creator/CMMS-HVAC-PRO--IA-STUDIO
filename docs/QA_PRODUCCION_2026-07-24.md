@@ -358,3 +358,7 @@ Después del despliegue `01e9a33` se confirmó desde una sesión nueva que el se
 Para completar la limpieza de activos de prueba, los administradores disponen ahora de “Eliminar Registro” sobre equipos previamente dados de baja. La acción utiliza el flujo sincronizado de eliminación y requiere confirmación explícita.
 
 La revalidación de `28953ce` confirmó que el inventario quedó vacío, pero el activo QA histórico reaparecía después del pull. Su `cliente_id` pertenece al modelo anterior y el `UPDATE` con tenant moderno afectaba cero filas aunque la sincronización respondía “aplicado”. Los administradores ahora pueden sanear estos activos heredados por UUID; los demás perfiles conservan obligatoriamente el filtro de tenant.
+
+## QA de planificación
+
+La planificación mostraba recursos eliminados, resolvía EECOL como “Cliente General” mediante una lista fija y mantenía las actividades únicamente en memoria. Ahora utiliza clientes reales, excluye inventario con tombstone y persiste actividades en la tabla `events` con cola de sincronización. Las actividades guardadas se restauran al recargar y pueden eliminarse desde su detalle cuando el perfil tiene permisos de edición.

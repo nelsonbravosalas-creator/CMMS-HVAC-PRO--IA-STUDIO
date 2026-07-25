@@ -18,10 +18,11 @@ import {
 interface ActivityEventModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onDelete?: () => void;
   event: any;
 }
 
-export function ActivityEventModal({ isOpen, onClose, event }: ActivityEventModalProps) {
+export function ActivityEventModal({ isOpen, onClose, onDelete, event }: ActivityEventModalProps) {
   if (!event) return null;
 
   return (
@@ -209,6 +210,14 @@ export function ActivityEventModal({ isOpen, onClose, event }: ActivityEventModa
 
             {/* Footer Actions */}
             <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-3xl">
+              {onDelete && (
+                <button
+                  className="px-6 py-2.5 rounded-xl font-black text-red-600 text-xs uppercase tracking-widest hover:bg-red-50 transition-colors"
+                  onClick={onDelete}
+                >
+                  Eliminar actividad
+                </button>
+              )}
               <button 
                 className="px-6 py-2.5 rounded-xl font-black text-slate-400 text-xs uppercase tracking-widest hover:text-slate-600 transition-colors"
                 onClick={onClose}
