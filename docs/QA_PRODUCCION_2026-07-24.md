@@ -333,3 +333,14 @@ Resultado posterior al despliegue `9001d87`:
 - El activo temporal cambió de `QA ACTIVO TEMPORAL 20260725` a `QA ACTIVO EDITADO 20260725` y quedó marcado como `baja`.
 - Se detectó que “Registrar Mantenimiento” permanecía habilitado en un equipo dado de baja, pese a que la interfaz indicaba que esas operaciones estaban deshabilitadas.
 - El botón ahora respeta tanto el permiso `crear_mantenimiento` como el estado del equipo.
+
+## QA operativo — órdenes, tickets e informes
+
+Prueba del 25/07/2026 posterior a `f2b985a`:
+
+- Se confirmó en producción que tanto “Abrir Ticket de Falla” como “Registrar Mantenimiento” quedan deshabilitados en un activo dado de baja.
+- El formulario general de mantenimientos rechaza TAG inexistentes, eliminados o dados de baja.
+- Órdenes de servicio permitía intentar finalizar sin sucursal ni activo válido. Se agregó validación obligatoria de cliente, sucursal, TAG vigente y pertenencia al cliente activo antes de revisar las firmas y persistir.
+- Tickets permitía escribir manualmente un TAG retirado o de otro cliente. Ahora cualquier TAG indicado se valida contra un activo vigente del cliente activo.
+- Abrir “Crear Informe” genera un borrador local de inmediato. El borrador utilizado para QA fue eliminado y la baja quedó sincronizada; la cola volvió a cero.
+- El selector inicial mostraba tombstones de clientes porque sólo filtraba `activo`, no `deleted_at`. Ahora excluye explícitamente clientes eliminados y deja de mostrar transitoriamente el cliente QA.

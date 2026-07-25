@@ -26,6 +26,7 @@ export default function ClientSelector() {
     ...(user?.cliente_id ? [user.cliente_id] : [])
   ]);
   const activeClients = clients.filter(c =>
+    !c.deleted_at &&
     c.activo !== false &&
     (isAdmin || allowedClientIds.has(c.uuid_sync) || allowedClientIds.has(c.id))
   );

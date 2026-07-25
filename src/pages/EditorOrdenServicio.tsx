@@ -678,6 +678,27 @@ export default function EditorOrdenServicio() {
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
 
+    if (!generalData.cliente || !generalData.sucursal || !generalData.equipoTag?.trim()) {
+      alert("Error: Seleccione cliente, sucursal y un equipo antes de finalizar la orden.");
+      setIsSyncing(false);
+      return;
+    }
+
+    const selectedAsset = await db.assets.where('tag').equals(generalData.equipoTag.trim()).first();
+    const validClientIds = new Set(
+      [generalData.cliente, activeClient?.id, activeClient?.uuid_sync].filter(Boolean)
+    );
+    if (
+      !selectedAsset
+      || selectedAsset.deleted_at
+      || selectedAsset.estado === 'baja'
+      || !validClientIds.has(selectedAsset.cliente_id)
+    ) {
+      alert("Error: El equipo no existe, está dado de baja o pertenece a otro cliente.");
+      setIsSyncing(false);
+      return;
+    }
+
     const isCanvasEmpty = (canvas: HTMLCanvasElement | null) => {
       if (!canvas) return true;
       const blank = document.createElement('canvas');

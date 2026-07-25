@@ -256,6 +256,23 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
        return;
     }
 
+    const selectedAsset = tag
+      ? await db.assets.where('tag').equals(tag.trim()).first()
+      : undefined;
+    if (
+      tag
+      && (
+        !selectedAsset
+        || selectedAsset.deleted_at
+        || selectedAsset.estado === 'baja'
+        || (activeClientUuid && selectedAsset.cliente_id !== activeClientUuid)
+      )
+    ) {
+      alert("El activo indicado no existe, está dado de baja o pertenece a otro cliente.");
+      setIsSaving(false);
+      return;
+    }
+
     try {
       await createTicket({
         titulo: titulo || `FALLA REPORTADA EN ${tag}`,
@@ -263,7 +280,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onClose, equipoTag: init
         prioridad: prioridad,
         estado: 'abierto',
         equipo_tag: tag,
-        cliente_id: cliente,
+        cliente_id: selectedAsset?.cliente_id || cliente,
         creado_por: 'Actual User',
         asignado_a: asignadoA,
         fecha_creacion: new Date().toISOString(),
