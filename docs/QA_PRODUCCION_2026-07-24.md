@@ -350,3 +350,9 @@ Prueba del 25/07/2026 posterior a `f2b985a`:
 Después del despliegue `b5c9d1c`, una pestaña que conservaba la versión anterior intentó cargar `ClientSelector-CAHqcOVb.js`, un chunk cuyo hash ya no pertenecía al despliegue activo. El límite de error ahora reconoce fallos de imports dinámicos, elimina cachés y registros de service worker y recarga automáticamente una sola vez. La recarga manual del estado crítico realiza la misma limpieza para evitar bucles con recursos obsoletos.
 
 La revalidación mostró además que un chunk antiguo todavía podía existir en el precache y cargar código previo sin producir un 404. El service worker deja de precachear HTML y JavaScript versionado; conserva únicamente recursos visuales estables y cachés externos. El build genera ahora sólo 3 entradas de precache en lugar de almacenar los módulos dinámicos de la aplicación.
+
+## QA de inventario
+
+Después del despliegue `01e9a33` se confirmó desde una sesión nueva que el selector ya no muestra el cliente QA. En inventario funcionaron creación, ajuste de stock y edición, pero el recurso reapareció después de eliminarlo y forzar sincronización. El módulo acumulaba `insert`, múltiples `update` y `delete` para el mismo UUID, permitiendo que una escritura concurrente restaurara el registro. Las operaciones ahora se compactan a una única intención vigente, la baja cancela todas las anteriores y guarda `deleted_at`. También se añadieron nombres accesibles a los controles de aumento y disminución de stock.
+
+Para completar la limpieza de activos de prueba, los administradores disponen ahora de “Eliminar Registro” sobre equipos previamente dados de baja. La acción utiliza el flujo sincronizado de eliminación y requiere confirmación explícita.

@@ -57,7 +57,7 @@ export default function InventarioInterno() {
     // Filter by client partition and skip soft-deleted
     return list.filter(item => {
       const isClient = item.cliente_id === activeClientId;
-      const notDeleted = item.sync_status !== "pending_delete";
+      const notDeleted = item.sync_status !== "pending_delete" && !item.deleted_at;
       return isClient && notDeleted;
     });
   }, [activeClientId]) || [];
@@ -81,20 +81,27 @@ export default function InventarioInterno() {
     const item = await db.inventory.get(uuid_sync);
     if (!item) return;
     const newStock = Math.max(0, (item.stock || 0) + increment);
+    const now = Date.now();
+    const pendingInsert = await db.sync_queue
+      .where("uuid_sync")
+      .equals(uuid_sync)
+      .filter(operation => operation.table === "inventory" && operation.operation === "insert")
+      .first();
     
     await db.inventory.update(uuid_sync, {
       stock: newStock,
-      updated_at: Date.now(),
-      sync_status: "pending_update"
+      updated_at: now,
+      sync_status: pendingInsert ? "pending_insert" : "pending_update"
     });
-    
-    // Add transaction to Sync Queue
+
+    const updatedItem = await db.inventory.get(uuid_sync);
+    await db.sync_queue.where("uuid_sync").equals(uuid_sync).delete();
     await db.sync_queue.add({
       table: "inventory",
       uuid_sync,
-      operation: "update",
-      timestamp: Date.now(),
-      data: { ...item, stock: newStock }
+      operation: pendingInsert ? "insert" : "update",
+      timestamp: now,
+      data: updatedItem
     });
     
     syncEngine.triggerSync();
@@ -134,18 +141,20 @@ export default function InventarioInterno() {
 
   const handleDelete = async (uuid_sync: string) => {
     if (!confirm("¿Está seguro de que desea eliminar este ítem del inventario?")) return;
-    
+    const now = Date.now();
+    await db.sync_queue.where("uuid_sync").equals(uuid_sync).delete();
     await db.inventory.update(uuid_sync, {
       sync_status: "pending_delete",
-      updated_at: Date.now()
+      updated_at: now,
+      deleted_at: now
     });
 
     await db.sync_queue.add({
       table: "inventory",
       uuid_sync,
       operation: "delete",
-      timestamp: Date.now(),
-      data: {}
+      timestamp: now,
+      data: { uuid_sync, deleted_at: now }
     });
 
     syncEngine.triggerSync();
@@ -175,24 +184,32 @@ export default function InventarioInterno() {
 
     if (editingItem) {
       // Edit
+      const pendingInsert = await db.sync_queue
+        .where("uuid_sync")
+        .equals(editingItem.uuid_sync)
+        .filter(operation => operation.table === "inventory" && operation.operation === "insert")
+        .first();
       await db.inventory.update(editingItem.uuid_sync, {
         ...itemPayload,
-        sync_status: "pending_update"
+        sync_status: pendingInsert ? "pending_insert" : "pending_update"
       });
 
+      const updatedItem = await db.inventory.get(editingItem.uuid_sync);
+      await db.sync_queue.where("uuid_sync").equals(editingItem.uuid_sync).delete();
       await db.sync_queue.add({
         table: "inventory",
         uuid_sync: editingItem.uuid_sync,
-        operation: "update",
+        operation: pendingInsert ? "insert" : "update",
         timestamp: now,
-        data: { uuid_sync: editingItem.uuid_sync, ...itemPayload }
+        data: updatedItem
       });
     } else {
       // Create
       const newUuid = crypto.randomUUID();
+      const newId = `INV-${Date.now()}`;
       await db.inventory.add({
         uuid_sync: newUuid,
-        id: `INV-${Date.now()}`,
+        id: newId,
         ...itemPayload,
         sync_status: "pending_insert"
       });
@@ -202,7 +219,7 @@ export default function InventarioInterno() {
         uuid_sync: newUuid,
         operation: "insert",
         timestamp: now,
-        data: { uuid_sync: newUuid, id: `INV-${Date.now()}`, ...itemPayload }
+        data: { uuid_sync: newUuid, id: newId, ...itemPayload }
       });
     }
 
@@ -347,6 +364,7 @@ export default function InventarioInterno() {
               <div className="border-t border-slate-100 pt-4 flex justify-between items-center bg-slate-50 -mx-6 -mb-6 p-4 rounded-b-3xl mt-4">
                 <div className="flex items-center gap-2">
                   <button 
+                    aria-label={`Disminuir stock de ${item.nombre}`}
                     onClick={() => handleStockChange(item.uuid_sync, -1)}
                     className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition shadow-sm"
                   >
@@ -357,6 +375,7 @@ export default function InventarioInterno() {
                     <span className="text-[10px] text-slate-400 block font-bold leading-3 uppercase">{item.unidad}</span>
                   </div>
                   <button 
+                    aria-label={`Aumentar stock de ${item.nombre}`}
                     onClick={() => handleStockChange(item.uuid_sync, 1)}
                     className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition shadow-sm"
                   >

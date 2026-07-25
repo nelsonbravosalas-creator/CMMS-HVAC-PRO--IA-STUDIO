@@ -27,7 +27,7 @@ import {
   Wrench,
   BarChart3
 } from "lucide-react";
-import { Link, useRoute } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { EQUIPOS_DATA, Equipo } from "../data/assets";
 import { SearchableSelect } from "../components/SearchableSelect";
 import { REFRIGERANTES_CHILE } from "../data/refrigerantes";
@@ -54,6 +54,7 @@ type Tab = "info" | "historial" | "historico" | "documentos";
 
 export default function DetalleEquipo() {
   const { user, permisos } = useAuth();
+  const [, setLocation] = useLocation();
   const [, params] = useRoute<{ assetId: string }>("/equipos/:assetId");
   const assetId = params ? params.assetId : undefined;
   
@@ -65,7 +66,7 @@ export default function DetalleEquipo() {
   );
   const tag = equipo?.tag;
 
-  const { editAsset } = useAssets();
+  const { editAsset, removeAsset } = useAssets();
   
   const preventive_maintenance = useAppStore(state => state.preventive_maintenance);
   const historialMantenimiento = useMemo(() => 
@@ -388,9 +389,23 @@ export default function DetalleEquipo() {
                         <Trash2 className="w-4 h-4" /> Dar de Baja Equipo
                      </button>
                   ) : equipo.estado === 'baja' ? (
-                     <div className="w-full py-4 bg-red-950/40 text-red-400 text-center text-[10px] font-black uppercase tracking-widest rounded-2xl border border-red-900/40">
-                        Equipo Fuera de Servicio (Baja)
-                     </div>
+                     <>
+                       <div className="w-full py-4 bg-red-950/40 text-red-400 text-center text-[10px] font-black uppercase tracking-widest rounded-2xl border border-red-900/40">
+                          Equipo Fuera de Servicio (Baja)
+                       </div>
+                       {user?.perfil === 'administrador' && (
+                         <button
+                           onClick={async () => {
+                             if (!window.confirm(`¿Eliminar definitivamente el registro ${equipo.tag}? Esta acción se sincronizará y no se puede deshacer.`)) return;
+                             await removeAsset(equipo.uuid_sync);
+                             setLocation('/equipos');
+                           }}
+                           className="w-full py-4 bg-red-700 hover:bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-red-600"
+                         >
+                           <Trash2 className="w-4 h-4" /> Eliminar Registro
+                         </button>
+                       )}
+                     </>
                   ) : (
                      <button 
                        disabled
