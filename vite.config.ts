@@ -38,11 +38,16 @@ export default defineConfig(({mode}) => {
           ]
         },
         workbox: {
+          // La aplicación se despliega con chunks versionados. No deben quedar
+          // precacheados porque una pestaña antigua podría mezclar módulos de
+          // dos despliegues distintos. El service worker se limita a recursos
+          // visuales estables y a los cachés de terceros definidos abajo.
+          globPatterns: ['**/*.{css,png,svg,ico,woff,woff2}'],
           maximumFileSizeToCacheInBytes: 5000000,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
-          navigateFallbackDenylist: [/^\/api\//],
+          navigateFallback: null,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

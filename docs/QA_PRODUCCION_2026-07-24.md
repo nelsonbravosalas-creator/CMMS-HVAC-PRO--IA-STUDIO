@@ -348,3 +348,5 @@ Prueba del 25/07/2026 posterior a `f2b985a`:
 ## Recuperación entre despliegues
 
 Después del despliegue `b5c9d1c`, una pestaña que conservaba la versión anterior intentó cargar `ClientSelector-CAHqcOVb.js`, un chunk cuyo hash ya no pertenecía al despliegue activo. El límite de error ahora reconoce fallos de imports dinámicos, elimina cachés y registros de service worker y recarga automáticamente una sola vez. La recarga manual del estado crítico realiza la misma limpieza para evitar bucles con recursos obsoletos.
+
+La revalidación mostró además que un chunk antiguo todavía podía existir en el precache y cargar código previo sin producir un 404. El service worker deja de precachear HTML y JavaScript versionado; conserva únicamente recursos visuales estables y cachés externos. El build genera ahora sólo 3 entradas de precache en lugar de almacenar los módulos dinámicos de la aplicación.
