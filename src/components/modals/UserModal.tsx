@@ -42,8 +42,8 @@ export function UserModal({ isOpen, onClose, onSaved, editingUser }: Props) {
   const clients = useAppStore(state => state.clients);
   const activeClients = useMemo(
     () => clients
-      .filter(client => client.activo !== false && !client.deleted_at)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
+      .filter(client => client.activo !== false && !client.deleted_at && Boolean(client.id))
+      .sort((a, b) => String(a.nombre || a.empresa || a.id).localeCompare(String(b.nombre || b.empresa || b.id), "es")),
     [clients]
   );
   const selectedRole = ROLE_OPTIONS.find(option => option.value === perfil) || ROLE_OPTIONS[3];
@@ -179,7 +179,7 @@ export function UserModal({ isOpen, onClose, onSaved, editingUser }: Props) {
             </h3>
             <p className="text-xs text-slate-500 mt-1">Identidad, rol y alcance operativo del usuario.</p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full">
+          <button type="button" aria-label="Cerrar formulario de usuario" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full">
             <X className="w-5 h-5" />
           </button>
         </div>

@@ -316,23 +316,34 @@ export class CMMSDatabase extends Dexie {
         await transaction.table('users').delete(obsoleteUser.uuid_sync);
       }
     });
-    
-    this.on('populate', async () => {
-      const now = Date.now();
-      // Default branches
-      await this.branches.bulkAdd([
-        { uuid_sync: crypto.randomUUID(), id: 'SUB-default1', nombre: 'Bodega Central', codigo: '21-STK', cliente_id: 'default', direccion: 'Las Condes 123', ciudad: 'Santiago', region: 'RM', activo: true, updated_at: now, sync_status: 'synced' },
-      ]);
-      // Default asset types
-      await this.catalog_asset_types.bulkAdd([
-        { uuid_sync: crypto.randomUUID(), id: 'AC', codigo: 'AC', descripcion: 'Aire acondicionado', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), id: 'VH', codigo: 'VH', descripcion: 'Vehículo', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), id: 'GE', codigo: 'GE', descripcion: 'Grupo electrógeno', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), id: 'EB', codigo: 'EB', descripcion: 'Equipo de Bodega', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), id: 'GO', codigo: 'GO', descripcion: 'Grúa horquilla', activo: true, updated_at: now, sync_status: 'synced' },
-        { uuid_sync: crypto.randomUUID(), id: 'XX', codigo: 'XX', descripcion: 'Otros Activos', activo: true, updated_at: now, sync_status: 'synced' },
-      ]);
+    this.version(14).stores(schema).upgrade(async transaction => {
+      const resetTables = [
+        'assets',
+        'work_orders',
+        'preventive_maintenance',
+        'clients',
+        'users',
+        'user_clientes',
+        'branches',
+        'catalog_asset_types',
+        'ordenes_servicio',
+        'settings',
+        'reports',
+        'events',
+        'inventory',
+        'sync_queue',
+        'audit_logs',
+        'blobs'
+      ];
+
+      for (const tableName of resetTables) {
+        await transaction.table(tableName).clear();
+      }
     });
+
+    // La carga inicial proviene del servidor. Evitar registros locales sintéticos
+    // que luego aparezcan duplicados al sincronizar con Neon.
+    this.on('populate', async () => undefined);
   }
 }
 

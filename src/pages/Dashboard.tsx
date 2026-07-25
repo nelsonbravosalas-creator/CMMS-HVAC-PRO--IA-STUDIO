@@ -124,6 +124,16 @@ export default function Dashboard() {
     return branches.filter(b => b.activo !== false && !b.deleted_at);
   }, [branches, activeClient, currentClient]);
 
+  const uniqueClientBranches = useMemo(() => {
+    const seen = new Set<string>();
+    return clientBranches.filter(branch => {
+      const key = String(branch.uuid_sync || branch.id || branch.codigo);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [clientBranches]);
+
   const clientAssets = useMemo(() => {
     if (activeClient) {
       return assets.filter(eq => 
@@ -144,48 +154,42 @@ export default function Dashboard() {
     return work_orders;
   }, [work_orders, activeClient, currentClient]);
 
-  const DATA_MONTHLY = useMemo(() => {
-    const baseCost = clientAssets.length * 120 || 3200;
-    return [
-      { name: 'Ene', cost: Math.round(baseCost * 0.92) },
-      { name: 'Feb', cost: Math.round(baseCost * 0.88) },
-      { name: 'Mar', cost: Math.round(baseCost * 1.10) },
-      { name: 'Abr', cost: Math.round(baseCost * 1.05) },
-    ];
-  }, [clientAssets]);
-
   const DATA_POWER = useMemo(() => {
-    const powerMap = clientBranches.map(b => {
+    return uniqueClientBranches.map(b => {
       const branchCode = b.codigo || b.id;
-      const count = clientAssets.filter(eq => eq.tag.startsWith(branchCode) || eq.sucursal_id === b.id).length;
+      const power = clientAssets
+        .filter(eq => eq.tag?.startsWith(branchCode) || eq.sucursal_id === b.id || eq.sucursal_id === b.uuid_sync)
+        .reduce((sum, eq) => {
+          const voltage = Number(eq.voltaje);
+          const current = Number(eq.corriente);
+          return Number.isFinite(voltage) && Number.isFinite(current) ? sum + ((voltage * current) / 1000) : sum;
+        }, 0);
       return {
         name: b.nombre,
-        power: count > 0 ? count * 15 : 45
+        power: Number(power.toFixed(2))
       };
-    });
-    return powerMap.length > 0 ? powerMap.slice(0, 5) : [
-      { name: 'Santiago', power: 120 },
-      { name: 'Antofagasta', power: 180 }
-    ];
-  }, [clientBranches, clientAssets]);
+    }).filter(item => item.power > 0).slice(0, 5);
+  }, [uniqueClientBranches, clientAssets]);
 
   const mtbf = useMemo(() => {
-    const totalHours = clientAssets.reduce((acc, eq) => acc + (eq.horas_operacion || 1200), 0) || 4800;
-    const failures = clientWorkOrders.filter(wo => wo.prioridad === 'alta' || wo.prioridad === 'critica').length || 1;
-    return `${Math.round(totalHours / failures)}h`;
+    const hours = clientAssets.map(eq => Number(eq.horas_operacion)).filter(value => Number.isFinite(value) && value > 0);
+    const failures = clientWorkOrders.filter(wo => wo.prioridad === 'alta' || wo.prioridad === 'critica').length;
+    return hours.length > 0 && failures > 0 ? `${Math.round(hours.reduce((sum, value) => sum + value, 0) / failures)}h` : "—";
   }, [clientAssets, clientWorkOrders]);
 
   const mttr = useMemo(() => {
-    const base = 3.5;
-    const pendingCount = clientWorkOrders.filter(w => w.estado !== 'resuelto').length;
-    const computed = base + (pendingCount * 0.3);
-    return `${computed.toFixed(1)}h`;
+    const resolvedWithDuration = clientWorkOrders
+      .map(wo => Number((wo as any).duracion_horas))
+      .filter(value => Number.isFinite(value) && value >= 0);
+    return resolvedWithDuration.length > 0
+      ? `${(resolvedWithDuration.reduce((sum, value) => sum + value, 0) / resolvedWithDuration.length).toFixed(1)}h`
+      : "—";
   }, [clientWorkOrders]);
 
   const pendingFirmas = useMemo(() => {
-    const pendingCliente = Math.max(1, clientWorkOrders.filter(w => w.estado === 'abierto').length);
-    const pendingContratista = Math.max(1, clientWorkOrders.filter(w => w.estado === 'en_proceso').length);
-    const pendingVisita = Math.max(1, clientWorkOrders.filter(w => w.estado === 'asignado').length);
+    const pendingCliente = clientWorkOrders.filter(w => w.estado === 'abierto').length;
+    const pendingContratista = clientWorkOrders.filter(w => w.estado === 'en_proceso').length;
+    const pendingVisita = clientWorkOrders.filter(w => w.estado === 'asignado').length;
     return {
       cliente: String(pendingCliente).padStart(2, '0'),
       contratista: String(pendingContratista).padStart(2, '0'),
@@ -266,24 +270,26 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[#a7e6b1] tracking-tight uppercase">Salud Operativa</h2>
-          <p className="text-slate-500 text-sm font-medium">Resumen ejecutivo y monitoreo de activos real-time.</p>
+          <p className="text-slate-500 text-sm font-medium">Resumen ejecutivo y monitoreo de activos en tiempo real.</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
             <select 
+              aria-label="Filtrar por sucursal"
               value={almacen}
               onChange={(e) => setAlmacen(e.target.value)}
               className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 border-r border-slate-100 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10"
             >
               <option value="">Todas las Sucursales</option>
-              {clientBranches.map(b => (
+              {uniqueClientBranches.map(b => (
                 <option key={b.id || b.uuid_sync} value={b.codigo || b.id}>
                   {b.nombre} ({b.codigo || b.id})
                 </option>
               ))}
             </select>
             <select 
+              aria-label="Filtrar por estado técnico"
               value={estado}
               onChange={(e) => setEstado(e.target.value)}
               className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 dark:bg-slate-900 dark:text-slate-100"
@@ -305,9 +311,9 @@ export default function Dashboard() {
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KPICard label="Disponibilidad" value={kpis.disponibilidad} trend="+0.4%" icon={Activity} color="text-emerald-500" className="text-container-contrast" />
-        <KPICard label="MTBF" value={mtbf} trend="-12h" icon={Clock} color="text-blue-500" />
-        <KPICard label="MTTR" value={mttr} trend="-0.8h" icon={Wrench} color="text-amber-500" />
+        <KPICard label="Disponibilidad" value={kpis.disponibilidad} icon={Activity} color="text-emerald-500" className="text-container-contrast" />
+        <KPICard label="MTBF" value={mtbf} icon={Clock} color="text-blue-500" />
+        <KPICard label="MTTR" value={mttr} icon={Wrench} color="text-amber-500" />
         <KPICard label="Tickets Activos" value={kpis.work_orders.toString().padStart(2, '0')} icon={Ticket} color="text-red-500" alert={kpis.work_orders > 0} />
         <KPICard label="Equipos en Falla" value={kpis.fallas.toString().padStart(2, '0')} icon={AlertTriangle} color="text-rose-500" alert={kpis.fallas > 0} />
         <KPICard label="Mantv. Pendientes" value={kpis.mantv.toString().padStart(2, '0')} icon={CheckCircle2} color="text-slate-500" />
@@ -319,8 +325,8 @@ export default function Dashboard() {
         <div className="xl:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Gasto Estimado Mensual</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Estimación basada en {kpis.total} activos</p>
+              <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Costos mensuales</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Requiere costos registrados en órdenes de trabajo</p>
             </div>
             <div className="flex gap-4">
               <div className="flex items-center gap-1.5">
@@ -329,25 +335,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="h-64 mt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={DATA_MONTHLY}>
-                <defs>
-                  <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#94a3b8'}} />
-                <YAxis hide />
-                <Tooltip 
-                  contentStyle={{backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
-                  labelStyle={{fontWeight: 'bold', fontSize: '12px'}}
-                />
-                <Area type="monotone" dataKey="cost" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorCost)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-64 mt-4 flex items-center justify-center rounded-xl bg-slate-50 text-center px-6">
+            <p className="text-xs font-bold text-slate-400 uppercase">Aún no hay datos de costos para graficar</p>
           </div>
         </div>
 
@@ -355,6 +344,7 @@ export default function Dashboard() {
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
           <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4">Estado del Parque</h3>
           <div className="h-56 relative">
+            {kpis.total > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -373,6 +363,7 @@ export default function Dashboard() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            ) : <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 uppercase">Sin activos registrados</div>}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-2xl font-black text-slate-900">{kpis.total}</span>
               <span className="text-[9px] font-bold text-slate-400 uppercase">Activos</span>
@@ -391,10 +382,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Potencia por Almacén (Semi-Real) */}
+        {/* Potencia por Almacén */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
-          <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-6">Demanda Estimada (kW)</h3>
+          <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-6">Potencia nominal (kW)</h3>
           <div className="h-64">
+            {DATA_POWER.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={DATA_POWER} layout="vertical">
                 <XAxis type="number" hide />
@@ -403,6 +395,7 @@ export default function Dashboard() {
                 <Bar dataKey="power" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={12} />
               </BarChart>
             </ResponsiveContainer>
+            ) : <div className="h-full flex items-center justify-center text-center text-xs font-bold text-slate-400 uppercase px-4">Registre voltaje y corriente para calcular la potencia nominal</div>}
           </div>
         </div>
       </div>

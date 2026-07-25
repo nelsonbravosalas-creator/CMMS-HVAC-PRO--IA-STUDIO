@@ -11,7 +11,7 @@ let mockSqlInstance: any = null;
 
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
-  if (!secret && process.env.NODE_ENV === "production") {
+  if (!secret && isProduction) {
     throw new Error("JWT_SECRET is required in production");
   }
   return secret || "dev_only_jwt_secret_change_me";
@@ -94,12 +94,12 @@ const getCookie = (req: any, name: string) => {
 };
 
 const setAuthCookie = (res: any, token: string) => {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const secure = isProduction ? "; Secure" : "";
   res.setHeader("Set-Cookie", `cmms_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200${secure}`);
 };
 
 const clearAuthCookie = (res: any) => {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const secure = isProduction ? "; Secure" : "";
   res.setHeader("Set-Cookie", `cmms_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`);
 };
 
@@ -154,7 +154,7 @@ const requireWriteRole = (req: any, res: any, next: any) => {
 };
 
 const publicError = (error: unknown, fallback = "Error interno del servidor") =>
-  process.env.NODE_ENV === "production"
+  isProduction
     ? fallback
     : error instanceof Error
       ? error.message
@@ -166,7 +166,7 @@ const securityHeaders = (_req: express.Request, res: express.Response, next: exp
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(self), geolocation=(self), microphone=(self)");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  if (process.env.NODE_ENV === "production") {
+  if (isProduction) {
     res.setHeader(
       "Content-Security-Policy",
       "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com; connect-src 'self' https: wss:; worker-src 'self' blob:"
@@ -201,7 +201,7 @@ const getSql = () => {
   const dbUrl = process.env.DATABASE_URL;
 
   if (!dbUrl || !dbUrl.startsWith('postgres')) {
-    if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_DB !== "true") {
+    if (isProduction && process.env.ALLOW_MOCK_DB !== "true") {
       throw new Error("DATABASE_URL must be configured with a postgres connection string in production");
     }
     if (!mockSqlInstance) {
@@ -2979,7 +2979,7 @@ function resolveTable(name: string): string | null {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -3030,10 +3030,13 @@ self.addEventListener('activate', event => {
   });
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`\nâœ… CMMS HVAC PRO Server is READY`);
-    console.log(`ðŸš€ Running on http://localhost:${PORT}`);
-    console.log(`ðŸ›¡ï¸ Vite middleware active in development mode\n`);
+    console.log(`\nCMMS HVAC PRO Server is ready`);
+    console.log(`Running on http://localhost:${PORT}`);
+    console.log(isProduction
+      ? "Serving the production build\n"
+      : "Vite middleware active in development mode\n");
   });
 }
 
 startServer();
+const isProduction = process.env.NODE_ENV === "production" || process.env.npm_lifecycle_event === "start";

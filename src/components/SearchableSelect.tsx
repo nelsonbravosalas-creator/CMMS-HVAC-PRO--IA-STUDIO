@@ -15,6 +15,7 @@ interface SearchableSelectProps {
   icon?: React.ReactNode;
   disabled?: boolean;
   allowCreate?: boolean;
+  ariaLabel?: string;
 }
 
 export function SearchableSelect({
@@ -24,7 +25,8 @@ export function SearchableSelect({
   placeholder = "Seleccionar...",
   icon,
   disabled = false,
-  allowCreate = false
+  allowCreate = false,
+  ariaLabel
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,7 +58,11 @@ export function SearchableSelect({
 
   return (
     <div className="relative w-full" ref={dropdownRef}>
-      <div 
+      <button
+        type="button"
+        aria-label={ariaLabel || placeholder}
+        aria-expanded={isOpen}
+        disabled={disabled}
         className={`w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus-within:ring-2 focus-within:ring-blue-500/10 focus-within:border-blue-500 flex items-center justify-between cursor-pointer ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -67,7 +73,7 @@ export function SearchableSelect({
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown className={`w-4 h-4 text-slate-400 absolute right-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-      </div>
+      </button>
 
       {isOpen && (
         <div className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">

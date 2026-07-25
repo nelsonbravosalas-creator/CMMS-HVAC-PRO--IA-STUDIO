@@ -112,7 +112,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
       let nextDate: Date | null = null;
       switch(frecuencia) {
           case "Mensual": date.setMonth(date.getMonth() + 1); nextDate = date; break;
-          case "Bi-Mestral": date.setMonth(date.getMonth() + 2); nextDate = date; break;
+          case "Bimestral": date.setMonth(date.getMonth() + 2); nextDate = date; break;
           case "Trimestral": date.setMonth(date.getMonth() + 3); nextDate = date; break;
           case "Cuatrimestral": date.setMonth(date.getMonth() + 4); nextDate = date; break;
           case "Semestral": date.setMonth(date.getMonth() + 6); nextDate = date; break;
@@ -340,7 +340,7 @@ export const NuevoMantenimientoModal: React.FC<NuevoMantenimientoModalProps> = (
                 <select value={frecuencia} onChange={(e) => setFrecuencia(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10">
                   <option value="Unico">Único</option>
                   <option value="Mensual">Mensual</option>
-                  <option value="Bi-Mestral">Bi-Mestral</option>
+                  <option value="Bimestral">Bimestral</option>
                   <option value="Trimestral">Trimestral</option>
                   <option value="Cuatrimestral">Cuatrimestral</option>
                   <option value="Semestral">Semestral</option>

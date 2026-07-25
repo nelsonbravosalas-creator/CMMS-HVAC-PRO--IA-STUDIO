@@ -220,7 +220,7 @@ export default function InventarioInterno() {
             <Package className="w-8 h-8 text-blue-600" />
             Control de Inventario Interno
           </h1>
-          <p className="text-slate-500 font-medium">Asignación, trazabilidad y stock físico de de recursos técnicos.</p>
+          <p className="text-slate-500 font-medium">Asignación, trazabilidad y stock físico de recursos técnicos.</p>
         </div>
         <button 
           id="btn-nuevo-item-inventario"

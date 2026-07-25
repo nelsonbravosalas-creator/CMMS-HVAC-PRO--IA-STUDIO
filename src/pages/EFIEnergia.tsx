@@ -197,6 +197,27 @@ export default function EFIEnergia() {
     };
   }, [clientAssets, branchCosts, totalConsumption]);
 
+  const hasEnergyTelemetry = false;
+
+  if (!hasEnergyTelemetry) {
+    return (
+      <div className="min-h-[60vh] p-4 md:p-8 flex items-center justify-center">
+        <section className="max-w-2xl w-full bg-white border border-slate-200 rounded-[32px] p-8 md:p-12 text-center shadow-sm">
+          <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Zap className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Sin telemetría energética</h2>
+          <p className="mt-3 text-sm text-slate-500">
+            No hay una fuente de medición energética conectada. Los consumos, costos y ahorros aparecerán cuando se integre un medidor o una API de telemetría.
+          </p>
+          <p className="mt-4 text-xs font-bold text-slate-400 uppercase">
+            Activos registrados: {clientAssets.length}
+          </p>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 space-y-8 pb-32">
       <QRLabelModal 

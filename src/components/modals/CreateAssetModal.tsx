@@ -21,10 +21,10 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const { createAsset } = useAssets();
   const [assetUuid] = useState(() => crypto.randomUUID());
   const [tagData, setTagData] = useState({
-    almacen: '21-STK',
-    tipo: 'AC',
+    almacen: '',
+    tipo: '',
     correlativo: '',
-    nombreEquipo: 'Compresor de Aire Industrial',
+    nombreEquipo: '',
     marca: '',
     modelo: '',
     serie: ''
@@ -69,7 +69,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   const [hasChanges, setHasChanges] = useState(false);
   const [showExitPrompt, setShowExitPrompt] = useState(false);
 
-  const ASSET_DRAFT_KEY = "cmms_asset_draft";
+  const ASSET_DRAFT_KEY = "cmms_asset_draft_v2";
 
   useEffect(() => {
     const draft = localStorage.getItem(ASSET_DRAFT_KEY);
@@ -222,14 +222,28 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   };
 
   const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
     setIsSaving(true);
 
     try {
-      if (!fullTag || fullTag.trim() === '') {
-        throw new Error('El tag del equipo es obligatorio');
+      if (!tagData.almacen) {
+        throw new Error('Debe seleccionar una sucursal.');
+      }
+      if (!tagData.tipo) {
+        throw new Error('Debe seleccionar una categoría de equipo.');
+      }
+      if (!tagData.nombreEquipo.trim()) {
+        throw new Error('El nombre del activo es obligatorio.');
+      }
+      if (!/^\d{1,3}$/.test(correlativoMostrado)) {
+        throw new Error('El correlativo debe contener entre 1 y 3 dígitos.');
+      }
+      if (!Number.isFinite(voltaje) || voltaje <= 0 || !Number.isFinite(corriente) || corriente <= 0) {
+        throw new Error('Voltaje y corriente deben ser valores mayores que cero.');
       }
 
       // 1. Verify locally in Dexie if the tag exists
@@ -249,7 +263,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         throw new Error('Debe seleccionar una sucursal válida asociada a un cliente.');
       }
       if (!branch.cliente_id) {
-        throw new Error('La sucursal seleccionada no tiene un cliente asociado valid.');
+        throw new Error('La sucursal seleccionada no tiene un cliente válido asociado.');
       }
 
       let proximoDate = "";
@@ -280,7 +294,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
         uuid_sync: assetUuid,
         id: fullTag || `PEND-${assetUuid}`,
         tag: fullTag || `EQUIPO-${Date.now()}`,
-        nombre: tagData.nombreEquipo,
+        nombre: tagData.nombreEquipo.trim(),
         tipo: tagData.tipo,
         marca: tagData.marca,
         modelo: tagData.modelo,
@@ -304,7 +318,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       onClose();
     } catch (error: any) {
       console.error("Error guardando activo:", error);
-      alert(`No se pudo crear el equipo: ${error.message || error}`);
+      setFormError(error.message || "No se pudo crear el equipo.");
     } finally {
       setIsSaving(false);
     }
@@ -451,7 +465,8 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                   className="hidden" 
                   onChange={handleOCR}
                 />
-                <button 
+                <button
+                  type="button"
                   onClick={() => document.getElementById('ocr-upload')?.click()}
                   disabled={isScanning}
                   className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all border border-blue-100 shadow-sm"
@@ -460,11 +475,16 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                   <span>{isScanning ? "Escaneando..." : "Escanear Placa IA"}</span>
                   <Sparkles className="w-3 h-3 text-blue-400" />
                 </button>
-                <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                <button type="button" aria-label="Cerrar formulario de activo" onClick={handleCloseIntent} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
              </div>
           </div>
 
           <form className="space-y-6 lg:space-y-8" onSubmit={handleSubmit}>
+             {formError && (
+               <div role="alert" className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100 text-red-700 text-xs font-bold">
+                 {formError}
+               </div>
+             )}
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                 <div className="space-y-1 z-50">
                    <div className="flex justify-between items-center">
@@ -476,6 +496,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                       value={tagData.almacen}
                       onChange={(val) => setTagData({...tagData, almacen: val})}
                       placeholder="Seleccionar sucursal"
+                      ariaLabel="Sucursal del activo"
                    />
                 </div>
                 <div className="space-y-1 z-40">
@@ -488,6 +509,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                       value={tagData.tipo}
                       onChange={(val) => setTagData({...tagData, tipo: val})}
                       placeholder="Seleccionar categoría"
+                      ariaLabel="Categoría del activo"
                    />
                 </div>
              </div>
@@ -495,13 +517,14 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                 <div className="space-y-1">
                    <div className="flex justify-between items-center">
-                     <label className="text-[10px] font-black uppercase text-slate-400">Correlativo</label>
+                   <label htmlFor="asset-correlativo" className="text-[10px] font-black uppercase text-slate-400">Correlativo</label>
                      <div className="flex items-center gap-1">
                         <LoadingIndicator size="xs" color="text-blue-500" />
                         <span className="text-[8px] font-black text-blue-500 uppercase">Auto-Sugerido</span>
                      </div>
                    </div>
                    <input 
+                      id="asset-correlativo"
                       type="text" 
                       maxLength={3}
                       className="w-full px-4 py-3 bg-blue-50/50 border border-blue-100 rounded-2xl text-sm font-black text-blue-900 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
@@ -510,9 +533,13 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                    />
                 </div>
                 <div className="space-y-1">
-                   <label className="text-[10px] font-black uppercase text-slate-400">Nombre de Activo</label>
+                   <label htmlFor="asset-nombre" className="text-[10px] font-black uppercase text-slate-400">Nombre de Activo</label>
                    <input 
+                      id="asset-nombre"
                       type="text" 
+                      required
+                      autoComplete="off"
+                      placeholder="Ej.: Chiller principal"
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                       value={tagData.nombreEquipo}
                       onChange={(e) => setTagData({...tagData, nombreEquipo: e.target.value})}
@@ -556,12 +583,12 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Voltaje (V)</label>
-                      <input type="number" value={voltaje} onChange={(e) => setVoltaje(Number(e.target.value))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-blue-300 transition-all" />
+                      <label htmlFor="asset-voltaje" className="text-[9px] font-black uppercase text-slate-400">Voltaje (V)</label>
+                      <input id="asset-voltaje" type="number" min="1" required value={voltaje} onChange={(e) => setVoltaje(Number(e.target.value))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-blue-300 transition-all" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400">Corriente (A)</label>
-                      <input type="number" value={corriente} onChange={(e) => setCorriente(Number(e.target.value))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-blue-300 transition-all" />
+                      <label htmlFor="asset-corriente" className="text-[9px] font-black uppercase text-slate-400">Corriente (A)</label>
+                      <input id="asset-corriente" type="number" min="0.1" step="0.1" required value={corriente} onChange={(e) => setCorriente(Number(e.target.value))} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-blue-300 transition-all" />
                    </div>
                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col justify-center col-span-2 sm:col-span-1">
                       <span className="text-[8px] font-black text-blue-600 uppercase">Potencia Est.</span>
@@ -593,7 +620,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-[11px] font-bold outline-none focus:border-emerald-300 transition-all text-slate-700 select"
                       >
                          <option value="Mensual">Mensual (1 Mes)</option>
-                         <option value="Bi-Mestral">Bi-Mestral (2 Meses)</option>
+                         <option value="Bimestral">Bimestral (2 meses)</option>
                          <option value="Trimestral">Trimestral (3 Meses)</option>
                          <option value="Cuatrimestral">Cuatrimestral (4 Meses)</option>
                          <option value="Semestral">Semestral (6 Meses)</option>

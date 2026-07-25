@@ -262,7 +262,9 @@ export default function Layout({ children }: LayoutProps) {
     equiposTotal: equiposTotal,
     offlineOps: 0,
     equiposEnFalla: equiposEnFalla,
-    disponibilidadGlobal: "98.2%"
+    disponibilidadGlobal: equiposTotal > 0
+      ? `${(((equiposTotal - equiposEnFalla) / equiposTotal) * 100).toFixed(1)}%`
+      : "—"
   };
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
@@ -313,7 +315,10 @@ export default function Layout({ children }: LayoutProps) {
               <span className="text-emerald-500 font-bold">{stats.disponibilidadGlobal}</span>
             </div>
             <div className={`w-full h-1 rounded-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
-              <div className="h-full bg-emerald-500 w-[98.2%]"></div>
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: equiposTotal > 0 ? `${((equiposTotal - equiposEnFalla) / equiposTotal) * 100}%` : "0%" }}
+              ></div>
             </div>
             <div className="mt-2 flex justify-between items-center text-slate-600">
               <span>v2.8.5-pro</span>
@@ -357,6 +362,8 @@ export default function Layout({ children }: LayoutProps) {
                 <span className={`font-black uppercase tracking-widest text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Menu Principal</span>
               </div>
               <button 
+                type="button"
+                aria-label="Cerrar menú"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
                   isDarkMode ? 'bg-white/5 border-[#39FF14] shadow-[0_0_15px_rgba(57,255,20,0.3)] text-[#39FF14]' : 'bg-slate-100 border-slate-200 text-slate-600'
@@ -401,6 +408,8 @@ export default function Layout({ children }: LayoutProps) {
         <header className={`h-16 shrink-0 border-b flex items-center justify-between px-4 lg:px-8 z-30 shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-4">
             <button 
+              type="button"
+              aria-label="Abrir menú principal"
               className={`lg:hidden p-2 transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`} 
               onClick={() => setIsMobileMenuOpen(true)}
             >
@@ -430,6 +439,8 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Theme Toggle */}
             <button 
+              type="button"
+              aria-label={isDarkMode ? "Activar tema claro" : "Activar tema oscuro"}
               onClick={toggleTheme} 
               className={`p-2 rounded border transition-colors ${isDarkMode ? 'border-slate-800 hover:bg-slate-800 text-slate-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'}`}
             >
@@ -507,6 +518,8 @@ export default function Layout({ children }: LayoutProps) {
         <nav className={`lg:hidden fixed bottom-6 ${menuPosition === 'right' ? 'right-6' : 'left-6'} z-50 flex items-center gap-3`}>
           {/* Toggle Handness */}
           <button 
+            type="button"
+            aria-label="Cambiar lado de los controles"
             onClick={() => setMenuPosition(menuPosition === 'right' ? 'left' : 'right')}
             className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border backdrop-blur-md transition-all active:scale-90 ${
               isDarkMode ? 'bg-slate-900/80 border-slate-700 text-slate-400' : 'bg-white/80 border-slate-200 text-slate-600'

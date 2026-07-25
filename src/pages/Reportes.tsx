@@ -42,6 +42,24 @@ export default function Reportes() {
 
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
+  const hasAnalyticsDataset = false;
+
+  if (!hasAnalyticsDataset) {
+    return (
+      <div className="min-h-[60vh] p-4 md:p-8 flex items-center justify-center">
+        <section className="max-w-2xl w-full bg-white border border-slate-200 rounded-[32px] p-8 md:p-12 text-center shadow-sm">
+          <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <BarChart className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Analítica pendiente de datos</h2>
+          <p className="mt-3 text-sm text-slate-500">
+            Todavía no existe una fuente consolidada de costos, tiempos de resolución y tendencias. Este panel se habilitará cuando esos campos estén registrados en las órdenes y mantenimientos.
+          </p>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8 text-left animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
