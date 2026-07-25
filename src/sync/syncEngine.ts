@@ -187,7 +187,19 @@ class SyncEngine {
                if (!remoteUuid) continue;
 
                const local = await table.get(remoteUuid);
-               if (!local || (remoteRecord.updated_at || 0) > (local.updated_at || 0)) {
+               const remoteUpdatedAt = remoteRecord.updated_at || 0;
+               const localUpdatedAt = local?.updated_at || 0;
+               const needsStructuralRepair = Boolean(
+                 local
+                 && local.sync_status === 'synced'
+                 && remoteUpdatedAt >= localUpdatedAt
+                 && (
+                   (remoteRecord.id != null && local.id !== remoteRecord.id)
+                   || (remoteRecord.cliente_id != null && local.cliente_id !== remoteRecord.cliente_id)
+                   || (remoteRecord.deleted_at != null && local.deleted_at !== remoteRecord.deleted_at)
+                 )
+               );
+               if (!local || remoteUpdatedAt > localUpdatedAt || needsStructuralRepair) {
                   let mergedRecord = remoteRecord;
                   if (tableName !== 'assets' && remoteRecord.data) {
                     try {
