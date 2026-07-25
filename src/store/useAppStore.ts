@@ -55,12 +55,12 @@ export const useAppStore = create<CMMSState>((set) => ({
     logger.info('Store', 'Iniciando hidratación de datos...');
     try {
       const [assets, work_orders, preventive_maintenance, users, clients, branches] = await Promise.all([
-        db.assets.where('sync_status').notEqual('pending_delete').toArray(),
-        db.work_orders.where('sync_status').notEqual('pending_delete').toArray(),
-        db.preventive_maintenance.where('sync_status').notEqual('pending_delete').toArray(),
-        db.users.where('sync_status').notEqual('pending_delete').toArray(),
-        db.clients.where('sync_status').notEqual('pending_delete').toArray(),
-        db.branches.where('sync_status').notEqual('pending_delete').toArray()
+        db.assets.filter(record => record.sync_status !== 'pending_delete' && !record.deleted_at).toArray(),
+        db.work_orders.filter(record => record.sync_status !== 'pending_delete' && !record.deleted_at).toArray(),
+        db.preventive_maintenance.filter(record => record.sync_status !== 'pending_delete' && !record.deleted_at).toArray(),
+        db.users.filter(record => record.sync_status !== 'pending_delete' && !record.deleted_at).toArray(),
+        db.clients.filter(record => record.sync_status !== 'pending_delete' && !record.deleted_at).toArray(),
+        db.branches.filter(record => record.sync_status !== 'pending_delete' && !record.deleted_at).toArray()
       ]);
       
       set({ 

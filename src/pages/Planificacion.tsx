@@ -603,7 +603,18 @@ export default function Planificacion() {
                       <div className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[act.status].color.replace('text-', 'bg-')}`} />
                       <span className={`text-[9px] font-black uppercase ${STATUS_CONFIG[act.status].color}`}>{act.status}</span>
                     </div>
-                    <button type="button" aria-label={`Más opciones para ${act.title}`} className="p-1 hover:bg-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4 text-slate-300" /></button>
+                    <button
+                      type="button"
+                      aria-label={`Más opciones para ${act.title}`}
+                      className="p-1 hover:bg-white rounded-lg transition-colors"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const calendarEvent = calendarEvents.find(item => item.id === act.id);
+                        handleSelectEvent(calendarEvent);
+                      }}
+                    >
+                      <MoreVertical className="w-4 h-4 text-slate-300" />
+                    </button>
                   </div>
                   
                   <h4 className="text-sm font-black text-slate-900 uppercase leading-snug group-hover:text-blue-600 transition-colors">{act.title}</h4>

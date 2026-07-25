@@ -159,6 +159,7 @@ export default function Equipos() {
   const filteredEquipos = useMemo(() => {
     const activeClientUid = localStorage.getItem("active_client");
     return assets.filter(eq => {
+      if (eq.deleted_at || eq.sync_status === "pending_delete") return false;
       if (activeClientUid && eq.cliente_id !== activeClientUid) return false;
       const matchSearch = (eq.tag + eq.nombre + eq.ubicacion).toLowerCase().includes(filters.search.toLowerCase());
       const matchTipo = filters.tipo ? eq.tipo === filters.tipo : true;
