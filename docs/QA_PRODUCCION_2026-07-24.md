@@ -314,3 +314,5 @@ Correcciones:
 - Se agregó eliminación de clientes desde su ficha, incluyendo baja sincronizada de sus sucursales, para poder revertir registros de QA de forma segura.
 
 La persistencia completa y limpieza del registro temporal deben revalidarse después del siguiente despliegue.
+
+Durante la limpieza se detectó que una baja podía convivir con un insert fallido del mismo UUID y que el pull descartaba `deleted_at` al expandir el JSON. Se corrigieron ambos comportamientos: la baja reemplaza operaciones pendientes previas y los tombstones del servidor se conservan localmente.

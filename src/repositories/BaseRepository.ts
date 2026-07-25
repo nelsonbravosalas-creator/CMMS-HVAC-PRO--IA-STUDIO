@@ -114,6 +114,8 @@ export abstract class BaseRepository<T extends LocalBase> {
     if (!existing) return;
 
     const now = Date.now();
+    // La baja sustituye cualquier insert/update pendiente del mismo registro.
+    await db.sync_queue.where('uuid_sync').equals(uuid).delete();
     await this.table.update(uuid, {
       sync_status: 'pending_delete' as SyncStatus,
       updated_at: now,

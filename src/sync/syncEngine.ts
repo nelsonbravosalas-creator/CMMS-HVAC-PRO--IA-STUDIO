@@ -195,7 +195,8 @@ class SyncEngine {
                       mergedRecord = { 
                         ...parsed, 
                         uuid_sync: remoteUuid, 
-                        updated_at: remoteRecord.updated_at
+                        updated_at: remoteRecord.updated_at,
+                        deleted_at: remoteRecord.deleted_at ?? parsed.deleted_at
                       };
                     } catch(e) {}
                   }
