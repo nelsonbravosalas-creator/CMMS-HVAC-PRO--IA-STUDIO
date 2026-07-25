@@ -1,24 +1,22 @@
 import React, { useState } from "react";
 import { 
   FileText, 
-  FileDown, 
   Eye, 
   Plus, 
   Search, 
-  Filter, 
-  Trash2, 
-  Send, 
-  Lock, 
   CheckCircle2,
   ScanLine
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/database";
+import { useAuth } from "../context/AuthContext";
 
 export default function OrdenesServicio() {
   const [filter, setFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
   const [, setLocation] = useLocation();
+  const { permisos } = useAuth();
 
   const rawOrdenes = useLiveQuery(() => db.ordenes_servicio.toArray(), []) || [];
   const activeClientUid = localStorage.getItem("active_client");
@@ -33,9 +31,11 @@ export default function OrdenesServicio() {
     const tec = data.generalData?.tecnico || "";
     const idStr = os.id || "";
     const filterLower = (filter || "").toLowerCase();
-    return tg.toLowerCase().includes(filterLower) ||
-           tec.toLowerCase().includes(filterLower) ||
-           idStr.toLowerCase().includes(filterLower);
+    const matchesText = tg.toLowerCase().includes(filterLower) ||
+      tec.toLowerCase().includes(filterLower) ||
+      idStr.toLowerCase().includes(filterLower);
+    const matchesStatus = statusFilter === "todos" || os.estado === statusFilter;
+    return matchesText && matchesStatus;
   }).map(os => ({
     id: os.id,
     fecha: os.data?.generalData?.fecha || new Date(os.updated_at || Date.now()).toISOString().split('T')[0],
@@ -58,15 +58,20 @@ export default function OrdenesServicio() {
           <p className="text-slate-500 text-sm font-medium">Gestión de órdenes de servicio, checklists y hallazgos.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all">
+          <button
+            onClick={() => setLocation("/scanner")}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
+          >
             <ScanLine className="w-4 h-4" /> Escanear QR
           </button>
-          <button 
-            onClick={() => setLocation("/ordenes-servicio/nuevo")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
-          >
-            <Plus className="w-4 h-4" /> Nueva Orden
-          </button>
+          {permisos?.crear_orden_servicio && (
+            <button
+              onClick={() => setLocation("/ordenes-servicio/nuevo")}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
+            >
+              <Plus className="w-4 h-4" /> Nueva Orden
+            </button>
+          )}
         </div>
       </div>
 
@@ -89,15 +94,19 @@ export default function OrdenesServicio() {
           />
         </div>
         <div className="flex items-center gap-2">
-           <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none min-w-[120px]">
-              <option>Cualquier Estado</option>
-              <option>Abierto</option>
-              <option>En progreso</option>
-              <option>Completado</option>
-              <option>Firmado</option>
-              <option>Cerrado</option>
+           <select
+             aria-label="Filtrar órdenes por estado"
+             value={statusFilter}
+             onChange={(event) => setStatusFilter(event.target.value)}
+             className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none min-w-[120px]"
+           >
+              <option value="todos">Cualquier Estado</option>
+              <option value="abierto">Abierto</option>
+              <option value="en_progreso">En progreso</option>
+              <option value="completado">Completado</option>
+              <option value="firmado">Firmado</option>
+              <option value="cerrado">Cerrado</option>
            </select>
-           <button className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200"><Filter className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -139,10 +148,13 @@ export default function OrdenesServicio() {
                 <td className="px-6 py-4 text-right">
                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Link href={`/ordenes-servicio/${os.id}`}>
-                        <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"><Eye className="w-3.5 h-3.5" /></button>
+                        <button
+                          aria-label={`Ver orden ${os.id}`}
+                          className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                       </Link>
-                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><FileDown className="w-3.5 h-3.5" /></button>
-                      <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
                    </div>
                 </td>
               </tr>

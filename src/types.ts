@@ -25,6 +25,7 @@ export interface Permisos {
   gestionar_usuarios: boolean;
   crear_equipo: boolean;
   crear_mantenimiento: boolean;
+  crear_orden_servicio: boolean;
   puedeEditarMantenimientos: boolean;
   ver_historial: boolean;
   ver_specs: boolean;
@@ -54,36 +55,42 @@ export const PERMISOS_POR_PERFIL: Record<Perfil, Permisos> = {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
     crear_informe: false, crear_ticket: false, ver_reportes: false,
     gestionar_usuarios: false, crear_equipo: false, crear_mantenimiento: false,
+    crear_orden_servicio: false,
     puedeEditarMantenimientos: false, ver_historial: true, ver_specs: true, ver_ubicacion: true
   },
   cliente: {
     ver_dashboard: true, ver_mantenimientos: false, ver_informes: true,
     crear_informe: false, crear_ticket: true, ver_reportes: true,
     gestionar_usuarios: false, crear_equipo: false, crear_mantenimiento: false,
+    crear_orden_servicio: false,
     puedeEditarMantenimientos: false, ver_historial: true, ver_specs: false, ver_ubicacion: false
   },
   contratista: {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
     crear_informe: true, crear_ticket: true, ver_reportes: false,
     gestionar_usuarios: false, crear_equipo: false, crear_mantenimiento: true,
+    crear_orden_servicio: true,
     puedeEditarMantenimientos: true, ver_historial: true, ver_specs: true, ver_ubicacion: true
   },
   tecnico: {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
     crear_informe: true, crear_ticket: true, ver_reportes: false,
     gestionar_usuarios: false, crear_equipo: false, crear_mantenimiento: true,
+    crear_orden_servicio: true,
     puedeEditarMantenimientos: true, ver_historial: true, ver_specs: true, ver_ubicacion: true
   },
   supervisor: {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
     crear_informe: true, crear_ticket: true, ver_reportes: true,
     gestionar_usuarios: false, crear_equipo: true, crear_mantenimiento: true,
+    crear_orden_servicio: true,
     puedeEditarMantenimientos: true, ver_historial: true, ver_specs: true, ver_ubicacion: true
   },
   administrador: {
     ver_dashboard: true, ver_mantenimientos: true, ver_informes: true,
     crear_informe: true, crear_ticket: true, ver_reportes: true,
     gestionar_usuarios: true, crear_equipo: true, crear_mantenimiento: true,
+    crear_orden_servicio: true,
     puedeEditarMantenimientos: true, ver_historial: true, ver_specs: true, ver_ubicacion: true
   }
 };

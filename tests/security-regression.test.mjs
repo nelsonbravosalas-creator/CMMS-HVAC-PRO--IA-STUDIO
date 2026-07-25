@@ -99,7 +99,10 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
     maintenance,
     inventory,
     layout,
-    reportsPage
+    reportsPage,
+    orderList,
+    orderEditor,
+    permissionTypes
   ] = await Promise.all([
     read('server/vercel/auth.ts'),
     read('server/vercel/handlers/sync.ts'),
@@ -108,7 +111,10 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
     read('server/vercel/handlers/maintenance.ts'),
     read('server/vercel/handlers/inventory.ts'),
     read('src/components/Layout.tsx'),
-    read('src/pages/Reportes.tsx')
+    read('src/pages/Reportes.tsx'),
+    read('src/pages/OrdenesServicio.tsx'),
+    read('src/pages/EditorOrdenServicio.tsx'),
+    read('src/types.ts')
   ]);
 
   assert.match(auth, /role === 'cliente'[\s\S]+resource === 'work_orders' && operation === 'insert'/);
@@ -133,4 +139,10 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
 
   assert.match(layout, /item\.href === "\/reportes"[\s\S]+permisos\?\.ver_reportes/);
   assert.match(reportsPage, /if \(!permisos\?\.ver_reportes\)/);
+  assert.match(permissionTypes, /crear_orden_servicio: boolean/);
+  assert.match(orderList, /permisos\?\.crear_orden_servicio[\s\S]+Nueva Orden/);
+  assert.match(orderList, /value=\{statusFilter\}[\s\S]+setStatusFilter/);
+  assert.doesNotMatch(orderList, /FileDown|Trash2/);
+  assert.match(orderEditor, /isNew && !permisos\?\.crear_orden_servicio/);
+  assert.match(orderEditor, /isReadOnly = !permisos\?\.crear_orden_servicio/);
 });

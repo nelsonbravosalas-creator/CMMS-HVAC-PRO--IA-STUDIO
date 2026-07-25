@@ -31,6 +31,8 @@ import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatu
 import { db } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAppStore } from "../store/useAppStore";
+import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 export interface ChecklistItemData {
   status?: 'ok' | 'obs' | 'falla';
@@ -56,6 +58,7 @@ export default function EditorOrdenServicio() {
   const [, setLocation] = useLocation();
   const rawId = params?.id;
   const isNew = rawId === "nuevo";
+  const { permisos } = useAuth();
   const [uuid, setUuid] = useState(isNew ? crypto.randomUUID() : rawId || crypto.randomUUID());
   
   const clients = useAppStore(state => state.clients);
@@ -686,6 +689,9 @@ export default function EditorOrdenServicio() {
   };
 
   const handleSyncAndFinalize = async () => {
+    if (!permisos?.crear_orden_servicio) {
+      return;
+    }
     setIsSyncing(true);
 
     if (!generalData.cliente || !generalData.sucursal || !generalData.equipoTag?.trim()) {
@@ -836,7 +842,7 @@ export default function EditorOrdenServicio() {
     setHallazgos(prev => ({ ...prev, [field]: value }));
   };
 
-  const isReadOnly = status === 'firmado' || status === 'cerrado';
+  const isReadOnly = !permisos?.crear_orden_servicio || status === 'firmado' || status === 'cerrado';
 
   const renderSection = () => {
     switch (activeSection) {
@@ -1610,6 +1616,10 @@ export default function EditorOrdenServicio() {
       </div>
     );
   };
+
+  if (isNew && !permisos?.crear_orden_servicio) {
+    return <AccessDenied requiredPermission="Crear órdenes de servicio" />;
+  }
 
   return (
     <div className="flex flex-col gap-6 text-left h-[calc(100vh-8rem)]">
