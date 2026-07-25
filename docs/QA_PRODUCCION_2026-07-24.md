@@ -299,3 +299,18 @@ Hallazgo adicional:
 - El resumen “Estado hoy” de Planificación mostraba `01` fijo para todos los estados y había controles iconográficos sin nombre accesible.
 - Se reemplazaron los valores fijos por conteos derivados de los eventos del día y se etiquetaron los controles de vista, filtro, detalle y opciones.
 - Se ocultó “Nueva Actividad” para cliente y visita, manteniendo ambos perfiles en modo de solo lectura.
+
+## QA CRUD — clientes y sucursales
+
+Prueba del 25/07/2026:
+
+- La creación local de `QA CLIENTE TEMPORAL 20260725` y su Casa Matriz funciona.
+- El cliente aparece inmediatamente en selector y Gestión de Clientes.
+- La sucursal quedó pendiente porque el servidor persistía `clientes.id` usando `uuid_sync`, mientras `sucursales.cliente_id` utiliza el identificador funcional del cliente.
+
+Correcciones:
+
+- La sincronización conserva `data.id` como clave funcional del cliente y `uuid_sync` como identificador offline.
+- Se agregó eliminación de clientes desde su ficha, incluyendo baja sincronizada de sus sucursales, para poder revertir registros de QA de forma segura.
+
+La persistencia completa y limpieza del registro temporal deben revalidarse después del siguiente despliegue.

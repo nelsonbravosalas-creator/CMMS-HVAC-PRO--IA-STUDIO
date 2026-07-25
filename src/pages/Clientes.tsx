@@ -9,6 +9,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Trash2,
   X
 } from "lucide-react";
 import { ClientModal } from "../components/modals/ClientModal";
@@ -17,6 +18,8 @@ import { LocalCliente, LocalSucursal } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAuth } from "../context/AuthContext";
 import AccessDenied from "../components/AccessDenied";
+import { ClientRepository } from "../repositories/ClientRepository";
+import { BranchRepository } from "../repositories/BranchRepository";
 
 const normalizeText = (value?: string) =>
   (value || "")
@@ -120,6 +123,20 @@ export default function Clientes() {
   };
 
   const handleRefresh = async () => {
+    await syncEngine.triggerSync(true);
+  };
+
+  const handleDeleteClient = async (client: LocalCliente) => {
+    if (!window.confirm(`¿Eliminar el cliente "${client.nombre}" y sus sucursales? Esta acción quedará registrada para sincronización.`)) return;
+
+    const clientRepo = new ClientRepository();
+    const branchRepo = new BranchRepository();
+    for (const branch of getClientBranches(client)) {
+      await branchRepo.delete(branch.uuid_sync);
+    }
+    await clientRepo.delete(client.uuid_sync);
+    setSelectedClientId(null);
+    await useAppStore.getState().hydrate();
     await syncEngine.triggerSync(true);
   };
 
@@ -315,6 +332,13 @@ export default function Clientes() {
                   className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase rounded-xl transition-all flex items-center gap-2"
                 >
                   <Edit2 className="w-3.5 h-3.5" /> Editar ficha
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteClient(selectedClient)}
+                  className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-black uppercase rounded-xl transition-all flex items-center gap-2"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Eliminar cliente
                 </button>
                 <button
                   type="button"
