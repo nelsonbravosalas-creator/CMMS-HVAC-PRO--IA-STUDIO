@@ -19,6 +19,7 @@ interface CreateAssetModalProps {
 
 export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) => {
   const { createAsset } = useAssets();
+  const existingAssets = useLiveQuery(() => db.assets.toArray(), []) || [];
   const [assetUuid] = useState(() => crypto.randomUUID());
   const [tagData, setTagData] = useState({
     almacen: '',
@@ -40,7 +41,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       return tagData.correlativo;
     }
     // Buscar el máximo correlativo actual para esta sucursal y tipo
-    const matches = EQUIPOS_DATA.filter(eq => {
+    const matches = [...EQUIPOS_DATA, ...existingAssets].filter(eq => {
       const parts = eq.tag.split('.');
       return parts[0] === tagData.almacen && parts[1] === tagData.tipo;
     });
@@ -51,7 +52,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
       return (max + 1).toString().padStart(3, '0');
     }
     return '001';
-  }, [tagData.almacen, tagData.tipo, tagData.correlativo]);
+  }, [tagData.almacen, tagData.tipo, tagData.correlativo, existingAssets]);
   
   const [voltaje, setVoltaje] = useState<number>(220);
   const [corriente, setCorriente] = useState<number>(10);

@@ -61,7 +61,10 @@ export default function Tickets() {
     });
   }, [work_orders, filter]);
 
-  if (loading && work_orders.length === 0) {
+  // Keep the ticket form mounted while background synchronization runs.
+  // Otherwise an empty account briefly replaces the whole page with the
+  // loader, discarding the asset selected in the open modal.
+  if (loading && work_orders.length === 0 && !showModal) {
     return (
       <div className="flex flex-col items-center justify-center p-20 animate-pulse">
         <Clock className="w-12 h-12 text-slate-200 mb-4 animate-spin-slow" />
