@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { syncEngine } from "../sync/syncEngine";
+import { confirmAction } from "../lib/confirmAction";
 
 type CategoriaInventario = 'maquinas' | 'instrumentos' | 'vehiculos' | 'insumos' | 'materiales_repuestos';
 
@@ -140,7 +141,10 @@ export default function InventarioInterno() {
   };
 
   const handleDelete = async (uuid_sync: string) => {
-    if (!confirm("¿Está seguro de que desea eliminar este ítem del inventario?")) return;
+    if (!await confirmAction("¿Está seguro de que desea eliminar este ítem del inventario?", {
+      title: "Eliminar ítem",
+      confirmLabel: "Eliminar"
+    })) return;
     const now = Date.now();
     await db.sync_queue.where("uuid_sync").equals(uuid_sync).delete();
     await db.inventory.update(uuid_sync, {

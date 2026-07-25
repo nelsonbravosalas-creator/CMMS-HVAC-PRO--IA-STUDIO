@@ -22,6 +22,7 @@ import { SyncIndicator } from "./components/SyncIndicator";
 import { SyncInspectorPanel } from "./components/debug/SyncInspectorPanel";
 import { networkMonitor } from "./sync/networkMonitor";
 import { logger } from "./lib/logger";
+import { GlobalConfirmDialog } from "./components/GlobalConfirmDialog";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ScannerQR = lazy(() => import("./pages/ScannerQR"));
@@ -212,6 +213,7 @@ function App() {
 
   return (
     <AuthProvider>
+      <GlobalConfirmDialog />
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-slate-500">Cargando módulo…</div>}>
       {!isAuthenticated ? (
         <Login />

@@ -23,6 +23,7 @@ import {
 import { resetApplicationData } from "../lib/reset";
 import { xmlSyncService } from "../lib/xmlSync";
 import { logger } from "../lib/logger";
+import { confirmAction } from "../lib/confirmAction";
 import { syncEngine } from "../sync/syncEngine";
 import { useSyncStore } from "../store/useSyncStore";
 import { useAuth } from "../context/AuthContext";
@@ -40,11 +41,19 @@ export default function Configuracion() {
 
   const handleCloneProductionDb = async () => {
     if (cloneMode === 'overwrite') {
-      if (!confirm("⚠️ ADVERTENCIA: Has seleccionado el modo REEMPLAZO TOTAL. Esto vaciará todas las tablas locales de desarrollo antes de insertar los datos de producción. ¿Está completamente seguro?")) {
+      if (!await confirmAction("Has seleccionado el modo REEMPLAZO TOTAL. Esto vaciará todas las tablas locales de desarrollo antes de insertar los datos de producción. ¿Está completamente seguro?", {
+        title: "Reemplazo total",
+        confirmLabel: "Reemplazar",
+        tone: "danger"
+      })) {
         return;
       }
     } else {
-      if (!confirm("Esto sincronizará (fusionará) los registros de producción en la base de datos de desarrollo. ¿Desea continuar?")) {
+      if (!await confirmAction("Esto sincronizará (fusionará) los registros de producción en la base de datos de desarrollo. ¿Desea continuar?", {
+        title: "Fusionar registros",
+        confirmLabel: "Sincronizar",
+        tone: "primary"
+      })) {
         return;
       }
     }
@@ -120,7 +129,11 @@ export default function Configuracion() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!confirm("Esta acción integrará los datos del archivo XML en su base de datos local. Los registros existentes con el mismo UUID se actualizarán. ¿Desea continuar?")) {
+    if (!await confirmAction("Esta acción integrará los datos del archivo XML en su base de datos local. Los registros existentes con el mismo UUID se actualizarán. ¿Desea continuar?", {
+      title: "Importar archivo XML",
+      confirmLabel: "Importar",
+      tone: "warning"
+    })) {
       return;
     }
 
@@ -165,7 +178,11 @@ export default function Configuracion() {
   }, [currency]);
 
   const handleResetApplication = async () => {
-    if (confirm("¿Está seguro de realizar un RESET TOTAL del sistema? Se eliminarán todos los datos locales (IndexedDB), sesiones, logos y configuraciones. Deberá iniciar sesión nuevamente.")) {
+    if (await confirmAction("¿Está seguro de realizar un RESET TOTAL del sistema? Se eliminarán todos los datos locales (IndexedDB), sesiones, logos y configuraciones. Deberá iniciar sesión nuevamente.", {
+      title: "Reset total",
+      confirmLabel: "Restablecer",
+      tone: "danger"
+    })) {
       await resetApplicationData();
     }
   };

@@ -20,6 +20,7 @@ import { useAppStore } from "../store/useAppStore";
 import { syncEngine } from "../sync/syncEngine";
 import { db } from "../db/database";
 import { useAuth } from "../context/AuthContext";
+import { confirmAction } from "../lib/confirmAction";
 import AccessDenied from "../components/AccessDenied";
 
 export default function Administracion() {
@@ -83,7 +84,11 @@ export default function Administracion() {
   };
   
   const handleDatabaseMap = async () => {
-    if (!window.confirm("¿Está seguro de querer re-mapear la base de datos Neon y limpiar el caché local del teléfono? Esta acción descargará toda la data desde la nube ordenando las tablas contextualmente.")) return;
+    if (!await confirmAction("¿Está seguro de querer re-mapear la base de datos Neon y limpiar el caché local del teléfono? Esta acción descargará toda la data desde la nube ordenando las tablas contextualmente.", {
+      title: "Re-mapear base de datos",
+      confirmLabel: "Continuar",
+      tone: "warning"
+    })) return;
     
     setIsMapping(true);
     try {

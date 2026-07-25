@@ -23,6 +23,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { confirmAction } from '../lib/confirmAction';
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale/es';
@@ -285,7 +286,10 @@ export default function Planificacion() {
 
   const handleDeleteActivity = async () => {
     const uuid = selectedEvent?.resource?.uuid_sync;
-    if (!uuid || !window.confirm('¿Eliminar esta actividad de la planificación?')) return;
+    if (!uuid || !await confirmAction('¿Eliminar esta actividad de la planificación?', {
+      title: 'Eliminar actividad',
+      confirmLabel: 'Eliminar'
+    })) return;
     await eventRepo.delete(uuid);
     await syncEngine.triggerSync();
     setSelectedEvent(null);

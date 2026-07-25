@@ -70,3 +70,22 @@ test('retired granular endpoint cannot claim successful persistence', async () =
   const source = await read('server.ts');
   assert.match(source, /app\.post\("\/api\/cmms\/:resource"[\s\S]+?status\(410\)/);
 });
+
+test('blocking native confirmation dialogs are not used', async () => {
+  const files = (await readdir(new URL('../src/', import.meta.url), { recursive: true }))
+    .filter(file => /\.(?:ts|tsx)$/.test(file));
+  const offenders = [];
+
+  for (const file of files) {
+    const source = await read(`src/${file.replaceAll('\\', '/')}`);
+    if (/\b(?:window\.)?confirm\s*\(/.test(source)) {
+      offenders.push(file);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `native confirm() can block Codex Desktop and PWA flows: ${offenders.join(', ')}`
+  );
+});

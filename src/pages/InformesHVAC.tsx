@@ -20,6 +20,7 @@ import { ReportBulkUploadModal } from "../components/modals/ReportBulkUploadModa
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/database";
 import { reportsRepo } from "../repositories/ReportRepository";
+import { confirmAction } from "../lib/confirmAction";
 
 export default function InformesHVAC() {
   const [filter, setFilter] = useState("");
@@ -93,7 +94,10 @@ export default function InformesHVAC() {
   };
 
   const handleDeleteInforme = async (uuidSync: string) => {
-    if (!confirm("¿Eliminar este informe? Se marcará como eliminado y se sincronizará el cambio.")) {
+    if (!await confirmAction("¿Eliminar este informe? Se marcará como eliminado y se sincronizará el cambio.", {
+      title: "Eliminar informe",
+      confirmLabel: "Eliminar"
+    })) {
       return;
     }
 

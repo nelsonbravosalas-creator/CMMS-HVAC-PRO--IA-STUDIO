@@ -20,6 +20,7 @@ import { useAuth } from "../context/AuthContext";
 import AccessDenied from "../components/AccessDenied";
 import { ClientRepository } from "../repositories/ClientRepository";
 import { BranchRepository } from "../repositories/BranchRepository";
+import { confirmAction } from "../lib/confirmAction";
 
 const normalizeText = (value?: string) =>
   (value || "")
@@ -127,7 +128,10 @@ export default function Clientes() {
   };
 
   const handleDeleteClient = async (client: LocalCliente) => {
-    if (!window.confirm(`¿Eliminar el cliente "${client.nombre}" y sus sucursales? Esta acción quedará registrada para sincronización.`)) return;
+    if (!await confirmAction(`¿Eliminar el cliente "${client.nombre}" y sus sucursales? Esta acción quedará registrada para sincronización.`, {
+      title: "Eliminar cliente",
+      confirmLabel: "Eliminar"
+    })) return;
 
     const clientRepo = new ClientRepository();
     const branchRepo = new BranchRepository();

@@ -49,6 +49,7 @@ import {
 
 import { useAppStore } from "../store/useAppStore";
 import { useAssets } from "../hooks/useAssets";
+import { confirmAction } from "../lib/confirmAction";
 
 type Tab = "info" | "historial" | "historico" | "documentos";
 
@@ -374,7 +375,11 @@ export default function DetalleEquipo() {
                  {permisos?.crear_equipo && equipo.estado !== 'baja' ? (
                      <button 
                        onClick={async () => {
-                         if (window.confirm(`¿Está seguro de que desea dar de baja el activo ${equipo.tag}? Esto deshabilitará todas las operaciones rápidas.`)) {
+                         if (await confirmAction(`¿Está seguro de que desea dar de baja el activo ${equipo.tag}? Esto deshabilitará todas las operaciones rápidas.`, {
+                           title: "Dar de baja equipo",
+                           confirmLabel: "Dar de baja",
+                           tone: "warning"
+                         })) {
                            try {
                              await editAsset(equipo.uuid_sync, { estado: 'baja' });
                              window.alert("El equipo ha sido dado de baja exitosamente.");
@@ -396,7 +401,11 @@ export default function DetalleEquipo() {
                        {user?.perfil === 'administrador' && (
                          <button
                            onClick={async () => {
-                             if (!window.confirm(`¿Eliminar definitivamente el registro ${equipo.tag}? Esta acción se sincronizará y no se puede deshacer.`)) return;
+                             if (!await confirmAction(`¿Eliminar definitivamente el registro ${equipo.tag}? Esta acción se sincronizará y no se puede deshacer.`, {
+                               title: "Eliminar registro",
+                               confirmLabel: "Eliminar",
+                               tone: "danger"
+                             })) return;
                              await removeAsset(equipo.uuid_sync);
                              setLocation('/equipos');
                            }}
