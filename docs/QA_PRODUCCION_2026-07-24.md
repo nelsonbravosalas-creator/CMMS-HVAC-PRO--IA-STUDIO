@@ -324,3 +324,5 @@ Los registros ya descargados tenían el mismo `updated_at`, por lo que la repara
 La revalidación mostró que `triggerSync(true)` ignoraba el cooldown, pero mantenía el timestamp incremental. Ahora una sincronización forzada usa realmente `since=0`, permitiendo reconstruir relaciones antiguas y recuperar tombstones ya existentes.
 
 Los datos creados antes del modelo actual podían no tener `sync_status`, y las operaciones fallidas agotadas seguían inflando el contador después de eliminar su registro. La reparación admite estados no pendientes y purga operaciones agotadas huérfanas o asociadas a tombstones.
+
+Resultado en `86d8f5d`: EECOL quedó con 10 sucursales, Cliente Internacional con 1 y el cliente QA desapareció. El único pendiente restante fue identificado como el insert agotado de la antigua sucursal QA; ahora se elimina automáticamente cuando su cliente padre ya no existe o tiene tombstone.

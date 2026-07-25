@@ -58,6 +58,19 @@ class SyncEngine {
         if ((item.retry_count || 0) < 3 || !item.id) continue;
         const localTable = db[item.table as keyof typeof db] as any;
         const localRecord = localTable ? await localTable.get(item.uuid_sync) : null;
+        if (item.table === 'branches' && item.operation === 'insert' && localRecord?.cliente_id) {
+          const parentClient = await db.clients
+            .filter(client =>
+              (client.id === localRecord.cliente_id || client.uuid_sync === localRecord.cliente_id)
+              && !client.deleted_at
+            )
+            .first();
+          if (!parentClient) {
+            await db.branches.delete(item.uuid_sync);
+            await syncQueue.remove(item.id);
+            continue;
+          }
+        }
         if (!localRecord || localRecord.deleted_at || localRecord.sync_status === 'pending_delete') {
           await syncQueue.remove(item.id);
         }
