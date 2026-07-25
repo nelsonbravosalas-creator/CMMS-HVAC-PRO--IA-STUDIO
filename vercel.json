@@ -34,7 +34,7 @@
     { "source": "/api/change-pin", "destination": "/api/auth.ts?action=change-pin" },
     { "source": "/api/logout", "destination": "/api/auth.ts?action=logout" },
     { "source": "/api/health", "destination": "/api/auth.ts?action=health" },
-    { "source": "/api/import-data", "destination": "/api/sync.ts?handler=import-data" },
+    { "source": "/api/import-data", "destination": "/api/admin.ts?handler=import-data" },
     { "source": "/api/init-db", "destination": "/api/admin.ts?handler=init-db" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }

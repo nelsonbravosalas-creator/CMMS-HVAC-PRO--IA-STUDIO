@@ -5,10 +5,6 @@ export default async function handler(req: any, res: any) {
       const { default: syncHandler } = await import('../server/vercel/handlers/sync.js');
       return await syncHandler(req, res);
     }
-    if (resource === 'import-data') {
-      const { default: importDataHandler } = await import('../server/vercel/handlers/import-data.js');
-      return await importDataHandler(req, res);
-    }
     return res.status(404).json({ success: false, error: 'Sync resource not found' });
   } catch (error: any) {
     console.error(`[api/sync] ${resource} initialization failed`, error);
