@@ -194,8 +194,11 @@ class SyncEngine {
                       const parsed = typeof remoteRecord.data === 'string' ? JSON.parse(remoteRecord.data) : remoteRecord.data;
                       mergedRecord = { 
                         ...parsed, 
+                        id: parsed.id ?? remoteRecord.id,
+                        cliente_id: parsed.cliente_id ?? remoteRecord.cliente_id,
                         uuid_sync: remoteUuid, 
                         updated_at: remoteRecord.updated_at,
+                        created_at: remoteRecord.created_at ?? parsed.created_at,
                         deleted_at: remoteRecord.deleted_at ?? parsed.deleted_at
                       };
                     } catch(e) {}
