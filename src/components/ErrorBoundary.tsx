@@ -13,6 +13,8 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
+  private static readonly CHUNK_RECOVERY_KEY = 'cmms_chunk_recovery_at';
+
   public state: State = {
     hasError: false
   };
@@ -23,11 +25,41 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     logger.error('ErrorBoundary', 'Error capturado en el árbol de componentes', { error, errorInfo });
+
+    if (this.isStaleChunkError(error)) {
+      const lastRecovery = Number(sessionStorage.getItem(ErrorBoundary.CHUNK_RECOVERY_KEY) || 0);
+      if (!lastRecovery || Date.now() - lastRecovery > 60_000) {
+        sessionStorage.setItem(ErrorBoundary.CHUNK_RECOVERY_KEY, String(Date.now()));
+        void this.clearApplicationCacheAndReload();
+      }
+    }
   }
+
+  private isStaleChunkError = (error: Error) => {
+    const message = error?.message || '';
+    return /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk \d+ failed|ChunkLoadError/i.test(message);
+  };
+
+  private clearApplicationCacheAndReload = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+    } catch (error) {
+      logger.warn('ErrorBoundary', 'No fue posible limpiar toda la caché antes de recargar', error);
+    } finally {
+      window.location.reload();
+    }
+  };
 
   private handleReset = () => {
     this.setState({ hasError: false, error: undefined });
-    window.location.reload();
+    void this.clearApplicationCacheAndReload();
   };
 
   public render() {

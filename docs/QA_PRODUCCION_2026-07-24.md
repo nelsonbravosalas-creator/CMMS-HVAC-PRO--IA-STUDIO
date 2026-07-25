@@ -344,3 +344,7 @@ Prueba del 25/07/2026 posterior a `f2b985a`:
 - Tickets permitía escribir manualmente un TAG retirado o de otro cliente. Ahora cualquier TAG indicado se valida contra un activo vigente del cliente activo.
 - Abrir “Crear Informe” genera un borrador local de inmediato. El borrador utilizado para QA fue eliminado y la baja quedó sincronizada; la cola volvió a cero.
 - El selector inicial mostraba tombstones de clientes porque sólo filtraba `activo`, no `deleted_at`. Ahora excluye explícitamente clientes eliminados y deja de mostrar transitoriamente el cliente QA.
+
+## Recuperación entre despliegues
+
+Después del despliegue `b5c9d1c`, una pestaña que conservaba la versión anterior intentó cargar `ClientSelector-CAHqcOVb.js`, un chunk cuyo hash ya no pertenecía al despliegue activo. El límite de error ahora reconoce fallos de imports dinámicos, elimina cachés y registros de service worker y recarga automáticamente una sola vez. La recarga manual del estado crítico realiza la misma limpieza para evitar bucles con recursos obsoletos.
