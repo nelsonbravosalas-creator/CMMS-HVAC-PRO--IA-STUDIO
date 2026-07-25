@@ -32,10 +32,13 @@ import {
 } from "lucide-react";
 import { ExportFilterPresetsDropdown } from "../components/modals/ExportFilterPresetsDropdown";
 import { FilterPresetsDropdown } from "../components/modals/FilterPresetsDropdown";
+import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 type ReportTab = "kpis" | "costos" | "equipos" | "actividad";
 
 export default function Reportes() {
+  const { permisos } = useAuth();
   const [activeTab, setActiveTab] = useState<ReportTab>("kpis");
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
@@ -43,6 +46,10 @@ export default function Reportes() {
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#6366f1'];
 
   const hasAnalyticsDataset = false;
+
+  if (!permisos?.ver_reportes) {
+    return <AccessDenied requiredPermission="Visualizar reportes" />;
+  }
 
   if (!hasAnalyticsDataset) {
     return (

@@ -4,15 +4,19 @@
 // Tablas Neon: assets
 
 import { getDb } from '../db.js';
-import { getScopedTenantId, requireRole } from '../auth.js';
+import { canWriteResource, getScopedTenantId, requireAuth } from '../auth.js';
 
 export default async function handler(req: any, res: any) {
   try {
-    const user = requireRole(['Administrador', 'Técnico_Líder', 'Ingeniero_Confiabilidad'])(req, res);
+    const user: any = requireAuth(req, res);
     if (!user) return; // Ya se envió el error 401/403
 
     const sql = getDb();
     const { method, query, body } = req;
+    const writeOperation = method === 'POST' ? 'insert' : method === 'DELETE' ? 'delete' : 'update';
+    if (method !== 'GET' && !canWriteResource(user, 'assets', writeOperation)) {
+      return res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
+    }
     const tenantId = getScopedTenantId(
       user,
       req.headers['x-client-id'] || req.headers['x-cliente-id'] || query.cliente_id || query.clienteId || body?.cliente_id || body?.clienteId

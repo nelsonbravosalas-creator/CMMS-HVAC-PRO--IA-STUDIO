@@ -4,7 +4,7 @@
 // Tablas Neon: work_orders
 
 import { getDb } from '../db.js';
-import { canWrite, getScopedTenantId, requireAuth } from '../auth.js';
+import { canWriteResource, getScopedTenantId, requireAuth } from '../auth.js';
 
 const WORK_ORDER_TRANSITIONS: Record<string, string[]> = {
   abierto: ['en_progreso'],
@@ -70,7 +70,8 @@ export default async function handler(req: any, res: any) {
 
     const sql = getDb();
     const { method, body, query } = req;
-    if (method !== 'GET' && !canWrite(user)) {
+    const writeOperation = method === 'POST' ? 'insert' : method === 'DELETE' ? 'delete' : 'update';
+    if (method !== 'GET' && !canWriteResource(user, 'work_orders', writeOperation)) {
       return res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
     }
     const tenantId = getScopedTenantId(

@@ -31,7 +31,38 @@ export function isAdminUser(user: any) {
 }
 
 export function canWrite(user: any) {
-  return ['administrador', 'supervisor', 'tecnico'].includes(canonicalRole(user?.perfil));
+  return ['administrador', 'supervisor', 'tecnico', 'contratista', 'cliente']
+    .includes(canonicalRole(user?.perfil));
+}
+
+const OPERATIONAL_WRITE_TABLES = new Set([
+  'preventive_maintenance',
+  'work_orders',
+  'reports',
+  'events',
+  'ordenes_servicio',
+  'inventory',
+  'calendar'
+]);
+
+export function canWriteResource(
+  user: any,
+  resource: string,
+  operation: 'insert' | 'update' | 'delete' = 'update'
+) {
+  const role = canonicalRole(user?.perfil);
+  if (role === 'administrador') return true;
+  if (role === 'supervisor') {
+    return resource === 'assets' || OPERATIONAL_WRITE_TABLES.has(resource);
+  }
+  if (role === 'tecnico' || role === 'contratista') {
+    if (!OPERATIONAL_WRITE_TABLES.has(resource)) return false;
+    return !(resource === 'work_orders' && operation === 'delete');
+  }
+  if (role === 'cliente') {
+    return resource === 'work_orders' && operation === 'insert';
+  }
+  return false;
 }
 
 export function getScopedTenantId(user: any, requestedTenantId?: any) {

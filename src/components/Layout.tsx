@@ -153,12 +153,19 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 
 export default function Layout({ children }: LayoutProps) {
-  const { logout, user } = useAuth();
+  const { logout, user, permisos } = useAuth();
   const [, setLocation] = useLocation();
   const isAdmin = user?.perfil === "administrador";
   const canChangeClient = isAdmin || user?.perfil === "supervisor" || user?.perfil === "tecnico";
   const visibleNavItems = NAV_ITEMS
-    .filter(item => !item.adminOnly || isAdmin);
+    .filter(item => !item.adminOnly || isAdmin)
+    .filter(item => {
+      if (item.href === "/mantenimientos") return !!permisos?.ver_mantenimientos;
+      if (item.href === "/informes") return !!permisos?.ver_informes;
+      if (item.href === "/reportes") return !!permisos?.ver_reportes;
+      if (item.href === "/administracion") return !!permisos?.gestionar_usuarios;
+      return true;
+    });
 
   const handleHeaderLogout = () => {
     logout();

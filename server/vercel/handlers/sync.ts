@@ -4,7 +4,7 @@
 // Tablas Neon: assets, users, preventive_maintenance, work_orders, clientes, sucursal, reports, events, catalog_asset_types, settings, ordenes_servicio, inventory, calendar, audit_logs
 
 import { getDb } from '../db.js';
-import { canWrite, requireAuth } from '../auth.js';
+import { canWrite, canWriteResource, requireAuth } from '../auth.js';
 
 const ALLOWED_TABLES = [
   'assets',
@@ -80,8 +80,14 @@ function getTenantId(authUser: any, req: any, res: any) {
   return tenantId;
 }
 
-function assertWritableTable(table: string, authUser: any) {
-  if (SYNC_WRITABLE_TABLES.has(table)) return true;
+function assertWritableTable(
+  table: string,
+  authUser: any,
+  operation: 'insert' | 'update' | 'delete'
+) {
+  if (SYNC_WRITABLE_TABLES.has(table)) {
+    return canWriteResource(authUser, table, operation);
+  }
   if (isAdminUser(authUser) && (table === 'clientes' || table === 'sucursales')) return true;
   if (isAdminUser(authUser) && table === 'audit_logs') return true;
   return false;
@@ -232,7 +238,7 @@ export default async function handler(req: any, res: any) {
         const rawTable = ins.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
-        if (!assertWritableTable(table, authUser)) {
+        if (!assertWritableTable(table, authUser, 'insert')) {
           return { uuid_sync: ins.uuid_sync || ins.id, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
         }
 
@@ -352,7 +358,7 @@ export default async function handler(req: any, res: any) {
         const rawTable = upd.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
-        if (!assertWritableTable(table, authUser)) {
+        if (!assertWritableTable(table, authUser, 'update')) {
           return { uuid_sync: upd.uuid_sync, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
         }
 
@@ -438,7 +444,7 @@ export default async function handler(req: any, res: any) {
         const rawTable = del.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
-        if (!assertWritableTable(table, authUser)) {
+        if (!assertWritableTable(table, authUser, 'delete')) {
           return { uuid_sync: del.uuid_sync, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
         }
 

@@ -32,7 +32,7 @@ import { StatusIndicator } from "../components/StatusIndicator";
 import AccessDenied from "../components/AccessDenied";
 
 export default function Tickets() {
-  const { permisos } = useAuth();
+  const { permisos, user } = useAuth();
   const work_orders = useAppStore(state => state.work_orders);
   const loading = useAppStore(state => state.isLoading);
   const { updateTicket } = useTickets();
@@ -217,7 +217,11 @@ export default function Tickets() {
           </div>
         ) : (
           filtered.map(t => (
-            <TicketCard key={t.uuid_sync} ticket={t} canDelete={!!permisos?.crear_ticket} />
+            <TicketCard
+              key={t.uuid_sync}
+              ticket={t}
+              canDelete={user?.perfil === 'administrador' || user?.perfil === 'supervisor'}
+            />
           ))
         )}
       </div>

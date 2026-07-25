@@ -21,14 +21,21 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/database";
 import { reportsRepo } from "../repositories/ReportRepository";
 import { confirmAction } from "../lib/confirmAction";
+import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 export default function InformesHVAC() {
+  const { permisos } = useAuth();
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [, setLocation] = useLocation();
   const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
   const activeClientUid = localStorage.getItem("active_client") || "";
+
+  if (!permisos?.ver_informes) {
+    return <AccessDenied requiredPermission="Visualizar informes HVAC" />;
+  }
 
   const getReportStatus = (inf: any) => inf.data?.estado || inf.data?.status || "borrador";
   const visibleReports = rawReports.filter(inf => {
@@ -137,24 +144,28 @@ export default function InformesHVAC() {
           <p className="text-slate-500 text-sm font-medium">Informes técnicos, protocolos de firma y entregables.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowBulkUpload(true)}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
-          >
-            <Download className="w-4 h-4" /> Carga Masiva
-          </button>
+          {permisos.crear_informe && (
+            <button
+              onClick={() => setShowBulkUpload(true)}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm"
+            >
+              <Download className="w-4 h-4" /> Carga Masiva
+            </button>
+          )}
           <button
             onClick={() => setLocation("/scanner")}
             className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all"
           >
             <ScanLine className="w-4 h-4" /> Escanear QR
           </button>
-          <button 
-            onClick={handleCreateInforme}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
-          >
-            <Plus className="w-4 h-4" /> Crear Informe
-          </button>
+          {permisos.crear_informe && (
+            <button
+              onClick={handleCreateInforme}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
+            >
+              <Plus className="w-4 h-4" /> Crear Informe
+            </button>
+          )}
         </div>
       </div>
 
@@ -266,7 +277,9 @@ export default function InformesHVAC() {
                       <Link href={`/informes/${inf.uuid_sync}`}>
                         <button className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-emerald-500 shadow-sm"><FileDown className="w-3.5 h-3.5" /></button>
                       </Link>
-                      <button onClick={() => handleDeleteInforme(inf.uuid_sync)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
+                      {permisos.crear_informe && (
+                        <button onClick={() => handleDeleteInforme(inf.uuid_sync)} className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
+                      )}
                    </div>
                 </td>
               </tr>

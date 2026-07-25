@@ -89,3 +89,48 @@ test('blocking native confirmation dialogs are not used', async () => {
     `native confirm() can block Codex Desktop and PWA flows: ${offenders.join(', ')}`
   );
 });
+
+test('role permissions are enforced by resource in UI and Vercel handlers', async () => {
+  const [
+    auth,
+    sync,
+    workOrders,
+    assets,
+    maintenance,
+    inventory,
+    layout,
+    reportsPage
+  ] = await Promise.all([
+    read('server/vercel/auth.ts'),
+    read('server/vercel/handlers/sync.ts'),
+    read('server/vercel/handlers/work-orders.ts'),
+    read('server/vercel/handlers/assets.ts'),
+    read('server/vercel/handlers/maintenance.ts'),
+    read('server/vercel/handlers/inventory.ts'),
+    read('src/components/Layout.tsx'),
+    read('src/pages/Reportes.tsx')
+  ]);
+
+  assert.match(auth, /role === 'cliente'[\s\S]+resource === 'work_orders' && operation === 'insert'/);
+  assert.match(auth, /role === 'tecnico' \|\| role === 'contratista'/);
+  assert.match(auth, /role === 'supervisor'[\s\S]+resource === 'assets'/);
+  assert.match(sync, /assertWritableTable\(table, authUser, 'insert'\)/);
+  assert.match(sync, /assertWritableTable\(table, authUser, 'update'\)/);
+  assert.match(sync, /assertWritableTable\(table, authUser, 'delete'\)/);
+
+  for (const [name, source, resource] of [
+    ['work-orders', workOrders, 'work_orders'],
+    ['assets', assets, 'assets'],
+    ['maintenance', maintenance, 'preventive_maintenance'],
+    ['inventory', inventory, 'inventory']
+  ]) {
+    assert.match(
+      source,
+      new RegExp(`canWriteResource\\(user, '${resource}', writeOperation\\)`),
+      `${name} must enforce resource-specific write permissions`
+    );
+  }
+
+  assert.match(layout, /item\.href === "\/reportes"[\s\S]+permisos\?\.ver_reportes/);
+  assert.match(reportsPage, /if \(!permisos\?\.ver_reportes\)/);
+});

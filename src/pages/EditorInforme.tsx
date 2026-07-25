@@ -50,6 +50,8 @@ import LoadingIndicator from "../components/LoadingIndicator";
 import { GoogleGenAI } from "@google/genai";
 import { db, SyncStatus } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
+import { useAuth } from "../context/AuthContext";
+import AccessDenied from "../components/AccessDenied";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -115,6 +117,7 @@ const CHECKLIST_ITEMS = [
 ];
 
 export default function EditorInforme() {
+  const { permisos } = useAuth();
   const [, params] = useRoute<{ id: string }>("/informes/:id");
   const [, setLocation] = useLocation();
   const id = params?.id;
@@ -2201,7 +2204,7 @@ export default function EditorInforme() {
     );
   };
 
-  const isReadOnly = status === 'firmado' || status === 'bloqueado';
+  const isReadOnly = !permisos?.crear_informe || status === 'firmado' || status === 'bloqueado';
 
   useEffect(() => {
     const setupCanvas = (canvas: HTMLCanvasElement | null) => {
@@ -2306,6 +2309,10 @@ export default function EditorInforme() {
       setLoadingAI(false);
     }
   };
+
+  if (!permisos?.ver_informes) {
+    return <AccessDenied requiredPermission="Visualizar informes HVAC" />;
+  }
 
   return (
     <div className="flex flex-col gap-6 text-left pb-20 max-w-5xl mx-auto">
