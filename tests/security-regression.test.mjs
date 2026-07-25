@@ -153,4 +153,6 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
   assert.doesNotMatch(orderList, /FileDown|Trash2/);
   assert.match(orderEditor, /isNew && !permisos\?\.crear_orden_servicio/);
   assert.match(orderEditor, /isReadOnly = !permisos\?\.crear_orden_servicio/);
+  assert.match(orderEditor, /db\.ordenes_servicio\.get\(uuid\)[\s\S]+where\('id'\)\.equals\(rawId \|\| uuid\)\.first\(\)/);
+  assert.match(orderEditor, /if \(existing\.uuid_sync !== uuid\) setUuid\(existing\.uuid_sync\)/);
 });

@@ -202,8 +202,14 @@ export default function EditorOrdenServicio() {
         }
       }
     } else if (uuid) {
-      db.ordenes_servicio.get(uuid).then(existing => {
+      // The route is built with the human-readable OS id, while Dexie uses
+      // uuid_sync as its primary key. Support both so a signed order always
+      // reopens with its saved data after a reload or a shared list link.
+      (async () => {
+        const existing = await db.ordenes_servicio.get(uuid)
+          || await db.ordenes_servicio.where('id').equals(rawId || uuid).first();
         if (existing && existing.data) {
+          if (existing.uuid_sync !== uuid) setUuid(existing.uuid_sync);
           const data = existing.data;
           const orderClient = data.generalData?.cliente || existing.cliente_id;
           if (activeClientId && orderClient && orderClient !== activeClientId && orderClient !== activeClient?.id) {
@@ -218,9 +224,9 @@ export default function EditorOrdenServicio() {
           if (existing.estado) setStatus(existing.estado as any);
           if (data.ubicacionGeografica) setUbicacionGeografica(data.ubicacionGeografica);
         }
-      }).catch(console.error);
+      })().catch(console.error);
     }
-  }, [isNew, uuid, activeClientId, activeClient?.id, setLocation]);
+  }, [isNew, rawId, uuid, activeClientId, activeClient?.id, setLocation]);
 
   useEffect(() => {
     if (!activeClientId || status === 'firmado' || status === 'cerrado') return;
