@@ -362,3 +362,5 @@ La revalidación de `28953ce` confirmó que el inventario quedó vacío, pero el
 ## QA de planificación
 
 La planificación mostraba recursos eliminados, resolvía EECOL como “Cliente General” mediante una lista fija y mantenía las actividades únicamente en memoria. Ahora utiliza clientes reales, excluye inventario con tombstone y persiste actividades en la tabla `events` con cola de sincronización. Las actividades guardadas se restauran al recargar y pueden eliminarse desde su detalle cuando el perfil tiene permisos de edición.
+
+La primera limpieza posterior a `d5aa956` confirmó que algunos activos heredados tampoco comparten el `uuid_sync` actual. Las operaciones de baja incluyen ahora los identificadores completos del registro y, exclusivamente para administradores, el servidor puede localizar el activo heredado por UUID, ID funcional o TAG. Los perfiles restantes siguen limitados por UUID y tenant.

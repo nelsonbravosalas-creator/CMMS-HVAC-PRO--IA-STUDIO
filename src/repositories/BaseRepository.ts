@@ -123,7 +123,7 @@ export abstract class BaseRepository<T extends LocalBase> {
       retry_count: 0
     } as any);
 
-    await this.enqueueSync(uuid, 'delete', { uuid_sync: uuid, deleted_at: now });
+    await this.enqueueSync(uuid, 'delete', { ...existing, uuid_sync: uuid, deleted_at: now });
   }
 
   async list(limit: number = 100, offset: number = 0): Promise<T[]> {

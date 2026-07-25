@@ -448,10 +448,18 @@ export default async function handler(req: any, res: any) {
         try {
           switch (table) {
             case 'assets':
-              if (authUser.perfil === 'administrador') {
+              if (isAdminUser(authUser)) {
                 // Los administradores pueden sanear activos heredados cuyo
-                // cliente_id fue creado antes del modelo actual de tenants.
-                await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`;
+                // cliente_id o uuid_sync fue creado antes del modelo actual.
+                const legacyId = del.data?.id || '';
+                const legacyTag = del.data?.tag || '';
+                await sql`
+                  UPDATE assets
+                  SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts}
+                  WHERE uuid_sync = ${del.uuid_sync}
+                    OR (${legacyId} <> '' AND id = ${legacyId})
+                    OR (${legacyTag} <> '' AND tag = ${legacyTag})
+                `;
               } else {
                 await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`;
               }
