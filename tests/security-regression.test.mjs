@@ -88,6 +88,14 @@ test('blocking native confirmation dialogs are not used', async () => {
     [],
     `native confirm() can block Codex Desktop and PWA flows: ${offenders.join(', ')}`
   );
+
+  const [app, globalAlert] = await Promise.all([
+    read('src/App.tsx'),
+    read('src/components/GlobalAlertDialog.tsx')
+  ]);
+  assert.match(app, /<GlobalAlertDialog \/>/);
+  assert.match(globalAlert, /window\.alert = \(message\?: unknown\)/);
+  assert.match(globalAlert, /role="alertdialog"/);
 });
 
 test('role permissions are enforced by resource in UI and Vercel handlers', async () => {
