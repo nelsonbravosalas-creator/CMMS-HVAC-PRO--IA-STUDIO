@@ -364,6 +364,7 @@ export default function DetalleEquipo() {
                     <PenTool className="w-4 h-4" /> Abrir Ticket de Falla
                  </button>
                  <button 
+                  disabled={!permisos?.crear_mantenimiento || equipo.estado === 'baja'}
                   onClick={() => setShowMantenimientoForm(true)}
                   className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 border border-blue-500 disabled:opacity-30 disabled:cursor-not-allowed"
                  >

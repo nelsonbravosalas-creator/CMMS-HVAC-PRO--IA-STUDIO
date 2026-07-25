@@ -326,3 +326,10 @@ La revalidación mostró que `triggerSync(true)` ignoraba el cooldown, pero mant
 Los datos creados antes del modelo actual podían no tener `sync_status`, y las operaciones fallidas agotadas seguían inflando el contador después de eliminar su registro. La reparación admite estados no pendientes y purga operaciones agotadas huérfanas o asociadas a tombstones.
 
 Resultado en `86d8f5d`: EECOL quedó con 10 sucursales, Cliente Internacional con 1 y el cliente QA desapareció. El único pendiente restante fue identificado como el insert agotado de la antigua sucursal QA; ahora se elimina automáticamente cuando su cliente padre ya no existe o tiene tombstone.
+
+Resultado posterior al despliegue `9001d87`:
+
+- La creación de un activo, su sincronización, edición y baja funcionaron correctamente en producción.
+- El activo temporal cambió de `QA ACTIVO TEMPORAL 20260725` a `QA ACTIVO EDITADO 20260725` y quedó marcado como `baja`.
+- Se detectó que “Registrar Mantenimiento” permanecía habilitado en un equipo dado de baja, pese a que la interfaz indicaba que esas operaciones estaban deshabilitadas.
+- El botón ahora respeta tanto el permiso `crear_mantenimiento` como el estado del equipo.
