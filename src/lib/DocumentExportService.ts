@@ -27,8 +27,10 @@ export class DocumentExportService {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to export document');
+        const errorData = await response.json().catch(() => ({}));
+        const error = new Error(errorData.error || 'Failed to export document') as Error & { code?: string };
+        error.code = errorData.code;
+        throw error;
       }
 
       const result = await response.json();

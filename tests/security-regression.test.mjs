@@ -48,8 +48,8 @@ test('Vercel Hobby function count stays within the deployment limit', async () =
     .filter(file => /\.(?:js|ts)$/.test(file));
   assert.deepEqual(
     apiFiles.sort(),
-    ['admin.ts', 'auth.ts', 'core.ts', 'operations.ts', 'sync.ts'],
-    `expected exactly five grouped Vercel functions, found: ${apiFiles.join(', ')}`
+    ['admin.ts', 'auth.ts', 'communications.ts', 'core.ts', 'operations.ts', 'sync.ts'],
+    `expected the six domain-grouped Vercel functions, found: ${apiFiles.join(', ')}`
   );
 
   const vercelConfig = await read('vercel.json');
@@ -62,8 +62,9 @@ test('Vercel Hobby function count stays within the deployment limit', async () =
   for (const handler of ['maintenance', 'work-orders', 'inventory']) {
     assert.match(vercelConfig, new RegExp(`operations\\.ts\\?handler=${handler}`));
   }
-  assert.match(vercelConfig, /sync\.ts\?handler=import-data/);
+  assert.match(vercelConfig, /admin\.ts\?handler=import-data/);
   assert.match(vercelConfig, /admin\.ts\?handler=init-db/);
+  assert.match(vercelConfig, /communications\.ts\?handler=export/);
 });
 
 test('retired granular endpoint cannot claim successful persistence', async () => {
