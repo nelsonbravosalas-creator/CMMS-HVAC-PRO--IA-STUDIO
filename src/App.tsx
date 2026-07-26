@@ -250,8 +250,12 @@ function App() {
                 {isAdmin ? <Clientes /> : <AccessDenied requiredPermission="Administrar clientes" />}
               </Route>
               <Route path="/biometria" component={Biometria} />
-              <Route path="/consola" component={Consola} />
-              <Route path="/configuracion" component={Configuracion} />
+              <Route path="/consola">
+                {isAdmin ? <Consola /> : <AccessDenied requiredPermission="Consultar la consola de auditoría" />}
+              </Route>
+              <Route path="/configuracion">
+                {isAdmin ? <Configuracion /> : <AccessDenied requiredPermission="Configurar el sistema" />}
+              </Route>
               
               {/* Simple fallbacks */}
               <Route path="/client-selector">

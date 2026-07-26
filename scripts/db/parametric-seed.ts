@@ -5,7 +5,7 @@ import {
   PARAMETRIC_SEED_VERSION,
   PARAMETRIC_SETTINGS,
   PARAMETRIC_USERS
-} from "./parametric-data";
+} from "./parametric-data.js";
 
 type SqlClient = (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>;
 

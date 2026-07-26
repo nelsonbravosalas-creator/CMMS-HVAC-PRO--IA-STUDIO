@@ -21,6 +21,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { syncEngine } from "../sync/syncEngine";
 import { confirmAction } from "../lib/confirmAction";
+import { useAuth } from "../context/AuthContext";
 
 type CategoriaInventario = 'maquinas' | 'instrumentos' | 'vehiculos' | 'insumos' | 'materiales_repuestos';
 
@@ -33,6 +34,8 @@ const CATEGORIAS: Record<CategoriaInventario, { label: string; icon: any; color:
 };
 
 export default function InventarioInterno() {
+  const { user } = useAuth();
+  const canManageInventory = !!user && ['administrador', 'supervisor', 'tecnico', 'contratista'].includes(user.perfil);
   const activeClientId = localStorage.getItem("active_client") || "default";
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoriaInventario | "all">("all");
@@ -79,6 +82,7 @@ export default function InventarioInterno() {
   });
 
   const handleStockChange = async (uuid_sync: string, increment: number) => {
+    if (!canManageInventory) return;
     const item = await db.inventory.get(uuid_sync);
     if (!item) return;
     const newStock = Math.max(0, (item.stock || 0) + increment);
@@ -109,6 +113,7 @@ export default function InventarioInterno() {
   };
 
   const handleOpenAdd = () => {
+    if (!canManageInventory) return;
     setEditingItem(null);
     setFormData({
       nombre: "",
@@ -125,6 +130,7 @@ export default function InventarioInterno() {
   };
 
   const handleOpenEdit = (item: any) => {
+    if (!canManageInventory) return;
     setEditingItem(item);
     setFormData({
       nombre: item.nombre,
@@ -141,6 +147,7 @@ export default function InventarioInterno() {
   };
 
   const handleDelete = async (uuid_sync: string) => {
+    if (!canManageInventory) return;
     if (!await confirmAction("¿Está seguro de que desea eliminar este ítem del inventario?", {
       title: "Eliminar ítem",
       confirmLabel: "Eliminar"
@@ -166,6 +173,7 @@ export default function InventarioInterno() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageInventory) return;
     if (!formData.nombre || !formData.codigo) {
       alert("Por favor complete los campos obligatorios");
       return;
@@ -243,14 +251,16 @@ export default function InventarioInterno() {
           </h1>
           <p className="text-slate-500 font-medium">Asignación, trazabilidad y stock físico de recursos técnicos.</p>
         </div>
-        <button 
-          id="btn-nuevo-item-inventario"
-          onClick={handleOpenAdd}
-          className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold tracking-wider hover:bg-blue-700 transition flex items-center gap-2 shadow-lg shadow-blue-600/10 active:scale-95 duration-100"
-        >
-          <Plus className="w-5 h-5" />
-          Registrar Recurso
-        </button>
+        {canManageInventory && (
+          <button
+            id="btn-nuevo-item-inventario"
+            onClick={handleOpenAdd}
+            className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold tracking-wider hover:bg-blue-700 transition flex items-center gap-2 shadow-lg shadow-blue-600/10 active:scale-95 duration-100"
+          >
+            <Plus className="w-5 h-5" />
+            Registrar Recurso
+          </button>
+        )}
       </div>
 
       {/* Metrics Section */}
@@ -367,28 +377,32 @@ export default function InventarioInterno() {
               {/* Adjust Stock Panel */}
               <div className="border-t border-slate-100 pt-4 flex justify-between items-center bg-slate-50 -mx-6 -mb-6 p-4 rounded-b-3xl mt-4">
                 <div className="flex items-center gap-2">
-                  <button 
-                    aria-label={`Disminuir stock de ${item.nombre}`}
-                    onClick={() => handleStockChange(item.uuid_sync, -1)}
-                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition shadow-sm"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
+                  {canManageInventory && (
+                    <button
+                      aria-label={`Disminuir stock de ${item.nombre}`}
+                      onClick={() => handleStockChange(item.uuid_sync, -1)}
+                      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition shadow-sm"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <div className="text-center px-2">
                     <span className={`text-base font-black ${isLowStock ? 'text-rose-600' : 'text-slate-800'}`}>{item.stock}</span>
                     <span className="text-[10px] text-slate-400 block font-bold leading-3 uppercase">{item.unidad}</span>
                   </div>
-                  <button 
-                    aria-label={`Aumentar stock de ${item.nombre}`}
-                    onClick={() => handleStockChange(item.uuid_sync, 1)}
-                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
+                  {canManageInventory && (
+                    <button
+                      aria-label={`Aumentar stock de ${item.nombre}`}
+                      onClick={() => handleStockChange(item.uuid_sync, 1)}
+                      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Edit Actions */}
-                <div className="flex gap-1.5">
+                {canManageInventory && <div className="flex gap-1.5">
                   <button 
                     title="Editar"
                     onClick={() => handleOpenEdit(item)}
@@ -403,7 +417,7 @@ export default function InventarioInterno() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
-                </div>
+                </div>}
               </div>
             </motion.div>
           );

@@ -1,12 +1,12 @@
 import { neon } from "@neondatabase/serverless";
 import { pathToFileURL } from "url";
-import { seedParametricData } from "./parametric-seed";
+import { seedParametricData } from "./parametric-seed.js";
 import {
   ensureOneShotMigrationTable,
   markFreshStartComplete,
   needsFreshStartReset,
   resetApplicationData
-} from "./one-time-fresh-start";
+} from "./one-time-fresh-start.js";
 
 type SqlClient = (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>;
 

@@ -135,7 +135,9 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
     reportsPage,
     orderList,
     orderEditor,
-    permissionTypes
+    permissionTypes,
+    app,
+    inventoryPage
   ] = await Promise.all([
     read('server/vercel/auth.ts'),
     read('server/vercel/handlers/sync.ts'),
@@ -147,7 +149,9 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
     read('src/pages/Reportes.tsx'),
     read('src/pages/OrdenesServicio.tsx'),
     read('src/pages/EditorOrdenServicio.tsx'),
-    read('src/types.ts')
+    read('src/types.ts'),
+    read('src/App.tsx'),
+    read('src/pages/InventarioInterno.tsx')
   ]);
 
   assert.match(auth, /role === 'cliente'[\s\S]+resource === 'work_orders' && operation === 'insert'/);
@@ -180,4 +184,19 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
   assert.match(orderEditor, /isReadOnly = !permisos\?\.crear_orden_servicio/);
   assert.match(orderEditor, /db\.ordenes_servicio\.get\(uuid\)[\s\S]+where\('id'\)\.equals\(rawId \|\| uuid\)\.first\(\)/);
   assert.match(orderEditor, /if \(existing\.uuid_sync !== uuid\) setUuid\(existing\.uuid_sync\)/);
+  assert.match(layout, /href: "\/consola"[\s\S]+adminOnly: true/);
+  assert.match(app, /path="\/consola"[\s\S]+isAdmin \? <Consola \/> : <AccessDenied/);
+  assert.match(app, /path="\/configuracion"[\s\S]+isAdmin \? <Configuracion \/> : <AccessDenied/);
+  assert.match(inventoryPage, /const canManageInventory = [\s\S]+administrador[\s\S]+supervisor[\s\S]+tecnico[\s\S]+contratista/);
+  assert.match(inventoryPage, /\{canManageInventory && \([\s\S]+Registrar Recurso/);
+});
+
+test('admin function runtime imports use explicit ESM extensions', async () => {
+  const [bootstrap, seed] = await Promise.all([
+    read('scripts/db/bootstrap.ts'),
+    read('scripts/db/parametric-seed.ts')
+  ]);
+  assert.match(bootstrap, /from "\.\/parametric-seed\.js"/);
+  assert.match(bootstrap, /from "\.\/one-time-fresh-start\.js"/);
+  assert.match(seed, /from "\.\/parametric-data\.js"/);
 });

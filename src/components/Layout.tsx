@@ -71,7 +71,7 @@ const NAV_ITEMS = [
   { href: "/eficiencia", icon: Zap, label: "Eficiencia Energética" },
   { href: "/administracion", icon: Users, label: "Usuarios", section: "Configuración", adminOnly: true },
   { href: "/biometria", icon: Fingerprint, label: "Acceso Biométrico", section: "Configuración" },
-  { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración" },
+  { href: "/consola", icon: Terminal, label: "Consola", section: "Configuración", adminOnly: true },
   { href: "/configuracion", icon: Settings, label: "Configuración", section: "Configuración", adminOnly: true },
 ];
 
