@@ -345,7 +345,11 @@ export default function Dashboard() {
           <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4">Estado del Parque</h3>
           <div className="h-56 relative">
             {kpis.total > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              initialDimension={{ width: 480, height: 224 }}
+            >
               <PieChart>
                 <Pie
                   data={dataStatus}
@@ -387,7 +391,11 @@ export default function Dashboard() {
           <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-6">Potencia nominal (kW)</h3>
           <div className="h-64">
             {DATA_POWER.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+              width="100%"
+              height="100%"
+              initialDimension={{ width: 480, height: 256 }}
+            >
               <BarChart data={DATA_POWER} layout="vertical">
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold', fill: '#64748b'}} width={70} />
