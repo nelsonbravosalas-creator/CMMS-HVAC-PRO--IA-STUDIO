@@ -12,7 +12,10 @@ export default defineConfig(({mode}) => {
       react(), 
       tailwindcss(),
       !disablePwa && VitePWA({
-        registerType: 'autoUpdate',
+        // Una versión nueva espera a que se cierren las pestañas de la versión
+        // anterior. Así cada cliente usa un conjunto coherente de chunks y la
+        // actualización se activa al volver a abrir la PWA.
+        registerType: 'prompt',
         useCredentials: true,
         devOptions: {
           enabled: false
@@ -38,16 +41,16 @@ export default defineConfig(({mode}) => {
           ]
         },
         workbox: {
-          // La aplicación se despliega con chunks versionados. No deben quedar
-          // precacheados porque una pestaña antigua podría mezclar módulos de
-          // dos despliegues distintos. El service worker se limita a recursos
-          // visuales estables y a los cachés de terceros definidos abajo.
-          globPatterns: ['**/*.{css,png,svg,ico,woff,woff2}'],
+          // Cada service worker conserva el shell y todos los chunks de su
+          // propia versión. La versión siguiente no toma control de pestañas
+          // abiertas, evitando mezclar módulos de despliegues distintos.
+          globPatterns: ['**/*.{html,js,css,png,svg,ico,woff,woff2,webmanifest}'],
           maximumFileSizeToCacheInBytes: 5000000,
           cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true,
-          navigateFallback: null,
+          clientsClaim: false,
+          skipWaiting: false,
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

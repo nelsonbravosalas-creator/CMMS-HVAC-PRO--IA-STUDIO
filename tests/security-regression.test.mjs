@@ -81,6 +81,16 @@ test('Vercel Hobby function count stays within the deployment limit', async () =
   assert.match(vercelConfig, /communications\.ts\?handler=export/);
 });
 
+test('PWA keeps each deployment coherent and supports offline navigation', async () => {
+  const source = await read('vite.config.ts');
+  assert.match(source, /registerType: 'prompt'/);
+  assert.match(source, /globPatterns: \['\*\*\/\*\.\{html,js,css,/);
+  assert.match(source, /clientsClaim: false/);
+  assert.match(source, /skipWaiting: false/);
+  assert.match(source, /navigateFallback: '\/index\.html'/);
+  assert.match(source, /navigateFallbackDenylist: \[\/\^\\\/api\\\//);
+});
+
 test('retired granular endpoint cannot claim successful persistence', async () => {
   const source = await read('server.ts');
   assert.match(source, /app\.post\("\/api\/cmms\/:resource"[\s\S]+?status\(410\)/);

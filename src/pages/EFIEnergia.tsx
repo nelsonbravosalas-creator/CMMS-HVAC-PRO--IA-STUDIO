@@ -392,8 +392,8 @@ export default function EFIEnergia() {
                   </div>
                 </div>
              </div>
-             <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+             <div className="h-80 w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <AreaChart data={ENERGY_DATA}>
                     <defs>
                       <linearGradient id="colorElect" x1="0" y1="0" x2="0" y2="1">
@@ -424,8 +424,8 @@ export default function EFIEnergia() {
                   <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Meta: 3.0+</span>
                 </div>
              </div>
-             <div className="h-64 w-full">
-               <ResponsiveContainer width="100%" height="100%">
+             <div className="h-64 w-full min-w-0">
+               <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <LineChart data={ENERGY_DATA}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
