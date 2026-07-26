@@ -52,8 +52,14 @@ La prueba no guarda el PIN ni modifica datos válidos. Las verificaciones destru
 
 ## Pendiente después del despliegue
 
-- Repetir `npm run test:functional:production` para confirmar la función administrativa corregida.
-- Confirmar visualmente que cliente y visita no vean controles de edición de inventario ni la Consola.
+Comprobado en el despliegue `2b8e864`:
+
+- `npm run test:functional:production` aprobó la matriz completa.
+- La importación administrativa devuelve 403 para los perfiles no autorizados.
+- Visita no ve controles de edición de inventario y recibe acceso restringido al abrir la Consola.
+
+Permanece pendiente:
+
 - Completar PWA y Safari en dispositivos físicos.
 - Probar conflicto real editando el mismo registro desde dos dispositivos.
 - Ejecutar una prueba de volumen con el tamaño de datos esperado para el piloto.
