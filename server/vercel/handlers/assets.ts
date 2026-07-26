@@ -54,7 +54,17 @@ export default async function handler(req: any, res: any) {
       if (!d.tag) return res.status(400).json({ error: 'El campo tag es obligatorio' });
       if (!d.nombre) return res.status(400).json({ error: 'El campo nombre es obligatorio' });
       
-      const sucursal_id = d.sucursal_id || 'sucursal_defecto';
+      if (!d.sucursal_id) return res.status(400).json({ error: 'El campo sucursal_id es obligatorio' });
+      const branchRows = await sql`
+        SELECT id FROM sucursales
+        WHERE (id = ${d.sucursal_id} OR uuid_sync = ${d.sucursal_id})
+          AND cliente_id = ${tenantId}
+        LIMIT 1
+      `;
+      if (branchRows.length === 0) {
+        return res.status(400).json({ error: 'La sucursal no pertenece al cliente activo' });
+      }
+      const sucursal_id = branchRows[0].id;
       const now = Date.now();
       
       await sql`
@@ -92,6 +102,17 @@ export default async function handler(req: any, res: any) {
       if (!id) return res.status(400).json({ error: 'Falta identificador (id/tag)' });
       const d = body;
       const now = Date.now();
+      if (!d.sucursal_id) return res.status(400).json({ error: 'El campo sucursal_id es obligatorio' });
+      const branchRows = await sql`
+        SELECT id FROM sucursales
+        WHERE (id = ${d.sucursal_id} OR uuid_sync = ${d.sucursal_id})
+          AND cliente_id = ${tenantId}
+        LIMIT 1
+      `;
+      if (branchRows.length === 0) {
+        return res.status(400).json({ error: 'La sucursal no pertenece al cliente activo' });
+      }
+      const sucursal_id = branchRows[0].id;
       await sql`
         UPDATE assets SET
           nombre = ${d.nombre || ''},
@@ -114,7 +135,7 @@ export default async function handler(req: any, res: any) {
           tecnicos = ${JSON.stringify(d.tecnicos || [])},
           notas = ${d.notes || d.notas || ''},
           cliente_id = ${tenantId},
-          sucursal_id = ${d.sucursal_id || 'sucursal_defecto'},
+          sucursal_id = ${sucursal_id},
           updated_at = ${d.updated_at || now}
         WHERE (uuid_sync = ${id} OR tag = ${id}) AND cliente_id = ${tenantId}
       `;

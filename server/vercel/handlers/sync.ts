@@ -269,10 +269,16 @@ export default async function handler(req: any, res: any) {
               final_cliente_id = 'cliente-default-001';
             }
 
-            const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
-            if (!branchExists || branchExists.length === 0) {
-              final_sucursal_id = 'default-sucursal';
+            const branchRows = await sql`
+              SELECT id FROM sucursales
+              WHERE (id = ${final_sucursal_id} OR uuid_sync = ${final_sucursal_id})
+                AND cliente_id = ${final_cliente_id}
+              LIMIT 1
+            `;
+            if (!branchRows || branchRows.length === 0) {
+              throw new Error(`Sucursal ${final_sucursal_id} no pertenece al cliente ${final_cliente_id}`);
             }
+            final_sucursal_id = branchRows[0].id;
 
             await sql`
               INSERT INTO assets (
@@ -396,10 +402,16 @@ export default async function handler(req: any, res: any) {
               final_cliente_id = 'cliente-default-001';
             }
 
-            const branchExists = await sql`SELECT 1 FROM sucursales WHERE id = ${final_sucursal_id}`;
-            if (!branchExists || branchExists.length === 0) {
-              final_sucursal_id = 'default-sucursal';
+            const branchRows = await sql`
+              SELECT id FROM sucursales
+              WHERE (id = ${final_sucursal_id} OR uuid_sync = ${final_sucursal_id})
+                AND cliente_id = ${final_cliente_id}
+              LIMIT 1
+            `;
+            if (!branchRows || branchRows.length === 0) {
+              throw new Error(`Sucursal ${final_sucursal_id} no pertenece al cliente ${final_cliente_id}`);
             }
+            final_sucursal_id = branchRows[0].id;
 
             await sql`
               UPDATE assets SET

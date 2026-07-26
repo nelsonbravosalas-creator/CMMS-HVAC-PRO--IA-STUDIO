@@ -39,6 +39,7 @@ test('asset identifiers are unique within a tenant, not globally', async () => {
   assert.match(bootstrap, /idx_assets_tenant_tag_unique[\s\S]+\(cliente_id, tag\)/);
   assert.match(bootstrap, /idx_assets_tenant_id_unique[\s\S]+\(cliente_id, id\)/);
   assert.match(assetsHandler, /ON CONFLICT \(cliente_id, tag\) DO UPDATE SET/);
+  assert.match(assetsHandler, /\(id = \$\{d\.sucursal_id\} OR uuid_sync = \$\{d\.sucursal_id\}\)/);
 });
 
 test('production database URL is never accepted from the request body', async () => {
