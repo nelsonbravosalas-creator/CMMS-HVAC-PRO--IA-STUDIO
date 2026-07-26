@@ -440,7 +440,13 @@ export default function Layout({ children }: LayoutProps) {
             )}
 
             {/* Notifications Bell */}
-            <div className="relative cursor-pointer group p-2">
+            <div
+              role="status"
+              aria-label={stats.equiposEnFalla > 0
+                ? `${stats.equiposEnFalla} equipos con alertas`
+                : "Sin alertas de equipos"}
+              className="relative group p-2"
+            >
               <Bell className={`w-5 h-5 transition-transform group-hover:scale-110 ${stats.equiposEnFalla > 0 ? 'text-red-500 animate-bounce' : isDarkMode ? 'text-slate-400' : 'text-slate-600'}`} />
               {stats.equiposEnFalla > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-slate-900"></span>

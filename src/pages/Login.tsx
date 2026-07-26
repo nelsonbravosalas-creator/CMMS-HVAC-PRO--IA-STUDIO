@@ -199,8 +199,9 @@ export default function Login() {
             )}
 
             <div>
-              <label className={`text-xs font-bold uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Correo electrónico</label>
+              <label htmlFor="login-email" className={`text-xs font-bold uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Correo electrónico</label>
               <input
+                id="login-email"
                 type="email"
                 required
                 autoCapitalize="none"
@@ -214,9 +215,10 @@ export default function Login() {
               />
             </div>
             <div>
-              <label className={`text-xs font-bold uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>PIN Numérico</label>
+              <label htmlFor="login-pin" className={`text-xs font-bold uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>PIN Numérico</label>
               <div className="relative">
                 <input
+                  id="login-pin"
                   type={showPin ? "text" : "password"}
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -229,6 +231,8 @@ export default function Login() {
                 />
                 <button
                   type="button"
+                  aria-label={showPin ? "Ocultar PIN" : "Mostrar PIN"}
+                  aria-pressed={showPin}
                   onClick={() => setShowPin(!showPin)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-500"
                 >
