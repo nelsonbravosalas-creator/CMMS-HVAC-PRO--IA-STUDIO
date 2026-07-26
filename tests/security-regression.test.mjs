@@ -28,6 +28,19 @@ test('tenant upserts cannot update a row owned by another tenant', async () => {
   }
 });
 
+test('asset identifiers are unique within a tenant, not globally', async () => {
+  const [bootstrap, assetsHandler] = await Promise.all([
+    read('scripts/db/bootstrap.ts'),
+    read('server/vercel/handlers/assets.ts')
+  ]);
+
+  assert.match(bootstrap, /DROP CONSTRAINT IF EXISTS assets_tag_key/);
+  assert.match(bootstrap, /DROP CONSTRAINT IF EXISTS assets_id_key/);
+  assert.match(bootstrap, /idx_assets_tenant_tag_unique[\s\S]+\(cliente_id, tag\)/);
+  assert.match(bootstrap, /idx_assets_tenant_id_unique[\s\S]+\(cliente_id, id\)/);
+  assert.match(assetsHandler, /ON CONFLICT \(cliente_id, tag\) DO UPDATE SET/);
+});
+
 test('production database URL is never accepted from the request body', async () => {
   const source = await read('server.ts');
   assert.doesNotMatch(source, /req\.body\.prodUrl/);

@@ -520,7 +520,7 @@ export default function Layout({ children }: LayoutProps) {
         )}
 
         {/* Main Content Area */}
-        <main className={`flex-1 overflow-y-auto p-4 pb-32 lg:p-8 relative ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+        <main className={`flex-1 overflow-y-auto p-4 pb-56 lg:p-8 relative ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
           {children}
         </main>
 

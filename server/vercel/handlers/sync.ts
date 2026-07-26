@@ -346,6 +346,13 @@ export default async function handler(req: any, res: any) {
         } catch (err: any) {
           status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
           errorMsg = 'No fue posible sincronizar el registro';
+          console.error('[sync] insert failed', {
+            table,
+            uuid_sync,
+            code: err?.code,
+            constraint: err?.constraint,
+            message: err?.message
+          });
         }
         return { uuid_sync, table, result: status, error: errorMsg, folio_oficial: data.tag || data.id };
       });
@@ -431,6 +438,13 @@ export default async function handler(req: any, res: any) {
         } catch (err: any) {
           status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
           errorMsg = 'No fue posible sincronizar el registro';
+          console.error('[sync] update failed', {
+            table,
+            uuid_sync,
+            code: err?.code,
+            constraint: err?.constraint,
+            message: err?.message
+          });
         }
         return { uuid_sync, table, result: status, error: errorMsg };
       });

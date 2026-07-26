@@ -72,7 +72,7 @@ export default async function handler(req: any, res: any) {
           ${tenantId}, ${sucursal_id},
           ${d.uuid_sync || d.tag}, ${d.updated_at || now}, ${now}
         )
-        ON CONFLICT (tag) DO UPDATE SET
+        ON CONFLICT (cliente_id, tag) DO UPDATE SET
           nombre = EXCLUDED.nombre, tipo = EXCLUDED.tipo, marca = EXCLUDED.marca,
           modelo = EXCLUDED.modelo, serie = EXCLUDED.serie, ubicacion = EXCLUDED.ubicacion,
           area = EXCLUDED.area, capacidad = EXCLUDED.capacidad, voltaje = EXCLUDED.voltaje,
@@ -83,8 +83,7 @@ export default async function handler(req: any, res: any) {
           horas_operacion = EXCLUDED.horas_operacion, tecnicos = EXCLUDED.tecnicos,
           notas = EXCLUDED.notas, cliente_id = EXCLUDED.cliente_id,
           sucursal_id = EXCLUDED.sucursal_id, updated_at = EXCLUDED.updated_at
-        WHERE assets.cliente_id = EXCLUDED.cliente_id
-          AND (EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL)
+        WHERE EXCLUDED.updated_at > assets.updated_at OR assets.updated_at IS NULL
       `;
       return res.json({ success: true, data: { tag: d.tag } });
     }

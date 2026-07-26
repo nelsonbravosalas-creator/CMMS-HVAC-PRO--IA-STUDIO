@@ -149,7 +149,13 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`CREATE INDEX IF NOT EXISTS idx_user_clientes_user ON user_clientes (user_id, cliente_id)`;
 
   await sql`UPDATE assets SET id = COALESCE(NULLIF(id, ''), tag, uuid_sync) WHERE id IS NULL OR id = ''`;
-  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_id_unique ON assets (id)`;
+  // Los TAG e ID de activos son correlativos de cada cliente/sucursal. No deben
+  // bloquear a otro tenant que use el mismo código (por ejemplo MATR.AC.001).
+  await sql`ALTER TABLE assets DROP CONSTRAINT IF EXISTS assets_tag_key`;
+  await sql`ALTER TABLE assets DROP CONSTRAINT IF EXISTS assets_id_key`;
+  await sql`DROP INDEX IF EXISTS idx_assets_id_unique`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_tenant_tag_unique ON assets (cliente_id, tag)`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_tenant_id_unique ON assets (cliente_id, id)`;
   await sql`ALTER TABLE assets ALTER COLUMN id SET NOT NULL`;
   await sql`UPDATE work_orders SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;
   await sql`UPDATE preventive_maintenance SET id = COALESCE(NULLIF(id, ''), 'PEND-' || uuid_sync) WHERE id IS NULL OR id = ''`;

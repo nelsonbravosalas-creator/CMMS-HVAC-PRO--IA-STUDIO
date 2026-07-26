@@ -288,6 +288,16 @@ class SyncEngine {
   async triggerSync(force: boolean = false) {
     if (force) {
       this.cooldownUntil = 0; // Reset active cooldown upon manual trigger action
+      const failedItems = await syncQueue.peekAll();
+      await Promise.all(
+        failedItems
+          .filter(item => (item.retry_count || 0) >= 3 && item.id)
+          .map(item => db.sync_queue.update(item.id!, {
+            retry_count: 0,
+            next_retry_at: undefined,
+            last_error: undefined
+          }))
+      );
     }
     return this.fullSync(force);
   }
