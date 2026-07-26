@@ -1,4 +1,4 @@
-export const PARAMETRIC_SEED_VERSION = 2026062001;
+export const PARAMETRIC_SEED_VERSION = 2026072601;
 
 export const PARAMETRIC_CLIENTS = [
   {
@@ -15,9 +15,17 @@ export const PARAMETRIC_CLIENTS = [
     uuid_sync: "C1",
     data: {
       nombre: "EECOL ELECTRIC",
+      empresa: "EECOL ELECTRIC",
       rut: "78.928.030-4",
       plan: "enterprise",
       activo: true,
+      direccion: "14 de la fama 2781",
+      region: "Metropolitana de Santiago",
+      telefono: "",
+      email: "jose.aranguiz@eecol.cl",
+      contacto_nombre: "José Miguel Aránguiz",
+      contacto_cargo: "Jefe de operaciones",
+      contacto_correo: "jose.aranguiz@eecol.cl",
       usuariosIds: ["U2", "U-SUPERVISOR", "U-TECNICO", "U-CONTRATISTA", "U-CLIENTE", "U-VISITA"]
     }
   }
@@ -37,9 +45,33 @@ export const PARAMETRIC_BRANCHES = [
   { id: "11-STK", nombre: "11-STK - Iquique" },
   { id: "12-STK", nombre: "12-STK - Antofagasta" },
   { id: "13-STK", nombre: "13-STK - Copiapo" },
-  { id: "21-STK", nombre: "21-STK - Santiago 14 de la Fama" },
+  {
+    id: "21-STK",
+    data: {
+      nombre: "21-STK - Santiago 14 de la Fama",
+      codigo: "21-STK",
+      tipo: "Casa Matriz",
+      direccion: "14 de la fama 2781",
+      descripcion: "14 de la fama 2781",
+      region: "Metropolitana de Santiago",
+      contacto_nombre: "José Miguel Aránguiz",
+      contacto_cargo: "Jefe de operaciones",
+      contacto_correo: "jose.aranguiz@eecol.cl",
+      activo: true
+    }
+  },
   { id: "21-STK-SB", nombre: "21-STK-SB - BME La Vara 3310" },
-  { id: "23-STK", nombre: "23-STK - Vina del Mar" },
+  {
+    id: "23-STK",
+    data: {
+      nombre: "23-STK - Vina del Mar",
+      codigo: "23-STK",
+      tipo: "Tienda",
+      direccion: "Calle Limache 3363, Viña del Mar",
+      region: "Valparaíso",
+      activo: true
+    }
+  },
   { id: "24-STK", nombre: "24-STK - Rancagua" },
   { id: "31-STK", nombre: "31-STK - Concepcion" },
   { id: "32-STK", nombre: "32-STK - Puerto Montt" },
