@@ -223,7 +223,13 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   /** Posición de los controles móviles para ergonimía (Derecha/Izquierda) */
-  const [menuPosition, setMenuPosition] = useState<'left' | 'right'>('right');
+  const [menuPosition, setMenuPosition] = useState<'left' | 'right'>(() =>
+    localStorage.getItem('mobile_menu_side') === 'left' ? 'left' : 'right'
+  );
+
+  useEffect(() => {
+    localStorage.setItem('mobile_menu_side', menuPosition);
+  }, [menuPosition]);
 
   // Real-time queries for badges
   const ticketsAbiertos = useLiveQuery(() => 
@@ -417,14 +423,6 @@ export default function Layout({ children }: LayoutProps) {
         {/* Header */}
         <header className={`h-16 shrink-0 border-b flex items-center justify-between px-4 lg:px-8 z-30 shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-4">
-            <button 
-              type="button"
-              aria-label="Abrir menú principal"
-              className={`lg:hidden p-2 transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'}`} 
-              onClick={() => setIsMobileMenuOpen(true)}
-            >
-              <MenuIcon className="w-6 h-6" />
-            </button>
             <h1 className={`text-xs font-bold uppercase tracking-widest hidden sm:block ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
               {isAdmin ? "Panel Operativo Global" : "Panel Operativo del Cliente"}
             </h1>
@@ -530,18 +528,37 @@ export default function Layout({ children }: LayoutProps) {
           {children}
         </main>
 
+        {/* Floating Main Menu Trigger (Mobile / Left-handed support) */}
+        <button
+          type="button"
+          aria-label={`Abrir menú principal desde el lado ${menuPosition === 'right' ? 'derecho' : 'izquierdo'}`}
+          onClick={() => setIsMobileMenuOpen(true)}
+          className={`lg:hidden fixed top-1/2 -translate-y-1/2 z-[55] flex h-16 w-12 items-center justify-center border shadow-xl backdrop-blur-md transition-[left,right,transform,background-color] active:scale-90 ${
+            menuPosition === 'right'
+              ? 'right-0 rounded-l-2xl border-r-0'
+              : 'left-0 rounded-r-2xl border-l-0'
+          } ${
+            isDarkMode
+              ? 'bg-slate-900/95 border-slate-700 text-blue-400'
+              : 'bg-white/95 border-slate-200 text-blue-600'
+          }`}
+        >
+          <MenuIcon className="h-7 w-7" />
+        </button>
+
         {/* Mobile Navigation (One-Handed / Ambidiestro) */}
         <nav className={`lg:hidden fixed bottom-6 ${menuPosition === 'right' ? 'right-6' : 'left-6'} z-50 flex items-center gap-3`}>
           {/* Toggle Handness */}
           <button 
             type="button"
-            aria-label="Cambiar lado de los controles"
+            aria-label={`Mover controles al lado ${menuPosition === 'right' ? 'izquierdo' : 'derecho'}`}
+            title={`Usar controles al lado ${menuPosition === 'right' ? 'izquierdo' : 'derecho'}`}
             onClick={() => setMenuPosition(menuPosition === 'right' ? 'left' : 'right')}
             className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg border backdrop-blur-md transition-all active:scale-90 ${
               isDarkMode ? 'bg-slate-900/80 border-slate-700 text-slate-400' : 'bg-white/80 border-slate-200 text-slate-600'
             }`}
           >
-            {menuPosition === 'right' ? 'R' : 'L'}
+            {menuPosition === 'right' ? 'D' : 'I'}
           </button>
 
           <motion.div 

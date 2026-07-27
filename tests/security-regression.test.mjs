@@ -211,3 +211,11 @@ test('mobile dashboard cannot expand beyond the viewport', async () => {
   assert.match(dashboard, /grid w-full min-w-0 grid-cols-2[\s\S]+Filtrar por sucursal/);
   assert.match(dashboard, /className="w-full min-w-0[\s\S]+text-\[11px\]/);
 });
+
+test('mobile main menu supports right and left handed placement', async () => {
+  const layout = await read('src/components/Layout.tsx');
+  assert.match(layout, /localStorage\.getItem\('mobile_menu_side'\) === 'left'/);
+  assert.match(layout, /localStorage\.setItem\('mobile_menu_side', menuPosition\)/);
+  assert.match(layout, /top-1\/2 -translate-y-1\/2[\s\S]+menuPosition === 'right'[\s\S]+right-0 rounded-l-2xl[\s\S]+left-0 rounded-r-2xl/);
+  assert.match(layout, /Mover controles al lado/);
+});
