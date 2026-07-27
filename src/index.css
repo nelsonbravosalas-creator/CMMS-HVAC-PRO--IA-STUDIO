@@ -116,9 +116,9 @@
 
 /* Regla de contraste: Contenedores de texto en colores opuestos */
 .dark .text-container-contrast {
-  background-color: #ffffff !important;
-  color: #000000 !important;
-  border-color: #e2e8f0 !important;
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
 }
 
 .dark select,
@@ -240,14 +240,120 @@
 .dark input[type="email"],
 .dark input[type="password"],
 .dark input[type="number"],
+.dark input[type="date"],
+.dark input[type="datetime-local"],
+.dark input[type="search"],
 .dark textarea {
-  background-color: #ffffff !important;
-  color: #020617 !important;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
 }
 
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #64748b !important;
+  color: #94a3b8 !important;
+}
+
+/*
+   DARK THEME COMPATIBILITY BRIDGE
+   Many operational modules were authored with light Tailwind utilities.
+   These mappings keep every shared card, table, modal and form legible when
+   the Layout applies the .dark theme class.
+*/
+.dark {
+  color-scheme: dark;
+}
+
+.dark .bg-white,
+.dark [class*="bg-white/"] {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-slate-50,
+.dark [class*="bg-slate-50/"] {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-slate-100,
+.dark [class*="bg-slate-100/"] {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-slate-200,
+.dark [class*="bg-slate-200/"] {
+  background-color: #334155 !important;
+}
+
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.dark .border-slate-50,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: #334155 !important;
+}
+
+.dark .divide-slate-50 > :not(:last-child),
+.dark .divide-slate-100 > :not(:last-child),
+.dark .divide-slate-200 > :not(:last-child) {
+  border-color: #334155 !important;
+}
+
+.dark table thead,
+.dark table tbody,
+.dark table tr,
+.dark table td,
+.dark table th {
+  border-color: #334155 !important;
+}
+
+.dark .recharts-default-tooltip {
+  background-color: #0f172a !important;
+  border-color: #475569 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+}
+
+.dark .recharts-tooltip-label,
+.dark .recharts-tooltip-item,
+.dark .recharts-tooltip-item-name,
+.dark .recharts-tooltip-item-value {
+  color: #f8fafc !important;
+}
+
+.dark .recharts-cartesian-axis-tick-value,
+.dark .recharts-polar-angle-axis-tick-value {
+  fill: #cbd5e1 !important;
+}
+
+.dark .recharts-cartesian-grid line {
+  stroke: #334155 !important;
+}
+
+/* Printed and QR artifacts must remain black on white in either theme. */
+.dark #printable-tag-preview,
+.dark #preview-tag-box,
+.dark #printable-tag,
+.dark .printable-document {
+  background-color: #ffffff !important;
+  color: #020617 !important;
 }
 
 /* 

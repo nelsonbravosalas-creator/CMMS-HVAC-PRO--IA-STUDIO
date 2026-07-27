@@ -233,3 +233,19 @@ test('sync inspector stays inside the mobile viewport', async () => {
   assert.match(layout, /dispatchEvent\(new CustomEvent\('open-sync-inspector'\)\)/);
   assert.match(layout, /Sync Inspector/);
 });
+
+test('dark theme preserves contrast across light-authored modules', async () => {
+  const [css, layout, login] = await Promise.all([
+    read('src/index.css'),
+    read('src/components/Layout.tsx'),
+    read('src/pages/Login.tsx')
+  ]);
+
+  assert.match(css, /\.dark \.bg-white,[\s\S]*?background-color:\s*#1e293b\s*!important/);
+  assert.match(css, /\.dark \.text-slate-900,[\s\S]*?color:\s*#f8fafc\s*!important/);
+  assert.match(css, /\.dark \.recharts-default-tooltip[\s\S]*?background-color:\s*#0f172a\s*!important/);
+  assert.match(css, /\.dark #printable-tag[\s\S]*?background-color:\s*#ffffff\s*!important/);
+  assert.match(layout, /localStorage\.getItem\('cmms_theme'\) === 'dark'/);
+  assert.match(layout, /localStorage\.setItem\('cmms_theme', nextThemeIsDark \? 'dark' : 'light'\)/);
+  assert.match(login, /localStorage\.getItem\('cmms_theme'\) !== 'light'/);
+});

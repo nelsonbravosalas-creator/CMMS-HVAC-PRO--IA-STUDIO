@@ -198,7 +198,9 @@ export default function Layout({ children }: LayoutProps) {
   /** Control del drawer de acciones secundarias (Mobile) */
   const [isMoreDrawerOpen, setIsMoreDrawerOpen] = useState(false);
   /** Estado del tema visual (Inicia en modo claro por defecto) */
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => localStorage.getItem('cmms_theme') === 'dark'
+  );
   /** Visibilidad del banner de Progressive Web App */
   const [showPWABanner, setShowPWABanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -289,7 +291,11 @@ export default function Layout({ children }: LayoutProps) {
       : "—"
   };
 
-  const toggleTheme = () => setIsDarkMode(!isDarkMode);
+  const toggleTheme = () => {
+    const nextThemeIsDark = !isDarkMode;
+    localStorage.setItem('cmms_theme', nextThemeIsDark ? 'dark' : 'light');
+    setIsDarkMode(nextThemeIsDark);
+  };
 
   return (
     <div className={`h-screen w-full flex overflow-hidden font-sans ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>

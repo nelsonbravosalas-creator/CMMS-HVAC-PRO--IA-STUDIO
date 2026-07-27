@@ -8,7 +8,9 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => localStorage.getItem('cmms_theme') !== 'light'
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isBiometricScanning, setIsBiometricScanning] = useState(false);
   const [biometricError, setBiometricError] = useState("");
@@ -273,7 +275,11 @@ export default function Login() {
 
         <div className="flex justify-center gap-6">
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
+            onClick={() => {
+              const nextThemeIsDark = !isDarkMode;
+              localStorage.setItem('cmms_theme', nextThemeIsDark ? 'dark' : 'light');
+              setIsDarkMode(nextThemeIsDark);
+            }}
             className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors ${isDarkMode ? 'text-slate-500 hover:text-white' : 'text-slate-400 hover:text-slate-900'}`}
           >
             {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
