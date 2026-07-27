@@ -200,3 +200,14 @@ test('admin function runtime imports use explicit ESM extensions', async () => {
   assert.match(bootstrap, /from "\.\/one-time-fresh-start\.js"/);
   assert.match(seed, /from "\.\/parametric-data\.js"/);
 });
+
+test('mobile dashboard cannot expand beyond the viewport', async () => {
+  const [layout, dashboard] = await Promise.all([
+    read('src/components/Layout.tsx'),
+    read('src/pages/Dashboard.tsx')
+  ]);
+  assert.match(layout, /<main className=\{`flex-1 min-w-0[\s\S]+overflow-x-hidden/);
+  assert.match(dashboard, /w-full min-w-0[\s\S]+overflow-x-hidden/);
+  assert.match(dashboard, /grid w-full min-w-0 grid-cols-2[\s\S]+Filtrar por sucursal/);
+  assert.match(dashboard, /className="w-full min-w-0[\s\S]+text-\[11px\]/);
+});

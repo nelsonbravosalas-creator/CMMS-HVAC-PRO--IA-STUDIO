@@ -265,21 +265,21 @@ export default function Dashboard() {
   }, [filteredEquipos]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex w-full min-w-0 flex-col gap-6 sm:gap-8 overflow-x-hidden">
       {/* Header / Filter Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-[#a7e6b1] tracking-tight uppercase">Salud Operativa</h2>
+      <div className="flex min-w-0 flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-black text-[#a7e6b1] tracking-tight uppercase">Salud Operativa</h2>
           <p className="text-slate-500 text-sm font-medium">Resumen ejecutivo y monitoreo de activos en tiempo real.</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+          <div className="grid w-full min-w-0 grid-cols-2 bg-white rounded-lg border border-slate-200 p-1 shadow-sm sm:flex sm:w-auto">
             <select 
               aria-label="Filtrar por sucursal"
               value={almacen}
               onChange={(e) => setAlmacen(e.target.value)}
-              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 border-r border-slate-100 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10"
+              className="w-full min-w-0 bg-transparent text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-2 sm:py-1 outline-none text-slate-600 border-r border-slate-100 dark:bg-slate-900 dark:text-slate-100 dark:border-white/10"
             >
               <option value="">Todas las Sucursales</option>
               {uniqueClientBranches.map(b => (
@@ -292,7 +292,7 @@ export default function Dashboard() {
               aria-label="Filtrar por estado técnico"
               value={estado}
               onChange={(e) => setEstado(e.target.value)}
-              className="bg-transparent text-xs font-bold px-3 py-1 outline-none text-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              className="w-full min-w-0 bg-transparent text-[11px] sm:text-xs font-bold px-2 sm:px-3 py-2 sm:py-1 outline-none text-slate-600 dark:bg-slate-900 dark:text-slate-100"
             >
               <option value="">Cualquier Estado</option>
               <option value="falla">Falla Crítica</option>
@@ -301,8 +301,8 @@ export default function Dashboard() {
             </select>
           </div>
           
-          <Link href="/scanner?autoScan=true">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded-lg shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all active:scale-95">
+          <Link href="/scanner?autoScan=true" className="w-full sm:w-auto">
+            <button className="w-full sm:w-auto justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest px-4 py-2.5 rounded-lg shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all active:scale-95">
               <ScanLine className="w-4 h-4" /> Escanear QR
             </button>
           </Link>
@@ -310,7 +310,7 @@ export default function Dashboard() {
       </div>
 
       {/* Primary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid min-w-0 grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <KPICard label="Disponibilidad" value={kpis.disponibilidad} icon={Activity} color="text-emerald-500" className="text-container-contrast" />
         <KPICard label="MTBF" value={mtbf} icon={Clock} color="text-blue-500" />
         <KPICard label="MTTR" value={mttr} icon={Wrench} color="text-amber-500" />
@@ -320,9 +320,9 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid min-w-0 grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
         {/* Costos y Actividad Recent */}
-        <div className="xl:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
+        <div className="min-w-0 xl:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
           <div className="flex justify-between items-start mb-6">
             <div>
               <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Costos mensuales</h3>
@@ -341,7 +341,7 @@ export default function Dashboard() {
         </div>
 
         {/* Distribución por Estado Real */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
+        <div className="min-w-0 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
           <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-4">Estado del Parque</h3>
           <div className="h-56 relative">
             {kpis.total > 0 ? (
@@ -387,7 +387,7 @@ export default function Dashboard() {
         </div>
 
         {/* Potencia por Almacén */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
+        <div className="min-w-0 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm text-left">
           <h3 className="font-bold text-slate-900 uppercase text-xs tracking-widest mb-6">Potencia nominal (kW)</h3>
           <div className="h-64">
             {DATA_POWER.length > 0 ? (
@@ -502,7 +502,7 @@ export default function Dashboard() {
 
 function KPICard({ label, value, trend, icon: Icon, color, alert, className = "" }: any) {
   return (
-    <div className={`p-4 bg-white rounded-2xl border shadow-sm flex flex-col gap-2 transition-all hover:shadow-md ${alert ? 'border-red-100 ring-4 ring-red-500/5 pulse-red' : 'border-slate-100'} ${className}`}>
+    <div className={`min-w-0 overflow-hidden p-3 sm:p-4 bg-white rounded-2xl border shadow-sm flex flex-col gap-2 transition-all hover:shadow-md ${alert ? 'border-red-100 ring-4 ring-red-500/5 pulse-red' : 'border-slate-100'} ${className}`}>
       <div className="flex justify-between items-start">
         <div className={`p-2 rounded-lg bg-slate-50 ${color}`}>
           <Icon className="w-4 h-4" />
@@ -515,8 +515,8 @@ function KPICard({ label, value, trend, icon: Icon, color, alert, className = ""
         )}
       </div>
       <div>
-        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</div>
-        <div className="text-xl font-black text-slate-900 tracking-tight">{value}</div>
+        <div className="break-words text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider sm:tracking-widest">{label}</div>
+        <div className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{value}</div>
       </div>
     </div>
   );
