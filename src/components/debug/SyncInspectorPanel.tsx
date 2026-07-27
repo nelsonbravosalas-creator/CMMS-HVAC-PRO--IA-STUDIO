@@ -37,10 +37,16 @@ export const SyncInspectorPanel = () => {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    const openInspector = () => setIsOpen(true);
+    window.addEventListener('open-sync-inspector', openInspector);
+    return () => window.removeEventListener('open-sync-inspector', openInspector);
+  }, []);
+
   return (
-    <div className="fixed inset-x-3 bottom-28 z-50 flex min-w-0 flex-col items-stretch lg:inset-x-auto lg:bottom-4 lg:right-4 lg:items-end">
-      <AnimatePresence>
-        {isOpen && (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-x-3 bottom-28 z-50 flex min-w-0 flex-col items-stretch lg:inset-x-auto lg:bottom-4 lg:right-4 lg:items-end">
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -182,26 +188,8 @@ export const SyncInspectorPanel = () => {
               <Activity className="w-4 h-4 text-slate-700" />
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <button 
-        type="button"
-        aria-label={isOpen ? "Cerrar inspector de sincronización" : "Abrir inspector de sincronización"}
-        onClick={() => setIsOpen(!isOpen)}
-        className={`relative h-14 w-14 self-end rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${
-          isSyncing ? 'bg-blue-600 animate-pulse' : 
-          pendingCount > 0 ? 'bg-amber-500' : 'bg-slate-800'
-        } text-white`}
-      >
-        {isSyncing ? <RefreshCw className="w-6 h-6 animate-spin" /> : 
-         pendingCount > 0 ? <AlertTriangle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
-        {pendingCount > 0 && !isSyncing && (
-           <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-600 rounded-full border-4 border-slate-50 flex items-center justify-center text-[10px] font-black">
-             {pendingCount}
-           </span>
-        )}
-      </button>
-    </div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 };

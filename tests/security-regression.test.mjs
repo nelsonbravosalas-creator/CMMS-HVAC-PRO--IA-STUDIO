@@ -221,8 +221,15 @@ test('mobile main menu supports right and left handed placement', async () => {
 });
 
 test('sync inspector stays inside the mobile viewport', async () => {
-  const inspector = await read('src/components/debug/SyncInspectorPanel.tsx');
+  const [inspector, layout] = await Promise.all([
+    read('src/components/debug/SyncInspectorPanel.tsx'),
+    read('src/components/Layout.tsx')
+  ]);
   assert.match(inspector, /fixed inset-x-3 bottom-28[\s\S]+lg:inset-x-auto/);
   assert.match(inspector, /h-\[min\(600px,calc\(100dvh-12rem\)\)\][\s\S]+w-full[\s\S]+max-w-\[450px\]/);
   assert.match(inspector, /Cerrar inspector de sincronización/);
+  assert.match(inspector, /addEventListener\('open-sync-inspector'/);
+  assert.doesNotMatch(inspector, /onClick=\{\(\) => setIsOpen\(!isOpen\)\}/);
+  assert.match(layout, /dispatchEvent\(new CustomEvent\('open-sync-inspector'\)\)/);
+  assert.match(layout, /Sync Inspector/);
 });
