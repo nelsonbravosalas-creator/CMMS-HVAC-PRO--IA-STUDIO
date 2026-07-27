@@ -570,6 +570,16 @@ export default function Layout({ children }: LayoutProps) {
         {/* Main Content Area */}
         <main className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-4 pb-56 lg:p-8 relative ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
           {children}
+          <footer
+            aria-label="Fin del contenido"
+            className={`mt-6 flex min-h-44 items-start justify-center border-t pt-5 lg:hidden ${
+              isDarkMode ? 'border-slate-800 text-slate-600' : 'border-slate-200 text-slate-400'
+            }`}
+          >
+            <span className="text-[9px] font-bold uppercase tracking-[0.24em]">
+              CMMS HVAC · Fin del contenido
+            </span>
+          </footer>
         </main>
 
         {/* Floating Main Menu Trigger (Mobile / Left-handed support) */}

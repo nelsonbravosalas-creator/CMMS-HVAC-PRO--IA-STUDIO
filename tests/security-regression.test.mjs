@@ -220,6 +220,13 @@ test('mobile main menu supports right and left handed placement', async () => {
   assert.match(layout, /Mover controles al lado/);
 });
 
+test('mobile floating controls have a dedicated footer clearance area', async () => {
+  const layout = await read('src/components/Layout.tsx');
+  assert.match(layout, /aria-label="Fin del contenido"/);
+  assert.match(layout, /min-h-44[\s\S]+lg:hidden/);
+  assert.match(layout, /CMMS HVAC · Fin del contenido/);
+});
+
 test('sync inspector stays inside the mobile viewport', async () => {
   const [inspector, layout] = await Promise.all([
     read('src/components/debug/SyncInspectorPanel.tsx'),
