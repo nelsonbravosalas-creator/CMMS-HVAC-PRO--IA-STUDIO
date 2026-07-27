@@ -38,23 +38,23 @@ export const SyncInspectorPanel = () => {
   }, [isOpen]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
+    <div className="fixed inset-x-3 bottom-28 z-50 flex min-w-0 flex-col items-stretch lg:inset-x-auto lg:bottom-4 lg:right-4 lg:items-end">
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="w-[450px] h-[600px] bg-slate-900 border border-slate-700 shadow-2xl rounded-3xl overflow-hidden flex flex-col mb-4"
+            className="mb-3 flex h-[min(600px,calc(100dvh-12rem))] w-full min-w-0 max-w-[450px] flex-col self-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl sm:rounded-3xl lg:mb-4 lg:self-auto"
           >
             {/* Header */}
-            <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
-              <div className="flex items-center gap-3">
+            <div className="p-3 sm:p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className={`p-1.5 rounded-lg ${isOnline ? 'bg-emerald-500/20 text-emerald-500' : 'bg-red-500/20 text-red-500'}`}>
                   {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
                 </div>
-                <div>
-                   <h3 className="text-xs font-black text-white uppercase tracking-widest">Sync Inspector</h3>
+                <div className="min-w-0">
+                   <h3 className="truncate text-xs font-black text-white uppercase tracking-widest">Sync Inspector</h3>
                    <div className="flex items-center gap-2 text-[8px] font-bold text-slate-400 uppercase">
                       <span>{isOnline ? 'Online' : 'Offline'}</span>
                       <span>•</span>
@@ -63,8 +63,10 @@ export const SyncInspectorPanel = () => {
                 </div>
               </div>
               <button 
+                type="button"
+                aria-label="Cerrar inspector de sincronización"
                 onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-slate-700 rounded-xl text-slate-400 transition-colors"
+                className="shrink-0 p-2 hover:bg-slate-700 rounded-xl text-slate-400 transition-colors"
               >
                 <ChevronDown className="w-4 h-4" />
               </button>
@@ -184,8 +186,10 @@ export const SyncInspectorPanel = () => {
       </AnimatePresence>
 
       <button 
+        type="button"
+        aria-label={isOpen ? "Cerrar inspector de sincronización" : "Abrir inspector de sincronización"}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${
+        className={`relative h-14 w-14 self-end rounded-full flex items-center justify-center shadow-2xl transition-all active:scale-90 ${
           isSyncing ? 'bg-blue-600 animate-pulse' : 
           pendingCount > 0 ? 'bg-amber-500' : 'bg-slate-800'
         } text-white`}
