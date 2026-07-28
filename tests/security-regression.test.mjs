@@ -220,6 +220,16 @@ test('mobile main menu supports right and left handed placement', async () => {
   assert.match(layout, /Mover controles al lado/);
 });
 
+test('mobile menu cannot leave an invisible touch-blocking overlay', async () => {
+  const layout = await read('src/components/Layout.tsx');
+  assert.doesNotMatch(layout, /AnimatePresence/);
+  assert.doesNotMatch(layout, /key="mobile-menu-backdrop"[\s\S]+exit=/);
+  assert.match(layout, /onPointerDown=\{\(\) => setIsMobileMenuOpen\(false\)\}/);
+  assert.match(layout, /useEffect\(\(\) => \{\s*setIsMobileMenuOpen\(false\);\s*\}, \[location\]\)/);
+  assert.match(layout, /event\.key === 'Escape'/);
+  assert.match(layout, /aria-modal="true"/);
+});
+
 test('mobile floating controls have a dedicated footer clearance area', async () => {
   const layout = await read('src/components/Layout.tsx');
   assert.match(layout, /aria-label="Fin del contenido"/);

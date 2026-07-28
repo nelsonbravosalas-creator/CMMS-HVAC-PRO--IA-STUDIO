@@ -40,7 +40,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 
 /**
  * Propiedades del componente NavItem.
@@ -155,7 +155,7 @@ import { db } from '../db/database';
 
 export default function Layout({ children }: LayoutProps) {
   const { logout, user, permisos } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const isAdmin = user?.perfil === "administrador";
   const canChangeClient = isAdmin || user?.perfil === "supervisor" || user?.perfil === "tecnico";
   const visibleNavItems = NAV_ITEMS
@@ -204,6 +204,21 @@ export default function Layout({ children }: LayoutProps) {
   /** Visibilidad del banner de Progressive Web App */
   const [showPWABanner, setShowPWABanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isMobileMenuOpen]);
 
   useEffect(() => {
     // Initial sync
@@ -375,14 +390,11 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Mobile Drawer Navigation */}
-      <AnimatePresence>
+      <>
         {isMobileMenuOpen && (
-          <motion.div 
-            key="mobile-menu-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsMobileMenuOpen(false)}
+          <div
+            aria-hidden="true"
+            onPointerDown={() => setIsMobileMenuOpen(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
           />
         )}
@@ -391,8 +403,10 @@ export default function Layout({ children }: LayoutProps) {
             key="mobile-menu-aside"
             initial={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
             animate={{ x: 0 }}
-            exit={{ x: menuPosition === 'right' ? '100%' : '-100%' }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú principal"
             className={`fixed top-0 ${menuPosition === 'right' ? 'right-0' : 'left-0'} h-full w-[320px] z-[110] lg:hidden shadow-2xl flex flex-col ${
               isDarkMode ? 'bg-slate-950 border-white/5' : 'bg-slate-50 border-slate-200'
             } border-x overflow-hidden`}
@@ -407,7 +421,7 @@ export default function Layout({ children }: LayoutProps) {
               <button 
                 type="button"
                 aria-label="Cerrar menú"
-                onClick={() => setIsMobileMenuOpen(false)}
+                onPointerDown={() => setIsMobileMenuOpen(false)}
                 className={`p-3 rounded-2xl cursor-pointer active:scale-90 transition-transform border ${
                   isDarkMode ? 'bg-white/5 border-[#39FF14] shadow-[0_0_15px_rgba(57,255,20,0.3)] text-[#39FF14]' : 'bg-slate-100 border-slate-200 text-slate-600'
                 }`}
@@ -451,7 +465,8 @@ export default function Layout({ children }: LayoutProps) {
 
             <div className={`p-6 border-t ${isDarkMode ? 'bg-slate-950/80 border-white/5' : 'bg-white border-slate-100'} backdrop-blur-md`}>
               <button 
-                onClick={() => setIsMobileMenuOpen(false)}
+                type="button"
+                onPointerDown={() => setIsMobileMenuOpen(false)}
                 className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-[24px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
               >
                 Continuar
@@ -459,7 +474,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </motion.aside>
         )}
-      </AnimatePresence>
+      </>
 
       {/* Main Content Viewport */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
