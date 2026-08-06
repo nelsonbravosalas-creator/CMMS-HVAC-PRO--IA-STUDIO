@@ -33,7 +33,6 @@ const Mapa = lazy(() => import("./pages/Mapa"));
 const Mantenimientos = lazy(() => import("./pages/Mantenimientos"));
 const EditorOrdenServicio = lazy(() => import("./pages/EditorOrdenServicio"));
 const OrdenesServicio = lazy(() => import("./pages/OrdenesServicio"));
-const InformesHVAC = lazy(() => import("./pages/InformesHVAC"));
 const EditorInforme = lazy(() => import("./pages/EditorInforme"));
 const Tickets = lazy(() => import("./pages/Tickets"));
 const Reportes = lazy(() => import("./pages/Reportes"));
@@ -47,6 +46,12 @@ const Planificacion = lazy(() => import("./pages/Planificacion"));
 const ClientSelector = lazy(() => import("./pages/ClientSelector"));
 const EFIEnergia = lazy(() => import("./pages/EFIEnergia"));
 const InventarioInterno = lazy(() => import("./pages/InventarioInterno"));
+
+function LegacyReportsRedirect() {
+  const [, setLocation] = useLocation();
+  useEffect(() => setLocation('/ordenes-servicio'), [setLocation]);
+  return <div className="p-8 text-center text-sm font-bold text-slate-500">Los informes se abren desde una orden de servicio.</div>;
+}
 
 /**
  * Componente funcional App.
@@ -235,10 +240,11 @@ function App() {
               <Route path="/mapa" component={Mapa} />
               <Route path="/mantenimientos" component={Mantenimientos} />
               <Route path="/ordenes-servicio" component={OrdenesServicio} />
+              <Route path="/ordenes-servicio/:orderId/informes/:id" component={EditorInforme} />
               <Route path="/ordenes-servicio/:id" component={EditorOrdenServicio} />
               <Route path="/planificacion" component={Planificacion} />
-              <Route path="/informes" component={InformesHVAC} />
-              <Route path="/informes/:id" component={EditorInforme} />
+              <Route path="/informes" component={LegacyReportsRedirect} />
+              <Route path="/informes/:id" component={LegacyReportsRedirect} />
               <Route path="/tickets" component={Tickets} />
               <Route path="/reportes" component={Reportes} />
               <Route path="/eficiencia" component={EFIEnergia} />

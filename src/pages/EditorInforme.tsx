@@ -48,7 +48,7 @@ import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { GoogleGenAI } from "@google/genai";
-import { db, SyncStatus } from "../db/database";
+import { db, SyncStatus, type LocalOrdenServicio } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAuth } from "../context/AuthContext";
 import AccessDenied from "../components/AccessDenied";
@@ -118,9 +118,10 @@ const CHECKLIST_ITEMS = [
 
 export default function EditorInforme() {
   const { permisos } = useAuth();
-  const [, params] = useRoute<{ id: string }>("/informes/:id");
+  const [, params] = useRoute<{ orderId: string; id: string }>("/ordenes-servicio/:orderId/informes/:id");
   const [, setLocation] = useLocation();
   const id = params?.id;
+  const orderId = params?.orderId;
   const isNew = id === "nuevo";
   const informe = INFORMES_MOCK.find(i => i.id === id);
   
@@ -130,7 +131,8 @@ export default function EditorInforme() {
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
   const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('cliente');
   const [savedFirmas, setSavedFirmas] = useState<SavedSignatures>({});
-  const [status, setStatus] = useState<'borrador' | 'firmado' | 'bloqueado' | 'offline_draft'>(informe?.estado as any || 'offline_draft');
+  const [status, setStatus] = useState<'borrador' | 'finalizado' | 'offline_draft'>(informe?.estado as any || 'borrador');
+  const [parentOrder, setParentOrder] = useState<LocalOrdenServicio | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -230,13 +232,9 @@ export default function EditorInforme() {
                           }))
                       ]}
                       value={generalData.sucursal}
-                      onChange={val => {
-                        const selectedSuc = branches.find(b => b.uuid_sync === val);
-                        const regionVal = selectedSuc?.region || '';
-                        setGeneralData({...generalData, sucursal: val, region: regionVal});
-                      }}
-                      disabled={isReadOnly || !generalData.cliente}
-                      placeholder="Seleccione una sucursal..."
+                      onChange={() => undefined}
+                      disabled
+                      placeholder="Sucursal definida por la orden"
                     />
                 </div>
                 <div className="space-y-1">
@@ -244,8 +242,7 @@ export default function EditorInforme() {
                    <input 
                     type="text" 
                     value={generalData.region} 
-                    readOnly={isReadOnly}
-                    onChange={(e) => setGeneralData({...generalData, region: e.target.value})}
+                    readOnly
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
                    />
                 </div>
@@ -718,90 +715,66 @@ export default function EditorInforme() {
   const [observaciones, setObservaciones] = useState("");
   const [galeria, setGaleria] = useState<{src: string, desc: string}[]>([]);
 
-  // Redirect to new draft if accessing "/informes/nuevo"
+  // Los informes se crean desde su orden padre. No se admite un borrador
+  // huérfano aunque se escriba manualmente la URL.
   useEffect(() => {
     if (id === 'nuevo') {
-      const newUuid = crypto.randomUUID();
-      const shortId = `INF-PENDIENTE-${newUuid.substring(0, 6).toUpperCase()}`;
-      
-      const newDraft = {
-        uuid_sync: newUuid,
-        id: shortId,
-        updated_at: Date.now(),
-        sync_status: 'pending_insert' as SyncStatus,
-        data: {
-          estado: 'borrador',
-          generalData: {
-            cliente: localStorage.getItem("active_client") || '',
-            sucursal: '',
-            region: '',
-            direccion: '',
-            fecha: new Date().toISOString().split('T')[0],
-            tecnico: 'Nelson Bravo',
-            nombreCliente: '',
-            tipoServicio: 'Preventivo',
-            folio: ''
-          },
-          machineData: {
-            tipo: '',
-            tag: '',
-            marca: '',
-            modelo: '',
-            serie: '',
-            refrigerante: '',
-            capacidad: '',
-            voltaje: ''
-          },
-          circuits: [
-            {
-              numCompressors: 1,
-              pb: '', pa: '', te: '', tc: '', tsub: '', tsob: '',
-              compressors: [{ rla: '', r: '', s: '', t: '' }]
-            }
-          ],
-          checklist: {},
-          observaciones: '',
-          galeria: []
-        }
-      };
-
-      db.reports.put(newDraft).then(() => {
-        setLocation(`/informes/${newUuid}`);
-      }).catch(console.error);
+      setLocation(orderId ? `/ordenes-servicio/${orderId}` : '/ordenes-servicio');
     }
-  }, [id, setLocation]);
+  }, [id, orderId, setLocation]);
 
   // Load Draft from DB
   useEffect(() => {
-    if (!id || id === 'nuevo') return;
-    
-    db.reports.get(id).then(dbReport => {
-      if (dbReport && dbReport.data) {
+    if (!id || id === 'nuevo' || !orderId) return;
+
+    Promise.all([db.reports.get(id), db.ordenes_servicio.get(orderId)]).then(([dbReport, order]) => {
+      if (!order || order.deleted_at || order.sync_status === 'pending_delete') {
+        alert('La orden de servicio padre no existe.');
+        setLocation('/ordenes-servicio');
+        return;
+      }
+      if (!dbReport || dbReport.deleted_at || dbReport.orden_servicio_uuid !== order.uuid_sync) {
+        alert('El informe no pertenece a esta orden de servicio.');
+        setLocation(`/ordenes-servicio/${order.uuid_sync}`);
+        return;
+      }
+      if (dbReport.cliente_id !== order.cliente_id || dbReport.sucursal_id !== order.sucursal_id) {
+        alert('El informe no coincide con el cliente y sucursal de la orden.');
+        setLocation(`/ordenes-servicio/${order.uuid_sync}`);
+        return;
+      }
+      setParentOrder(order);
+      if (dbReport.data) {
         const reportClient = dbReport.data.generalData?.cliente;
         if (activeClientId && reportClient && reportClient !== activeClientId && reportClient !== activeClient?.id) {
           alert("Este informe pertenece a otro cliente. Cambie de cliente desde el selector para abrirlo.");
-          setLocation("/informes");
+          setLocation("/ordenes-servicio");
           return;
         }
-        setGeneralData(prev => ({ ...prev, ...dbReport.data.generalData }));
+        const orderBranch = branches.find(item => item.uuid_sync === order.sucursal_id || item.id === order.sucursal_id);
+        setGeneralData(prev => ({
+          ...prev,
+          ...dbReport.data.generalData,
+          cliente: order.cliente_id || dbReport.cliente_id,
+          sucursal: order.sucursal_id || dbReport.sucursal_id,
+          region: orderBranch?.region || dbReport.data.generalData?.region || ''
+        }));
         if (dbReport.data.machineData) setMachineData(dbReport.data.machineData);
         if (dbReport.data.circuits) setCircuits(dbReport.data.circuits);
         if (dbReport.data.checklist) setChecklist(dbReport.data.checklist);
         if (dbReport.data.observaciones) setObservaciones(dbReport.data.observaciones);
         if (dbReport.data.galeria) setGaleria(dbReport.data.galeria);
         if (dbReport.data.firmas) setSavedFirmas(dbReport.data.firmas);
-        if (dbReport.data.estado) setStatus(dbReport.data.estado);
-      } else {
-        const activeClient = localStorage.getItem("active_client");
-        if (activeClient) {
-          setGeneralData(prev => ({ ...prev, cliente: activeClient }));
+        if (dbReport.data.estado) {
+          const reportState = ['finalizado', 'firmado', 'bloqueado'].includes(dbReport.data.estado) ? 'finalizado' : 'borrador';
+          setStatus(reportState);
         }
       }
     }).catch(console.error);
-  }, [id, activeClientId, activeClient?.id, setLocation]);
+  }, [id, orderId, activeClientId, activeClient?.id, setLocation]);
 
   useEffect(() => {
-    if (!activeClientId || status === 'firmado' || status === 'bloqueado') return;
+    if (!activeClientId || status === 'finalizado') return;
     setGeneralData(prev => prev.cliente === activeClientId ? prev : {
       ...prev,
       cliente: activeClientId,
@@ -811,7 +784,7 @@ export default function EditorInforme() {
 
   // Persist Changes to DB (Autosave - LOCAL ONLY, do not enqueue sync queue here to prevent spamming the server/queue)
   useEffect(() => {
-    if (!id || id === 'nuevo' || status === 'firmado' || status === 'bloqueado') return;
+    if (!id || id === 'nuevo' || !orderId || !parentOrder || status === 'finalizado' || ['cerrado', 'firmado'].includes(parentOrder.estado)) return;
     
     const draftData = {
       estado: status,
@@ -825,24 +798,31 @@ export default function EditorInforme() {
     
     db.reports.get(id).then(existing => {
       const record = {
+        ...existing,
         uuid_sync: id,
         id: generalData.folio || existing?.id || `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`,
+        cliente_id: parentOrder.cliente_id || generalData.cliente,
+        sucursal_id: parentOrder.sucursal_id || generalData.sucursal,
+        orden_servicio_uuid: orderId,
         updated_at: Date.now(),
         sync_status: existing?.sync_status || 'pending_insert' as SyncStatus,
         data: draftData
       };
       db.reports.put(record).catch(console.error);
     }).catch(console.error);
-  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, id]);
+  }, [generalData, machineData, circuits, checklist, observaciones, galeria, status, id, orderId, parentOrder]);
   
   // Main Save / Publish / Sync Function
-  const saveReport = async (finalStatus: 'borrador' | 'firmado' | 'bloqueado' | 'offline_draft') => {
+  const saveReport = async (finalStatus: 'borrador' | 'finalizado' | 'offline_draft') => {
+    if (!id || !orderId || !parentOrder) throw new Error('La orden de servicio padre no está disponible.');
+    if (['cerrado', 'firmado'].includes(parentOrder.estado)) throw new Error('La orden está cerrada y es de solo lectura.');
     // Generate folio if not exists
-    const activeClient = localStorage.getItem("active_client") || '';
-    const currentFolio = generalData.folio || (finalStatus === 'firmado' ? `INF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}` : `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`);
+    const activeClient = parentOrder.cliente_id || localStorage.getItem("active_client") || '';
+    const currentFolio = generalData.folio || (finalStatus === 'finalizado' ? `INF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}` : `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`);
     const normalizedGeneralData = {
       ...generalData,
-      cliente: generalData.cliente || activeClient,
+      cliente: activeClient,
+      sucursal: parentOrder.sucursal_id || generalData.sucursal,
       folio: currentFolio,
       ubicacionGeografica
     };
@@ -853,6 +833,9 @@ export default function EditorInforme() {
       id: currentFolio,
       uuid_sync: id,
       cliente_id: normalizedGeneralData.cliente,
+      sucursal_id: parentOrder.sucursal_id || normalizedGeneralData.sucursal,
+      orden_servicio_uuid: orderId,
+      creado_por: existing?.creado_por,
       updated_at: Date.now(),
       sync_status: (existing ? 'pending_update' : 'pending_insert') as SyncStatus,
       data: {
@@ -864,7 +847,7 @@ export default function EditorInforme() {
         checklist,
         observaciones,
         galeria,
-        firmas: finalStatus === 'firmado' ? {
+        firmas: finalStatus === 'finalizado' ? {
           tecnico: getSignatureDataUrl('tecnico') || '',
           cliente: getSignatureDataUrl('cliente') || ''
         } : (savedFirmas.tecnico || savedFirmas.cliente ? savedFirmas : existing?.data?.firmas),
@@ -908,6 +891,17 @@ export default function EditorInforme() {
       setIsSyncing(false);
       return;
     }
+    const selectedAsset = await db.assets.where('tag').equals(machineData.tag.trim()).first();
+    const branch = branches.find(item => item.uuid_sync === parentOrder?.sucursal_id || item.id === parentOrder?.sucursal_id);
+    const validBranchIds = new Set([parentOrder?.sucursal_id, branch?.id, branch?.uuid_sync].filter(Boolean));
+    const validClientIds = new Set([parentOrder?.cliente_id, activeClient?.id, activeClient?.uuid_sync].filter(Boolean));
+    if (!selectedAsset || selectedAsset.deleted_at || selectedAsset.estado === 'baja'
+      || !validClientIds.has(selectedAsset.cliente_id)
+      || !validBranchIds.has(selectedAsset.sucursal_id)) {
+      alert('Error: El equipo debe estar activo y pertenecer al cliente y sucursal de esta orden.');
+      setIsSyncing(false);
+      return;
+    }
     if (!generalData.tecnico.trim()) {
       alert("Error: No es posible finalizar: falta técnico responsable.");
       setIsSyncing(false);
@@ -921,7 +915,7 @@ export default function EditorInforme() {
     }
 
     try {
-      const currentFolio = await saveReport('firmado');
+      const currentFolio = await saveReport('finalizado');
       setIsSyncing(false);
 
       // Export PDF via Email Automáticamente
@@ -939,11 +933,12 @@ export default function EditorInforme() {
           assetTag: machineData.tag,
           pdfBase64
         });
-        alert(`Informe Firmado Exitosamente. Folio: ${currentFolio}\n${exportResult.message}`);
+        alert(`Informe finalizado exitosamente. Folio: ${currentFolio}\n${exportResult.message}`);
       } catch (exportError: any) {
         console.warn("Exportación fallida", exportError);
-        alert(`Informe firmado exitosamente. Folio: ${currentFolio}\nLa notificación por correo no está disponible en este entorno.`);
+        alert(`Informe finalizado exitosamente. Folio: ${currentFolio}\nLa notificación por correo no está disponible en este entorno.`);
       }
+      setLocation(`/ordenes-servicio/${orderId}`);
     } catch (saveError: any) {
       console.error(saveError);
       alert(`Error al finalizar e iniciar sincronización: ${saveError.message}`);
@@ -961,14 +956,18 @@ export default function EditorInforme() {
   const [searchDescription, setSearchDescription] = useState("");
 
   const handleAutoFill = (eq: any) => {
-    const sucursalCode = eq.tag.split('.')[0];
-    const sucursalName = ALMACEN_LABELS[sucursalCode] || sucursalCode;
+    const parentBranch = branches.find(branch => branch.uuid_sync === parentOrder?.sucursal_id || branch.id === parentOrder?.sucursal_id);
+    if (!parentOrder || eq.cliente_id !== parentOrder.cliente_id
+      || (eq.sucursal_id !== parentBranch?.uuid_sync && eq.sucursal_id !== parentBranch?.id)) {
+      alert('Seleccione un equipo perteneciente a la sucursal de la orden.');
+      return;
+    }
 
     setGeneralData(prev => ({
       ...prev,
-      cliente: "Empresa Mandante SPA", 
-      sucursal: sucursalName,
-      region: sucursalCode.startsWith('21') ? 'Metropolitana' : 'Otras Regiones',
+      cliente: parentOrder.cliente_id || prev.cliente,
+      sucursal: parentOrder.sucursal_id || prev.sucursal,
+      region: parentBranch?.region || prev.region
     }));
 
     setMachineData(prev => ({
@@ -988,6 +987,7 @@ export default function EditorInforme() {
 
   const canvasTecRef = useRef<HTMLCanvasElement>(null);
   const canvasCliRef = useRef<HTMLCanvasElement>(null);
+  const autoPdfHandledRef = useRef(false);
 
   function getSignatureDataUrl(type: 'tecnico' | 'cliente') {
     const canvas = type === 'tecnico' ? canvasTecRef.current : canvasCliRef.current;
@@ -1714,6 +1714,24 @@ export default function EditorInforme() {
     return doc;
   };
 
+  useEffect(() => {
+    if (autoPdfHandledRef.current || !parentOrder || !id) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pdf') !== '1') return;
+    const timer = window.setTimeout(async () => {
+      autoPdfHandledRef.current = true;
+      try {
+        const doc = await generateClimasolPDF(generalData.folio || undefined);
+        doc.save(`${generalData.folio || `INF-${id.slice(0, 8).toUpperCase()}`}.pdf`);
+      } catch (error: any) {
+        alert(`No fue posible generar el PDF: ${error?.message || error}`);
+      } finally {
+        window.history.replaceState({}, '', `/ordenes-servicio/${orderId}/informes/${id}`);
+      }
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [parentOrder, id, orderId, generalData.folio]);
+
   // Export PDF Wrapper
   const handleExportPDF = async () => {
     const doc = await generateClimasolPDF();
@@ -2204,7 +2222,9 @@ export default function EditorInforme() {
     );
   };
 
-  const isReadOnly = !permisos?.crear_informe || status === 'firmado' || status === 'bloqueado';
+  const isReadOnly = !permisos?.crear_informe
+    || status === 'finalizado'
+    || !!parentOrder && ['cerrado', 'firmado'].includes(parentOrder.estado);
 
   useEffect(() => {
     const setupCanvas = (canvas: HTMLCanvasElement | null) => {
@@ -2319,15 +2339,14 @@ export default function EditorInforme() {
       {/* Header Panel */}
       <div className="bg-white p-4 md:p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-40">
          <div className="flex items-start md:items-center gap-3 w-full">
-            <Link href="/informes">
+            <Link href={orderId ? `/ordenes-servicio/${orderId}` : '/ordenes-servicio'}>
                <button className="p-2 hover:bg-slate-100 text-slate-400 rounded-xl transition-colors shrink-0 mt-1 md:mt-0"><X className="w-5 h-5" /></button>
             </Link>
             <div className="flex-1 min-w-0">
                <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
                   <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase truncate">{isNew ? 'Nuevo Informe' : `Informe ${id}`}</h2>
-                  <span className={`w-max text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${ 
-                    status === 'firmado' ? 'bg-emerald-100 text-emerald-600' : 
-                    status === 'bloqueado' ? 'bg-amber-100 text-amber-600' : 
+                  <span className={`w-max text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                    status === 'finalizado' ? 'bg-emerald-100 text-emerald-600' :
                     status === 'offline_draft' ? 'bg-blue-100 text-blue-600 animate-pulse' :
                     'bg-slate-100 text-slate-600'
                    }`}>
@@ -2345,7 +2364,7 @@ export default function EditorInforme() {
                       try {
                         await saveReport('borrador');
                         alert("Borrador guardado exitosamente en base de datos local y encolado para sincronización.");
-                        setLocation("/informes");
+                        setLocation(`/ordenes-servicio/${orderId}`);
                       } catch (err: any) {
                         alert("Error al guardar borrador: " + err.message);
                       }
@@ -2490,6 +2509,7 @@ export default function EditorInforme() {
           setSucursal={setSearchSucursal}
           descripcion={searchDescription}
           setDescripcion={setSearchDescription}
+          fixedSucursalId={parentOrder?.sucursal_id}
        />
        {showAssetConfig && <CreateAssetModal onClose={() => setShowAssetConfig(false)} />}
        <FullscreenSignatureModal

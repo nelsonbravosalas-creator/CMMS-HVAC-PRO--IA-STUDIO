@@ -30,6 +30,7 @@ interface AssetSearchModalProps {
   setDescripcion?: (val: string) => void;
   clients?: Record<string, string>;
   results?: any[];
+  fixedSucursalId?: string;
 }
 
 export function AssetSearchModal({ 
@@ -41,7 +42,8 @@ export function AssetSearchModal({
   sucursal, setSucursal, 
   descripcion, setDescripcion,
   clients, 
-  results 
+  results,
+  fixedSucursalId
 }: AssetSearchModalProps) {
   const [activeTab, setActiveTab] = useState<'assets' | 'reports' | 'qr'>('assets');
   const today = new Date().toLocaleDateString('es-CL');
@@ -91,6 +93,12 @@ export function AssetSearchModal({
           }
         }
       }
+      if (fixedSucursalId) {
+        const fixedBranch = (storeBranches || []).find(branch => branch.uuid_sync === fixedSucursalId || branch.id === fixedSucursalId);
+        if (!fixedBranch || (eq.sucursal_id !== fixedBranch.uuid_sync && eq.sucursal_id !== fixedBranch.id)) {
+          return false;
+        }
+      }
       
       // Apply filters if they exist
       if (actualTag) {
@@ -126,7 +134,7 @@ export function AssetSearchModal({
       }
       return true;
     });
-  }, [storeAssets, activeClientUuid, actualTag, actualCliente, actualSucursal, actualDescripcion, storeClients, storeBranches]);
+  }, [storeAssets, activeClientUuid, actualTag, actualCliente, actualSucursal, actualDescripcion, storeClients, storeBranches, fixedSucursalId]);
 
   const finalResults = results !== undefined ? results : computedResults;
 

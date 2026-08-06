@@ -79,11 +79,24 @@ class SyncEngine {
       const now = Date.now();
       const pullSince = force ? 0 : this.lastSync;
       
-      const pendingItems = allPending.filter((item) => {
+      const eligibleItems = allPending.filter((item) => {
         if ((item.retry_count || 0) >= 3) return false;
         if (item.next_retry_at && item.next_retry_at > now) return false;
         return true;
       });
+
+      // Una OS creada offline debe llegar al servidor antes que cualquiera de
+      // sus informes hijos. Los informes dependientes quedan para el siguiente
+      // ciclo, evitando carreras contra la FK en Neon.
+      const pendingOrderParents = new Set(
+        eligibleItems
+          .filter(item => item.table === 'ordenes_servicio' && item.operation === 'insert')
+          .map(item => item.uuid_sync)
+      );
+      const pendingItems = eligibleItems.filter(item => !(
+        item.table === 'reports'
+        && pendingOrderParents.has(item.data?.orden_servicio_uuid)
+      ));
 
       store.setPendingCount(pendingItems.length);
 

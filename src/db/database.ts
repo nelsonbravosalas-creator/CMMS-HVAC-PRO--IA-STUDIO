@@ -121,6 +121,10 @@ export interface LocalSucursal extends LocalBase {
 
 export interface LocalInforme extends LocalBase {
   id: string;
+  cliente_id: string;
+  sucursal_id: string;
+  orden_servicio_uuid: string;
+  creado_por?: string;
   data: any;
 }
 
@@ -157,6 +161,7 @@ export interface LocalOrdenServicio extends LocalBase {
   draft_key: string;
   data: any;
   cliente_id?: string;
+  sucursal_id?: string;
 }
 
 export interface LocalSetting {
@@ -228,7 +233,7 @@ export class CMMSDatabase extends Dexie {
       catalog_asset_types: 'uuid_sync, codigo, sync_status, updated_at',
       ordenes_servicio: 'uuid_sync, id, draft_key, cliente_id, sync_status, updated_at',
       settings: 'key, sync_status, updated_at',
-      reports: 'uuid_sync, id, sync_status, updated_at',
+      reports: 'uuid_sync, id, cliente_id, sucursal_id, orden_servicio_uuid, [cliente_id+orden_servicio_uuid], creado_por, sync_status, updated_at',
       events: 'uuid_sync, id, sync_status, updated_at',
       inventory: 'uuid_sync, id, categoria, cliente_id, sync_status, updated_at',
       sync_queue: '++id, table, uuid_sync, operation, [uuid_sync+operation], timestamp',
@@ -339,6 +344,15 @@ export class CMMSDatabase extends Dexie {
       for (const tableName of resetTables) {
         await transaction.table(tableName).clear();
       }
+    });
+    this.version(15).stores(schema).upgrade(async transaction => {
+      // Los informes previos al modelo OS 1:N no tienen un padre confiable.
+      // La limpieza fue autorizada como migración única; el resto de los datos
+      // operacionales se conserva intacto.
+      await transaction.table('reports').clear();
+      await transaction.table('sync_queue')
+        .filter((operation: any) => operation.table === 'reports')
+        .delete();
     });
 
     // La carga inicial proviene del servidor. Evitar registros locales sintéticos

@@ -179,7 +179,9 @@ test('role permissions are enforced by resource in UI and Vercel handlers', asyn
   assert.match(permissionTypes, /crear_orden_servicio: boolean/);
   assert.match(orderList, /permisos\?\.crear_orden_servicio[\s\S]+Nueva Orden/);
   assert.match(orderList, /value=\{statusFilter\}[\s\S]+setStatusFilter/);
-  assert.doesNotMatch(orderList, /FileDown|Trash2/);
+  assert.match(orderList, /const isAdmin = user\?\.perfil === 'administrador'/);
+  assert.match(orderList, /isAdmin && os\.informes\.length === 0[\s\S]+Trash2/);
+  assert.match(sync, /Solo un administrador puede eliminar órdenes de servicio/);
   assert.match(orderEditor, /isNew && !permisos\?\.crear_orden_servicio/);
   assert.match(orderEditor, /isReadOnly = !permisos\?\.crear_orden_servicio/);
   assert.match(orderEditor, /db\.ordenes_servicio\.get\(uuid\)[\s\S]+where\('id'\)\.equals\(rawId \|\| uuid\)\.first\(\)/);

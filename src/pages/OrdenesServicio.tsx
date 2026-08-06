@@ -5,20 +5,29 @@ import {
   Plus, 
   Search, 
   CheckCircle2,
-  ScanLine
+  ScanLine,
+  Trash2
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/database";
 import { useAuth } from "../context/AuthContext";
+import { useAppStore } from "../store/useAppStore";
+import { serviceOrdersRepo } from "../repositories/ServiceOrderRepository";
+import { syncEngine } from "../sync/syncEngine";
+import { confirmAction } from "../lib/confirmAction";
 
 export default function OrdenesServicio() {
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [, setLocation] = useLocation();
-  const { permisos } = useAuth();
+  const { user, permisos } = useAuth();
+  const branches = useAppStore(state => state.branches);
+  const [deletingUuid, setDeletingUuid] = useState<string | null>(null);
+  const isAdmin = user?.perfil === 'administrador';
 
   const rawOrdenes = useLiveQuery(() => db.ordenes_servicio.toArray(), []) || [];
+  const rawReports = useLiveQuery(() => db.reports.toArray(), []) || [];
   const activeClientUid = localStorage.getItem("active_client");
 
   const filtered = rawOrdenes.filter(os => {
@@ -27,20 +36,26 @@ export default function OrdenesServicio() {
     if (!activeClientUid || orderClient !== activeClientUid || os.sync_status === 'pending_delete') {
       return false;
     }
-    const tg = data.generalData?.equipoTag || "";
+    const branch = data.generalData?.sucursal || os.sucursal_id || "";
     const tec = data.generalData?.tecnico || "";
     const idStr = os.id || "";
     const filterLower = (filter || "").toLowerCase();
-    const matchesText = tg.toLowerCase().includes(filterLower) ||
+    const matchesText = branch.toLowerCase().includes(filterLower) ||
       tec.toLowerCase().includes(filterLower) ||
       idStr.toLowerCase().includes(filterLower);
     const matchesStatus = statusFilter === "todos" || os.estado === statusFilter;
     return matchesText && matchesStatus;
   }).map(os => ({
+    uuid: os.uuid_sync,
     id: os.id,
     fecha: os.data?.generalData?.fecha || new Date(os.updated_at || Date.now()).toISOString().split('T')[0],
-    tag: os.data?.generalData?.equipoTag || "S/T",
-    equipoNombre: os.data?.generalData?.descripcionEquipo || "Equipo sin descripción",
+    sucursal: (() => {
+      const branchRef = os.data?.generalData?.sucursal || os.sucursal_id || "";
+      return branches.find(branch => branch.uuid_sync === branchRef || branch.id === branchRef)?.nombre
+        || branchRef
+        || "Sin sucursal";
+    })(),
+    informes: rawReports.filter(report => report.orden_servicio_uuid === os.uuid_sync && !report.deleted_at && report.sync_status !== 'pending_delete'),
     tipoServicio: os.data?.generalData?.tipoServicio || "Preventivo",
     tecnico: os.data?.generalData?.tecnico || "No Asignado",
     estado: os.estado || "abierto"
@@ -50,12 +65,32 @@ export default function OrdenesServicio() {
     return acc;
   }, {} as Record<string, number>);
 
+  const deleteEmptyOrder = async (order: typeof filtered[number]) => {
+    if (!isAdmin || order.informes.length > 0 || ['cerrado', 'firmado'].includes(order.estado)) return;
+    const accepted = await confirmAction(`¿Eliminar definitivamente la orden ${order.id}?`, {
+      title: 'Eliminar orden vacía',
+      confirmLabel: 'Eliminar orden',
+      tone: 'danger'
+    });
+    if (!accepted) return;
+
+    setDeletingUuid(order.uuid);
+    try {
+      await serviceOrdersRepo.delete(order.uuid);
+      void syncEngine.triggerSync();
+    } catch (error: any) {
+      alert(error?.message || 'No fue posible eliminar la orden.');
+    } finally {
+      setDeletingUuid(null);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 text-left">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Órdenes de Servicio</h2>
-          <p className="text-slate-500 text-sm font-medium">Gestión de órdenes de servicio, checklists y hallazgos.</p>
+          <p className="text-slate-500 text-sm font-medium">Visitas a terreno e informes técnicos organizados por orden.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -85,9 +120,9 @@ export default function OrdenesServicio() {
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Buscar por OS, TAG o Técnico..." 
+          <input
+            type="text"
+            placeholder="Buscar por OS, sucursal o técnico..."
             className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold uppercase outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -115,7 +150,8 @@ export default function OrdenesServicio() {
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-100 italic">
               <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">OS / Fecha</th>
-              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Equipo TAG</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Sucursal</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Informes</th>
               <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipo Servicio</th>
               <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
               <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Acciones</th>
@@ -123,14 +159,17 @@ export default function OrdenesServicio() {
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filtered.map(os => (
-              <tr key={os.id} className="hover:bg-slate-50/50 transition-colors group">
+              <tr key={os.uuid} className="hover:bg-slate-50/50 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="text-xs font-black text-slate-900">{os.id}</div>
                   <div className="text-[10px] font-bold text-slate-400">{os.fecha}</div>
                 </td>
                 <td className="px-6 py-4">
-                   <div className="text-xs font-black text-blue-600">{os.tag}</div>
-                   <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tight line-clamp-1">{os.equipoNombre}</div>
+                   <div className="text-xs font-black text-blue-600">{os.sucursal}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-xs font-black text-slate-700">{os.informes.length}</div>
+                  <div className="text-[9px] font-bold text-slate-400 uppercase">{os.informes.filter(report => report.data?.estado === 'borrador').length} borrador(es)</div>
                 </td>
                 <td className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase">{os.tipoServicio}</td>
                 <td className="px-6 py-4">
@@ -146,8 +185,8 @@ export default function OrdenesServicio() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/ordenes-servicio/${os.id}`}>
+                   <div className="flex justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <Link href={`/ordenes-servicio/${os.uuid}`}>
                         <button
                           aria-label={`Ver orden ${os.id}`}
                           className="p-2 hover:bg-white rounded-lg text-slate-400 hover:text-blue-600 shadow-sm"
@@ -155,6 +194,18 @@ export default function OrdenesServicio() {
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                       </Link>
+                      {isAdmin && os.informes.length === 0 && !['cerrado', 'firmado'].includes(os.estado) && (
+                        <button
+                          type="button"
+                          disabled={deletingUuid === os.uuid}
+                          onClick={() => deleteEmptyOrder(os)}
+                          aria-label={`Eliminar orden vacía ${os.id}`}
+                          title="Eliminar orden vacía"
+                          className="p-2 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 shadow-sm disabled:opacity-40"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                    </div>
                 </td>
               </tr>

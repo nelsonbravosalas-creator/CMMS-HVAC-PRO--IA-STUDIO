@@ -13,7 +13,8 @@
     "lint": "tsc --noEmit",
     "test:functional:production": "node tests/production-functional-qa.mjs",
     "test:security": "node --test tests/security-regression.test.mjs",
-    "test": "npm run lint && npm run test:security"
+    "test:order-reports": "tsx --test tests/order-report-rules.test.ts",
+    "test": "npm run lint && npm run test:security && npm run test:order-reports"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

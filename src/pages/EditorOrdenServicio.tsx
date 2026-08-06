@@ -12,6 +12,7 @@ import {
   CheckSquare,
   AlertTriangle,
   ClipboardList,
+  Download,
   MapPin,
   Search,
   Maximize,
@@ -30,9 +31,12 @@ import { AssetSearchModal } from "../components/modals/AssetSearchModal";
 import { FullscreenSignatureModal } from "../components/modals/FullscreenSignatureModal";
 import { db } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
+import { serviceOrdersRepo } from "../repositories/ServiceOrderRepository";
 import { useAppStore } from "../store/useAppStore";
 import { useAuth } from "../context/AuthContext";
 import AccessDenied from "../components/AccessDenied";
+import OrderReportsSection from "../components/orders/OrderReportsSection";
+import { canCloseOrder } from "../rules/orderReportRules";
 
 export interface ChecklistItemData {
   status?: 'ok' | 'obs' | 'falla';
@@ -51,7 +55,7 @@ const OS_CHECKLIST_ITEMS = [
   { key: "funcionamientoGeneral", label: "Funcionamiento general" }
 ];
 
-type Section = 'general' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
+type Section = 'general' | 'informes' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
 export default function EditorOrdenServicio() {
   const [, params] = useRoute<{ id: string }>("/ordenes-servicio/:id");
@@ -69,20 +73,15 @@ export default function EditorOrdenServicio() {
   const OS_DRAFT_KEY = `OS_DRAFT_${uuid}`;
 
   const handleBack = () => {
-    // A new order receives a fresh UUID on every mount, so its draft key
-    // cannot be resumed after leaving this screen. Remove the orphaned draft
-    // instead of accumulating abandoned QA/user data in localStorage.
-    if (isNew) {
-      localStorage.removeItem(OS_DRAFT_KEY);
-    }
     setLocation("/ordenes-servicio");
   };
 
   const [activeSection, setActiveSection] = useState<Section>('general');
-  const [viewMode, setViewMode] = useState<'normal' | 'industrial'>('industrial');
+  const [viewMode, setViewMode] = useState<'normal' | 'industrial'>('normal');
   const [appLogo] = useState<string | null>(() => localStorage.getItem("system_logo"));
   const [isSyncing, setIsSyncing] = useState(false);
   const [status, setStatus] = useState<'abierto'|'en_progreso'|'completado'|'firmado'|'cerrado'>('abierto');
+  const isReadOnly = !permisos?.crear_orden_servicio || status === 'firmado' || status === 'cerrado';
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
   const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('tecnico');
   const [activePhotoField, setActivePhotoField] = useState<string | null>(null);
@@ -119,6 +118,7 @@ export default function EditorOrdenServicio() {
 
   const canvasTecRef = useRef<HTMLCanvasElement>(null);
   const canvasCliRef = useRef<HTMLCanvasElement>(null);
+  const [savedOrderSignatures, setSavedOrderSignatures] = useState<{ tecnico?: string; cliente?: string }>({});
 
   const [generalData, setGeneralData] = useState({
     cliente: "",
@@ -131,6 +131,7 @@ export default function EditorOrdenServicio() {
     equipoTag: "",
     descripcionEquipo: "",
     tipoServicio: "Preventivo",
+    motivoVisita: "",
     fotoPlaca: "",
   });
 
@@ -186,7 +187,7 @@ export default function EditorOrdenServicio() {
       if (saved) {
         try {
           const data = JSON.parse(saved);
-          if (data.generalData) setGeneralData(data.generalData);
+          if (data.generalData) setGeneralData(prev => ({ ...prev, ...data.generalData }));
           if (data.checklist) setChecklist(normalizeChecklist(data.checklist));
           if (data.hallazgos) setHallazgos(data.hallazgos);
           if (data.galeria) setGaleria(data.galeria);
@@ -217,10 +218,11 @@ export default function EditorOrdenServicio() {
             setLocation("/ordenes-servicio");
             return;
           }
-          if (data.generalData) setGeneralData(data.generalData);
+          if (data.generalData) setGeneralData(prev => ({ ...prev, ...data.generalData }));
           if (data.checklist) setChecklist(normalizeChecklist(data.checklist));
           if (data.hallazgos) setHallazgos(data.hallazgos);
           if (data.galeria) setGaleria(data.galeria);
+          if (data.firmas) setSavedOrderSignatures(data.firmas);
           if (existing.estado) setStatus(existing.estado as any);
           if (data.ubicacionGeografica) setUbicacionGeografica(data.ubicacionGeografica);
         }
@@ -247,10 +249,16 @@ export default function EditorOrdenServicio() {
 
   useEffect(() => {
     if (activeSection === 'firma') {
-      setupCanvas(canvasTecRef.current);
-      setupCanvas(canvasCliRef.current);
+      setupCanvas(canvasTecRef.current, isReadOnly, dataUrl => {
+        setSavedOrderSignatures(previous => ({ ...previous, tecnico: dataUrl }));
+      });
+      setupCanvas(canvasCliRef.current, isReadOnly, dataUrl => {
+        setSavedOrderSignatures(previous => ({ ...previous, cliente: dataUrl }));
+      });
+      drawSavedSignature(canvasTecRef.current, savedOrderSignatures.tecnico);
+      drawSavedSignature(canvasCliRef.current, savedOrderSignatures.cliente);
     }
-  }, [activeSection]);
+  }, [activeSection, savedOrderSignatures, isReadOnly]);
 
   const addImageToGallery = async (file: File) => {
     const reader = new FileReader();
@@ -694,116 +702,315 @@ export default function EditorOrdenServicio() {
     return doc;
   };
 
+  const getOrderSignature = (type: 'tecnico' | 'cliente') => {
+    const canvas = type === 'tecnico' ? canvasTecRef.current : canvasCliRef.current;
+    if (canvas && !isCanvasBlank(canvas)) return canvas.toDataURL('image/png');
+    return savedOrderSignatures[type] || '';
+  };
+
+  const generateOrderSummaryPDF = async () => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const order = await db.ordenes_servicio.get(uuid);
+    const reports = await db.reports
+      .where('[cliente_id+orden_servicio_uuid]')
+      .equals([generalData.cliente, uuid])
+      .filter(report => !report.deleted_at && report.sync_status !== 'pending_delete')
+      .sortBy('updated_at');
+    const clientName = clients.find(client => client.uuid_sync === generalData.cliente || client.id === generalData.cliente)?.nombre || generalData.cliente;
+    const branch = branches.find(item => item.uuid_sync === generalData.sucursal || item.id === generalData.sucursal);
+    const orderFolio = order?.id || `OS-${uuid.slice(0, 8).toUpperCase()}`;
+
+    doc.setFillColor(11, 47, 100);
+    doc.rect(0, 0, 210, 42, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('ORDEN DE SERVICIO', 14, 19);
+    doc.setFontSize(10);
+    doc.text(orderFolio, 14, 29);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Portada y resumen de informes', 196, 29, { align: 'right' });
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('CLIENTE', 14, 56);
+    doc.text('SUCURSAL', 110, 56);
+    doc.text('FECHA DE VISITA', 14, 75);
+    doc.text('TÉCNICO RESPONSABLE', 110, 75);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(clientName || '—', 14, 63);
+    doc.text(branch?.nombre || generalData.sucursal || '—', 110, 63);
+    doc.text(generalData.fecha || '—', 14, 82);
+    doc.text(generalData.tecnico || '—', 110, 82);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('MOTIVO DE LA VISITA', 14, 91);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(doc.splitTextToSize(generalData.motivoVisita || generalData.tipoServicio || '—', 178).slice(0, 2), 14, 97);
+
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(14, 108, 182, 22, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(`INFORMES: ${reports.length}`, 20, 118);
+    doc.setTextColor(5, 150, 105);
+    doc.text(`FINALIZADOS: ${reports.filter(report => ['finalizado', 'firmado', 'bloqueado'].includes(String(report.data?.estado || report.data?.status))).length}`, 75, 118);
+    doc.setTextColor(217, 119, 6);
+    doc.text(`BORRADORES: ${reports.filter(report => !['finalizado', 'firmado', 'bloqueado'].includes(String(report.data?.estado || report.data?.status))).length}`, 137, 118);
+
+    let y = 144;
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FOLIO', 14, y);
+    doc.text('EQUIPO / TAG', 58, y);
+    doc.text('TÉCNICO', 111, y);
+    doc.text('ESTADO', 166, y);
+    y += 5;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(14, y, 196, y);
+    y += 7;
+
+    doc.setFontSize(8);
+    for (const report of reports) {
+      if (y > 275) {
+        doc.addPage();
+        y = 20;
+      }
+      const general = report.data?.generalData || {};
+      const machine = report.data?.machineData || {};
+      const state = ['finalizado', 'firmado', 'bloqueado'].includes(String(report.data?.estado || report.data?.status)) ? 'FINALIZADO' : 'BORRADOR';
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(30, 41, 59);
+      doc.text(String(general.folio || report.id).slice(0, 23), 14, y);
+      doc.text(String(machine.tag || '—').slice(0, 26), 58, y);
+      doc.text(String(general.tecnico || '—').slice(0, 25), 111, y);
+      doc.setTextColor(state === 'FINALIZADO' ? 5 : 217, state === 'FINALIZADO' ? 150 : 119, state === 'FINALIZADO' ? 105 : 6);
+      doc.text(state, 166, y);
+      y += 9;
+    }
+
+    if (reports.length === 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 116, 139);
+      doc.text('Visita a terreno sin inspecciones ni informes asociados.', 14, y);
+      y += 10;
+    }
+
+    if (y > 230) {
+      doc.addPage();
+      y = 20;
+    } else {
+      y += 8;
+    }
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('CONFORMIDAD Y FIRMAS PRINCIPALES', 14, y);
+    y += 5;
+    doc.setDrawColor(203, 213, 225);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(14, y, 86, 38, 2, 2, 'FD');
+    doc.roundedRect(110, y, 86, 38, 2, 2, 'FD');
+
+    const technicianSignature = getOrderSignature('tecnico');
+    const clientSignature = getOrderSignature('cliente');
+    try {
+      if (technicianSignature) doc.addImage(technicianSignature, 'PNG', 18, y + 3, 78, 22);
+      if (clientSignature) doc.addImage(clientSignature, 'PNG', 114, y + 3, 78, 22);
+    } catch (signatureError) {
+      console.warn('No fue posible incorporar una firma al PDF resumen:', signatureError);
+    }
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.text(`Técnico: ${generalData.tecnico || '—'}`, 18, y + 30);
+    doc.text(`Receptor cliente: ${generalData.nombreCliente || '—'}`, 114, y + 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Firma responsable de ejecución', 18, y + 35);
+    doc.text('Firma responsable de recepción', 114, y + 35);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(7);
+    doc.text('La firma principal de la orden deja constancia de la visita y prevalece sobre sus informes.', 14, 290);
+    return doc;
+  };
+
+  const handleDownloadOrderSummary = async () => {
+    try {
+      const doc = await generateOrderSummaryPDF();
+      const order = await db.ordenes_servicio.get(uuid);
+      doc.save(`${order?.id || `OS-${uuid.slice(0, 8).toUpperCase()}`}.pdf`);
+    } catch (error: any) {
+      console.error('Error al descargar el resumen de la orden:', error);
+      alert(`No fue posible generar el PDF: ${error?.message || error}`);
+    }
+  };
+
+  const buildOrderPayload = (nextState: 'abierto' | 'cerrado', firmas?: { tecnico: string; cliente: string }) => ({
+    generalData: {
+      ...generalData,
+      // El equipo pertenece a cada informe. Estos campos heredados se limpian
+      // para que la OS represente la visita completa a una sucursal.
+      equipoTag: '',
+      descripcionEquipo: '',
+      fotoPlaca: ''
+    },
+    ubicacionGeografica,
+    estado: nextState,
+    status: nextState,
+    ...(firmas
+      ? { firmas }
+      : (savedOrderSignatures.tecnico || savedOrderSignatures.cliente)
+        ? { firmas: savedOrderSignatures }
+        : {}),
+    fechaSincronizacionLocal: new Date().toISOString()
+  });
+
+  const saveOrderDraft = async (navigateToOrder = false) => {
+    if (!permisos?.crear_orden_servicio) {
+      throw new Error('No tiene permiso para guardar órdenes de servicio.');
+    }
+    if (!generalData.cliente || !generalData.sucursal || !generalData.fecha || !generalData.tecnico.trim()) {
+      throw new Error('Complete cliente, sucursal, fecha de visita y técnico responsable.');
+    }
+    const selectedBranch = branches.find(branch =>
+      (branch.uuid_sync === generalData.sucursal || branch.id === generalData.sucursal)
+      && branch.cliente_id === generalData.cliente
+      && !branch.deleted_at
+    );
+    if (!selectedBranch) {
+      throw new Error('La sucursal seleccionada no pertenece al cliente activo.');
+    }
+
+    const existing = await db.ordenes_servicio.get(uuid);
+    const record = await serviceOrdersRepo.save({
+      ...(existing || {}),
+      uuid_sync: uuid,
+      id: existing?.id || (rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`),
+      draft_key: OS_DRAFT_KEY,
+      estado: 'abierto',
+      cliente_id: generalData.cliente,
+      sucursal_id: generalData.sucursal,
+      data: buildOrderPayload('abierto'),
+      updated_at: Date.now(),
+      sync_status: existing?.sync_status || 'pending_insert'
+    } as any);
+
+    localStorage.removeItem(OS_DRAFT_KEY);
+    if (navigateToOrder && isNew) setLocation(`/ordenes-servicio/${uuid}`);
+    return record;
+  };
+
+  const handleSaveDraft = async () => {
+    setIsSyncing(true);
+    try {
+      await saveOrderDraft(true);
+      void syncEngine.triggerSync();
+      alert('Orden guardada como borrador. Ya puede crear informes asociados.');
+    } catch (error: any) {
+      alert(error?.message || 'No fue posible guardar la orden.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSyncAndFinalize = async () => {
     if (!permisos?.crear_orden_servicio) {
       return;
     }
+    const selectedBranch = branches.find(branch =>
+      (branch.uuid_sync === generalData.sucursal || branch.id === generalData.sucursal)
+      && branch.cliente_id === generalData.cliente
+      && !branch.deleted_at
+    );
+    if (!selectedBranch) {
+      alert('Error: La sucursal seleccionada no pertenece al cliente activo.');
+      setIsSyncing(false);
+      return;
+    }
     setIsSyncing(true);
 
-    if (!generalData.cliente || !generalData.sucursal || !generalData.equipoTag?.trim()) {
-      alert("Error: Seleccione cliente, sucursal y un equipo antes de finalizar la orden.");
+    if (!generalData.cliente || !generalData.sucursal || !generalData.fecha || !generalData.tecnico.trim()) {
+      alert("Error: Complete cliente, sucursal, fecha de visita y técnico responsable.");
       setIsSyncing(false);
       return;
     }
 
-    const selectedAsset = await db.assets.where('tag').equals(generalData.equipoTag.trim()).first();
-    const validClientIds = new Set(
-      [generalData.cliente, activeClient?.id, activeClient?.uuid_sync].filter(Boolean)
-    );
-    if (
-      !selectedAsset
-      || selectedAsset.deleted_at
-      || selectedAsset.estado === 'baja'
-      || !validClientIds.has(selectedAsset.cliente_id)
-    ) {
-      alert("Error: El equipo no existe, está dado de baja o pertenece a otro cliente.");
+    const linkedReports = await db.reports
+      .where('[cliente_id+orden_servicio_uuid]')
+      .equals([generalData.cliente, uuid])
+      .filter(report => !report.deleted_at && report.sync_status !== 'pending_delete')
+      .toArray();
+    if (!canCloseOrder(linkedReports)) {
+      alert("Error: No es posible cerrar la orden mientras existan informes en borrador.");
       setIsSyncing(false);
       return;
     }
 
-    const isCanvasEmpty = (canvas: HTMLCanvasElement | null) => {
-      if (!canvas) return true;
-      const blank = document.createElement('canvas');
-      blank.width = canvas.width;
-      blank.height = canvas.height;
-      return canvas.toDataURL() === blank.toDataURL();
-    };
-
-    if (isCanvasEmpty(canvasTecRef.current)) {
+    const technicianSignature = getOrderSignature('tecnico');
+    const clientSignature = getOrderSignature('cliente');
+    if (!technicianSignature) {
       alert("Error: No es posible finalizar: falta la firma del técnico.");
       setIsSyncing(false);
       return;
     }
 
-    if (isCanvasEmpty(canvasCliRef.current)) {
+    if (!clientSignature) {
       alert("Error: No es posible finalizar: falta la firma del cliente.");
       setIsSyncing(false);
       return;
     }
 
+    const signatures = {
+      tecnico: technicianSignature,
+      cliente: clientSignature
+    };
     const dataPayload = {
-      generalData,
-      checklist,
-      hallazgos,
-      galeria,
-      ubicacionGeografica,
-      status: 'firmado',
+      ...buildOrderPayload('cerrado', signatures),
       estadoHistorial: [
         { estado: 'abierto', at: new Date().toISOString() },
         { estado: 'en_progreso', at: new Date().toISOString() },
         { estado: 'completado', at: new Date().toISOString() },
-        { estado: 'firmado', at: new Date().toISOString() }
-      ],
-      firmas: {
-        tecnico: canvasTecRef.current?.toDataURL() || '',
-        cliente: canvasCliRef.current?.toDataURL() || ''
-      },
-      fechaSincronizacionLocal: new Date().toISOString()
+        { estado: 'cerrado', at: new Date().toISOString() }
+      ]
     };
 
     // 1. Guardado Local en Dexie
+    const existingOrder = await db.ordenes_servicio.get(uuid);
     const record = {
+      ...(existingOrder || {}),
       uuid_sync: uuid,
-      id: rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`,
+      id: existingOrder?.id || (rawId && rawId !== 'nuevo' ? rawId : `OS-${Date.now()}`),
       draft_key: OS_DRAFT_KEY,
-      estado: 'firmado',
+      estado: 'cerrado',
       cliente_id: generalData.cliente,
+      sucursal_id: generalData.sucursal,
       sync_status: 'pending_insert' as const,
       updated_at: Date.now(),
       data: dataPayload
     };
 
     try {
-      if (isNew) {
-        await db.ordenes_servicio.put(record);
-        await db.sync_queue.add({
-          table: 'ordenes_servicio',
-          uuid_sync: uuid,
-          operation: 'insert',
-          timestamp: Date.now(),
-          data: record
-        });
-      } else {
-        const existing = await db.ordenes_servicio.get(uuid);
-        await db.ordenes_servicio.put({ ...existing, ...record, sync_status: 'pending_update' });
-        await db.sync_queue.add({
-          table: 'ordenes_servicio',
-          uuid_sync: uuid,
-          operation: 'update',
-          timestamp: Date.now(),
-          data: { ...existing, ...record }
-        });
-      }
+      await serviceOrdersRepo.save(record as any);
 
       // Triggers background sync to Neon
       syncEngine.triggerSync().catch(console.error);
 
-      setStatus('firmado');
+      setStatus('cerrado');
+      setSavedOrderSignatures(signatures);
       localStorage.removeItem(OS_DRAFT_KEY);
       
       // Export PDF via Email Automáticamente
       try {
-        const doc = await generateClimasolPDF();
+        const doc = await generateOrderSummaryPDF();
         const pdfBase64 = doc.output('datauristring');
         const { DocumentExportService } = await import('../lib/DocumentExportService');
         const exportResult = await DocumentExportService.exportDocument({
@@ -830,9 +1037,7 @@ export default function EditorOrdenServicio() {
 
   const menu: { id: Section, label: string, icon: any }[] = [
     { id: 'general', label: 'Inf. General', icon: <FileText className="w-4 h-4" /> },
-    { id: 'checklist', label: 'Checklist', icon: <CheckSquare className="w-4 h-4" /> },
-    { id: 'hallazgos', label: 'Hallazgos', icon: <ClipboardList className="w-4 h-4" /> },
-    { id: 'galeria', label: 'Evidencia', icon: <Camera className="w-4 h-4" /> },
+    { id: 'informes', label: 'Informes', icon: <ClipboardCheck className="w-4 h-4" /> },
     { id: 'firma', label: 'Firmas', icon: <PenTool className="w-4 h-4" /> }
   ];
 
@@ -847,8 +1052,6 @@ export default function EditorOrdenServicio() {
   const handleHallazgosChange = (field: string, value: string) => {
     setHallazgos(prev => ({ ...prev, [field]: value }));
   };
-
-  const isReadOnly = !permisos?.crear_orden_servicio || status === 'firmado' || status === 'cerrado';
 
   const renderSection = () => {
     switch (activeSection) {
@@ -915,94 +1118,8 @@ export default function EditorOrdenServicio() {
                   <label className="text-[10px] font-black uppercase text-slate-400">Fecha del Servicio</label>
                   <input type="date" value={generalData.fecha} onChange={e => handleGeneralChange('fecha', e.target.value)} disabled={isReadOnly} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mt-1 outline-none focus:ring-2 focus:ring-blue-500/20" />
                </div>
-               <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400">Equipo (TAG)</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input 
-                      type="text" 
-                      value={generalData.equipoTag} 
-                      onChange={e => handleGeneralChange('equipoTag', e.target.value)} 
-                      disabled={isReadOnly} 
-                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20" 
-                      placeholder="Ej. 21-STK.AC.001"
-                    />
-                    {!isReadOnly && (
-                      <button 
-                        type="button" 
-                        onClick={() => setShowAssetSearch(true)}
-                        className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors"
-                        title="Buscar Equipo"
-                      >
-                        <Search className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-               </div>
-               <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400">Descripción Equipo</label>
-                  <input type="text" value={generalData.descripcionEquipo} onChange={e => handleGeneralChange('descripcionEquipo', e.target.value)} disabled={isReadOnly} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mt-1 outline-none focus:ring-2 focus:ring-blue-500/20" />
-                </div>
-                <div className="md:col-span-2 bg-[#F8FAFC] border-2 border-dashed border-[#E2E8F0] hover:border-[#CBD5E1] transition-colors rounded-3xl p-6 mt-2">
-                   <div className="flex flex-col md:flex-row gap-6 items-center">
-                     <div className="shrink-0 flex flex-col items-center">
-                       {generalData.fotoPlaca ? (
-                         <div className="relative group w-32 h-32 rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-md flex items-center justify-center">
-                           <img src={generalData.fotoPlaca} className="w-full h-full object-cover" alt="Placa de Características" referrerPolicy="no-referrer" />
-                           {!isReadOnly && (
-                             <button
-                               type="button"
-                               onClick={() => handleGeneralChange('fotoPlaca', '')}
-                               className="absolute inset-0 bg-rose-600/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-black uppercase tracking-wider gap-1 cursor-pointer"
-                             >
-                               <Trash2 className="w-5 h-5" />
-                               <span>Eliminar</span>
-                             </button>
-                           )}
-                         </div>
-                       ) : (
-                         <button
-                           type="button"
-                           disabled={isReadOnly}
-                           onClick={() => document.getElementById('nameplate_photo_input')?.click()}
-                           className="flex flex-col items-center justify-center w-32 h-32 rounded-2xl border-2 border-dashed border-slate-300 bg-white text-slate-500 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 transition-all gap-2 group cursor-pointer"
-                         >
-                           <Camera className="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition-colors" />
-                           <span className="text-[9px] font-black uppercase tracking-wider text-center">Capturar Placa</span>
-                         </button>
-                       )}
-                       <input
-                         id="nameplate_photo_input"
-                         type="file"
-                         accept="image/*"
-                         className="hidden"
-                         disabled={isReadOnly}
-                         onChange={async (e) => {
-                           const file = e.target.files?.[0];
-                           if (!file) return;
-                           const reader = new FileReader();
-                           const base64Promise = new Promise<string>((resolve) => {
-                             reader.onload = () => resolve(reader.result as string);
-                             reader.readAsDataURL(file);
-                           });
-                           const base64 = await base64Promise;
-                           handleGeneralChange('fotoPlaca', base64);
-                         }}
-                       />
-                     </div>
-                     <div className="flex-1 text-center md:text-left space-y-1">
-                       <h4 className="text-xs font-black text-[#0B2F64] uppercase tracking-wider">Foto de la Placa de Características</h4>
-                       <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-                         Registre fotográficamente la chapa de especificaciones técnicas del equipo. Esta información es fundamental para auditorías, repuestos y control de garantías de climatización oficiales de Climasol.
-                       </p>
-                       <div className="flex flex-wrap gap-2 pt-2 justify-center md:justify-start">
-                         <span className="text-[9px] font-extrabold bg-[#E2E8F0] text-slate-600 px-2 py-0.5 rounded-full uppercase tracking-wider">Altamente Recomendado</span>
-                         <span className="text-[9px] font-extrabold bg-blue-50 text-[#0B2F64] px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">JPG / PNG</span>
-                       </div>
-                     </div>
-                   </div>
-                </div>
                <div className="md:col-span-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Tipo de Servicio</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400">Tipo de visita</label>
                   <select value={generalData.tipoServicio} onChange={e => handleGeneralChange('tipoServicio', e.target.value)} disabled={isReadOnly} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold mt-1 outline-none focus:ring-2 focus:ring-blue-500/20">
                      <option value="Preventivo">Preventivo</option>
                      <option value="Correctivo">Correctivo</option>
@@ -1011,6 +1128,17 @@ export default function EditorOrdenServicio() {
                      <option value="Mejora">Mejora</option>
                      <option value="Emergencia">Emergencia</option>
                   </select>
+               </div>
+               <div className="md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Motivo y alcance general de la visita</label>
+                  <textarea
+                    value={generalData.motivoVisita}
+                    onChange={event => handleGeneralChange('motivoVisita', event.target.value)}
+                    disabled={isReadOnly}
+                    rows={4}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium mt-1 outline-none focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="Describa el objetivo de la visita. Los detalles técnicos se registran en cada informe."
+                  />
                </div>
             </div>
 
@@ -1261,6 +1389,18 @@ export default function EditorOrdenServicio() {
              }} />
           </SectionBox>
         );
+      case 'informes':
+        return (
+          <SectionBox title="Resumen de Informes">
+            <OrderReportsSection
+              orderUuid={uuid}
+              clienteId={generalData.cliente}
+              sucursalId={generalData.sucursal}
+              orderState={status}
+              ensureOrderSaved={() => saveOrderDraft(false)}
+            />
+          </SectionBox>
+        );
       case 'firma':
         return (
           <div className="space-y-6">
@@ -1285,6 +1425,7 @@ export default function EditorOrdenServicio() {
                            {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
                                const ctx = canvasTecRef.current?.getContext('2d');
                                ctx?.clearRect(0, 0, canvasTecRef.current?.width || 0, canvasTecRef.current?.height || 0);
+                               setSavedOrderSignatures(previous => ({ ...previous, tecnico: '' }));
                            }}>Borrar</button>}
                         </div>
                      </div>
@@ -1307,6 +1448,7 @@ export default function EditorOrdenServicio() {
                            {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
                                const ctx = canvasCliRef.current?.getContext('2d');
                                ctx?.clearRect(0, 0, canvasCliRef.current?.width || 0, canvasCliRef.current?.height || 0);
+                               setSavedOrderSignatures(previous => ({ ...previous, cliente: '' }));
                            }}>Borrar</button>}
                        </div>
                     </div>
@@ -1367,10 +1509,10 @@ export default function EditorOrdenServicio() {
 
     const handleExportPDF = async () => {
       try {
-        const doc = await generateClimasolPDF();
+        const doc = await generateOrderSummaryPDF();
         doc.save(`${reportFolio}.pdf`);
       } catch (err) {
-        console.error("Error exporting PDF Climasol:", err);
+        console.error("Error exporting service order summary PDF:", err);
         alert("Ocurrió un error al generar PDF: " + err);
       }
     };
@@ -1383,11 +1525,11 @@ export default function EditorOrdenServicio() {
             <ClipboardCheck className="w-6 h-6" />
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <h4 className="font-black uppercase text-sm tracking-wide">Vista Previa Norma Climasol (OS)</h4>
-            <p className="text-xs text-blue-700 mt-1">Este panel reproduce fielmente la estructura visual reglamentaria e industrial requerida en las órdenes de servicio oficiales.</p>
+            <h4 className="font-black uppercase text-sm tracking-wide">Vista previa heredada</h4>
+            <p className="text-xs text-blue-700 mt-1">La descarga oficial utiliza la portada y el resumen de informes de la orden.</p>
           </div>
           <button onClick={handleExportPDF} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 shadow-md transition-all shrink-0">
-            Exportar PDF Climasol
+            Descargar PDF resumen
           </button>
         </div>
 
@@ -1656,37 +1798,30 @@ export default function EditorOrdenServicio() {
             </div>
          </div>
 
-         {/* Layout View Mode Swapper */}
-         <div className="flex items-center bg-slate-50 border border-slate-200 p-1 rounded-2xl gap-1">
-           <button 
-             onClick={() => setViewMode('normal')}
-             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all whitespace-nowrap ${
-               viewMode === 'normal' 
-                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' 
-                 : 'text-slate-500 hover:text-slate-850 hover:bg-slate-150 animate-none'
-             }`}
-           >
-             <List className="w-3.5 h-3.5" /> Edición Estándar
-           </button>
-           <button 
-             onClick={() => setViewMode('industrial')}
-             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all whitespace-nowrap ${
-               viewMode === 'industrial' 
-                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' 
-                 : 'text-slate-500 hover:text-slate-850 hover:bg-slate-150 animate-none'
-             }`}
-           >
-             <Layout className="w-3.5 h-3.5" /> Vista Climasol
-           </button>
+         <div className="flex flex-wrap items-center gap-2">
+           {!isNew && (
+             <button
+               type="button"
+               onClick={handleDownloadOrderSummary}
+               className="flex items-center gap-2 px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50"
+             >
+               <Download className="w-4 h-4" /> Descargar PDF resumen
+             </button>
+           )}
+           {!isReadOnly && (
+             <button
+               type="button"
+               disabled={isSyncing}
+               onClick={handleSaveDraft}
+               className="flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50"
+             >
+               <Save className="w-4 h-4" /> Guardar borrador
+             </button>
+           )}
          </div>
       </div>
 
-      {viewMode === 'industrial' ? (
-        <div className="flex-1 overflow-y-auto">
-          {renderIndustrialPreview()}
-        </div>
-      ) : (
-        <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
+      <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
         {/* Navigation Sidebar */}
         <div className="w-full lg:w-64 shrink-0 flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto pb-2 lg:pb-0 scrollbar-hide">
           {menu.map(item => (
@@ -1710,18 +1845,7 @@ export default function EditorOrdenServicio() {
            {renderSection()}
         </div>
       </div>
-      )}
-      
-      {showAssetSearch && (
-        <AssetSearchModal 
-          onClose={() => setShowAssetSearch(false)}
-          onSelect={(asset) => {
-            handleGeneralChange('equipoTag', asset.tag);
-            handleGeneralChange('descripcionEquipo', `${asset.tipo} ${asset.marca || ''} ${asset.modelo || ''}`);
-            setShowAssetSearch(false);
-          }}
-        />
-      )}
+
       <FullscreenSignatureModal
           isOpen={showFullscreenSignature}
           onClose={() => setShowFullscreenSignature(false)}
@@ -1735,6 +1859,7 @@ export default function EditorOrdenServicio() {
             img.onload = () => {
               ctx.clearRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              setSavedOrderSignatures(previous => ({ ...previous, [signatureType]: dataUrl }));
             };
             img.src = dataUrl;
             setShowFullscreenSignature(false);
@@ -1759,7 +1884,27 @@ function SectionBox({ title, children }: { title: string, children: React.ReactN
 
 
 // Simple canvas setup for drawing signatures
-function setupCanvas(canvas: HTMLCanvasElement | null) {
+function isCanvasBlank(canvas: HTMLCanvasElement | null) {
+  if (!canvas) return true;
+  const blank = document.createElement('canvas');
+  blank.width = canvas.width;
+  blank.height = canvas.height;
+  return canvas.toDataURL() === blank.toDataURL();
+}
+
+function drawSavedSignature(canvas: HTMLCanvasElement | null, dataUrl?: string) {
+  if (!canvas || !dataUrl) return;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  const image = new Image();
+  image.onload = () => {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  };
+  image.src = dataUrl;
+}
+
+function setupCanvas(canvas: HTMLCanvasElement | null, readOnly = false, onChange?: (dataUrl: string) => void) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -1772,6 +1917,17 @@ function setupCanvas(canvas: HTMLCanvasElement | null) {
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
   ctx.strokeStyle = '#0f172a';
+
+  if (readOnly) {
+    canvas.onmousedown = null;
+    canvas.onmousemove = null;
+    canvas.onmouseup = null;
+    canvas.onmouseleave = null;
+    canvas.ontouchstart = null;
+    canvas.ontouchmove = null;
+    canvas.ontouchend = null;
+    return;
+  }
 
   let isDrawing = false;
   let lastX = 0;
@@ -1804,6 +1960,12 @@ function setupCanvas(canvas: HTMLCanvasElement | null) {
   canvas.onmousemove = draw;
   canvas.ontouchmove = draw;
   
-  window.addEventListener('mouseup', () => isDrawing = false);
-  canvas.ontouchend = () => isDrawing = false;
+  const finishDrawing = () => {
+    if (!isDrawing) return;
+    isDrawing = false;
+    onChange?.(canvas.toDataURL('image/png'));
+  };
+  canvas.onmouseup = finishDrawing;
+  canvas.onmouseleave = finishDrawing;
+  canvas.ontouchend = finishDrawing;
 }

@@ -7,6 +7,7 @@ import {
   needsFreshStartReset,
   resetApplicationData
 } from "./one-time-fresh-start.js";
+import { migrateOrderReports } from "./one-time-order-reports.js";
 
 type SqlClient = (strings: TemplateStringsArray, ...values: any[]) => Promise<any[]>;
 
@@ -128,6 +129,8 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`ALTER TABLE assets ADD COLUMN IF NOT EXISTS sucursal_id TEXT REFERENCES sucursales(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
+  await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS orden_servicio_uuid TEXT`;
+  await sql`ALTER TABLE reports ADD COLUMN IF NOT EXISTS sucursal_id TEXT`;
   await sql`ALTER TABLE preventive_maintenance ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE inventory ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE calendar ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
@@ -139,11 +142,13 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`ALTER TABLE settings ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
   await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
+  await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS sucursal_id TEXT`;
   await sql`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_sucursales_tenant ON sucursales (cliente_id, id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_assets_tenant_search ON assets (cliente_id, sucursal_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_work_orders_tenant_search ON work_orders (cliente_id, uuid_sync)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_reports_order ON reports (cliente_id, orden_servicio_uuid, deleted_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_inventory_tenant_search ON inventory (cliente_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_calendar_tenant_search ON calendar (cliente_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_user_clientes_user ON user_clientes (user_id, cliente_id)`;
@@ -208,6 +213,22 @@ export async function runDbBootstrap(sql?: SqlClient) {
   }
 
   await ensureDbSchema(client);
+  const orderReportsMigrated = await migrateOrderReports(client);
+  if (orderReportsMigrated) {
+    console.log("One-time orphan report cleanup completed.");
+  }
+  await client`
+    ALTER TABLE reports
+    DROP CONSTRAINT IF EXISTS fk_reports_orden_servicio
+  `;
+  await client`
+    ALTER TABLE reports
+    ADD CONSTRAINT fk_reports_orden_servicio
+    FOREIGN KEY (orden_servicio_uuid)
+    REFERENCES ordenes_servicio(uuid_sync)
+    ON DELETE RESTRICT
+  `;
+  await client`ALTER TABLE reports ALTER COLUMN orden_servicio_uuid SET NOT NULL`;
   const shouldReset = await needsFreshStartReset(client);
   if (shouldReset) {
     console.log("Applying one-time fresh-start reset...");

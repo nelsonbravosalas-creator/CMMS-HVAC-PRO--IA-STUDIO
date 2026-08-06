@@ -66,7 +66,6 @@ const NAV_ITEMS = [
   { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
   { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio", badgeKey: 'ordenesServicioTotal', badgeColor: "bg-indigo-500" },
-  { href: "/informes", icon: FileText, label: "Informes HVAC", badgeKey: 'informesPendientesFirma', badgeColor: "bg-blue-500" },
   { href: "/tickets", icon: Ticket, label: "Tickets", badgeKey: 'ticketsAbiertos' },
   { href: "/reportes", icon: BarChart3, label: "Reportes" },
   { href: "/eficiencia", icon: Zap, label: "Eficiencia Energética" },
@@ -162,7 +161,6 @@ export default function Layout({ children }: LayoutProps) {
     .filter(item => !item.adminOnly || isAdmin)
     .filter(item => {
       if (item.href === "/mantenimientos") return !!permisos?.ver_mantenimientos;
-      if (item.href === "/informes") return !!permisos?.ver_informes;
       if (item.href === "/reportes") return !!permisos?.ver_reportes;
       if (item.href === "/administracion") return !!permisos?.gestionar_usuarios;
       return true;
@@ -684,10 +682,10 @@ export default function Layout({ children }: LayoutProps) {
             <div className="w-16 h-1.5 bg-slate-800 rounded-full mx-auto mb-8 shrink-0"></div>
             
             <div className="grid grid-cols-2 gap-4">
-              <Link href="/informes" onClick={() => setIsMoreDrawerOpen(false)}>
+              <Link href="/ordenes-servicio" onClick={() => setIsMoreDrawerOpen(false)}>
                 <div className="flex items-center gap-4 p-5 bg-slate-800/50 border border-slate-700/50 rounded-3xl active:scale-95 transition-all">
                   <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400"><FileText className="w-6 h-6" /></div>
-                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Informes</span>
+                  <span className="text-xs font-black text-slate-200 uppercase tracking-widest">Órdenes</span>
                 </div>
               </Link>
               

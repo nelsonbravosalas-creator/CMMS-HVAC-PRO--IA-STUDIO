@@ -152,6 +152,154 @@ const validateWorkOrderPayload = (data: any) => {
   }
 };
 
+function innerPayload(record: any) {
+  return record?.data && typeof record.data === 'object' ? record.data : record || {};
+}
+
+function normalizedReportState(record: any) {
+  const payload = innerPayload(record);
+  const state = String(payload.estado || payload.status || 'borrador').toLowerCase();
+  return ['finalizado', 'firmado', 'bloqueado'].includes(state) ? 'finalizado' : 'borrador';
+}
+
+async function validateReportParent(sql: any, record: any, tenantId: string, authUser: any, existingUuid?: string) {
+  const orderUuid = record?.orden_servicio_uuid;
+  if (!orderUuid) throw new Error('orden_servicio_uuid es obligatorio para todo informe');
+
+  const parentRows = await sql`
+    SELECT uuid_sync, cliente_id, sucursal_id, estado, data, deleted_at
+    FROM ordenes_servicio
+    WHERE uuid_sync = ${orderUuid}
+      AND cliente_id = ${tenantId}
+      AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  const parent = parentRows[0];
+  if (!parent) throw new Error('La orden de servicio padre no existe o pertenece a otro cliente');
+  if (['cerrado', 'firmado'].includes(String(parent.estado || '').toLowerCase())) {
+    throw new Error('No se puede modificar un informe de una orden cerrada');
+  }
+
+  const parentBranch = parent.sucursal_id || innerPayload(parent.data)?.generalData?.sucursal;
+  const branchRows = await sql`
+    SELECT id, uuid_sync FROM sucursales
+    WHERE (id = ${parentBranch} OR uuid_sync = ${parentBranch})
+      AND cliente_id = ${tenantId}
+      AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  const branch = branchRows[0];
+  if (!branch || !record.sucursal_id
+    || (record.sucursal_id !== branch.id && record.sucursal_id !== branch.uuid_sync)) {
+    throw new Error('El informe debe pertenecer a la misma sucursal que su orden');
+  }
+
+  const reportPayload = innerPayload(record);
+  const equipmentTag = String(reportPayload?.machineData?.tag || '').trim();
+  const reportState = normalizedReportState(record);
+  if (reportState === 'finalizado' && !equipmentTag) {
+    throw new Error('Un informe finalizado debe identificar un equipo');
+  }
+  if (equipmentTag) {
+    const equipmentRows = await sql`
+      SELECT 1 FROM assets
+      WHERE tag = ${equipmentTag}
+        AND cliente_id = ${tenantId}
+        AND sucursal_id = ${branch.id}
+        AND deleted_at IS NULL
+        AND estado <> 'baja'
+      LIMIT 1
+    `;
+    if (equipmentRows.length === 0) {
+      throw new Error('El equipo del informe no pertenece a la sucursal de la orden o está dado de baja');
+    }
+  }
+
+  if (existingUuid) {
+    const existingRows = await sql`
+      SELECT orden_servicio_uuid, cliente_id, sucursal_id, data
+      FROM reports
+      WHERE uuid_sync = ${existingUuid}
+      LIMIT 1
+    `;
+    const existing = existingRows[0];
+    const previousState = existing ? normalizedReportState(existing.data) : null;
+    const nextState = normalizedReportState(record);
+    if (existing && previousState === 'finalizado') {
+      if (!isAdminUser(authUser)) {
+        throw new Error('Un informe finalizado es de solo lectura');
+      }
+      if (existing.orden_servicio_uuid === orderUuid && nextState === 'finalizado') {
+        throw new Error('Devuelva el informe a borrador antes de modificarlo');
+      }
+    }
+    if (existing && existing.orden_servicio_uuid !== orderUuid) {
+      if (!isAdminUser(authUser)) {
+        throw new Error('Solo un administrador puede trasladar informes entre órdenes');
+      }
+      if (existing.sucursal_id !== record.sucursal_id) {
+        throw new Error('El traslado solo está permitido entre órdenes de la misma sucursal');
+      }
+      const sourceRows = await sql`
+        SELECT estado FROM ordenes_servicio
+        WHERE uuid_sync = ${existing.orden_servicio_uuid}
+          AND cliente_id = ${tenantId}
+        LIMIT 1
+      `;
+      if (['cerrado', 'firmado'].includes(String(sourceRows[0]?.estado || '').toLowerCase())) {
+        throw new Error('No se puede trasladar un informe desde una orden cerrada');
+      }
+    }
+  }
+}
+
+async function validateServiceOrderClose(sql: any, record: any, tenantId: string, orderUuid: string, isUpdate = false) {
+  const payload = innerPayload(record);
+  const state = String(record?.estado || payload.estado || payload.status || 'abierto').toLowerCase();
+  const branchRef = record?.sucursal_id || payload?.generalData?.sucursal;
+  if (!branchRef) throw new Error('La sucursal es obligatoria para guardar una orden de servicio');
+  const branchRows = await sql`
+    SELECT 1 FROM sucursales
+    WHERE (id = ${branchRef} OR uuid_sync = ${branchRef})
+      AND cliente_id = ${tenantId}
+      AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  if (branchRows.length === 0) {
+    throw new Error('La sucursal de la orden no pertenece al cliente activo');
+  }
+  if (isUpdate) {
+    const existingRows = await sql`
+      SELECT estado FROM ordenes_servicio
+      WHERE uuid_sync = ${orderUuid}
+        AND cliente_id = ${tenantId}
+      LIMIT 1
+    `;
+    if (['cerrado', 'firmado'].includes(String(existingRows[0]?.estado || '').toLowerCase())) {
+      throw new Error('Una orden cerrada es permanentemente de solo lectura');
+    }
+  }
+  if (!['cerrado', 'firmado'].includes(state)) return;
+
+  const signatures = payload.firmas || {};
+  if (!String(signatures.tecnico || '').trim() || !String(signatures.cliente || '').trim()) {
+    throw new Error('La firma principal de la orden es obligatoria para cerrarla');
+  }
+
+  const unfinished = await sql`
+    SELECT COUNT(*)::int AS count
+    FROM reports
+    WHERE orden_servicio_uuid = ${orderUuid}
+      AND cliente_id = ${tenantId}
+      AND deleted_at IS NULL
+      AND COALESCE(data->'data'->>'estado', data->'data'->>'status', data->>'estado', data->>'status', 'borrador')
+          NOT IN ('finalizado', 'firmado', 'bloqueado')
+  `;
+  if ((unfinished[0]?.count || 0) > 0) {
+    throw new Error('No es posible cerrar la orden mientras existan informes sin finalizar');
+  }
+}
+
 export default async function handler(req: any, res: any) {
   try {
     const authUser: any = requireAuth(req, res);
@@ -259,6 +407,12 @@ export default async function handler(req: any, res: any) {
           if (table === 'work_orders') {
             validateWorkOrderPayload(data);
           }
+          if (table === 'reports') {
+            await validateReportParent(sql, data, recordClienteId, authUser);
+          }
+          if (table === 'ordenes_servicio') {
+            await validateServiceOrderClose(sql, data, recordClienteId, uuid_sync);
+          }
           if (table === 'assets') {
             const d = data;
             let final_cliente_id = recordClienteId;
@@ -310,12 +464,12 @@ export default async function handler(req: any, res: any) {
             switch (table) {
               case 'preventive_maintenance': await sql`INSERT INTO preventive_maintenance (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE preventive_maintenance.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > preventive_maintenance.updated_at OR preventive_maintenance.updated_at IS NULL)`; break;
               case 'work_orders': await sql`INSERT INTO work_orders (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE work_orders.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > work_orders.updated_at OR work_orders.updated_at IS NULL)`; break;
-              case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE reports.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL)`; break;
+              case 'reports': await sql`INSERT INTO reports (id, data, uuid_sync, updated_at, created_at, cliente_id, sucursal_id, orden_servicio_uuid) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}, ${data.sucursal_id}, ${data.orden_servicio_uuid}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id, orden_servicio_uuid = EXCLUDED.orden_servicio_uuid WHERE reports.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > reports.updated_at OR reports.updated_at IS NULL)`; break;
               case 'events': await sql`INSERT INTO events (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE events.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > events.updated_at OR events.updated_at IS NULL)`; break;
               case 'calendar': await sql`INSERT INTO calendar (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE calendar.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > calendar.updated_at OR calendar.updated_at IS NULL)`; break;
               case 'catalog_asset_types': await sql`INSERT INTO catalog_asset_types (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE catalog_asset_types.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > catalog_asset_types.updated_at OR catalog_asset_types.updated_at IS NULL)`; break;
               case 'settings': await sql`INSERT INTO settings (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE settings.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > settings.updated_at OR settings.updated_at IS NULL)`; break;
-              case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE ordenes_servicio.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL)`; break;
+              case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at, cliente_id, sucursal_id, estado) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}, ${data.sucursal_id || innerPayload(data).generalData?.sucursal || null}, ${data.estado || innerPayload(data).estado || 'abierto'}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id, estado = EXCLUDED.estado WHERE ordenes_servicio.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL)`; break;
               case 'inventory': await sql`INSERT INTO inventory (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE inventory.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL)`; break;
               case 'clientes': {
                 // El id funcional del cliente es la FK usada por sucursales y
@@ -392,6 +546,12 @@ export default async function handler(req: any, res: any) {
           if (table === 'work_orders') {
             validateWorkOrderPayload(data);
           }
+          if (table === 'reports') {
+            await validateReportParent(sql, data, recordClienteId, authUser, uuid_sync);
+          }
+          if (table === 'ordenes_servicio') {
+            await validateServiceOrderClose(sql, data, recordClienteId, uuid_sync, true);
+          }
           if (table === 'assets') {
             const d = data;
             let final_cliente_id = recordClienteId;
@@ -431,12 +591,12 @@ export default async function handler(req: any, res: any) {
             switch (table) {
               case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'work_orders': await sql`UPDATE work_orders SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'reports': await sql`UPDATE reports SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId}, sucursal_id = ${data.sucursal_id}, orden_servicio_uuid = ${data.orden_servicio_uuid} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'events': await sql`UPDATE events SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'calendar': await sql`UPDATE calendar SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'settings': await sql`UPDATE settings SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
-              case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
+              case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId}, sucursal_id = ${data.sucursal_id || innerPayload(data).generalData?.sucursal || null}, estado = ${data.estado || innerPayload(data).estado || 'abierto'} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'inventory': await sql`UPDATE inventory SET id = ${id}, data = ${strData}, updated_at = ${updated_at}, cliente_id = ${recordClienteId} WHERE uuid_sync = ${uuid_sync} AND cliente_id = ${recordClienteId} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'clientes': await sql`UPDATE clientes SET data = ${strData}, updated_at = ${updated_at} WHERE uuid_sync = ${uuid_sync} AND (updated_at < ${updated_at} OR updated_at IS NULL)`; break;
               case 'sucursales': {
@@ -498,12 +658,60 @@ export default async function handler(req: any, res: any) {
               break;
             case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
-            case 'reports': await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
+            case 'reports': {
+              const rows = await sql`
+                SELECT r.data, r.orden_servicio_uuid, os.estado AS orden_estado
+                FROM reports r
+                JOIN ordenes_servicio os ON os.uuid_sync = r.orden_servicio_uuid
+                WHERE r.uuid_sync = ${del.uuid_sync}
+                  AND r.cliente_id = ${clienteIdSync}
+                LIMIT 1
+              `;
+              const report = rows[0];
+              if (!report) break;
+              if (['cerrado', 'firmado'].includes(String(report.orden_estado || '').toLowerCase())) {
+                throw new Error('No se puede eliminar un informe de una orden cerrada');
+              }
+              if (normalizedReportState(report.data) !== 'borrador') {
+                throw new Error('Un informe finalizado debe volver a borrador antes de eliminarse');
+              }
+              const creator = report.data?.creado_por;
+              if (!isAdminUser(authUser) && creator && creator !== authUser?.id) {
+                throw new Error('Solo el creador o un administrador pueden eliminar el borrador');
+              }
+              await sql`UPDATE reports SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`;
+              break;
+            }
             case 'events': await sql`UPDATE events SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'calendar': await sql`UPDATE calendar SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'catalog_asset_types': await sql`UPDATE catalog_asset_types SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'settings': await sql`UPDATE settings SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
-            case 'ordenes_servicio': await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
+            case 'ordenes_servicio': {
+              if (!isAdminUser(authUser)) {
+                throw new Error('Solo un administrador puede eliminar órdenes de servicio');
+              }
+              const orderRows = await sql`
+                SELECT estado FROM ordenes_servicio
+                WHERE uuid_sync = ${del.uuid_sync}
+                  AND cliente_id = ${clienteIdSync}
+                LIMIT 1
+              `;
+              if (['cerrado', 'firmado'].includes(String(orderRows[0]?.estado || '').toLowerCase())) {
+                throw new Error('Una orden cerrada es permanentemente de solo lectura');
+              }
+              const children = await sql`
+                SELECT 1 FROM reports
+                WHERE orden_servicio_uuid = ${del.uuid_sync}
+                  AND cliente_id = ${clienteIdSync}
+                  AND deleted_at IS NULL
+                LIMIT 1
+              `;
+              if (children.length > 0) {
+                throw new Error('No se puede eliminar una orden que contiene informes');
+              }
+              await sql`UPDATE ordenes_servicio SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`;
+              break;
+            }
             case 'inventory': await sql`UPDATE inventory SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'clientes': await sql`UPDATE clientes SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
             case 'sucursales': await sql`UPDATE sucursales SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync}`; break;
