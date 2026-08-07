@@ -7,6 +7,7 @@ import { reportsRepo } from '../../repositories/ReportRepository';
 import { useAuth } from '../../context/AuthContext';
 import { canMoveReport, getReportState, isOrderClosed } from '../../rules/orderReportRules';
 import { confirmAction } from '../../lib/confirmAction';
+import { buildDraftReportFolio, getReportDisplayFolio } from '../../lib/reportFolio';
 
 interface Props {
   orderUuid: string;
@@ -59,7 +60,7 @@ export default function OrderReportsSection({
       const reportUuid = crypto.randomUUID();
       await reportsRepo.create({
         uuid_sync: reportUuid,
-        id: `INF-PENDIENTE-${reportUuid.slice(0, 6).toUpperCase()}`,
+        id: buildDraftReportFolio(reportUuid),
         cliente_id: clienteId,
         sucursal_id: sucursalId,
         orden_servicio_uuid: orderUuid,
@@ -171,6 +172,7 @@ export default function OrderReportsSection({
             const state = getReportState(report);
             const general = report.data?.generalData || {};
             const machine = report.data?.machineData || {};
+            const displayFolio = getReportDisplayFolio(general.folio, report.id, report.uuid_sync);
             const canDelete = state === 'borrador'
               && !closed
               && (isAdmin || !report.creado_por || report.creado_por === user?.id);
@@ -178,7 +180,7 @@ export default function OrderReportsSection({
               <div key={report.uuid_sync} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3 flex-1">
-                    <Info label={`Informe ${reports.length - index}`} value={general.folio || report.id} />
+                    <Info label={`Informe ${reports.length - index}`} value={displayFolio} />
                     <Info label="Equipo / TAG" value={machine.tag || 'Pendiente de selección'} />
                     <Info label="Tipo" value={general.tipoServicio || 'Sin definir'} />
                     <Info label="Técnico" value={general.tecnico || 'Sin asignar'} />
@@ -188,8 +190,8 @@ export default function OrderReportsSection({
                       value={Object.values(report.data?.checklist || {}).filter((item: any) => item?.status === 'falla').length.toString()}
                     />
                     <Info
-                      label="Firmas"
-                      value={report.data?.firmas?.tecnico || report.data?.firmas?.cliente ? 'Registradas' : 'Sin firmas'}
+                      label="Firma técnico"
+                      value={report.data?.firmas?.tecnico ? 'Registrada' : 'Pendiente'}
                     />
                     <div>
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estado</span>
@@ -205,13 +207,13 @@ export default function OrderReportsSection({
                       type="button"
                       onClick={() => setLocation(`/ordenes-servicio/${orderUuid}/informes/${report.uuid_sync}`)}
                       className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:text-blue-600"
-                      aria-label={`Abrir informe ${report.id}`}
+                      aria-label={`Abrir informe ${displayFolio}`}
                     ><Eye className="w-4 h-4" /></button>
                     <button
                       type="button"
                       onClick={() => setLocation(`/ordenes-servicio/${orderUuid}/informes/${report.uuid_sync}?pdf=1`)}
                       className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:text-blue-600"
-                      aria-label={`Descargar PDF del informe ${report.id}`}
+                      aria-label={`Descargar PDF del informe ${displayFolio}`}
                       title="Descargar PDF"
                     ><Download className="w-4 h-4" /></button>
                     {isAdmin && !closed && state === 'finalizado' && (

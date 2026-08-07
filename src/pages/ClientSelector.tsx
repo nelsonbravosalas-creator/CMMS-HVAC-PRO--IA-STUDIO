@@ -70,7 +70,7 @@ export default function ClientSelector() {
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded transition-colors"
+          className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
         >
           <LogOut className="w-3.5 h-3.5" /> CERRAR SESIÓN
         </button>
@@ -91,7 +91,7 @@ export default function ClientSelector() {
               <button
                 type="button"
                 onClick={() => setShowClientModal(true)}
-                className="self-center md:self-auto bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-slate-900/10 transition-all"
+                className="flex min-h-11 self-center items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-slate-900/10 transition-all hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 md:self-auto"
               >
                 <Plus className="w-4 h-4" /> Nuevo cliente
               </button>

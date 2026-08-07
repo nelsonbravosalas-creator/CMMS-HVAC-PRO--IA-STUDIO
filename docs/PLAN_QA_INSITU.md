@@ -423,9 +423,9 @@ Usar el prefijo obligatorio y conservar los datos.
 | OS-17 | Retirar y repetir firma antes de cerrar | Sólo la firma vigente queda guardada | ☐ |
 | OS-18 | Finalizar todos los informes y cerrar la orden | Cierre permitido; la firma de la orden prevalece | ☐ |
 | OS-19 | Intentar eliminar una orden con informes | Operación rechazada y datos intactos | ☐ |
-| OS-20 | Abrir orden cerrada y cada informe hijo | Todo queda en sólo lectura y conserva firmas | ☐ |
+| OS-20 | Abrir orden cerrada y cada informe hijo | Todo queda en sólo lectura; cada informe conserva sólo la firma del técnico y la orden conserva sus firmas principales | ☐ |
 | OS-21 | Abrir `/informes` o una URL antigua | Redirige al listado de órdenes | ☐ |
-| OS-22 | Ver resumen con fecha, TAG, tipo, técnico, estado, fallas y firmas | Valores coinciden con cada informe | ☐ |
+| OS-22 | Ver resumen con folio corto, fecha, TAG, tipo, técnico, estado, fallas y firma técnica | Valores coinciden con cada informe, indica la firma técnica y no expone UUID | ☐ |
 | OS-23 | Enviar correo dos veces rápidamente | Evita duplicado o informa claramente cada envío | ☐ |
 | OS-24 | Reabrir una orden cerrada y entrar en Firmas | Ambas firmas guardadas se muestran y los lienzos no aceptan edición | ☐ |
 | OS-25 | Descargar nuevamente el PDF de una orden cerrada | Portada, resumen y firmas principales coinciden con la orden guardada | ☐ |
@@ -440,7 +440,7 @@ Usar el prefijo obligatorio y conservar los datos.
 | DOC-02 | Editar y cerrar ticket | Historial y estado persisten | ☐ |
 | DOC-03 | Abrir una orden y crear un informe HVAC QA | Borrador queda enlazado exclusivamente a esa orden | ☐ |
 | DOC-04 | Adjuntar evidencia permitida | Archivo/imagen visible tras recargar | ☐ |
-| DOC-05 | Firmar informe | Firma corresponde al firmante | ☐ |
+| DOC-05 | Revisar un informe en edición, vista previa y PDF | Solicita y muestra únicamente la firma del técnico; no incluye firma del cliente | ☐ |
 | DOC-06 | Exportar informe | Documento abre sin cortes ni texto ilegible | ☐ |
 | DOC-07 | Revisar conteos de pendientes | Dashboard coincide con documentos pendientes | ☐ |
 | TCK-01 | Crear cada tipo y prioridad de ticket | Tipo, prioridad y estado persisten | ☐ |
@@ -461,7 +461,7 @@ Usar el prefijo obligatorio y conservar los datos.
 | INF-06 | Seleccionar activo desde informe | Sólo ofrece equipos activos de la sucursal de la orden | ☐ |
 | INF-07 | Guardar mediciones, circuitos y refrigerante | Valores persisten y cálculos son coherentes | ☐ |
 | INF-08 | Exportar PDF antes y después de finalizar | Contenido refleja el estado correcto | ☐ |
-| INF-09 | Reabrir informe finalizado | Sólo lectura; conserva datos y firmas | ☐ |
+| INF-09 | Reabrir informe finalizado | Sólo lectura; conserva datos, evidencias y únicamente la firma del técnico | ☐ |
 | INF-10 | Eliminar borrador como creador y como administrador | Se elimina; otro usuario no autorizado es rechazado | ☐ |
 | INF-11 | Administrador devuelve informe finalizado a borrador | Recupera edición sólo si la orden sigue abierta | ☐ |
 | INF-12 | Administrador traslada informe entre órdenes abiertas de la misma sucursal | Cambia de resumen sin duplicarse | ☐ |
@@ -593,7 +593,7 @@ IDs y datos `QA-INSITU`.
 | COM-06 | Doble pulsación en Enviar | No genera correos duplicados silenciosos | ☐ |
 | COM-07 | PDF con acentos, ñ y símbolos | Texto correcto en navegador, descarga y correo | ☐ |
 | COM-08 | PDF con textos largos y varias páginas | Sin solapamientos, cortes ni páginas vacías indebidas | ☐ |
-| COM-09 | PDF con fotos y firmas grandes | Conserva proporción y no omite evidencias | ☐ |
+| COM-09 | PDF de informe con fotos grandes y firma técnica, y PDF de orden con sus firmas | Conservan proporción y no omiten evidencias ni las firmas correspondientes | ☐ |
 | COM-10 | PDF de orden, informe y ticket | Tipo, ID, cliente y contenido corresponden | ☐ |
 | COM-11 | Descargar y abrir archivo en Android/iPhone/Edge | Archivo físico válido y legible | ☐ |
 | COM-12 | Adjuntar formato/tamaño no permitido | Rechaza antes de guardar/subir | ☐ |
@@ -685,7 +685,7 @@ Realizar desde un dispositivo distinto al utilizado para crear los datos.
 | FIN-02 | Buscar equipo QA | Conserva relaciones y campos | ☐ |
 | FIN-03 | Buscar inventario QA | Stock final correcto | ☐ |
 | FIN-04 | Buscar mantenimiento QA | Programación correcta | ☐ |
-| FIN-05 | Buscar orden, ticket e informe QA | Documentos y firmas disponibles | ☐ |
+| FIN-05 | Buscar orden, ticket e informe QA | Documentos disponibles; el informe muestra sólo firma técnica y la orden sus firmas principales | ☐ |
 | FIN-06 | Forzar sincronización y recargar | No aparecen duplicados ni datos antiguos | ☐ |
 | FIN-07 | Confirmar recepción del correo QA | Mensaje y adjunto correctos | ☐ |
 

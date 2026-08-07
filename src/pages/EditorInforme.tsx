@@ -16,7 +16,7 @@ import {
   Plus, 
   Trash2, 
   Camera, 
-  PenTool, 
+  PenTool,
   ChevronDown,
   Info,
   Zap,
@@ -52,6 +52,7 @@ import { db, SyncStatus, type LocalOrdenServicio } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAuth } from "../context/AuthContext";
 import AccessDenied from "../components/AccessDenied";
+import { buildDraftReportFolio, buildFinalReportFolio, getReportDisplayFolio, isDraftReportFolio } from "../lib/reportFolio";
 
 type Section = 'general' | 'equipos' | 'mediciones' | 'checklist' | 'hallazgos' | 'galeria' | 'firma';
 
@@ -80,11 +81,6 @@ interface ChecklistEvidence {
     photos: string[];
     expanded?: boolean;
   };
-}
-
-interface SavedSignatures {
-  tecnico?: string;
-  cliente?: string;
 }
 
 function isCanvasBlank(canvas: HTMLCanvasElement | null) {
@@ -129,8 +125,7 @@ export default function EditorInforme() {
   const [viewMode, setViewMode] = useState<'sidebar' | 'tabs' | 'accordion' | 'industrial'>('accordion');
   const [appLogo] = useState<string | null>(() => localStorage.getItem("system_logo"));
   const [showFullscreenSignature, setShowFullscreenSignature] = useState(false);
-  const [signatureType, setSignatureType] = useState<'tecnico' | 'cliente'>('cliente');
-  const [savedFirmas, setSavedFirmas] = useState<SavedSignatures>({});
+  const [savedTechnicianSignature, setSavedTechnicianSignature] = useState<string>();
   const [status, setStatus] = useState<'borrador' | 'finalizado' | 'offline_draft'>(informe?.estado as any || 'borrador');
   const [parentOrder, setParentOrder] = useState<LocalOrdenServicio | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -184,7 +179,7 @@ export default function EditorInforme() {
     { id: 'checklist', label: 'Checklist', icon: <ClipboardCheck className="w-4 h-4" /> },
     { id: 'hallazgos', label: 'Hallazgos', icon: <AlertTriangle className="w-4 h-4" /> },
     { id: 'galeria', label: 'Evidencia', icon: <Camera className="w-4 h-4" /> },
-    { id: 'firma', label: 'Firma Documento', icon: <PenTool className="w-4 h-4" /> }
+    { id: 'firma', label: 'Firma del Técnico', icon: <PenTool className="w-4 h-4" /> }
   ];
 
   const renderSectionContent = (sectionId: string) => {
@@ -247,7 +242,7 @@ export default function EditorInforme() {
                    />
                 </div>
                 <InputField label="Técnico Responsable" value={generalData.tecnico} onChange={(val) => setGeneralData({...generalData, tecnico: val})} readOnly={isReadOnly} />
-                <InputField label="Folio Correlativo" value={generalData.folio || 'Pnd. Sincronización'} readOnly={true} />
+                <InputField label="Folio Correlativo" value={generalData.folio || displayFolio} readOnly={true} />
                 <InputField label="Fecha del Servicio" value={generalData.fecha} type="date" onChange={(val) => setGeneralData({...generalData, fecha: val})} readOnly={isReadOnly} />
                 <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase text-slate-400">TAG Equipo</label>
@@ -616,63 +611,48 @@ export default function EditorInforme() {
         );
       case 'firma':
         return (
-          <div className="grid grid-cols-1 gap-8">
-             <SectionBox title="Firma Técnica de Ejecución">
-                <div className="space-y-4">
-                   <canvas ref={canvasTecRef} className="w-full h-48 bg-slate-50 border border-slate-100 rounded-3xl touch-none shadow-inner" />
-                   <div className="flex justify-between items-center mt-2">
-                      <div className="flex items-center gap-2">
-                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{generalData.tecnico}</span>
-                      </div>
-                      <div className="flex gap-2">
-                         {!isReadOnly && (
-                           <button className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1" onClick={() => {
-                               setSignatureType('tecnico');
-                               setShowFullscreenSignature(true);
-                           }}>
-                              <Maximize className="w-3 h-3" /> Pantalla Completa
-                           </button>
-                         )}
-                         {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
-                             const ctx = canvasTecRef.current?.getContext('2d');
-                             ctx?.clearRect(0, 0, canvasTecRef.current?.width || 0, canvasTecRef.current?.height || 0);
-                             setSavedFirmas(prev => ({ ...prev, tecnico: undefined }));
-                         }}>Borrar</button>}
-                      </div>
-                   </div>
+          <SectionBox title="Firma Técnica de Ejecución">
+            <div className="space-y-4">
+              <p className="text-xs font-medium text-slate-500">
+                Esta firma identifica al técnico responsable del informe. La conformidad del cliente se registra en la orden de servicio.
+              </p>
+              <canvas
+                ref={canvasTechnicianRef}
+                aria-label="Firma del técnico"
+                className="h-48 w-full touch-none rounded-3xl border border-slate-100 bg-slate-50 shadow-inner"
+              />
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`h-4 w-4 ${getTechnicianSignature() ? 'text-emerald-500' : 'text-slate-300'}`} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    {generalData.tecnico || 'Técnico sin asignar'}
+                  </span>
                 </div>
-             </SectionBox>
-             <SectionBox title="Conformidad del Cliente">
-                <div className="space-y-4">
-                   <canvas ref={canvasCliRef} className={`w-full h-48 bg-slate-50 border border-slate-100 rounded-3xl touch-none shadow-inner ${isReadOnly ? 'opacity-40' : ''}`} />
-                  <div className="flex justify-between items-center mt-2">
-                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Área de Firma Cliente</span>
-                     <div className="flex gap-2">
-                         {!isReadOnly && (
-                           <button className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1" onClick={() => {
-                               setSignatureType('cliente');
-                               setShowFullscreenSignature(true);
-                           }}>
-                              <Maximize className="w-3 h-3" /> Pantalla Completa
-                           </button>
-                         )}
-                         {!isReadOnly && <button className="text-[10px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors bg-slate-100 px-3 py-1.5 rounded-lg flex items-center" onClick={() => {
-                             const ctx = canvasCliRef.current?.getContext('2d');
-                             ctx?.clearRect(0, 0, canvasCliRef.current?.width || 0, canvasCliRef.current?.height || 0);
-                             setSavedFirmas(prev => ({ ...prev, cliente: undefined }));
-                         }}>Borrar</button>}
-                     </div>
+                {!isReadOnly && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg bg-blue-50 px-3 text-[10px] font-black uppercase text-blue-600 sm:flex-none"
+                      onClick={() => setShowFullscreenSignature(true)}
+                    >
+                      <Maximize className="h-3 w-3" /> Pantalla completa
+                    </button>
+                    <button
+                      type="button"
+                      className="min-h-11 rounded-lg bg-slate-100 px-3 text-[10px] font-black uppercase text-slate-500 hover:text-red-500"
+                      onClick={() => {
+                        const ctx = canvasTechnicianRef.current?.getContext('2d');
+                        ctx?.clearRect(0, 0, canvasTechnicianRef.current?.width || 0, canvasTechnicianRef.current?.height || 0);
+                        setSavedTechnicianSignature(undefined);
+                      }}
+                    >
+                      Borrar
+                    </button>
                   </div>
-                   <InputField
-                     label="Nombre de quien recibe"
-                     value={generalData.nombreCliente || ""}
-                     onChange={(value) => setGeneralData({ ...generalData, nombreCliente: value })}
-                     readOnly={isReadOnly}
-                   />
-                </div>
-             </SectionBox>
-          </div>
+                )}
+              </div>
+            </div>
+          </SectionBox>
         );
       default:
         return null;
@@ -764,7 +744,7 @@ export default function EditorInforme() {
         if (dbReport.data.checklist) setChecklist(dbReport.data.checklist);
         if (dbReport.data.observaciones) setObservaciones(dbReport.data.observaciones);
         if (dbReport.data.galeria) setGaleria(dbReport.data.galeria);
-        if (dbReport.data.firmas) setSavedFirmas(dbReport.data.firmas);
+        if (dbReport.data.firmas?.tecnico) setSavedTechnicianSignature(dbReport.data.firmas.tecnico);
         if (dbReport.data.estado) {
           const reportState = ['finalizado', 'firmado', 'bloqueado'].includes(dbReport.data.estado) ? 'finalizado' : 'borrador';
           setStatus(reportState);
@@ -800,7 +780,7 @@ export default function EditorInforme() {
       const record = {
         ...existing,
         uuid_sync: id,
-        id: generalData.folio || existing?.id || `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`,
+        id: generalData.folio || existing?.id || buildDraftReportFolio(id),
         cliente_id: parentOrder.cliente_id || generalData.cliente,
         sucursal_id: parentOrder.sucursal_id || generalData.sucursal,
         orden_servicio_uuid: orderId,
@@ -818,7 +798,9 @@ export default function EditorInforme() {
     if (['cerrado', 'firmado'].includes(parentOrder.estado)) throw new Error('La orden está cerrada y es de solo lectura.');
     // Generate folio if not exists
     const activeClient = parentOrder.cliente_id || localStorage.getItem("active_client") || '';
-    const currentFolio = generalData.folio || (finalStatus === 'finalizado' ? `INF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}` : `INF-PENDIENTE-${id.substring(0, 6).toUpperCase()}`);
+    const currentFolio = finalStatus === 'finalizado' && isDraftReportFolio(generalData.folio)
+      ? buildFinalReportFolio(id)
+      : generalData.folio || buildDraftReportFolio(id);
     const normalizedGeneralData = {
       ...generalData,
       cliente: activeClient,
@@ -847,10 +829,9 @@ export default function EditorInforme() {
         checklist,
         observaciones,
         galeria,
-        firmas: finalStatus === 'finalizado' ? {
-          tecnico: getSignatureDataUrl('tecnico') || '',
-          cliente: getSignatureDataUrl('cliente') || ''
-        } : (savedFirmas.tecnico || savedFirmas.cliente ? savedFirmas : existing?.data?.firmas),
+        firmas: {
+          tecnico: getTechnicianSignature() || existing?.data?.firmas?.tecnico || ''
+        },
         fechaSincronizacionLocal: new Date().toISOString()
       }
     };
@@ -858,7 +839,6 @@ export default function EditorInforme() {
     // 1. Guardar local y encolar sync_queue usando reportsRepo
     await reportsRepo.save(reportData as any);
     
-    setSavedFirmas(reportData.data.firmas || {});
     setGeneralData(prev => ({ ...prev, cliente: prev.cliente || activeClient, folio: currentFolio }));
     setStatus(finalStatus);
 
@@ -876,7 +856,7 @@ export default function EditorInforme() {
   const handleSyncAndFinalize = async () => {
     setIsSyncing(true);
 
-    if (!getSignatureDataUrl('tecnico')) {
+    if (!getTechnicianSignature()) {
       alert("Error: No es posible finalizar: falta la firma del técnico.");
       setIsSyncing(false);
       return;
@@ -985,16 +965,13 @@ export default function EditorInforme() {
     setShowTagSearch(false);
   };
 
-  const canvasTecRef = useRef<HTMLCanvasElement>(null);
-  const canvasCliRef = useRef<HTMLCanvasElement>(null);
+  const canvasTechnicianRef = useRef<HTMLCanvasElement>(null);
   const autoPdfHandledRef = useRef(false);
 
-  function getSignatureDataUrl(type: 'tecnico' | 'cliente') {
-    const canvas = type === 'tecnico' ? canvasTecRef.current : canvasCliRef.current;
-    if (canvas && !isCanvasBlank(canvas)) {
-      return canvas.toDataURL();
-    }
-    return type === 'tecnico' ? savedFirmas.tecnico : savedFirmas.cliente;
+  function getTechnicianSignature() {
+    const canvas = canvasTechnicianRef.current;
+    if (canvas && !isCanvasBlank(canvas)) return canvas.toDataURL();
+    return savedTechnicianSignature;
   }
 
   // Generador de Informe Premium con Estructura Climasol
@@ -1007,7 +984,7 @@ export default function EditorInforme() {
     const selectedSuc = branches.find(b => b.uuid_sync === generalData.sucursal || b.id === generalData.sucursal);
     const branchName = selectedSuc?.nombre || generalData.sucursal || "Vitacura Base";
     const branchAddress = selectedSuc?.direccion || "Av. Vitacura 2670, Santiago, Chile";
-    const reportFolio = forcedFolio || generalData.folio || `INF-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const reportFolio = forcedFolio || generalData.folio || getReportDisplayFolio(undefined, undefined, id);
     const docDate = generalData.fecha || new Date().toLocaleDateString('es-CL');
     
     // Helper to draw status circle
@@ -1646,63 +1623,35 @@ export default function EditorInforme() {
       }
     }
 
-    // --- SIGNATURES ZONE ---
+    // --- FIRMA DEL TÉCNICO ---
     y2 += photoBoxH + 6;
     doc.setFillColor(11, 47, 100);
-    doc.roundedRect(10, y2, 60, 5, 1, 1, "F");
+    doc.roundedRect(10, y2, 52, 5, 1, 1, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.text("10. REGISTRO DE CONFORMIDAD Y FIRMAS", 14, y2 + 3.8);
+    doc.text("10. FIRMA DEL TÉCNICO", 14, y2 + 3.8);
 
     y2 += 7;
-    const signBoxW = 92;
-    const signBoxH = 26;
-
-    // Left Signature
     doc.setFillColor(252, 253, 254);
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(10, y2, signBoxW, signBoxH, 1, 1, "DF");
-    
-    // Draw signature image if present
-    const sigTecVal = getSignatureDataUrl('tecnico');
-    if (sigTecVal) {
+    doc.roundedRect(10, y2, 190, 25, 1, 1, "DF");
+    const technicianSignature = getTechnicianSignature();
+    if (technicianSignature) {
       try {
-        doc.addImage(sigTecVal, 'PNG', 12, y2 + 2, signBoxW - 4, signBoxH - 10);
-      } catch (errSig) {
-        console.warn(errSig);
+        doc.addImage(technicianSignature, 'PNG', 12, y2 + 2, 90, 16);
+      } catch (signatureError) {
+        console.warn("Could not draw technician signature", signatureError);
       }
     }
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
+    doc.setFontSize(7);
     doc.setTextColor(30, 41, 59);
-    doc.text(`Firma Técnico: ${generalData.tecnico || 'Carlos López'}`, 14, y2 + signBoxH - 5);
-    doc.setFontSize(5.5);
+    doc.text(`Técnico responsable: ${generalData.tecnico || 'Sin asignar'}`, 108, y2 + 11);
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
     doc.setTextColor(100, 116, 139);
-    doc.text("Instalador Electromecánico HVAC", 14, y2 + signBoxH - 2);
-
-    // Right Signature
-    doc.setFillColor(252, 253, 254);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(10 + signBoxW + colGap, y2, signBoxW, signBoxH, 1, 1, "DF");
-
-    const sigCliVal = getSignatureDataUrl('cliente');
-    if (sigCliVal) {
-      try {
-        doc.addImage(sigCliVal, 'PNG', 10 + signBoxW + colGap + 2, y2 + 2, signBoxW - 4, signBoxH - 10);
-      } catch (errSig2) {
-        console.warn(errSig2);
-      }
-    }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text(`Firma Cliente de Conformidad: ${generalData.nombreCliente || '—'}`, 10 + signBoxW + colGap + 4, y2 + signBoxH - 5);
-    doc.setFontSize(5.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 116, 139);
-    doc.text("Jefe de Operaciones e Infraestructura", 10 + signBoxW + colGap + 4, y2 + signBoxH - 2);
+    doc.text("La conformidad del cliente se registra en la orden de servicio.", 108, y2 + 16);
 
     // FOOTER PAGE 2
     doc.setFont("helvetica", "normal");
@@ -1722,7 +1671,7 @@ export default function EditorInforme() {
       autoPdfHandledRef.current = true;
       try {
         const doc = await generateClimasolPDF(generalData.folio || undefined);
-        doc.save(`${generalData.folio || `INF-${id.slice(0, 8).toUpperCase()}`}.pdf`);
+        doc.save(`${getReportDisplayFolio(generalData.folio, undefined, id)}.pdf`);
       } catch (error: any) {
         alert(`No fue posible generar el PDF: ${error?.message || error}`);
       } finally {
@@ -1765,7 +1714,7 @@ export default function EditorInforme() {
     const clientName = clients.find(c => c.uuid_sync === generalData.cliente || c.id === generalData.cliente)?.nombre || generalData.cliente || "EECOL ELECTRIC";
     const selectedSuc = branches.find(b => b.uuid_sync === generalData.sucursal || b.id === generalData.sucursal);
     const branchAddress = selectedSuc?.direccion || "Av. Vitacura 2670, Santiago, Chile";
-    const reportFolio = generalData.folio || "INF-2026-X";
+    const reportFolio = getReportDisplayFolio(generalData.folio, undefined, id);
 
     const interiorItems = [
       { name: "Estado general del equipo", idx: 0 },
@@ -2174,43 +2123,26 @@ export default function EditorInforme() {
               </div>
             </div>
 
-            {/* Section 10 Conformity and signatures */}
+            {/* Section 10 Technician signature */}
             <div className="mt-8">
-              <div className="inline-block bg-[#0B2F64] text-white px-6 py-1.5 rounded-full text-xs font-black tracking-wider uppercase mb-3">
-                10. REGISTRO DE CONFORMIDAD Y FIRMAS
+              <div className="mb-3 inline-block rounded-full bg-[#0B2F64] px-6 py-1.5 text-xs font-black uppercase tracking-wider text-white">
+                10. FIRMA DEL TÉCNICO
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-1">
-                {/* Tech */}
-                <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
-                  <div className="h-16 flex items-center justify-center bg-white border border-slate-100 rounded-xl overflow-hidden p-2">
-                    {getSignatureDataUrl('tecnico') ? (
-                      <img src={getSignatureDataUrl('tecnico')} alt="Firma Técnico" className="h-full object-contain" />
-                    ) : (
-                      <span className="text-[10px] text-slate-400 font-bold italic">Firme en sección firmas</span>
-                    )}
-                  </div>
-                  <div className="mt-2 text-xs">
-                    <span className="font-black text-slate-800 block">Firma Técnico: {generalData.tecnico || "Carlos López"}</span>
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Instalador Electromecánico HVAC</span>
-                  </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex h-24 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-2">
+                  {getTechnicianSignature() ? (
+                    <img src={getTechnicianSignature()} alt="Firma del técnico" className="h-full object-contain" />
+                  ) : (
+                    <span className="text-[10px] font-bold italic text-slate-400">Firma técnica pendiente</span>
+                  )}
                 </div>
-
-                {/* Client */}
-                <div className="border border-slate-200 bg-slate-50 rounded-2xl p-4 flex flex-col justify-between min-h-[120px]">
-                  <div className="h-16 flex items-center justify-center bg-white border border-slate-100 rounded-xl overflow-hidden p-2">
-                    {getSignatureDataUrl('cliente') ? (
-                      <img src={getSignatureDataUrl('cliente')} alt="Firma Cliente" className="h-full object-contain" />
-                    ) : (
-                      <span className="text-[10px] text-slate-400 font-bold italic">Firme en sección firmas</span>
-                    )}
-                  </div>
-                  <div className="mt-2 text-xs">
-                    <span className="font-black text-slate-800 block">Firma Cliente: {generalData.nombreCliente || "—"}</span>
-                    <span className="text-[10px] text-slate-400 font-medium uppercase">Jefe de Operaciones e Infraestructura</span>
-                  </div>
+                <div className="mt-2 text-xs">
+                  <span className="block font-black text-slate-800">Técnico responsable: {generalData.tecnico || "Sin asignar"}</span>
+                  <span className="text-[10px] font-medium uppercase text-slate-400">La conformidad del cliente se registra en la orden de servicio</span>
                 </div>
               </div>
             </div>
+
           </div>
 
           <div className="border-t border-slate-100 pt-4 mt-8 flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
@@ -2225,57 +2157,47 @@ export default function EditorInforme() {
   const isReadOnly = !permisos?.crear_informe
     || status === 'finalizado'
     || !!parentOrder && ['cerrado', 'firmado'].includes(parentOrder.estado);
+  const displayFolio = getReportDisplayFolio(generalData.folio, informe?.id, id);
 
   useEffect(() => {
-    const setupCanvas = (canvas: HTMLCanvasElement | null) => {
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      
-      let drawing = false;
-      const getPos = (e: MouseEvent | TouchEvent) => {
-        const rect = canvas.getBoundingClientRect();
-        const evt = "touches" in e ? e.touches[0] : e;
-        return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
-      };
+    const canvas = canvasTechnicianRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-      const start = (e: MouseEvent | TouchEvent) => {
-        if (isReadOnly) return;
-        drawing = true;
-        ctx.beginPath();
-        const pos = getPos(e);
-        ctx.moveTo(pos.x, pos.y);
-      };
-
-      const move = (e: MouseEvent | TouchEvent) => {
-        if (!drawing) return;
-        e.preventDefault();
-        const pos = getPos(e);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-      };
-
-      const end = () => drawing = false;
-
-      canvas.onmousedown = start;
-      canvas.onmousemove = move;
-      window.addEventListener('mouseup', end);
-      canvas.ontouchstart = start;
-      canvas.ontouchmove = move;
-      canvas.ontouchend = end;
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    let drawing = false;
+    const position = (event: MouseEvent | TouchEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const pointer = "touches" in event ? event.touches[0] : event;
+      return { x: pointer.clientX - rect.left, y: pointer.clientY - rect.top };
     };
+    const start = (event: MouseEvent | TouchEvent) => {
+      if (isReadOnly) return;
+      drawing = true;
+      ctx.beginPath();
+      const point = position(event);
+      ctx.moveTo(point.x, point.y);
+    };
+    const move = (event: MouseEvent | TouchEvent) => {
+      if (!drawing) return;
+      event.preventDefault();
+      const point = position(event);
+      ctx.lineTo(point.x, point.y);
+      ctx.stroke();
+    };
+    const end = () => { drawing = false; };
 
-    setupCanvas(canvasTecRef.current);
-    setupCanvas(canvasCliRef.current);
-  }, [isReadOnly]);
-
-  useEffect(() => {
-    drawSignatureOnCanvas(canvasTecRef.current, savedFirmas.tecnico);
-    drawSignatureOnCanvas(canvasCliRef.current, savedFirmas.cliente);
-  }, [savedFirmas, isReadOnly, viewMode, activeSection]);
+    canvas.onmousedown = start;
+    canvas.onmousemove = move;
+    canvas.ontouchstart = start;
+    canvas.ontouchmove = move;
+    canvas.ontouchend = end;
+    window.addEventListener('mouseup', end);
+    drawSignatureOnCanvas(canvas, savedTechnicianSignature);
+    return () => window.removeEventListener('mouseup', end);
+  }, [savedTechnicianSignature, isReadOnly, viewMode, activeSection]);
 
   const addImageToGallery = async (file: File) => {
     const reader = new FileReader();
@@ -2344,7 +2266,9 @@ export default function EditorInforme() {
             </Link>
             <div className="flex-1 min-w-0">
                <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
-                  <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase truncate">{isNew ? 'Nuevo Informe' : `Informe ${id}`}</h2>
+                  <h2 className="text-lg md:text-xl font-black text-slate-900 uppercase truncate">
+                    {isNew ? 'Nuevo Informe' : displayFolio}
+                  </h2>
                   <span className={`w-max text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
                     status === 'finalizado' ? 'bg-emerald-100 text-emerald-600' :
                     status === 'offline_draft' ? 'bg-blue-100 text-blue-600 animate-pulse' :
@@ -2515,19 +2439,19 @@ export default function EditorInforme() {
        <FullscreenSignatureModal
           isOpen={showFullscreenSignature}
           onClose={() => setShowFullscreenSignature(false)}
-          title={signatureType === 'tecnico' ? "Firma Técnico de Ejecución" : "Firma Cliente"}
+          title="Firma del Técnico"
           onSave={(dataUrl) => {
-            const canvas = signatureType === 'tecnico' ? canvasTecRef.current : canvasCliRef.current;
+            const canvas = canvasTechnicianRef.current;
             if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            const img = new Image();
-            img.onload = () => {
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              setSavedFirmas(prev => ({ ...prev, [signatureType]: dataUrl }));
+            const context = canvas.getContext('2d');
+            if (!context) return;
+            const image = new Image();
+            image.onload = () => {
+              context.clearRect(0, 0, canvas.width, canvas.height);
+              context.drawImage(image, 0, 0, canvas.width, canvas.height);
+              setSavedTechnicianSignature(dataUrl);
             };
-            img.src = dataUrl;
+            image.src = dataUrl;
             setShowFullscreenSignature(false);
           }}
        />

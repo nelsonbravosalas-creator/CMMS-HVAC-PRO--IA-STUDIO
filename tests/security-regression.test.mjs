@@ -239,6 +239,26 @@ test('mobile floating controls have a dedicated footer clearance area', async ()
   assert.match(layout, /CMMS HVAC · Fin del contenido/);
 });
 
+test('mobile operational views use accessible, non-overlapping controls', async () => {
+  const [css, layout, orders, syncIndicator] = await Promise.all([
+    read('src/index.css'),
+    read('src/components/Layout.tsx'),
+    read('src/pages/OrdenesServicio.tsx'),
+    read('src/components/SyncIndicator.tsx')
+  ]);
+
+  assert.match(css, /\.app-shell-main\s*\{/);
+  assert.doesNotMatch(css, /@media \(max-width: 1024px\)[\s\S]*?\n\s*main\s*\{/);
+  assert.match(orders, /grid grid-cols-2 gap-3 md:grid-cols-4/);
+  assert.match(orders, /aria-label="Listado de órdenes de servicio"/);
+  assert.match(orders, /hidden overflow-hidden rounded-3xl[\s\S]+md:block/);
+  assert.match(orders, /aria-label="Buscar órdenes de servicio"/);
+  assert.match(layout, /Navegación principal/);
+  assert.match(layout, /Operación[\s\S]+Gestión[\s\S]+Análisis[\s\S]+Administración/);
+  assert.match(layout, /aria-label="Abrir más opciones"/);
+  assert.match(syncIndicator, /hidden flex-col[\s\S]+lg:flex/);
+});
+
 test('sync inspector stays inside the mobile viewport', async () => {
   const [inspector, layout] = await Promise.all([
     read('src/components/debug/SyncInspectorPanel.tsx'),

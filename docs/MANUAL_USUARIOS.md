@@ -35,7 +35,7 @@ El técnico ejecuta el trabajo operacional de los clientes asignados.
 
 - Consultar equipos, especificaciones, ubicación e historial.
 - Crear y actualizar mantenimientos, órdenes de servicio, informes, tickets e inventario.
-- Registrar evidencias y firmas antes de finalizar una orden.
+- Registrar evidencias en los informes y las firmas principales en la orden antes de cerrarla.
 - No puede crear equipos, administrar usuarios/clientes ni eliminar órdenes de trabajo.
 
 ## Contratista
@@ -44,7 +44,7 @@ El contratista tiene permisos operacionales semejantes al técnico, limitados al
 
 - Ejecutar mantenimientos y órdenes.
 - Crear informes, tickets y órdenes de servicio.
-- Registrar evidencias y firmas.
+- Registrar evidencias en los informes y firmar la orden cuando corresponda.
 - No puede crear equipos, administrar usuarios/clientes ni eliminar órdenes de trabajo.
 
 ## Cliente
@@ -66,10 +66,11 @@ La visita tiene acceso de consulta.
 
 1. Seleccione el cliente y la sucursal correctos.
 2. Seleccione un equipo activo.
-3. Registre diagnóstico, actividades, materiales y evidencias.
-4. Obtenga las firmas del técnico y del cliente.
-5. Finalice la orden y espere su sincronización.
-6. Abra o descargue el PDF para comprobar el documento final.
+3. Abra uno o más informes desde la orden y registre diagnóstico, mediciones, materiales y evidencias.
+4. Obtenga la firma del técnico en cada informe y finalice todos los informes.
+5. Obtenga las firmas principales del técnico y del cliente en la orden; la firma del cliente no pertenece a los informes.
+6. Cierre la orden y espere su sincronización.
+7. Abra o descargue el PDF para comprobar el documento final.
 
 ## Soporte
 
