@@ -29,12 +29,12 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: 'https://api.iconify.design/lucide:wrench.svg?color=%232563eb',
+              src: '/icons/icon-192.svg',
               sizes: '192x192',
               type: 'image/svg+xml'
             },
             {
-              src: 'https://api.iconify.design/lucide:wrench.svg?color=%232563eb',
+              src: '/icons/icon-512.svg',
               sizes: '512x512',
               type: 'image/svg+xml'
             }
@@ -65,26 +65,11 @@ export default defineConfig(({mode}) => {
                   statuses: [0, 200]
                 }
               }
-            },
-            {
-              urlPattern: /^https:\/\/api\.iconify\.design\/.*/i,
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'icon-cache',
-                expiration: {
-                  maxEntries: 50,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // <--- 30 days
-                }
-              }
             }
           ]
         }
       })
     ],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GOOGLE_MAPS_PLATFORM_KEY': JSON.stringify(env.GOOGLE_MAPS_PLATFORM_KEY)
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

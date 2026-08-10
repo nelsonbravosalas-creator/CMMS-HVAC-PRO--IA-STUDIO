@@ -8,6 +8,7 @@ export interface ExportPayload {
   clientName?: string;
   assetTag?: string;
   pdfBase64?: string; // Generated on the client side
+  idempotencyKey?: string;
 }
 
 export class DocumentExportService {
@@ -23,7 +24,10 @@ export class DocumentExportService {
           'Content-Type': 'application/json',
           ...(sessionStorage.getItem('auth_token') ? { Authorization: `Bearer ${sessionStorage.getItem('auth_token')}` } : {}),
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          idempotencyKey: payload.idempotencyKey || crypto.randomUUID()
+        }),
       });
 
       if (!response.ok) {

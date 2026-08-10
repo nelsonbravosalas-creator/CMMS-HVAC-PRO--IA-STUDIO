@@ -1,8 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-const DEV_ARGON2_PIN_1234 = '$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU';
-const DEFAULT_DEV_ADMIN_EMAIL = 'admin@local.test';
-const DEFAULT_DEV_ADMIN_PIN = '1234';
+import bcrypt from 'bcryptjs';
 
 const MOCK_DB_PATH = path.join(process.cwd(), 'src', 'db', 'mock_db_store.json');
 
@@ -24,6 +22,8 @@ interface MockSchema {
   audit_logs: any[];
   cmms_auth_failures: any[];
   cmms_idempotency_keys: any[];
+  cmms_rate_limits: any[];
+  cmms_sessions: any[];
   calendar: any[];
 }
 
@@ -44,6 +44,8 @@ let mockData: MockSchema = {
   audit_logs: [],
   cmms_auth_failures: [],
   cmms_idempotency_keys: [],
+  cmms_rate_limits: [],
+  cmms_sessions: [],
   calendar: []
 };
 
@@ -61,9 +63,14 @@ const saveMockData = () => {
 };
 
 const buildDevAdminUser = (now = Date.now()) => {
-  const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL || DEFAULT_DEV_ADMIN_EMAIL;
-  const mockAdminPin = process.env.DEV_MOCK_ADMIN_PIN || DEFAULT_DEV_ADMIN_PIN;
-  const pinHash = mockAdminPin === DEFAULT_DEV_ADMIN_PIN ? DEV_ARGON2_PIN_1234 : mockAdminPin;
+  const mockAdminEmail = String(process.env.CMMS_DEMO_EMAIL || '').trim().toLowerCase();
+  const mockAdminPin = String(process.env.CMMS_DEMO_PIN || '');
+  if (process.env.CMMS_ENABLE_DEMO_USERS !== 'true'
+    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mockAdminEmail)
+    || !/^\d{6}$/.test(mockAdminPin)) {
+    throw new Error('Local mock admin requires CMMS_ENABLE_DEMO_USERS=true, CMMS_DEMO_EMAIL and a 6-digit CMMS_DEMO_PIN');
+  }
+  const pinHash = bcrypt.hashSync(mockAdminPin, 12);
 
   return {
     uuid_sync: 'dev-mock-admin-uuid',
@@ -81,7 +88,8 @@ const buildDevAdminUser = (now = Date.now()) => {
 };
 
 const ensureDevAdmin = (now = Date.now()) => {
-  const mockAdminEmail = process.env.DEV_MOCK_ADMIN_EMAIL || DEFAULT_DEV_ADMIN_EMAIL;
+  if (process.env.CMMS_ENABLE_DEMO_USERS !== 'true') return false;
+  const mockAdminEmail = String(process.env.CMMS_DEMO_EMAIL || '').trim().toLowerCase();
   const existingAdmin = mockData.users.find(user =>
     user.uuid_sync === 'dev-mock-admin-uuid'
     || String(user.correo || '').toLowerCase() === mockAdminEmail.toLowerCase()
@@ -92,7 +100,7 @@ const ensureDevAdmin = (now = Date.now()) => {
     return true;
   }
 
-  const shouldApplyExplicitDevPin = Boolean(process.env.DEV_MOCK_ADMIN_PIN);
+  const shouldApplyExplicitDevPin = Boolean(process.env.CMMS_DEMO_PIN);
   const shouldRepairMissingPin = !existingAdmin.pin_hash && !existingAdmin.pin;
   if (shouldApplyExplicitDevPin || shouldRepairMissingPin) {
     const devAdmin = buildDevAdminUser(now);
@@ -115,7 +123,7 @@ export const loadMockData = () => {
       const content = fs.readFileSync(MOCK_DB_PATH, 'utf8');
       mockData = JSON.parse(content);
       // Double check all tables exist in loaded data
-      const defaultKeys = ['clientes', 'sucursales', 'assets', 'users', 'user_clientes', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'audit_logs', 'cmms_auth_failures', 'cmms_idempotency_keys', 'calendar'];
+      const defaultKeys = ['clientes', 'sucursales', 'assets', 'users', 'user_clientes', 'preventive_maintenance', 'work_orders', 'reports', 'events', 'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'audit_logs', 'cmms_auth_failures', 'cmms_idempotency_keys', 'cmms_rate_limits', 'cmms_sessions', 'calendar'];
       for (const key of defaultKeys) {
         if (!mockData[key as keyof MockSchema]) {
           (mockData as any)[key] = [];
@@ -132,7 +140,7 @@ export const loadMockData = () => {
 
   // Seed default data
   const now = Date.now();
-  mockData.users = [buildDevAdminUser(now)];
+  mockData.users = process.env.CMMS_ENABLE_DEMO_USERS === 'true' ? [buildDevAdminUser(now)] : [];
 
   // Default Client & Clientes
   const eecolClientData = { nombre: 'EECOL Default', empresa: 'EECOL' };

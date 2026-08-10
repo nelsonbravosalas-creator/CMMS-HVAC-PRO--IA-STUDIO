@@ -14,6 +14,7 @@ interface CMMSState {
   // Actions
   hydrate: () => Promise<void>;
   setOnline: (status: boolean) => void;
+  clearSessionState: () => void;
   setSyncStatus: (table: string, uuid: string, status: SyncStatus) => void;
   
   // Optimistic UI updates
@@ -49,6 +50,16 @@ export const useAppStore = create<CMMSState>((set) => ({
   branches: [],
   isLoading: true,
   isOnline: navigator.onLine,
+
+  clearSessionState: () => set({
+    assets: [],
+    work_orders: [],
+    preventive_maintenance: [],
+    users: [],
+    clients: [],
+    branches: [],
+    isLoading: false
+  }),
 
   hydrate: async () => {
     set({ isLoading: true });

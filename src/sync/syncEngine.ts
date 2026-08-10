@@ -96,7 +96,7 @@ class SyncEngine {
       const pendingItems = eligibleItems.filter(item => !(
         item.table === 'reports'
         && pendingOrderParents.has(item.data?.orden_servicio_uuid)
-      ));
+      )).slice(0, 100);
 
       store.setPendingCount(pendingItems.length);
 

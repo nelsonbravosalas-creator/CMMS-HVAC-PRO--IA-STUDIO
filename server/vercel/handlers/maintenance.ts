@@ -54,10 +54,10 @@ function mapToDexie(neonData: any) {
 
 export default async function handler(req: any, res: any) {
   try {
-    const user: any = requireAuth(req, res);
+    const sql = getDb();
+    const user: any = await requireAuth(req, res, sql);
     if (!user) return;
 
-    const sql = getDb();
     const { method, query, body } = req;
     const writeOperation = method === 'POST' ? 'insert' : method === 'DELETE' ? 'delete' : 'update';
     if (method !== 'GET' && !canWriteResource(user, 'preventive_maintenance', writeOperation)) {

@@ -34,6 +34,8 @@ Neon permite restauración a un punto dentro de la ventana configurada y snapsho
 
 - Las notificaciones por correo para despliegues fallidos están habilitadas en Vercel.
 - Los errores HTTP 5xx, fallos de sincronización y rechazos de Resend quedan registrados en sus respectivos logs.
+- La API emite eventos estructurados `cmms_security_alert` para fallos críticos de autenticación, sincronización y correo.
+- Si se configura `SECURITY_ALERT_WEBHOOK_URL`, esos eventos se envían también por HTTPS a un receptor externo; `SECURITY_ALERT_WEBHOOK_TOKEN` agrega autenticación Bearer.
 - Las alertas personalizadas y de anomalías de Observability no están disponibles en el plan Hobby comprobado.
 
 ### Configuración recomendada para producción
@@ -43,6 +45,14 @@ Neon permite restauración a un punto dentro de la ventana configurada y snapsho
 - **Correo:** alertar ante eventos `bounced`, `complained` o `delivery_delayed` recibidos por webhook de Resend.
 - Enviar las alertas a un correo operativo compartido y, para incidentes críticos, a un canal secundario que no dependa de Resend.
 - Al migrar a Pro, crear reglas en Vercel Observability o integrar un servicio externo de monitoreo.
+
+### Activación del webhook
+
+1. Crear en el proveedor de monitoreo un endpoint HTTPS que acepte JSON.
+2. Agregar `SECURITY_ALERT_WEBHOOK_URL` y, si corresponde, `SECURITY_ALERT_WEBHOOK_TOKEN` como variables protegidas de Producción y Preview en Vercel.
+3. Hacer un nuevo despliegue.
+4. Provocar un fallo controlado en Preview y confirmar que el receptor obtiene `event`, `severity`, `details` y `timestamp`.
+5. No usar una URL que contenga credenciales ni registrar el token en capturas o documentos.
 
 ## Revisión operativa
 

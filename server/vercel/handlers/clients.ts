@@ -44,10 +44,10 @@ const validateClientPayload = (body: any) => {
 
 export default async function handler(req: any, res: any) {
   try {
-    const user = requireRole(['administrador'])(req, res);
+    const sql = getDb();
+    const user = await requireRole(['administrador'])(req, res, sql);
     if (!user) return;
 
-    const sql = getDb();
     const { method, query, body } = req;
     const isBranches = query.resource === 'branches' || query.resource === 'sucursales';
     const id = query.id || query.uuid || body?.uuid_sync || body?.id;

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { useAuth } from "../context/AuthContext";
 import { ClientModal } from "../components/modals/ClientModal";
+import { clearTenantOperationalCache, db } from "../db/database";
 
 export default function ClientSelector() {
   const [, setLocation] = useLocation();
@@ -31,7 +32,13 @@ export default function ClientSelector() {
     (isAdmin || allowedClientIds.has(c.uuid_sync) || allowedClientIds.has(c.id))
   );
 
-  const handleSelect = (client: typeof activeClients[number]) => {
+  const handleSelect = async (client: typeof activeClients[number]) => {
+    const pendingOperations = await db.sync_queue.count();
+    if (pendingOperations > 0) {
+      window.alert('Hay cambios sin sincronizar. Conéctese y fuerce la sincronización antes de cambiar de cliente.');
+      return;
+    }
+    await clearTenantOperationalCache();
     setSelected(client.id);
     localStorage.setItem("active_client", client.id);
     localStorage.setItem("active_client_name", client.nombre);
@@ -49,7 +56,13 @@ export default function ClientSelector() {
     }, 500);
   };
 
-  const handleGlobalView = () => {
+  const handleGlobalView = async () => {
+    const pendingOperations = await db.sync_queue.count();
+    if (pendingOperations > 0) {
+      window.alert('Hay cambios sin sincronizar. Conéctese y fuerce la sincronización antes de cambiar de contexto.');
+      return;
+    }
+    await clearTenantOperationalCache();
     localStorage.removeItem("active_client");
     localStorage.removeItem("active_client_name");
     localStorage.setItem("admin_global_view", "true");

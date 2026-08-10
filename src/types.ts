@@ -44,6 +44,7 @@ export interface Usuario {
   puedeEditarMantenimientos: boolean;
   cliente_id?: string;
   cliente_ids?: string[];
+  requiere_cambio_pin?: boolean;
 }
 
 /**

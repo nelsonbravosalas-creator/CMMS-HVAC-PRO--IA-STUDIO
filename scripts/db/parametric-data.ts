@@ -163,8 +163,6 @@ export const PARAMETRIC_SETTINGS = [
   }
 ];
 
-const DEMO_PIN_1234_HASH = "$argon2id$v=19$m=19456,t=2,p=1$Ue5nwFv+sBP+q28p/7Wy1A$zGNCwxjwxriUUxM4i5nisoQlcHW5I7RMe6fu/7HUnQU";
-
 export const PARAMETRIC_USERS = [
   {
     id: "U2",
@@ -175,7 +173,6 @@ export const PARAMETRIC_USERS = [
     activo: true,
     cliente_id: null,
     cliente_ids: [],
-    pinHash: DEMO_PIN_1234_HASH,
     data: {
       id: "U2",
       nombre: "Admin",
@@ -196,7 +193,6 @@ export const PARAMETRIC_USERS = [
     activo: true,
     cliente_id: "C1",
     cliente_ids: ["C1"],
-    pinHash: DEMO_PIN_1234_HASH,
     data: {
       id: "U-SUPERVISOR",
       nombre: "Supervisor",
@@ -217,7 +213,6 @@ export const PARAMETRIC_USERS = [
     activo: true,
     cliente_id: "C1",
     cliente_ids: ["C1"],
-    pinHash: DEMO_PIN_1234_HASH,
     data: {
       id: "U-TECNICO",
       nombre: "Tecnico",
@@ -238,7 +233,6 @@ export const PARAMETRIC_USERS = [
     activo: true,
     cliente_id: "C1",
     cliente_ids: ["C1"],
-    pinHash: DEMO_PIN_1234_HASH,
     data: {
       id: "U-CONTRATISTA",
       nombre: "Contratista",
@@ -259,7 +253,6 @@ export const PARAMETRIC_USERS = [
     activo: true,
     cliente_id: "C1",
     cliente_ids: ["C1"],
-    pinHash: DEMO_PIN_1234_HASH,
     data: {
       id: "U-CLIENTE",
       nombre: "Cliente",
@@ -280,7 +273,6 @@ export const PARAMETRIC_USERS = [
     activo: true,
     cliente_id: "C1",
     cliente_ids: ["C1"],
-    pinHash: DEMO_PIN_1234_HASH,
     data: {
       id: "U-VISITA",
       nombre: "Visita",

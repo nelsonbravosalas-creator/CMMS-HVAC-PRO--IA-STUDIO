@@ -1,22 +1,12 @@
 import assert from 'node:assert/strict';
 
 const baseUrl = (process.env.QA_BASE_URL || 'https://cmms-hvac-pro-ia-studio.vercel.app').replace(/\/$/, '');
-const pin = process.env.QA_DEMO_PIN;
-
-if (!pin) {
-  throw new Error('QA_DEMO_PIN is required. The PIN is never stored in this test.');
+const qaUsers = JSON.parse(process.env.QA_USERS_JSON || '[]');
+if (!Array.isArray(qaUsers) || qaUsers.length === 0) {
+  throw new Error('QA_USERS_JSON is required with [{"role":"...","email":"...","pin":"..."}]. Credentials are never stored in this test.');
 }
 
-const roles = [
-  ['administrador', 'admin@cmms.local'],
-  ['supervisor', 'supervisor@cmms.local'],
-  ['tecnico', 'tecnico@cmms.local'],
-  ['contratista', 'contratista@cmms.local'],
-  ['cliente', 'cliente@cmms.local'],
-  ['visita', 'visita@cmms.local']
-];
-
-async function login(email) {
+async function login(email, pin) {
   const response = await fetch(`${baseUrl}/api/auth`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -47,8 +37,13 @@ assert.equal(anonymousUsers.status, 401, 'Users endpoint must reject anonymous a
 
 const results = [];
 
-for (const [expectedRole, email] of roles) {
-  const session = await login(email);
+for (const account of qaUsers) {
+  const expectedRole = String(account.role || '');
+  const email = String(account.email || '');
+  const pin = String(account.pin || '');
+  assert.match(email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'QA account email is invalid');
+  assert.match(pin, /^\d{6}$/, 'QA account PIN must contain 6 digits');
+  const session = await login(email, pin);
   assert.equal(session.body?.user?.perfil, expectedRole, `Unexpected role for ${email}`);
 
   const syncStatus = await request('/api/sync/status', session.cookie);

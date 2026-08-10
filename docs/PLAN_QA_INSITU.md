@@ -82,27 +82,26 @@ o actualizar al menos un caso en este documento.
 
 ### Usuarios de prueba para iniciar sesión
 
-Estas cuentas corresponden al seed de demostración vigente. Todos los perfiles
-usan temporalmente el PIN `1234`.
+Las cuentas de QA deben ser nominales, estar aisladas de producción y usar un
+PIN individual de 6 dígitos entregado por un canal seguro.
 
-> **Importante:** estas credenciales son exclusivamente para QA y piloto
-> controlado. Antes de incorporar usuarios reales se deben reemplazar los
-> correos `@cmms.local`, asignar PIN individuales y retirar este cuadro del
-> documento operativo que se distribuya externamente.
+> **Importante:** no escriba credenciales en este documento ni utilice correos
+> `@cmms.local` en producción. El responsable de QA debe recibirlas desde el
+> gestor de secretos y revocarlas al terminar la campaña.
 
 | Perfil | Correo de inicio de sesión | PIN | Contexto inicial | Probado |
 |---|---|---|---|---|
-| Administrador | `admin@cmms.local` | `1234` | Global; puede seleccionar cliente | ☐ |
-| Supervisor | `supervisor@cmms.local` | `1234` | EECOL ELECTRIC (`C1`) | ☐ |
-| Técnico | `tecnico@cmms.local` | `1234` | EECOL ELECTRIC (`C1`) | ☐ |
-| Contratista | `contratista@cmms.local` | `1234` | EECOL ELECTRIC (`C1`) | ☐ |
-| Cliente | `cliente@cmms.local` | `1234` | EECOL ELECTRIC (`C1`) | ☐ |
-| Visita | `visita@cmms.local` | `1234` | EECOL ELECTRIC (`C1`) | ☐ |
+| Administrador | Gestor de secretos | No registrar aquí | Global; puede seleccionar cliente | ☐ |
+| Supervisor | Gestor de secretos | No registrar aquí | Cliente QA asignado | ☐ |
+| Técnico | Gestor de secretos | No registrar aquí | Cliente QA asignado | ☐ |
+| Contratista | Gestor de secretos | No registrar aquí | Cliente QA asignado | ☐ |
+| Cliente | Gestor de secretos | No registrar aquí | Cliente QA asignado | ☐ |
+| Visita | Gestor de secretos | No registrar aquí | Cliente QA asignado | ☐ |
 
 Si alguna cuenta no permite iniciar sesión, el QA debe marcar `AUT-01` como
-fallido y solicitar al administrador que confirme que el seed se encuentra
-aplicado. No debe crear cuentas sustitutas ni cambiar PIN durante la prueba sin
-autorización.
+fallido y solicitar al administrador que confirme el alta y la vigencia de las
+cuentas QA. No debe crear cuentas sustitutas ni cambiar PIN durante la prueba
+sin autorización.
 
 ## 4. Equipos mínimos
 

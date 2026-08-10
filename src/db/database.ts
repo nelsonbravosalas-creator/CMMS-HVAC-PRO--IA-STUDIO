@@ -362,3 +362,23 @@ export class CMMSDatabase extends Dexie {
 }
 
 export const db = new CMMSDatabase();
+
+export async function clearTenantOperationalCache() {
+  const tables = [
+    db.assets,
+    db.work_orders,
+    db.preventive_maintenance,
+    db.branches,
+    db.catalog_asset_types,
+    db.ordenes_servicio,
+    db.settings,
+    db.reports,
+    db.events,
+    db.inventory,
+    db.audit_logs,
+    db.blobs
+  ];
+  await db.transaction('rw', tables, async () => {
+    await Promise.all(tables.map((table) => table.clear()));
+  });
+}

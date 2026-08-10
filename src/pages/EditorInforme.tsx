@@ -47,7 +47,6 @@ import { SUCURSALES, ALMACEN_LABELS } from "../data/branches";
 import { CreateAssetModal } from "../components/modals/CreateAssetModal";
 import DictationTextarea from "../components/DictationTextarea";
 import LoadingIndicator from "../components/LoadingIndicator";
-import { GoogleGenAI } from "@google/genai";
 import { db, SyncStatus, type LocalOrdenServicio } from "../db/database";
 import { syncEngine } from "../sync/syncEngine";
 import { useAuth } from "../context/AuthContext";

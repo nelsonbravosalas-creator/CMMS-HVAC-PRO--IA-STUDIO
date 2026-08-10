@@ -94,6 +94,23 @@ export async function ensureDbSchema(sql: SqlClient) {
     deleted_at BIGINT
   )`;
 
+  await sql`CREATE TABLE IF NOT EXISTS cmms_rate_limits (
+    key TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    window_started_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL
+  )`;
+
+  await sql`CREATE TABLE IF NOT EXISTS cmms_sessions (
+    jti TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    revoked_at BIGINT,
+    last_seen_at BIGINT,
+    ip_hash TEXT
+  )`;
+
   await sql`CREATE TABLE IF NOT EXISTS user_clientes (
     uuid_sync TEXT PRIMARY KEY,
     id TEXT NOT NULL UNIQUE,
@@ -152,6 +169,11 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`CREATE INDEX IF NOT EXISTS idx_inventory_tenant_search ON inventory (cliente_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_calendar_tenant_search ON calendar (cliente_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_user_clientes_user ON user_clientes (user_id, cliente_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sessions_user ON cmms_sessions (user_id, expires_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_rate_limits_expiry ON cmms_rate_limits (expires_at)`;
+
+  await sql`DELETE FROM cmms_rate_limits WHERE expires_at < ${Date.now() - 86400000}`;
+  await sql`DELETE FROM cmms_sessions WHERE expires_at < ${Date.now() - 86400000}`;
 
   await sql`UPDATE assets SET id = COALESCE(NULLIF(id, ''), tag, uuid_sync) WHERE id IS NULL OR id = ''`;
   // Los TAG e ID de activos son correlativos de cada cliente/sucursal. No deben

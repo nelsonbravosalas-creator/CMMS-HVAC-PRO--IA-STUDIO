@@ -5,6 +5,13 @@
 
 import { getDb } from '../db.js';
 import { canWrite, canWriteResource, requireAuth } from '../auth.js';
+import {
+  consumeRateLimit,
+  emitOperationalAlert,
+  rejectOversizedRequest,
+  rejectRateLimit,
+  writeSecurityAudit
+} from '../security.js';
 
 const ALLOWED_TABLES = [
   'assets',
@@ -19,8 +26,7 @@ const ALLOWED_TABLES = [
   'settings',
   'ordenes_servicio',
   'inventory',
-  'calendar',
-  'audit_logs'
+  'calendar'
 ];
 
 const SYNC_WRITABLE_TABLES = new Set([
@@ -89,7 +95,6 @@ function assertWritableTable(
     return canWriteResource(authUser, table, operation);
   }
   if (isAdminUser(authUser) && (table === 'clientes' || table === 'sucursales')) return true;
-  if (isAdminUser(authUser) && table === 'audit_logs') return true;
   return false;
 }
 
@@ -302,13 +307,13 @@ async function validateServiceOrderClose(sql: any, record: any, tenantId: string
 
 export default async function handler(req: any, res: any) {
   try {
-    const authUser: any = requireAuth(req, res);
+    const sql = getDb();
+    const authUser: any = await requireAuth(req, res, sql);
     if (!authUser) return;
     if (req.method === 'POST' && !canWrite(authUser)) {
       return res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
     }
 
-    const sql = getDb();
     const { method, query, body } = req;
 
     // GET /api/sync?status=1 -> Health check of database
@@ -325,7 +330,10 @@ export default async function handler(req: any, res: any) {
 
     // GET /api/sync?since=:timestamp -> Pull changes only
     if (method === 'GET' || query.since !== undefined) {
-      const since = query.since ? parseInt(query.since as string, 10) : 0;
+      const pullLimit = await consumeRateLimit(sql, 'sync-pull', String(authUser.uuid_sync || authUser.id), 120, 15 * 60 * 1000);
+      if (!pullLimit.allowed) return rejectRateLimit(res, pullLimit);
+      const parsedSince = query.since ? Number.parseInt(query.since as string, 10) : 0;
+      const since = Number.isFinite(parsedSince) && parsedSince >= 0 ? parsedSince : 0;
       const clienteIdSync = getTenantId(authUser, req, res);
       if (!clienteIdSync) return;
       const globalScope = isAdminUser(authUser) && clienteIdSync === '__GLOBAL__';
@@ -335,28 +343,27 @@ export default async function handler(req: any, res: any) {
         try {
           let rows: any[] = [];
           switch (table) {
-            case 'assets': rows = globalScope ? await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'users': rows = globalScope ? await sql`SELECT * FROM users WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT DISTINCT u.* FROM users u JOIN user_clientes uc ON uc.user_id = u.uuid_sync WHERE uc.cliente_id = ${clienteIdSync} AND (u.updated_at > ${since} OR u.updated_at IS NULL) ORDER BY u.updated_at ASC LIMIT 1000`; break;
-            case 'preventive_maintenance': rows = globalScope ? await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'work_orders': rows = globalScope ? await sql`SELECT * FROM work_orders WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM work_orders WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'reports': rows = globalScope ? await sql`SELECT * FROM reports WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM reports WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'events': rows = globalScope ? await sql`SELECT * FROM events WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM events WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+            case 'assets': rows = globalScope ? await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'users': rows = globalScope ? await sql`SELECT * FROM users WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT DISTINCT u.* FROM users u JOIN user_clientes uc ON uc.user_id = u.uuid_sync WHERE uc.cliente_id = ${clienteIdSync} AND (u.updated_at > ${since} OR u.updated_at IS NULL) ORDER BY u.updated_at ASC LIMIT 200`; break;
+            case 'preventive_maintenance': rows = globalScope ? await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'work_orders': rows = globalScope ? await sql`SELECT * FROM work_orders WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM work_orders WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'reports': rows = globalScope ? await sql`SELECT * FROM reports WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM reports WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'events': rows = globalScope ? await sql`SELECT * FROM events WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM events WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
             case 'clientes':
               rows = globalScope
-                ? await sql`SELECT * FROM clientes WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
-                : await sql`SELECT * FROM clientes WHERE (id = ${clienteIdSync} OR uuid_sync = ${clienteIdSync} OR id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`;
+                ? await sql`SELECT * FROM clientes WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`
+                : await sql`SELECT * FROM clientes WHERE (id = ${clienteIdSync} OR uuid_sync = ${clienteIdSync} OR id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`;
               break;
             case 'sucursales':
               rows = globalScope
-                ? await sql`SELECT * FROM sucursales WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
-                : await sql`SELECT * FROM sucursales WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`;
+                ? await sql`SELECT * FROM sucursales WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`
+                : await sql`SELECT * FROM sucursales WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`;
               break;
-            case 'catalog_asset_types': rows = globalScope ? await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM catalog_asset_types WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'settings': rows = globalScope ? await sql`SELECT * FROM settings WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM settings WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'ordenes_servicio': rows = globalScope ? await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM ordenes_servicio WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'inventory': rows = globalScope ? await sql`SELECT * FROM inventory WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM inventory WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'calendar': rows = globalScope ? await sql`SELECT * FROM calendar WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM calendar WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-            case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (timestamp > ${since}) ORDER BY timestamp ASC LIMIT 1000`; break;
+            case 'catalog_asset_types': rows = globalScope ? await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM catalog_asset_types WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'settings': rows = globalScope ? await sql`SELECT * FROM settings WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM settings WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'ordenes_servicio': rows = globalScope ? await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM ordenes_servicio WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'inventory': rows = globalScope ? await sql`SELECT * FROM inventory WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM inventory WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+            case 'calendar': rows = globalScope ? await sql`SELECT * FROM calendar WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM calendar WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
           }
           if (rows && rows.length > 0) {
             serverChanges[table] = sanitizeRows(table, rows);
@@ -375,7 +382,21 @@ export default async function handler(req: any, res: any) {
     }
 
     if (method === 'POST') {
-      const { inserts = [], updates = [], deletes = [], lastSync = 0 } = body;
+      if (rejectOversizedRequest(req, res, 1024 * 1024)) return;
+      const pushLimit = await consumeRateLimit(sql, 'sync-push', String(authUser.uuid_sync || authUser.id), 60, 60 * 60 * 1000);
+      if (!pushLimit.allowed) return rejectRateLimit(res, pushLimit);
+      const { inserts = [], updates = [], deletes = [], lastSync = 0 } = body || {};
+      if (![inserts, updates, deletes].every(Array.isArray)) {
+        return res.status(400).json({ success: false, error: 'Los lotes de sincronización deben ser arreglos' });
+      }
+      const operationCount = inserts.length + updates.length + deletes.length;
+      if (operationCount > 100) {
+        return res.status(413).json({
+          success: false,
+          error: 'El lote excede el máximo de 100 operaciones',
+          code: 'SYNC_BATCH_TOO_LARGE'
+        });
+      }
       const results: any = { inserts: [], updates: [], deletes: [] };
 
       const clienteIdSync = getTenantId(authUser, req, res);
@@ -494,13 +515,6 @@ export default async function handler(req: any, res: any) {
                 await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${branchClienteId}, ${uuid_sync}, ${strData}, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET cliente_id = EXCLUDED.cliente_id, uuid_sync = EXCLUDED.uuid_sync, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE sucursales.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL)`;
                 break;
               }
-              case 'audit_logs':
-                await sql`
-                  INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp, cliente_id) 
-                  VALUES (${id}, ${data.action}, ${data.entity_type}, ${data.entity_id}, ${data.user_id}, ${strData}, ${data.timestamp}, ${clienteIdSync}) 
-                  ON CONFLICT (id) DO NOTHING
-                `;
-                break;
             }
           }
         } catch (err: any) {
@@ -726,6 +740,31 @@ export default async function handler(req: any, res: any) {
       const resDeletes = await Promise.all(deletePromises);
       results.deletes = resDeletes.filter(Boolean);
 
+      await writeSecurityAudit(sql, {
+        action: 'sync.push',
+        entityType: 'sync_batch',
+        entityId: crypto.randomUUID(),
+        userId: authUser.uuid_sync || authUser.id,
+        tenantId: clienteIdSync === '__GLOBAL__' ? null : clienteIdSync,
+        outcome: 'success',
+        details: {
+          inserts: inserts.length,
+          updates: updates.length,
+          deletes: deletes.length,
+          failures: [...results.inserts, ...results.updates, ...results.deletes]
+            .filter((item: any) => item?.result !== 'applied').length
+        }
+      });
+      const failedOperations = [...results.inserts, ...results.updates, ...results.deletes]
+        .filter((item: any) => item?.result !== 'applied').length;
+      if (failedOperations > 0) {
+        await emitOperationalAlert('sync.partial_failure', 'warning', {
+          tenantId: clienteIdSync === '__GLOBAL__' ? 'global' : clienteIdSync,
+          failedOperations,
+          operationCount
+        });
+      }
+
       // Las escrituras se confirman sin ejecutar además un pull masivo en la
       // misma invocación. El cliente hará el pull incremental por GET en el
       // siguiente ciclo, evitando timeouts de funciones Hobby.
@@ -765,7 +804,6 @@ export default async function handler(req: any, res: any) {
             case 'ordenes_servicio': rows = await sql`SELECT * FROM ordenes_servicio WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
             case 'inventory': rows = await sql`SELECT * FROM inventory WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
             case 'calendar': rows = await sql`SELECT * FROM calendar WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
-            case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (timestamp > ${lastSync}) LIMIT 200`; break;
           }
             if (rows && rows.length > 0) {
             serverChanges[table] = sanitizeRows(table, rows);
@@ -782,6 +820,9 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error: any) {
     console.error('Unified Sync error:', error);
+    await emitOperationalAlert('sync.unhandled_failure', 'error', {
+      reason: error?.name || 'unknown'
+    });
     return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

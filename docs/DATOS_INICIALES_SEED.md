@@ -69,16 +69,11 @@ Arica y Parinacota, Tarapacá, Antofagasta, Atacama, Coquimbo, Valparaíso, Metr
 
 ## Usuarios — tablas `users` y `user_clientes`
 
-| ID | Correo | Perfil | Cliente asociado |
-|---|---|---|---|
-| `U2` | `admin@cmms.local` | Administrador | Global |
-| `U-SUPERVISOR` | `supervisor@cmms.local` | Supervisor | EECOL ELECTRIC (`C1`) |
-| `U-TECNICO` | `tecnico@cmms.local` | Técnico | EECOL ELECTRIC (`C1`) |
-| `U-CONTRATISTA` | `contratista@cmms.local` | Contratista | EECOL ELECTRIC (`C1`) |
-| `U-CLIENTE` | `cliente@cmms.local` | Cliente | EECOL ELECTRIC (`C1`) |
-| `U-VISITA` | `visita@cmms.local` | Visita | EECOL ELECTRIC (`C1`) |
-
-Las cinco identidades no administrativas tienen una relación en `user_clientes` con `C1`. El administrador es global.
+El seed productivo no crea usuarios. Los seis perfiles demo sólo se habilitan
+en desarrollo local mediante `CMMS_ENABLE_DEMO_USERS=true` y un
+`CMMS_DEMO_PIN` de 6 dígitos almacenado fuera de Git. En Vercel y en cualquier
+entorno `production`, el bootstrap desactiva las cuentas `@cmms.local` y exige
+la existencia de un administrador operacional con correo real.
 
 ## Tablas sin registros iniciales
 
@@ -86,4 +81,7 @@ El seed no crea datos operacionales en `assets`, `inventory`, `work_orders`, `or
 
 ## Comportamiento del bootstrap
 
-El bootstrap hace *upsert* de los datos anteriores. Si se elimina un registro paramétrico y se vuelve a ejecutar `/api/init-db` o `/api/import-data`, el registro se restaura.
+El bootstrap hace *upsert* de clientes, sucursales, catálogos y configuración.
+Si se elimina un registro paramétrico y se vuelve a ejecutar `/api/init-db` o
+`/api/import-data`, el registro se restaura. Los usuarios no se restauran en
+producción.

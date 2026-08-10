@@ -15,8 +15,10 @@ import {
 import { useAppStore } from "../store/useAppStore";
 import { db } from "../db/database";
 import { motion } from "motion/react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Biometria() {
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState<"biometry" | "pin">("biometry");
   const [currentUser, setCurrentUser] = useState<any>(null);
   
@@ -79,8 +81,8 @@ export default function Biometria() {
       return;
     }
 
-    if (newPin.length < 4) {
-      setPinError("El nuevo PIN o clave debe tener al menos 4 caracteres.");
+    if (!/^\d{6}$/.test(newPin)) {
+      setPinError("El nuevo PIN debe contener exactamente 6 dígitos.");
       return;
     }
 
@@ -112,6 +114,8 @@ export default function Biometria() {
       setCurrentPin("");
       setNewPin("");
       setConfirmPin("");
+      logout();
+      window.location.href = "/login";
     } catch (err: any) {
       setPinError("Ocurrió un error al guardar el PIN: " + err.message);
     } finally {
@@ -473,8 +477,10 @@ export default function Biometria() {
                       <input 
                         type={showPins ? "text" : "password"} 
                         value={currentPin}
-                        onChange={(e) => setCurrentPin(e.target.value)}
-                        placeholder="••••"
+                        inputMode="numeric"
+                        maxLength={6}
+                        onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="••••••"
                         className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-slate-900/10 transition-all font-mono"
                       />
                     </div>
@@ -486,8 +492,10 @@ export default function Biometria() {
                       <input 
                         type={showPins ? "text" : "password"} 
                         value={newPin}
-                        onChange={(e) => setNewPin(e.target.value)}
-                        placeholder="MIN. 4 DIGITOS"
+                        inputMode="numeric"
+                        maxLength={6}
+                        onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="6 DÍGITOS"
                         className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-slate-900/10 transition-all font-mono"
                       />
                     </div>
@@ -499,7 +507,9 @@ export default function Biometria() {
                       <input 
                         type={showPins ? "text" : "password"} 
                         value={confirmPin}
-                        onChange={(e) => setConfirmPin(e.target.value)}
+                        inputMode="numeric"
+                        maxLength={6}
+                        onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         placeholder="REPETIR PIN"
                         className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold focus:ring-2 focus:ring-slate-900/10 transition-all font-mono"
                       />

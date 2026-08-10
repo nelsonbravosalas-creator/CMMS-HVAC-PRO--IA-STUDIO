@@ -3,7 +3,7 @@
  * Centraliza el estado del usuario logueado y sus capacidades (permisos).
  * 
  * FIXES APPLIED:
- * - BUG #1: PIN format validation (4 digits)
+ * - BUG #1: PIN format validation (6 digits)
  * - BUG #3: Token persistence consistency (sessionStorage + localStorage)
  * - BUG #4: CRITICAL - Biometric validation on server side
  * 
@@ -13,6 +13,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Usuario, Permisos, PERMISOS_POR_PERFIL, Perfil } from '../types';
 import { db } from '../db/database';
+import { useAppStore } from '../store/useAppStore';
 
 interface AuthContextType {
   /** Datos del usuario actual. Null si no hay sesión. */
@@ -34,10 +35,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // ===== VALIDATION UTILITIES =====
 /**
  * BUG #1 FIX: Validar formato de PIN
- * El PIN debe ser exactamente 4 dígitos numéricos
+ * El PIN debe ser exactamente 6 dígitos numéricos
  */
 function validatePinFormat(pin: string): boolean {
-  return /^\d{4}$/.test(pin.trim());
+  return /^\d{6}$/.test(pin.trim());
 }
 
 /**
@@ -147,8 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
   
-  /** Derivación reactiva de permisos basada en el perfil del usuario con fallback a administrador en caso de desajuste */
-  const permisos = user ? (PERMISOS_POR_PERFIL[user.perfil] || PERMISOS_POR_PERFIL.administrador) : null;
+  /** Un perfil desconocido nunca recibe privilegios por defecto. */
+  const permisos = user ? (PERMISOS_POR_PERFIL[user.perfil] || PERMISOS_POR_PERFIL.visita) : null;
 
   /**
    * BUG #1 FIX: Intenta loguear un usuario con validaciones completas
@@ -160,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // BUG #1: Validar formato de PIN ANTES de enviar
     if (!validatePinFormat(normalizedPin)) {
-      setAuthError('PIN debe ser exactamente 4 dígitos numéricos.');
+      setAuthError('PIN debe ser exactamente 6 dígitos numéricos.');
       return false;
     }
 
@@ -215,7 +216,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           activo: json.user.activo,
           puedeEditarMantenimientos: normalizedPerfil !== 'visita' && normalizedPerfil !== 'cliente',
           cliente_id: json.user.cliente_id,
-          cliente_ids: json.user.cliente_ids || []
+          cliente_ids: json.user.cliente_ids || [],
+          requiere_cambio_pin: json.user.requiere_cambio_pin === true
         };
 
         if (!configureRoleContext(loggedUser)) {
@@ -228,6 +230,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Guardar para persistencia síncrona en recarga de página
         localStorage.setItem('auth_user', JSON.stringify(loggedUser));
         localStorage.setItem('is_authenticated', 'true');
+        if (loggedUser.requiere_cambio_pin) {
+          localStorage.setItem('requires_pin_change', 'true');
+        } else {
+          localStorage.removeItem('requires_pin_change');
+        }
         
         // BUG #3 FIX: Guardar token en AMBOS storage de forma coherente
         sessionStorage.setItem('auth_token', 'cookie-session');
@@ -424,9 +431,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('is_authenticated');
     localStorage.removeItem('active_client');
     localStorage.removeItem('admin_global_view');
+    localStorage.removeItem('requires_pin_change');
+    localStorage.removeItem('cmms-auth-storage');
     // Limpiar biometría registrada
     localStorage.removeItem('biometry_registered_email');
     localStorage.removeItem('biometry_active');
+    // Los datos operativos offline pertenecen a la sesión y al dispositivo.
+    // Se purgan para evitar que otro usuario del mismo navegador pueda leerlos.
+    void db.delete().catch((error) => console.warn('No fue posible limpiar los datos locales al cerrar sesión.', error));
+    useAppStore.getState().clearSessionState();
+    window.dispatchEvent(new Event('auth-session-ended'));
   }, []);
 
   // BR-AUTH-004: Inactivity Timeout (30 minutes)

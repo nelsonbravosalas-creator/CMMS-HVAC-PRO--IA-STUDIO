@@ -1,11 +1,15 @@
 import jwt from 'jsonwebtoken';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { privacyHash, rejectUntrustedOrigin, requestIp, writeSecurityAudit } from './security.js';
+
+const ephemeralDevJwtSecret = randomBytes(32).toString('hex');
 
 function getSecretKey() {
   const secret = process.env.JWT_SECRET;
   if (!secret && process.env.NODE_ENV === 'production') {
     throw new Error('JWT_SECRET is required in production');
   }
-  return secret || 'dev_only_jwt_secret_change_me';
+  return secret || ephemeralDevJwtSecret;
 }
 
 function normalizeRole(role: string | undefined | null) {
@@ -77,12 +81,23 @@ export function getScopedTenantId(user: any, requestedTenantId?: any) {
 }
 
 export function signToken(payload: any) {
-  return jwt.sign(payload, getSecretKey(), { expiresIn: '12h' });
+  return jwt.sign(payload, getSecretKey(), { expiresIn: '8h' });
+}
+
+export async function createSession(sql: any, req: any, payload: any) {
+  const jti = randomUUID();
+  const now = Date.now();
+  const expiresAt = now + 8 * 60 * 60 * 1000;
+  await sql`
+    INSERT INTO cmms_sessions (jti, user_id, created_at, expires_at, revoked_at, last_seen_at, ip_hash)
+    VALUES (${jti}, ${payload.uuid_sync || payload.id}, ${now}, ${expiresAt}, NULL, ${now}, ${privacyHash(requestIp(req))})
+  `;
+  return signToken({ ...payload, jti });
 }
 
 export function setAuthCookie(res: any, token: string) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `cmms_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200${secure}`);
+  res.setHeader('Set-Cookie', `cmms_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure}`);
 }
 
 function getCookie(req: any, name: string) {
@@ -109,23 +124,71 @@ export function verifyToken(req: any) {
   }
 }
 
-export function requireAuth(req: any, res: any) {
-  const user: any = verifyToken(req);
-  if (!user) {
-    res.status(401).json({ success: false, error: 'No autorizado - token inválido o ausente' });
+export async function requireAuth(req: any, res: any, sql: any) {
+  if (rejectUntrustedOrigin(req, res)) return null;
+  const tokenUser: any = verifyToken(req);
+  if (!tokenUser?.jti || !sql) {
+    res.status(401).json({ success: false, error: 'No autorizado - sesión inválida o ausente' });
     return null;
   }
-  return user;
+  const now = Date.now();
+  const rows = await sql`
+    SELECT s.jti, u.uuid_sync, u.id, u.perfil, u.cliente_id, u.activo,
+      COALESCE(array_agg(uc.cliente_id) FILTER (WHERE uc.cliente_id IS NOT NULL), ARRAY[]::text[]) AS cliente_ids
+    FROM cmms_sessions s
+    JOIN users u ON u.uuid_sync = s.user_id
+    LEFT JOIN user_clientes uc ON uc.user_id = u.uuid_sync
+    WHERE s.jti = ${tokenUser.jti}
+      AND s.user_id = ${tokenUser.uuid_sync || tokenUser.id}
+      AND s.revoked_at IS NULL
+      AND s.expires_at > ${now}
+      AND u.activo = true
+      AND u.deleted_at IS NULL
+    GROUP BY s.jti, u.uuid_sync, u.id, u.perfil, u.cliente_id, u.activo
+    LIMIT 1
+  `;
+  const user = rows[0];
+  if (!user) {
+    await writeSecurityAudit(sql, {
+      action: 'auth.session_rejected',
+      entityType: 'session',
+      entityId: String(tokenUser.jti),
+      userId: tokenUser.uuid_sync || tokenUser.id,
+      tenantId: tokenUser.cliente_id,
+      outcome: 'denied'
+    });
+    res.status(401).json({ success: false, error: 'No autorizado - sesión inválida o revocada' });
+    return null;
+  }
+  const requestPath = String(req.url || req.headers?.['x-vercel-forwarded-for'] || '');
+  if (tokenUser.must_change_pin && !requestPath.includes('change-pin') && !requestPath.includes('logout')) {
+    await writeSecurityAudit(sql, {
+      action: 'auth.pin_change_required', entityType: 'user', entityId: user.uuid_sync,
+      userId: user.uuid_sync, tenantId: user.cliente_id, outcome: 'denied'
+    });
+    res.status(403).json({
+      success: false,
+      error: 'Debe cambiar el PIN inicial antes de continuar',
+      code: 'PIN_CHANGE_REQUIRED'
+    });
+    return null;
+  }
+  return { ...tokenUser, ...user, cliente_ids: user.cliente_ids || [] };
 }
 
 export function requireRole(allowedRoles: string[]) {
-  return (req: any, res: any) => {
-    const user: any = requireAuth(req, res);
+  return async (req: any, res: any, sql: any) => {
+    const user: any = await requireAuth(req, res, sql);
     if (!user) {
       return null;
     }
     const allowed = allowedRoles.map(canonicalRole);
     if (!allowed.includes(canonicalRole(user.perfil))) {
+      await writeSecurityAudit(sql, {
+        action: 'authorization.denied', entityType: 'route', entityId: String(req.url || 'unknown'),
+        userId: user.uuid_sync || user.id, tenantId: user.cliente_id, outcome: 'denied',
+        details: { role: canonicalRole(user.perfil) }
+      });
       res.status(403).json({ success: false, error: 'No autorizado - rol insuficiente' });
       return null;
     }

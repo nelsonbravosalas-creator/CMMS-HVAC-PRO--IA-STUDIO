@@ -1,6 +1,7 @@
 import { getDb } from '../db.js';
 import { requireRole } from '../auth.js';
 import { hashPin } from '../../passwords.js';
+import { isValidCredential, writeSecurityAudit } from '../security.js';
 
 const ALLOWED_ROLES = new Set([
   'administrador',
@@ -11,6 +12,7 @@ const ALLOWED_ROLES = new Set([
   'visita'
 ]);
 const GLOBAL_ROLES = new Set(['administrador']);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function normalizeRole(value: unknown) {
   return String(value || 'tecnico')
@@ -22,10 +24,10 @@ function normalizeRole(value: unknown) {
 
 export default async function handler(req: any, res: any) {
   try {
-    const admin = requireRole(['administrador'])(req, res);
+    const sql = getDb();
+    const admin = await requireRole(['administrador'])(req, res, sql);
     if (!admin) return;
 
-    const sql = getDb();
     const { method, body = {} } = req;
 
     if (method === 'GET') {
@@ -64,8 +66,19 @@ export default async function handler(req: any, res: any) {
       if (!nombre || !correo) {
         return res.status(400).json({ success: false, error: 'Nombre y correo son obligatorios' });
       }
-      if (body.pin && !/^\d{4}$/.test(String(body.pin))) {
-        return res.status(400).json({ success: false, error: 'El PIN debe contener exactamente 4 dígitos' });
+      if (!EMAIL_PATTERN.test(correo) || correo.length > 254) {
+        return res.status(400).json({ success: false, error: 'El correo no es válido' });
+      }
+      if ((process.env.VERCEL === '1' || process.env.NODE_ENV === 'production') && correo.endsWith('@cmms.local')) {
+        return res.status(400).json({ success: false, error: 'Las cuentas @cmms.local no están permitidas en producción' });
+      }
+      const existingCredentialRows = await sql`
+        SELECT 1 FROM users
+        WHERE id = ${body.id || ''} OR uuid_sync = ${body.uuid_sync || ''}
+        LIMIT 1
+      `;
+      if ((existingCredentialRows.length === 0 && !body.pin) || (body.pin && !isValidCredential(body.pin))) {
+        return res.status(400).json({ success: false, error: 'El PIN debe contener exactamente 6 dígitos' });
       }
 
       let clienteId: string | null = null;
@@ -148,6 +161,19 @@ export default async function handler(req: any, res: any) {
           ON CONFLICT (user_id, cliente_id) DO NOTHING
         `;
       }
+
+      if (existingCredentialRows.length > 0) {
+        await sql`
+          UPDATE cmms_sessions SET revoked_at = ${now}
+          WHERE user_id = ${storedUuid} AND revoked_at IS NULL
+        `;
+      }
+
+      await writeSecurityAudit(sql, {
+        action: 'user.upsert', entityType: 'user', entityId: storedUuid,
+        userId: admin.uuid_sync || admin.id, tenantId: clienteId,
+        outcome: 'success', details: { perfil, activo: body.activo !== false }
+      });
 
       return res.json({
         success: true,

@@ -44,7 +44,7 @@ export default function Login() {
       const success = await login(pin, email);
       setIsLoading(false);
       if (success) {
-        window.location.href = "/";
+        window.location.href = localStorage.getItem('requires_pin_change') === 'true' ? "/biometria" : "/";
       }
     }
   };
@@ -211,7 +211,7 @@ export default function Login() {
                 className={`w-full px-4 py-3 rounded-xl border outline-none transition-all focus:ring-2 focus:ring-blue-500/20 font-medium ${
                   isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500'
                 }`}
-                placeholder="admin@cmms.local"
+                placeholder="nombre@empresa.cl"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -227,9 +227,11 @@ export default function Login() {
                   className={`w-full px-4 py-3 rounded-xl border outline-none transition-all focus:ring-2 focus:ring-blue-500/20 font-medium tracking-widest ${
                     isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-blue-500'
                   }`}
-                  placeholder="••••"
+                  placeholder="••••••"
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  maxLength={6}
+                  autoComplete="current-password"
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 />
                 <button
                   type="button"

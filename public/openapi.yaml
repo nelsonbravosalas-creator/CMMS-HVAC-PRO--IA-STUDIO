@@ -1,0 +1,290 @@
+openapi: 3.1.0
+info:
+  title: CMMS HVAC Pro API
+  version: 1.0.0
+  description: Contrato de las rutas públicas agrupadas en seis funciones Vercel.
+servers:
+  - url: https://cmms-hvac-pro-ia-studio.vercel.app
+  - url: http://localhost:3000
+tags:
+  - name: Auth
+  - name: Core
+  - name: Operations
+  - name: Sync
+  - name: Communications
+  - name: Admin
+paths:
+  /api/health:
+    get:
+      tags: [Auth]
+      security: []
+      operationId: health
+      responses:
+        '200': { description: Servicio disponible }
+  /api/auth:
+    post:
+      tags: [Auth]
+      security: []
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200': { description: Sesión iniciada; establece cookie HttpOnly }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      responses:
+        '200': { description: Sesión revocada }
+  /api/change-pin:
+    post:
+      tags: [Auth]
+      operationId: changePin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPin, newPin]
+              properties:
+                currentPin: { type: string, pattern: '^\\d{6}$', writeOnly: true }
+                newPin: { type: string, pattern: '^\\d{6}$', writeOnly: true }
+      responses:
+        '200': { description: PIN actualizado y todas las sesiones revocadas }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/assets:
+    get:
+      tags: [Core]
+      operationId: listAssets
+      parameters: [{ $ref: '#/components/parameters/ClientId' }]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [Core]
+      operationId: createAsset
+      x-allowed-roles: [administrador, supervisor]
+      parameters: [{ $ref: '#/components/parameters/ClientId' }]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/assets/{id}:
+    parameters: [{ $ref: '#/components/parameters/EntityId' }, { $ref: '#/components/parameters/ClientId' }]
+    get:
+      tags: [Core]
+      operationId: getAsset
+      responses: { '200': { $ref: '#/components/responses/Entity' }, '404': { description: No encontrado } }
+    put:
+      tags: [Core]
+      operationId: updateAsset
+      x-allowed-roles: [administrador, supervisor]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' }, '403': { $ref: '#/components/responses/Forbidden' } }
+    delete:
+      tags: [Core]
+      operationId: retireAsset
+      x-allowed-roles: [administrador, supervisor]
+      responses: { '200': { $ref: '#/components/responses/Entity' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/clients:
+    get:
+      tags: [Core]
+      operationId: listClients
+      x-allowed-roles: [administrador]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [Core]
+      operationId: upsertClient
+      x-allowed-roles: [administrador]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/branches:
+    get:
+      tags: [Core]
+      operationId: listBranches
+      x-allowed-roles: [administrador]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [Core]
+      operationId: upsertBranch
+      x-allowed-roles: [administrador]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' } }
+  /api/users:
+    get:
+      tags: [Core]
+      operationId: listUsers
+      x-allowed-roles: [administrador]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [Core]
+      operationId: upsertUser
+      x-allowed-roles: [administrador]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' } }
+  /api/maintenance:
+    get:
+      tags: [Operations]
+      operationId: listMaintenance
+      parameters: [{ $ref: '#/components/parameters/ClientId' }]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [Operations]
+      operationId: createMaintenance
+      x-allowed-roles: [administrador, supervisor, tecnico, contratista]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' } }
+  /api/work-orders:
+    get:
+      tags: [Operations]
+      operationId: listWorkOrders
+      parameters: [{ $ref: '#/components/parameters/ClientId' }]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [Operations]
+      operationId: createWorkOrder
+      x-allowed-roles: [administrador, supervisor, tecnico, contratista, cliente]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' } }
+  /api/inventory:
+    get:
+      tags: [Operations]
+      operationId: listInventory
+      parameters: [{ $ref: '#/components/parameters/ClientId' }]
+      responses: { '200': { $ref: '#/components/responses/Collection' } }
+    post:
+      tags: [Operations]
+      operationId: createInventoryItem
+      x-allowed-roles: [administrador, supervisor, tecnico, contratista]
+      requestBody: { $ref: '#/components/requestBodies/JsonObject' }
+      responses: { '200': { $ref: '#/components/responses/Entity' } }
+  /api/sync:
+    get:
+      tags: [Sync]
+      operationId: pullSync
+      parameters:
+        - { $ref: '#/components/parameters/ClientId' }
+        - name: since
+          in: query
+          schema: { type: integer, minimum: 0 }
+      responses:
+        '200': { description: Hasta 200 filas por tabla }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    post:
+      tags: [Sync]
+      operationId: pushSync
+      description: Máximo 100 operaciones y 1 MiB por lote.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncBatch' }
+      responses:
+        '200': { description: Resultado del lote }
+        '413': { description: Lote o cuerpo demasiado grande }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/export:
+    post:
+      tags: [Communications]
+      operationId: emailPdf
+      description: Máximo 3 MiB de PDF; requiere idempotencia y aplica cuotas por usuario y cliente.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExportRequest' }
+      responses:
+        '202': { description: Envío aceptado }
+        '409': { description: Solicitud idéntica en proceso }
+        '413': { description: PDF demasiado grande }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/init-db:
+    post:
+      tags: [Admin]
+      operationId: initializeDatabase
+      x-allowed-roles: [administrador]
+      responses: { '200': { description: Bootstrap aplicado }, '403': { $ref: '#/components/responses/Forbidden' } }
+  /api/import-data:
+    post:
+      tags: [Admin]
+      operationId: importParametricData
+      x-allowed-roles: [administrador]
+      responses: { '200': { description: Datos paramétricos aplicados }, '403': { $ref: '#/components/responses/Forbidden' } }
+components:
+  securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: cmms_session
+  parameters:
+    ClientId:
+      name: X-Client-ID
+      in: header
+      description: Cliente activo; el servidor verifica que esté asignado a la sesión.
+      schema: { type: string, maxLength: 160 }
+    EntityId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, maxLength: 160 }
+  requestBodies:
+    JsonObject:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: true }
+  schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, pin]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        pin: { type: string, pattern: '^\\d{6}$', writeOnly: true }
+    SyncOperation:
+      type: object
+      required: [table, uuid_sync, operation]
+      properties:
+        table: { type: string }
+        uuid_sync: { type: string, maxLength: 160 }
+        operation: { enum: [insert, update, delete] }
+        data: { type: object, additionalProperties: true }
+    SyncBatch:
+      type: object
+      properties:
+        inserts: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SyncOperation' } }
+        updates: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SyncOperation' } }
+        deletes: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/SyncOperation' } }
+        lastSync: { type: integer, minimum: 0 }
+    ExportRequest:
+      type: object
+      additionalProperties: false
+      required: [documentId, documentType, method, clientId, pdfBase64, idempotencyKey]
+      properties:
+        documentId: { type: string, maxLength: 160 }
+        documentType: { enum: [maintenance, work_order, ticket, efficiency_report, reports] }
+        method: { const: email }
+        clientId: { type: string, maxLength: 160 }
+        pdfBase64: { type: string, contentEncoding: base64, contentMediaType: application/pdf }
+        idempotencyKey: { type: string, format: uuid }
+  responses:
+    Unauthorized:
+      description: Sesión inválida, ausente o revocada
+    Forbidden:
+      description: Rol, cliente u origen no autorizado
+    RateLimited:
+      description: Cuota excedida; incluye Retry-After
+      headers:
+        Retry-After: { schema: { type: integer } }
+    Collection:
+      description: Colección acotada al cliente autorizado
+    Entity:
+      description: Entidad acotada al cliente autorizado
+security:
+  - SessionCookie: []

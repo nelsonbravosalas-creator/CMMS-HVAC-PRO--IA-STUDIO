@@ -84,12 +84,12 @@ export function UserModal({ isOpen, onClose, onSaved, editingUser }: Props) {
       setError("Nombre y correo son obligatorios.");
       return;
     }
-    if (!editingUser && !/^\d{4}$/.test(pin)) {
-      setError("El PIN inicial debe contener exactamente 4 dígitos.");
+    if (!editingUser && !/^\d{6}$/.test(pin)) {
+      setError("El PIN inicial debe contener exactamente 6 dígitos.");
       return;
     }
-    if (pin && !/^\d{4}$/.test(pin)) {
-      setError("El nuevo PIN debe contener exactamente 4 dígitos.");
+    if (pin && !/^\d{6}$/.test(pin)) {
+      setError("El nuevo PIN debe contener exactamente 6 dígitos.");
       return;
     }
     if (selectedRole.requiresClient && clienteIds.length === 0) {
@@ -241,12 +241,12 @@ export function UserModal({ isOpen, onClose, onSaved, editingUser }: Props) {
               </span>
               <input
                 value={pin}
-                onChange={event => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                onChange={event => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
                 type="password"
                 inputMode="numeric"
-                maxLength={4}
+                maxLength={6}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-lg font-black tracking-[0.4em] outline-none"
-                placeholder="••••"
+                placeholder="••••••"
                 required={!editingUser}
               />
             </label>

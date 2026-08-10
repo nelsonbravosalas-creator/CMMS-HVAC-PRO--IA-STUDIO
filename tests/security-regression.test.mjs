@@ -11,8 +11,8 @@ test('Express write and sync endpoints require write authorization', async () =>
   for (const route of writeRoutes) {
     assert.match(route, /requireWriteRole/, route);
   }
-  assert.match(source, /app\.post\('\/api\/sync', requireWriteRole/);
-  assert.match(source, /app\.post\("\/api\/sync\/:table", requireWriteRole/);
+  assert.match(source, /app\.post\('\/api\/sync',[^\n]*requireWriteRole/);
+  assert.match(source, /app\.post\("\/api\/sync\/:table",[^\n]*requireWriteRole/);
 });
 
 test('tenant upserts cannot update a row owned by another tenant', async () => {
@@ -287,4 +287,85 @@ test('dark theme preserves contrast across light-authored modules', async () => 
   assert.match(layout, /localStorage\.getItem\('cmms_theme'\) === 'dark'/);
   assert.match(layout, /localStorage\.setItem\('cmms_theme', nextThemeIsDark \? 'dark' : 'light'\)/);
   assert.match(login, /localStorage\.getItem\('cmms_theme'\) !== 'light'/);
+});
+
+test('production seed cannot activate committed demo credentials', async () => {
+  const [data, seed, qaPlan, productionQa] = await Promise.all([
+    read('scripts/db/parametric-data.ts'),
+    read('scripts/db/parametric-seed.ts'),
+    read('docs/PLAN_QA_INSITU.md'),
+    read('tests/production-functional-qa.mjs')
+  ]);
+  assert.doesNotMatch(data, /\$argon2(?:id)?\$/i);
+  assert.match(seed, /CMMS_ENABLE_DEMO_USERS/);
+  assert.match(seed, /!isHostedEnvironment/);
+  assert.match(seed, /operationalAdmins/);
+  assert.match(seed, /LOWER\(correo\) LIKE '%@cmms\.local'/);
+  assert.doesNotMatch(qaPlan, /`1234`/);
+  assert.doesNotMatch(productionQa, /@cmms\.local/);
+});
+
+test('Vercel deployment applies browser and API hardening headers', async () => {
+  const config = await read('vercel.json');
+  for (const header of [
+    'Content-Security-Policy',
+    'X-Content-Type-Options',
+    'X-Frame-Options',
+    'Referrer-Policy',
+    'Permissions-Policy',
+    'Cross-Origin-Opener-Policy'
+  ]) {
+    assert.match(config, new RegExp(header), `missing ${header}`);
+  }
+  assert.match(config, /\/api\/\(\.\*\)[\s\S]+no-store/);
+  assert.match(config, /\/sw\.js[\s\S]+no-cache, no-store/);
+});
+
+test('serverless sessions are durable, revocable and role changes revoke access', async () => {
+  const [auth, authApi, users, bootstrap] = await Promise.all([
+    read('server/vercel/auth.ts'),
+    read('api/auth.ts'),
+    read('server/vercel/handlers/users.ts'),
+    read('scripts/db/bootstrap.ts')
+  ]);
+  assert.match(bootstrap, /CREATE TABLE IF NOT EXISTS cmms_sessions/);
+  assert.match(auth, /INSERT INTO cmms_sessions/);
+  assert.match(auth, /s\.revoked_at IS NULL/);
+  assert.match(authApi, /UPDATE cmms_sessions SET revoked_at/);
+  assert.match(users, /UPDATE cmms_sessions SET revoked_at/);
+  assert.match(authApi, /Correo o PIN inválido/);
+  assert.doesNotMatch(authApi, /Usuario inactivo/);
+  assert.doesNotMatch(authApi, /error:\s*'PIN inválido'/);
+});
+
+test('expensive APIs enforce durable limits, payload caps, timeouts and idempotency', async () => {
+  const [security, communications, sync, syncClient] = await Promise.all([
+    read('server/vercel/security.ts'),
+    read('api/communications.ts'),
+    read('server/vercel/handlers/sync.ts'),
+    read('src/sync/syncEngine.ts')
+  ]);
+  assert.match(security, /INSERT INTO cmms_rate_limits/);
+  assert.match(communications, /MAX_PDF_BYTES/);
+  assert.match(communications, /Idempotency-Key/);
+  assert.match(communications, /AbortController/);
+  assert.match(sync, /operationCount > 100/);
+  assert.doesNotMatch(sync, /LIMIT 1000/);
+  assert.doesNotMatch(sync, /case 'audit_logs'/);
+  assert.match(syncClient, /\.slice\(0, 100\)/);
+});
+
+test('client build and offline session follow minimum exposure rules', async () => {
+  const [vite, authContext, selector, pwaPrompt] = await Promise.all([
+    read('vite.config.ts'),
+    read('src/context/AuthContext.tsx'),
+    read('src/pages/ClientSelector.tsx'),
+    read('src/components/PwaUpdatePrompt.tsx')
+  ]);
+  assert.doesNotMatch(vite, /process\.env\.(?:GEMINI_API_KEY|GOOGLE_MAPS_PLATFORM_KEY)/);
+  assert.match(authContext, /PERMISOS_POR_PERFIL\.visita/);
+  assert.match(authContext, /db\.delete\(\)/);
+  assert.match(selector, /clearTenantOperationalCache/);
+  assert.match(pwaPrompt, /updateServiceWorker/);
+  assert.match(pwaPrompt, /Actualización disponible/);
 });

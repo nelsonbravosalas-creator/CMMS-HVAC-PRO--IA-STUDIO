@@ -24,6 +24,8 @@ import { networkMonitor } from "./sync/networkMonitor";
 import { logger } from "./lib/logger";
 import { GlobalConfirmDialog } from "./components/GlobalConfirmDialog";
 import { GlobalAlertDialog } from "./components/GlobalAlertDialog";
+import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
+import { db } from "./db/database";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ScannerQR = lazy(() => import("./pages/ScannerQR"));
@@ -103,6 +105,7 @@ function App() {
   const selectsClient = savedUser?.perfil === "supervisor" || savedUser?.perfil === "tecnico";
   const isAdminGlobalView = isAdmin && localStorage.getItem("admin_global_view") === "true";
   const isMissingAssignedClient = !!savedUser && !isAdmin && !selectsClient && !hasClientSelected;
+  const requiresPinChange = localStorage.getItem('requires_pin_change') === 'true';
 
   useEffect(() => {
     // 1. Hidratar datos locales (IndexedDB -> Zustand)
@@ -123,13 +126,20 @@ function App() {
       localStorage.removeItem("active_client");
       localStorage.removeItem("admin_global_view");
       sessionStorage.removeItem("auth_token");
+      localStorage.removeItem("cmms-auth-storage");
+      void db.delete().catch((error) => console.warn('No fue posible purgar IndexedDB tras invalidar la sesión.', error));
+      useAppStore.getState().clearSessionState();
       setIsAuthenticated(false);
       setHasClientSelected(false);
       setLocation("/login");
     };
 
     window.addEventListener("auth-session-invalid", handleInvalidSession);
-    return () => window.removeEventListener("auth-session-invalid", handleInvalidSession);
+    window.addEventListener("auth-session-ended", handleInvalidSession);
+    return () => {
+      window.removeEventListener("auth-session-invalid", handleInvalidSession);
+      window.removeEventListener("auth-session-ended", handleInvalidSession);
+    };
   }, [setLocation]);
 
   // 30-Minute Inactivity Session Disconnection Rule (§1)
@@ -141,12 +151,9 @@ function App() {
 
     const handleLogout = () => {
       logger.info("Session", "Session disconnected due to 30 minutes of inactivity.");
-      localStorage.setItem("is_authenticated", "false");
-      localStorage.removeItem("active_client");
-      localStorage.removeItem("admin_global_view");
-      setIsAuthenticated(false);
-      setHasClientSelected(false);
-      setLocation("/login");
+      void fetch('/api/logout', { method: 'POST' }).finally(() => {
+        window.dispatchEvent(new Event('auth-session-invalid'));
+      });
     };
 
     const resetTimer = () => {
@@ -188,6 +195,11 @@ function App() {
       setLocation("/login");
       return;
     } 
+
+    if (auth && requiresPinChange && location !== '/biometria') {
+      setLocation('/biometria');
+      return;
+    }
     
     // Si acaba de iniciar sesión y hay un tag pendiente
     const pendingTag = localStorage.getItem("pending_tag");
@@ -215,15 +227,18 @@ function App() {
     ) {
       setLocation("/client-selector");
     }
-  }, [location, setLocation, isAdmin, selectsClient, isAdminGlobalView]);
+  }, [location, setLocation, isAdmin, selectsClient, isAdminGlobalView, requiresPinChange]);
 
   return (
     <AuthProvider>
       <GlobalConfirmDialog />
       <GlobalAlertDialog />
+      <PwaUpdatePrompt />
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-slate-500">Cargando módulo…</div>}>
       {!isAuthenticated ? (
         <Login />
+      ) : requiresPinChange ? (
+        <Biometria />
       ) : (isAuthenticated && ((isAdmin && !isAdminGlobalView) || selectsClient) && !hasClientSelected) ? (
         <ClientSelector />
       ) : isMissingAssignedClient ? (

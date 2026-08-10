@@ -3,19 +3,23 @@ import { createServer as createViteServer } from "vite";
 import { neon } from "@neondatabase/serverless";
 import path from "path";
 import jwt from "jsonwebtoken";
+import { randomBytes, randomUUID } from "node:crypto";
 import { createMockSql } from "./src/db/mockDb";
 import { seedParametricData } from "./scripts/db/parametric-seed";
 import { hashPin, needsArgon2Upgrade, verifyPin } from "./server/passwords";
+import communicationsHandler from "./api/communications";
 
 const isProduction = process.env.NODE_ENV === "production" || process.env.npm_lifecycle_event === "start";
 let mockSqlInstance: any = null;
+const ephemeralDevJwtSecret = randomBytes(32).toString('hex');
+const dummyPinHash = hashPin('000000');
 
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
   if (!secret && isProduction) {
     throw new Error("JWT_SECRET is required in production");
   }
-  return secret || "dev_only_jwt_secret_change_me";
+  return secret || ephemeralDevJwtSecret;
 };
 
 const normalizeRole = (role: string | undefined | null) => String(role || "")
@@ -68,7 +72,7 @@ const getTenantFromAuth = (req: any, res: any) => {
 const isSyncWritableTable = (table: string, authUser: any) => {
   if (SYNC_WRITABLE_TABLES.has(table)) return true;
   if (isAdminAuthUser(authUser) && (table === "clientes" || table === "sucursales")) return true;
-  return isAdminAuthUser(authUser) && table === "audit_logs";
+  return false;
 };
 
 const sanitizeSyncRows = (table: string, rows: any[]) => {
@@ -83,7 +87,7 @@ const sanitizeSyncRows = (table: string, rows: any[]) => {
   });
 };
 
-const signAuthToken = (payload: any) => jwt.sign(payload, getJwtSecret(), { expiresIn: "12h" });
+const signAuthToken = (payload: any) => jwt.sign(payload, getJwtSecret(), { expiresIn: "8h" });
 
 const getCookie = (req: any, name: string) => {
   const cookies = String(req.headers?.cookie || "").split(";");
@@ -96,7 +100,7 @@ const getCookie = (req: any, name: string) => {
 
 const setAuthCookie = (res: any, token: string) => {
   const secure = isProduction ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `cmms_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200${secure}`);
+  res.setHeader("Set-Cookie", `cmms_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure}`);
 };
 
 const clearAuthCookie = (res: any) => {
@@ -120,38 +124,70 @@ const verifyAuthToken = (req: any) => {
   }
 };
 
-const requireAuth = (req: any, res: any, next: any) => {
-  const user = verifyAuthToken(req);
-  if (!user) {
-    return res.status(401).json({ success: false, error: "No autorizado - token inválido o ausente" });
-  }
-  req.authUser = user;
-  next();
+const validateAuthSession = async (req: any) => {
+  const tokenUser = verifyAuthToken(req);
+  if (!tokenUser?.jti) return null;
+  if (!hasPostgresDatabase()) return tokenUser;
+  const sql = getSql();
+  const now = Date.now();
+  const sessions = await sql`
+    SELECT 1 FROM cmms_sessions
+    WHERE jti = ${tokenUser.jti}
+      AND user_id = ${tokenUser.uuid_sync || tokenUser.id}
+      AND revoked_at IS NULL
+      AND expires_at > ${now}
+    LIMIT 1
+  `;
+  if (!sessions[0]) return null;
+  const users = await sql`
+    SELECT uuid_sync, id, perfil, cliente_id, activo FROM users
+    WHERE uuid_sync = ${tokenUser.uuid_sync || tokenUser.id}
+      AND activo = true AND deleted_at IS NULL
+    LIMIT 1
+  `;
+  if (!users[0]) return null;
+  const relations = await sql`SELECT cliente_id FROM user_clientes WHERE user_id = ${users[0].uuid_sync}`;
+  return { ...tokenUser, ...users[0], cliente_ids: relations.map((item: any) => item.cliente_id) };
 };
 
-const requireRole = (allowedRoles: string[]) => (req: any, res: any, next: any) => {
-  const user = verifyAuthToken(req);
-  if (!user) {
-    return res.status(401).json({ success: false, error: "No autorizado - token inválido o ausente" });
+const requireAuth = async (req: any, res: any, next: any) => {
+  try {
+    const user = await validateAuthSession(req);
+    if (!user) return res.status(401).json({ success: false, error: "No autorizado - sesión inválida o revocada" });
+    req.authUser = user;
+    next();
+  } catch {
+    return res.status(503).json({ success: false, error: "No fue posible validar la sesión" });
   }
-  const allowed = allowedRoles.map(canonicalRole);
-  if (!allowed.includes(canonicalRole(user.perfil))) {
-    return res.status(403).json({ success: false, error: "No autorizado - rol insuficiente" });
-  }
-  req.authUser = user;
-  next();
 };
 
-const requireWriteRole = (req: any, res: any, next: any) => {
-  const user = verifyAuthToken(req);
-  if (!user) {
-    return res.status(401).json({ success: false, error: "No autorizado - token inválido o ausente" });
+const requireRole = (allowedRoles: string[]) => async (req: any, res: any, next: any) => {
+  try {
+    const user = await validateAuthSession(req);
+    if (!user) return res.status(401).json({ success: false, error: "No autorizado - sesión inválida o revocada" });
+    const allowed = allowedRoles.map(canonicalRole);
+    if (!allowed.includes(canonicalRole(user.perfil))) {
+      return res.status(403).json({ success: false, error: "No autorizado - rol insuficiente" });
+    }
+    req.authUser = user;
+    next();
+  } catch {
+    return res.status(503).json({ success: false, error: "No fue posible validar la sesión" });
   }
-  if (!["administrador", "supervisor", "tecnico"].includes(canonicalRole(user.perfil))) {
-    return res.status(403).json({ success: false, error: "No autorizado - rol insuficiente" });
+};
+
+const requireWriteRole = async (req: any, res: any, next: any) => {
+  try {
+    const user = await validateAuthSession(req);
+    if (!user) return res.status(401).json({ success: false, error: "No autorizado - sesión inválida o revocada" });
+    if (!["administrador", "supervisor", "tecnico"].includes(canonicalRole(user.perfil))) {
+      return res.status(403).json({ success: false, error: "No autorizado - rol insuficiente" });
+    }
+    req.authUser = user;
+    next();
+  } catch {
+    return res.status(503).json({ success: false, error: "No fue posible validar la sesión" });
   }
-  req.authUser = user;
-  next();
 };
 
 const publicError = (error: unknown, fallback = "Error interno del servidor") =>
@@ -435,6 +471,16 @@ async function ensureTables() {
       PRIMARY KEY (key, user_id)
     )`;
 
+    await sql`CREATE TABLE IF NOT EXISTS cmms_sessions (
+      jti TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at BIGINT NOT NULL,
+      expires_at BIGINT NOT NULL,
+      revoked_at BIGINT,
+      last_seen_at BIGINT,
+      ip_hash TEXT
+    )`;
+
     await sql`CREATE TABLE IF NOT EXISTS clientes (
       id TEXT PRIMARY KEY,
       uuid_sync TEXT UNIQUE,
@@ -683,6 +729,9 @@ async function startServer() {
       if (!correo || !pin) {
         return res.status(400).json({ success: false, error: "Correo y PIN requeridos" });
       }
+      if (!/^\d{6}$/.test(pin)) {
+        return res.status(401).json({ success: false, error: "Correo o PIN inválido" });
+      }
 
       const sql = getSql();
       const correoLower = correo.toLowerCase();
@@ -710,23 +759,14 @@ async function startServer() {
 
       // En la tabla users: correo podria estar en la columna 'correo' O en 'data->>'email'' O en la columna 'data' (JSONB) dependiendo de la migracion
       const _users = await sql`SELECT * FROM users WHERE LOWER(correo) = ${correoLower} OR LOWER(data->>'email') = ${correoLower}`;
-      if (_users.length === 0) {
-        await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${correoLower}, ${ip}, NOW())`;
-        console.warn({ event: "auth_failure", email: correoLower, ip });
-        return res.status(401).json({ success: false, error: "Credenciales inválidas" });
-      }
-
       const user = _users[0];
-      if (user.activo === false) {
-        return res.status(401).json({ success: false, error: "Usuario inactivo" });
-      }
-      const storedPin = user.pin_hash || user.pin || (user.data && user.data.pin);
+      const storedPin = user?.pin_hash || user?.pin || (user?.data && user.data.pin) || await dummyPinHash;
       const isMatch = await verifyPin(storedPin, pin);
 
-      if (!isMatch) {
+      if (!user || user.activo === false || !isMatch) {
         await sql`INSERT INTO cmms_auth_failures (email, ip, attempted_at) VALUES (${correoLower}, ${ip}, NOW())`;
         console.warn({ event: "auth_failure", email: correoLower, ip });
-        return res.status(401).json({ success: false, error: "Credenciales inválidas" });
+        return res.status(401).json({ success: false, error: "Correo o PIN inválido" });
       }
 
       // Successful login reset failures and delete older than 24h as maintenance
@@ -777,13 +817,22 @@ async function startServer() {
         }
       }
       const defaultClientId = returnUser.cliente_id || clienteIds[0] || null;
+      const jti = randomUUID();
+      const now = Date.now();
       const token = signAuthToken({
         id: returnUser.id,
         uuid_sync: user.uuid_sync,
         perfil: returnUser.perfil,
         cliente_id: defaultClientId,
-        cliente_ids: clienteIds
+        cliente_ids: clienteIds,
+        jti
       });
+      if (hasPostgresDatabase()) {
+        await sql`
+          INSERT INTO cmms_sessions (jti, user_id, created_at, expires_at, revoked_at, last_seen_at)
+          VALUES (${jti}, ${user.uuid_sync}, ${now}, ${now + 8 * 60 * 60 * 1000}, NULL, ${now})
+        `;
+      }
       setAuthCookie(res, token);
       res.json({
         success: true,
@@ -800,7 +849,12 @@ async function startServer() {
     }
   });
 
-  app.post("/api/logout", (_req, res) => {
+  app.post("/api/logout", async (req, res) => {
+    const tokenUser = verifyAuthToken(req);
+    if (tokenUser?.jti && hasPostgresDatabase()) {
+      const sql = getSql();
+      await sql`UPDATE cmms_sessions SET revoked_at = ${Date.now()} WHERE jti = ${tokenUser.jti}`;
+    }
     clearAuthCookie(res);
     return res.json({ success: true });
   });
@@ -809,8 +863,8 @@ async function startServer() {
     try {
       const currentPin = String(req.body.currentPin || '').trim();
       const newPin = String(req.body.newPin || '').trim();
-      if (!currentPin || newPin.length < 4) {
-        return res.status(400).json({ success: false, error: "PIN actual y nuevo PIN válido son requeridos" });
+      if (!currentPin || !/^\d{6}$/.test(newPin) || currentPin === newPin) {
+        return res.status(400).json({ success: false, error: "El nuevo PIN debe tener 6 dígitos y ser distinto del actual" });
       }
       const sql = getSql();
       const rows = await sql`
@@ -825,7 +879,11 @@ async function startServer() {
       }
       const nextHash = await hashPin(newPin);
       await sql`UPDATE users SET pin_hash = ${nextHash}, pin = NULL, updated_at = ${Date.now()} WHERE uuid_sync = ${rows[0].uuid_sync}`;
-      return res.json({ success: true });
+      if (hasPostgresDatabase()) {
+        await sql`UPDATE cmms_sessions SET revoked_at = ${Date.now()} WHERE user_id = ${rows[0].uuid_sync} AND revoked_at IS NULL`;
+      }
+      clearAuthCookie(res);
+      return res.json({ success: true, reauthenticationRequired: true });
     } catch (error: any) {
       return res.status(500).json({ success: false, error: publicError(error) });
     }
@@ -875,11 +933,23 @@ async function startServer() {
       if (!nombre || !correo) {
         return res.status(400).json({ success: false, error: "Nombre y correo son obligatorios" });
       }
-      if (d.pin && !/^\d{4}$/.test(String(d.pin))) {
-        return res.status(400).json({ success: false, error: "El PIN debe contener exactamente 4 dígitos" });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) || correo.length > 254) {
+        return res.status(400).json({ success: false, error: "El correo no es válido" });
+      }
+      if (isProduction && correo.endsWith('@cmms.local')) {
+        return res.status(400).json({ success: false, error: "Las cuentas @cmms.local no están permitidas en producción" });
+      }
+      if (d.pin && !/^\d{6}$/.test(String(d.pin))) {
+        return res.status(400).json({ success: false, error: "El PIN debe contener exactamente 6 dígitos" });
       }
 
       const sql = getSql();
+      const existingCredentialRows = await sql`
+        SELECT 1 FROM users WHERE id = ${d.id || ''} OR uuid_sync = ${d.uuid_sync || ''} LIMIT 1
+      `;
+      if (existingCredentialRows.length === 0 && !d.pin) {
+        return res.status(400).json({ success: false, error: "El PIN inicial de 6 dígitos es obligatorio" });
+      }
       let clienteId: string | null = null;
       let clienteIds: string[] = [];
       if (!globalRoles.has(perfil)) {
@@ -953,6 +1023,9 @@ async function startServer() {
           ON CONFLICT (user_id, cliente_id) DO NOTHING
         `;
       }
+      if (hasPostgresDatabase() && existingCredentialRows.length > 0) {
+        await sql`UPDATE cmms_sessions SET revoked_at = ${now} WHERE user_id = ${storedUuid} AND revoked_at IS NULL`;
+      }
       return res.json({
         success: true,
         data: {
@@ -1025,10 +1098,13 @@ async function startServer() {
         text: prompt,
       };
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20_000);
       const result = await client.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: { parts: [imagePart, textPart] },
-      });
+        config: { abortSignal: controller.signal }
+      }).finally(() => clearTimeout(timeout));
 
       const text = result.text || "";
       const jsonMatch = text.match(/\{[\s\S]*?\}/);
@@ -1046,7 +1122,7 @@ async function startServer() {
   const ALLOWED_TABLES = [
     'assets', 'users', 'preventive_maintenance', 'work_orders', 
     'reports', 'events', 
-    'catalog_asset_types', 'settings', 'ordenes_servicio', 'audit_logs', 'inventory', 'calendar', 'clientes', 'sucursales'
+    'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'calendar', 'clientes', 'sucursales'
   ];
 
 const TABLE_ALIAS_MAP: Record<string, string> = {
@@ -1069,7 +1145,7 @@ function resolveTable(name: string): string | null {
   return TABLE_ALIAS_MAP[name] || null;
 }
 
-  app.get(["/api/:table", "/api/sync/:table"], requireAuth, async (req, res) => {
+  app.get(["/api/:table", "/api/sync/:table"], rateLimit("sync-pull", 120, 15 * 60 * 1000), requireAuth, async (req, res) => {
     const rawTable = req.params.table;
     const table = resolveTable(rawTable);
     
@@ -1100,40 +1176,39 @@ function resolveTable(name: string): string | null {
               : await sql`SELECT * FROM assets WHERE tag = ${tag} AND cliente_id = ${clienteId} AND deleted_at IS NULL`;
           } else {
             rows = globalScope
-              ? await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
-              : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`;
+              ? await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`
+              : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`;
           }
           break;
         }
         case 'users': {
           const rawUsers = globalScope
-            ? await sql`SELECT * FROM users WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
-            : await sql`SELECT DISTINCT u.* FROM users u JOIN user_clientes uc ON uc.user_id = u.uuid_sync WHERE uc.cliente_id = ${clienteId} AND (u.updated_at > ${since} OR u.updated_at IS NULL) ORDER BY u.updated_at ASC LIMIT 1000`;
+            ? await sql`SELECT * FROM users WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`
+            : await sql`SELECT DISTINCT u.* FROM users u JOIN user_clientes uc ON uc.user_id = u.uuid_sync WHERE uc.cliente_id = ${clienteId} AND (u.updated_at > ${since} OR u.updated_at IS NULL) ORDER BY u.updated_at ASC LIMIT 200`;
           rows = sanitizeSyncRows('users', rawUsers);
           break;
         }
-        case 'preventive_maintenance': rows = globalScope ? await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'work_orders': rows = globalScope ? await sql`SELECT * FROM work_orders WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM work_orders WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'reports': rows = globalScope ? await sql`SELECT * FROM reports WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM reports WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'events': rows = globalScope ? await sql`SELECT * FROM events WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM events WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
+        case 'preventive_maintenance': rows = globalScope ? await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+        case 'work_orders': rows = globalScope ? await sql`SELECT * FROM work_orders WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM work_orders WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+        case 'reports': rows = globalScope ? await sql`SELECT * FROM reports WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM reports WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+        case 'events': rows = globalScope ? await sql`SELECT * FROM events WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM events WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
         case 'clientes':
         case 'clients':
           rows = isAdminAuthUser((req as any).authUser)
-            ? await sql`SELECT * FROM clientes WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
-            : await sql`SELECT * FROM clientes WHERE (id = ${clienteId} OR id = 'cliente-default-001' OR uuid_sync = ${clienteId}) AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`;
+            ? await sql`SELECT * FROM clientes WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`
+            : await sql`SELECT * FROM clientes WHERE (id = ${clienteId} OR id = 'cliente-default-001' OR uuid_sync = ${clienteId}) AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`;
           break;
         case 'sucursales':
         case 'branches':
           rows = isAdminAuthUser((req as any).authUser)
-            ? await sql`SELECT * FROM sucursales WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`
-            : await sql`SELECT * FROM sucursales WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`;
+            ? await sql`SELECT * FROM sucursales WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`
+            : await sql`SELECT * FROM sucursales WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`;
           break;
-        case 'catalog_asset_types': rows = globalScope ? await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM catalog_asset_types WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'settings': rows = globalScope ? await sql`SELECT * FROM settings WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM settings WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'ordenes_servicio': rows = globalScope ? await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM ordenes_servicio WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'inventory': rows = globalScope ? await sql`SELECT * FROM inventory WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000` : await sql`SELECT * FROM inventory WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'calendar': rows = await sql`SELECT * FROM calendar WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 1000`; break;
-        case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (timestamp > ${since}) ORDER BY timestamp ASC LIMIT 1000`; break;
+        case 'catalog_asset_types': rows = globalScope ? await sql`SELECT * FROM catalog_asset_types WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM catalog_asset_types WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+        case 'settings': rows = globalScope ? await sql`SELECT * FROM settings WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM settings WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+        case 'ordenes_servicio': rows = globalScope ? await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM ordenes_servicio WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+        case 'inventory': rows = globalScope ? await sql`SELECT * FROM inventory WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM inventory WHERE cliente_id = ${clienteId} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
+        case 'calendar': rows = await sql`SELECT * FROM calendar WHERE (cliente_id = ${clienteId} OR cliente_id = 'cliente-default-001') AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
         default: rows = [];
       }
       res.json({ success: true, data: rows });
@@ -1821,7 +1896,7 @@ function resolveTable(name: string): string | null {
   });
 
   // 7. AUDITORÍA (AUDIT-LOGS POR TENANT)
-  app.get("/api/v1/:cliente_id/audit-logs", requireCliente, async (req: any, res: any) => {
+  app.get("/api/v1/:cliente_id/audit-logs", requireRole(["administrador"]), requireCliente, async (req: any, res: any) => {
     try {
       const sql = getSql();
       const rows = await sql`
@@ -1835,23 +1910,11 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/v1/:cliente_id/audit-logs", requireCliente, requireWriteRole, async (req: any, res: any) => {
-    try {
-      const sql = getSql();
-      const d = req.body;
-      const id = d.id || `log-${Date.now()}`;
-      const payloadStr = JSON.stringify(d.payload || d);
-      const timestamp = d.timestamp || Date.now();
-
-      await sql`
-        INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp, cliente_id)
-        VALUES (${id}, ${d.action || 'view'}, ${d.entity_type || 'system'}, ${d.entity_id || 'system'}, ${d.user_id || 'system'}, ${payloadStr}::jsonb, ${timestamp}, ${req.clienteId})
-        ON CONFLICT (id) DO NOTHING
-      `;
-      res.status(201).json({ success: true, id });
-    } catch (error: any) {
-      res.status(400).json({ success: false, error: publicError(error) });
-    }
+  app.post("/api/v1/:cliente_id/audit-logs", requireRole(["administrador"]), requireWriteRole, (_req: any, res: any) => {
+    return res.status(410).json({
+      success: false,
+      error: "La auditoría se genera exclusivamente en el servidor"
+    });
   });
 
   // --- SOPORTE ADICIONAL GENÉRICO COMPATIBILIDAD V1 RETRO-ESPECÍFICA ---
@@ -1872,8 +1935,7 @@ function resolveTable(name: string): string | null {
     assets: "assets",
     inventory: "inventory",
     planning: "preventive_maintenance",
-    "work-orders": "work_orders",
-    "audit-logs": "audit_logs"
+    "work-orders": "work_orders"
   };
 
   app.post("/api/v1/:cliente_id/:resource", requireCliente, requireWriteRole, async (req: any, res: any) => {
@@ -2133,8 +2195,17 @@ function resolveTable(name: string): string | null {
   });
 
   // NEW GLOBAL SYNC ENDPOINT
-  app.post('/api/sync', requireWriteRole, async (req, res) => {
-    const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body;
+  app.post('/api/sync', rateLimit("sync-push", 60, 60 * 60 * 1000), requireWriteRole, async (req, res) => {
+    if (Number(req.headers['content-length'] || 0) > 1024 * 1024) {
+      return res.status(413).json({ success: false, error: "La solicitud excede 1 MiB", code: "PAYLOAD_TOO_LARGE" });
+    }
+    const { inserts = [], updates = [], deletes = [], lastSync = 0 } = req.body || {};
+    if (![inserts, updates, deletes].every(Array.isArray)) {
+      return res.status(400).json({ success: false, error: "Los lotes de sincronización deben ser arreglos" });
+    }
+    if (inserts.length + updates.length + deletes.length > 100) {
+      return res.status(413).json({ success: false, error: "El lote excede el máximo de 100 operaciones", code: "SYNC_BATCH_TOO_LARGE" });
+    }
     try {
       const sql = getSql();
       const results: any = { inserts: [], updates: [], deletes: [] };
@@ -2238,13 +2309,6 @@ function resolveTable(name: string): string | null {
                 await sql`INSERT INTO sucursales (id, cliente_id, uuid_sync, data, updated_at, created_at) VALUES (${id}, ${branchClienteId}, ${uuid_sync}, ${strData}, ${updated_at}, ${updated_at}) ON CONFLICT (id) DO UPDATE SET cliente_id = EXCLUDED.cliente_id, uuid_sync = EXCLUDED.uuid_sync, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at WHERE sucursales.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > sucursales.updated_at OR sucursales.updated_at IS NULL)`;
                 break;
               }
-              case 'audit_logs':
-                await sql`
-                  INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, payload, timestamp, cliente_id) 
-                  VALUES (${id}, ${data.action}, ${data.entity_type}, ${data.entity_id}, ${data.user_id}, ${strData}, ${data.timestamp}, ${clienteIdSync}) 
-                  ON CONFLICT (id) DO NOTHING
-                `;
-                break;
             }
           }
         } catch (err: any) {
@@ -2416,7 +2480,6 @@ function resolveTable(name: string): string | null {
               case 'ordenes_servicio': rows = globalSyncScope ? await sql`SELECT * FROM ordenes_servicio WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200` : await sql`SELECT * FROM ordenes_servicio WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
               case 'inventory': rows = globalSyncScope ? await sql`SELECT * FROM inventory WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200` : await sql`SELECT * FROM inventory WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
               case 'calendar': rows = globalSyncScope ? await sql`SELECT * FROM calendar WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200` : await sql`SELECT * FROM calendar WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
-              case 'audit_logs': rows = await sql`SELECT * FROM audit_logs WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (timestamp > ${lastSync}) LIMIT 200`; break;
             }
             if (rows && rows.length > 0) {
               serverChanges[table] = sanitizeSyncRows(table, rows);
@@ -2434,7 +2497,7 @@ function resolveTable(name: string): string | null {
     }
   });
 
-  app.post("/api/sync/:table", requireWriteRole, async (req, res) => {
+  app.post("/api/sync/:table", rateLimit("sync-table", 60, 60 * 60 * 1000), requireWriteRole, async (req, res) => {
     const rawTable = req.params.table;
     const table = resolveTable(rawTable);
     const { records, operation } = req.body;
@@ -2607,63 +2670,9 @@ function resolveTable(name: string): string | null {
     res.status(501).json({ error: "Use /api/sync/:table for write operations" });
   });
 
-  app.post("/api/export", requireAuth, async (req, res) => {
-    try {
-      const { documentId, documentType, method, base64Pdf } = req.body;
-      if (!documentId || !method) {
-        return res.status(400).json({ error: "Missing documentId or method" });
-      }
-      const tenantId = getTenantFromAuth(req, res);
-      if (!tenantId) return;
-
-      if (method === 'email') {
-         // Query client info to send email
-         const sql = getSql();
-         let clientId = null;
-         
-         if (documentType === 'reports') {
-            const result = await sql`SELECT data FROM reports WHERE (id = ${documentId} OR uuid_sync = ${documentId}) AND cliente_id = ${tenantId}`;
-            if (result.length > 0) clientId = result[0].data?.cliente_id;
-         } else if (documentType === 'work_orders') {
-            const result = await sql`SELECT data FROM work_orders WHERE (id = ${documentId} OR uuid_sync = ${documentId}) AND cliente_id = ${tenantId}`;
-            if (result.length > 0) clientId = result[0].data?.cliente_id;
-         } else if (documentType === 'ordenes_servicio') {
-            const result = await sql`SELECT data FROM ordenes_servicio WHERE (id = ${documentId} OR uuid_sync = ${documentId}) AND cliente_id = ${tenantId}`;
-            if (result.length > 0) clientId = result[0].data?.cliente_id;
-         } else if (documentType === 'preventive_maintenance') {
-            // preventive maintenance does not strictly store client_id top level usually, but maybe in data
-            const result = await sql`SELECT data FROM preventive_maintenance WHERE (id = ${documentId} OR uuid_sync = ${documentId}) AND cliente_id = ${tenantId}`;
-            // fetch implicitly from asset if possible, but let's just attempt 
-            if (result.length > 0) clientId = result[0].data?.cliente_id;
-         }
-
-         let email = null;
-         if (clientId) {
-            const cliRes = await sql`SELECT data FROM clientes WHERE (id = ${clientId} OR uuid_sync = ${clientId}) AND (id = ${tenantId} OR uuid_sync = ${tenantId})`;
-            if (cliRes.length > 0) {
-               email = cliRes[0].data?.email || cliRes[0].data?.contacto_email;
-            }
-         }
-
-         // Simulate email sending since we don't have a real SMTP set up in code.
-         console.log(`[EXPORT] Sending email to ${email || 'unknown'} for document ${documentId}`);
-         
-         return res.json({ 
-           success: true, 
-           message: `Documento enviado por email exitosamente a ${email || 'contacto no encontrado'}`,
-           emailSentTo: email
-         });
-      } else if (method === 'whatsapp' || method === 'share') {
-         // Return a link or generic success for share
-         console.log(`[EXPORT] Preparing ${method} payload for document ${documentId}`);
-         return res.json({ success: true, message: `Payload preparado para ${method}` });
-      }
-
-      res.status(400).json({ error: "Unsupported method" });
-    } catch (error: any) {
-      console.error("[EXPORT ERROR]", error);
-      res.status(500).json({ success: false, error: publicError(error) });
-    }
+  app.post("/api/export", async (req, res) => {
+    req.query = { ...req.query, handler: 'export' };
+    return communicationsHandler(req, res);
   });
 
   app.get("/api/health/db", requireRole(["administrador"]), async (req, res) => {

@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-cmms_hvac}
       POSTGRES_USER: ${POSTGRES_USER:-cmms}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cmms_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -19,12 +19,13 @@ services:
     build: .
     environment:
       NODE_ENV: production
-      ALLOW_MOCK_DB: "true"
-      DATABASE_URL: ${DATABASE_URL:-}
-      JWT_SECRET: ${JWT_SECRET:-local_dev_jwt_secret_change_me}
+      ALLOW_MOCK_DB: "false"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      DEV_MOCK_ADMIN_EMAIL: ${DEV_MOCK_ADMIN_EMAIL:-admin@local.test}
-      DEV_MOCK_ADMIN_PIN: ${DEV_MOCK_ADMIN_PIN:-1234}
+      SECURITY_HASH_PEPPER: ${SECURITY_HASH_PEPPER:?SECURITY_HASH_PEPPER is required}
+      CMMS_BOOTSTRAP_ADMIN_EMAIL: ${CMMS_BOOTSTRAP_ADMIN_EMAIL:-}
+      CMMS_BOOTSTRAP_ADMIN_PIN: ${CMMS_BOOTSTRAP_ADMIN_PIN:-}
     ports:
       - "${APP_PORT:-3001}:3000"
     command: sh -c "mkdir -p src/db && node dist/server.cjs"
