@@ -201,8 +201,10 @@ function App() {
       return;
     } 
 
-    if (auth && requiresPinChange && currentPath !== '/biometria') {
-      window.location.replace('/biometria');
+    if (auth && requiresPinChange) {
+      if (currentPath !== '/biometria') {
+        window.location.replace('/biometria');
+      }
       return;
     }
     
