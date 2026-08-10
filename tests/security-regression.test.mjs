@@ -369,3 +369,10 @@ test('client build and offline session follow minimum exposure rules', async () 
   assert.match(pwaPrompt, /updateServiceWorker/);
   assert.match(pwaPrompt, /Actualización disponible/);
 });
+
+test('forced PIN routing cannot trigger an unconditional React state loop', async () => {
+  const app = await read('src/App.tsx');
+  assert.match(app, /if \(auth !== isAuthenticated\) setIsAuthenticated\(auth\)/);
+  assert.match(app, /if \(client !== hasClientSelected\) setHasClientSelected\(client\)/);
+  assert.doesNotMatch(app, /\n\s*setIsAuthenticated\(auth\);\n\s*setHasClientSelected\(client\);/);
+});

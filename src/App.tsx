@@ -181,8 +181,11 @@ function App() {
   useEffect(() => {
     const auth = localStorage.getItem("is_authenticated") === "true" && !!sessionStorage.getItem("auth_token");
     const client = !!localStorage.getItem("active_client");
-    setIsAuthenticated(auth);
-    setHasClientSelected(client);
+    // Wouter puede entregar una nueva referencia de navegación después de un
+    // cambio de ruta. Evitar setters incondicionales aquí impide ciclos de
+    // render durante el redireccionamiento obligatorio de PIN.
+    if (auth !== isAuthenticated) setIsAuthenticated(auth);
+    if (client !== hasClientSelected) setHasClientSelected(client);
 
     // Compatibilidad temporal con códigos QR legados que usan ?tag=...
     const params = new URLSearchParams(window.location.search);
@@ -227,7 +230,7 @@ function App() {
     ) {
       setLocation("/client-selector");
     }
-  }, [location, setLocation, isAdmin, selectsClient, isAdminGlobalView, requiresPinChange]);
+  }, [location, setLocation, isAuthenticated, hasClientSelected, isAdmin, selectsClient, isAdminGlobalView, requiresPinChange]);
 
   return (
     <AuthProvider>
