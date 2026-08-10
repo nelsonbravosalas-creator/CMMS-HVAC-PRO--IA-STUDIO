@@ -111,12 +111,16 @@ function App() {
     // 1. Hidratar datos locales (IndexedDB -> Zustand)
     useAppStore.getState().hydrate();
     
-    // 2. Iniciar motor de sincronización
-    syncEngine.init();
+    // 2. No sincronizar datos operacionales hasta completar el cambio de PIN.
+    // El servidor también lo bloquea, pero evitar la llamada elimina ruido y
+    // reduce exposición durante el alta inicial.
+    if (!requiresPinChange) {
+      syncEngine.init();
+    }
 
     // 3. Monitor de red se inicia dentro de syncEngine.init() o manualmente si se prefiere
     // networkMonitor.init(); // networkMonitor.init() ya es llamado por syncEngine.init()
-  }, []);
+  }, [requiresPinChange]);
 
   useEffect(() => {
     const handleInvalidSession = () => {

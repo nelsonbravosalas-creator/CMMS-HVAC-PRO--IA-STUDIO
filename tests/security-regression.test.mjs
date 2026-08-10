@@ -375,6 +375,7 @@ test('forced PIN routing cannot trigger an unconditional React state loop', asyn
   assert.match(app, /if \(auth !== isAuthenticated\) setIsAuthenticated\(auth\)/);
   assert.match(app, /if \(client !== hasClientSelected\) setHasClientSelected\(client\)/);
   assert.match(app, /if \(auth && requiresPinChange\) \{[\s\S]*window\.location\.replace\('\/biometria'\);[\s\S]*return;/);
+  assert.match(app, /if \(!requiresPinChange\) \{\s*syncEngine\.init\(\)/);
   assert.doesNotMatch(app, /\n\s*setIsAuthenticated\(auth\);\n\s*setHasClientSelected\(client\);/);
   assert.doesNotMatch(app, /setLocation\('\/biometria'\)/);
 });
