@@ -92,7 +92,7 @@ function App() {
   const [hasClientSelected, setHasClientSelected] = useState<boolean>(() => (
     !!localStorage.getItem("active_client")
   ));
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const clients = useAppStore(state => state.clients);
   const savedUser = (() => {
     try {
@@ -131,7 +131,7 @@ function App() {
       useAppStore.getState().clearSessionState();
       setIsAuthenticated(false);
       setHasClientSelected(false);
-      setLocation("/login");
+      window.location.replace("/login");
     };
 
     window.addEventListener("auth-session-invalid", handleInvalidSession);
@@ -140,7 +140,7 @@ function App() {
       window.removeEventListener("auth-session-invalid", handleInvalidSession);
       window.removeEventListener("auth-session-ended", handleInvalidSession);
     };
-  }, [setLocation]);
+  }, []);
 
   // 30-Minute Inactivity Session Disconnection Rule (§1)
   useEffect(() => {
@@ -176,7 +176,7 @@ function App() {
         window.removeEventListener(event, resetTimer);
       });
     };
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const auth = localStorage.getItem("is_authenticated") === "true" && !!sessionStorage.getItem("auth_token");
@@ -192,15 +192,17 @@ function App() {
     const tagParam = params.get("tag");
 
     // Initial routing logic
-    if (!auth && location !== "/login") {
+    const currentPath = window.location.pathname;
+
+    if (!auth && currentPath !== "/login") {
       // Store the pending tag scan if any, to redirect after login
       if (tagParam) localStorage.setItem("pending_tag", tagParam);
-      setLocation("/login");
+      window.location.replace("/login");
       return;
     } 
 
-    if (auth && requiresPinChange && location !== '/biometria') {
-      setLocation('/biometria');
+    if (auth && requiresPinChange && currentPath !== '/biometria') {
+      window.location.replace('/biometria');
       return;
     }
     
@@ -216,8 +218,8 @@ function App() {
       }
       
       // Redirigir a Ficha de Equipo
-      if (location !== `/equipos/${tagToRedirect}`) {
-        setLocation(`/equipos/${tagToRedirect}`);
+      if (currentPath !== `/equipos/${tagToRedirect}`) {
+        window.location.replace(`/equipos/${tagToRedirect}`);
       }
       return;
     }
@@ -226,11 +228,11 @@ function App() {
       auth
       && ((isAdmin && !isAdminGlobalView) || selectsClient)
       && !client
-      && location !== "/client-selector"
+      && currentPath !== "/client-selector"
     ) {
-      setLocation("/client-selector");
+      window.location.replace("/client-selector");
     }
-  }, [location, setLocation, isAuthenticated, hasClientSelected, isAdmin, selectsClient, isAdminGlobalView, requiresPinChange]);
+  }, [location, isAuthenticated, hasClientSelected, isAdmin, selectsClient, isAdminGlobalView, requiresPinChange]);
 
   return (
     <AuthProvider>
