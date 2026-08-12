@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Building2 } from 'lucide-react';
+import { X, Plus, Trash2, Building2, Upload } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
 import { REGIONES_CHILE } from '../../data/regions';
 import { db, LocalCliente, LocalSucursal } from '../../db/database';
@@ -75,6 +75,58 @@ const isValidRut = (value: string) => {
   return dv === expectedDv;
 };
 
+const ACCEPTED_LOGO_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const MAX_LOGO_SOURCE_BYTES = 2 * 1024 * 1024;
+const MAX_LOGO_DATA_URL_LENGTH = 320 * 1024;
+
+const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('No fue posible leer la imagen.'));
+  reader.readAsDataURL(file);
+});
+
+const optimizeClientLogo = async (file: File) => {
+  if (!ACCEPTED_LOGO_TYPES.has(file.type)) {
+    throw new Error('Use una imagen PNG, JPG o WEBP.');
+  }
+  if (file.size > MAX_LOGO_SOURCE_BYTES) {
+    throw new Error('El logo original no debe superar 2 MB.');
+  }
+
+  const original = await fileToDataUrl(file);
+  if (original.length <= MAX_LOGO_DATA_URL_LENGTH) {
+    return { dataUrl: original, mime: file.type as 'image/png' | 'image/jpeg' | 'image/webp' };
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error('La imagen seleccionada no es válida.'));
+      element.src = objectUrl;
+    });
+    const scale = Math.min(1, 800 / image.naturalWidth, 400 / image.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('El navegador no pudo procesar el logo.');
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    for (const quality of [0.88, 0.76, 0.64, 0.52]) {
+      const optimized = canvas.toDataURL('image/webp', quality);
+      if (optimized.startsWith('data:image/webp') && optimized.length <= MAX_LOGO_DATA_URL_LENGTH) {
+        return { dataUrl: optimized, mime: 'image/webp' as const };
+      }
+    }
+    throw new Error('El logo sigue siendo demasiado pesado después de optimizarlo.');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps) {
   const { user } = useAuth();
   const isAdmin = user?.perfil === 'administrador';
@@ -88,6 +140,11 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
   const [contactoEmail, setContactoEmail] = useState('');
   const [telefono, setTelefono] = useState('');
   const [activo, setActivo] = useState(true);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [logoMime, setLogoMime] = useState<'image/png' | 'image/jpeg' | 'image/webp' | undefined>();
+  const [logoNombre, setLogoNombre] = useState('');
+  const [logoError, setLogoError] = useState('');
+  const [isProcessingLogo, setIsProcessingLogo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [sinSucursales, setSinSucursales] = useState(false);
 
@@ -119,6 +176,10 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoEmail(editingClient.client.contacto_correo || editingClient.client.email || '');
       setTelefono(editingClient.client.telefono || '');
       setActivo(editingClient.client.activo !== false);
+      setLogoBase64(editingClient.client.logo_base64 || null);
+      setLogoMime(editingClient.client.logo_mime);
+      setLogoNombre(editingClient.client.logo_nombre || '');
+      setLogoError('');
 
       let loadedSubs: SubLocation[] = editingClient.branches.map(b => {
         const hasContact = !!(b.contacto_nombre || b.contacto_correo || b.contacto_cargo);
@@ -165,12 +226,34 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
       setContactoEmail('');
       setTelefono('');
       setActivo(true);
+      setLogoBase64(null);
+      setLogoMime(undefined);
+      setLogoNombre('');
+      setLogoError('');
       setSubs([createHeadquarters()]);
       setSinSucursales(false);
     }
   }, [editingClient, isOpen]);
 
   if (!isOpen || !isAdmin) return null;
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setLogoError('');
+    setIsProcessingLogo(true);
+    try {
+      const optimized = await optimizeClientLogo(file);
+      setLogoBase64(optimized.dataUrl);
+      setLogoMime(optimized.mime);
+      setLogoNombre(file.name);
+    } catch (error: any) {
+      setLogoError(error?.message || 'No fue posible procesar el logo.');
+    } finally {
+      setIsProcessingLogo(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!isAdmin) {
@@ -291,7 +374,10 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
         contacto_correo: contactoEmail.trim().toLowerCase(),
         email: contactoEmail.trim().toLowerCase(),
         telefono: telefono.trim(),
-        activo
+        activo,
+        logo_base64: logoBase64 || undefined,
+        logo_mime: logoBase64 ? logoMime : undefined,
+        logo_nombre: logoBase64 ? logoNombre : undefined
       };
 
       if (editingClient) {
@@ -468,6 +554,34 @@ export function ClientModal({ isOpen, onClose, editingClient }: ClientModalProps
           <div className="p-6 md:p-8 overflow-y-auto space-y-8 flex-1 min-h-0">
              <div className="space-y-6">
                  <h4 className="text-xs font-black uppercase text-indigo-600 tracking-widest border-b border-slate-100 pb-2">Información Principal</h4>
+                 <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                       <div className="flex h-24 w-full shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-white sm:w-48">
+                          {logoBase64 ? (
+                            <img src={logoBase64} alt={`Logo de ${nombre || 'cliente'}`} className="h-full w-full object-contain p-3" />
+                          ) : (
+                            <Building2 className="h-9 w-9 text-slate-300" />
+                          )}
+                       </div>
+                       <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Logo del cliente</p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">Se mostrará en la ficha y en los documentos asociados a este cliente. PNG, JPG o WEBP; máximo 2 MB.</p>
+                          {logoNombre && <p className="mt-2 truncate text-[10px] font-bold text-slate-400">{logoNombre}</p>}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                             <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white hover:bg-indigo-700">
+                                <Upload className="h-4 w-4" /> {isProcessingLogo ? 'Procesando...' : logoBase64 ? 'Cambiar logo' : 'Agregar logo'}
+                                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={isProcessingLogo} onChange={handleLogoUpload} />
+                             </label>
+                             {logoBase64 && (
+                               <button type="button" onClick={() => { setLogoBase64(null); setLogoMime(undefined); setLogoNombre(''); setLogoError(''); }} className="min-h-10 rounded-xl bg-red-50 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-red-600 hover:bg-red-100">
+                                  Quitar logo
+                               </button>
+                             )}
+                          </div>
+                          {logoError && <p role="alert" className="mt-2 text-xs font-bold text-red-600">{logoError}</p>}
+                       </div>
+                    </div>
+                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1">
                        <label className="text-[10px] font-black uppercase text-slate-400">Nombre Empresa *</label>

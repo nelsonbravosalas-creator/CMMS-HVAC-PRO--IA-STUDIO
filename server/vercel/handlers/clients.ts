@@ -5,6 +5,7 @@
 
 import { getDb } from '../db.js';
 import { requireRole } from '../auth.js';
+import { validateClientLogoPayload } from '../../clientLogo.js';
 
 const cleanRut = (value: any) => String(value || '').replace(/[^0-9kK]/g, '').toUpperCase();
 
@@ -33,11 +34,13 @@ const validateClientPayload = (body: any) => {
   const rut = String(source?.rut || '').trim();
   const plan = source?.plan ? String(source.plan).trim().toLowerCase() : '';
   const allowedPlans = new Set(['basico', 'basic', 'standard', 'starter', 'profesional', 'professional', 'premium', 'empresarial', 'enterprise', 'demo']);
+  const logoError = validateClientLogoPayload(source);
 
   if (!nombre) return { valid: false, error: 'El campo nombre es obligatorio' };
   if (!rut) return { valid: false, error: 'El campo rut es obligatorio' };
   if (!isValidRut(rut)) return { valid: false, error: 'El RUT ingresado no es valido' };
   if (plan && !allowedPlans.has(plan)) return { valid: false, error: 'El plan informado no es valido' };
+  if (logoError) return { valid: false, error: logoError };
 
   return { valid: true, data: { ...source, nombre, empresa: source?.empresa || nombre, rut } };
 };
@@ -175,6 +178,10 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ success: false, error: 'Falta id de cliente' });
         }
         const d = body;
+        const logoError = validateClientLogoPayload(d);
+        if (logoError) {
+          return res.status(400).json({ success: false, error: logoError });
+        }
         const now = Date.now();
         const strData = JSON.stringify(d);
 

@@ -84,6 +84,9 @@ export interface LocalCliente extends LocalBase {
   contacto_cargo?: string;
   region?: string;
   activo?: boolean;
+  logo_base64?: string;
+  logo_mime?: 'image/png' | 'image/jpeg' | 'image/webp';
+  logo_nombre?: string;
   data?: string | Record<string, unknown>;
 }
 
@@ -353,6 +356,19 @@ export class CMMSDatabase extends Dexie {
       await transaction.table('sync_queue')
         .filter((operation: any) => operation.table === 'reports')
         .delete();
+    });
+    this.version(16).stores(schema).upgrade(async transaction => {
+      // Reinicio QA 2026-08-12: descartar datos y colas anteriores para que una
+      // PWA instalada no vuelva a subir registros eliminados del servidor.
+      const resetTables = [
+        'assets', 'work_orders', 'preventive_maintenance', 'clients', 'users',
+        'user_clientes', 'branches', 'catalog_asset_types', 'ordenes_servicio',
+        'settings', 'reports', 'events', 'inventory', 'sync_queue', 'audit_logs',
+        'blobs'
+      ];
+      for (const tableName of resetTables) {
+        await transaction.table(tableName).clear();
+      }
     });
 
     // La carga inicial proviene del servidor. Evitar registros locales sintéticos

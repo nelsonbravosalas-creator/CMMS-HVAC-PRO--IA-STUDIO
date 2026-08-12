@@ -305,6 +305,24 @@ test('production seed cannot activate committed demo credentials', async () => {
   assert.doesNotMatch(productionQa, /@cmms\.local/);
 });
 
+test('QA fresh start preserves an operational admin and clears installed PWA queues', async () => {
+  const [reset, initDb, database, vercel] = await Promise.all([
+    read('scripts/db/one-time-fresh-start.ts'),
+    read('server/vercel/handlers/init-db.ts'),
+    read('src/db/database.ts'),
+    read('vercel.json')
+  ]);
+  assert.match(reset, /resetApplicationDataPreservingAdmins/);
+  assert.match(reset, /LOWER\(perfil\) = 'administrador'/);
+  assert.match(reset, /LOWER\(correo\) NOT LIKE '%@cmms\.local'/);
+  assert.match(reset, /cmms_sessions[\s\S]+sync_queue|cmms_sessions[\s\S]+users/);
+  assert.match(initDb, /BORRON_Y_CUENTA_NUEVA/);
+  assert.match(initDb, /admin\.fresh_start/);
+  assert.match(database, /this\.version\(16\)/);
+  assert.match(database, /PWA instalada no vuelva a subir registros eliminados/);
+  assert.match(vercel, /\/api\/admin\/fresh-start/);
+});
+
 test('Vercel deployment applies browser and API hardening headers', async () => {
   const config = await read('vercel.json');
   for (const header of [
@@ -353,6 +371,25 @@ test('expensive APIs enforce durable limits, payload caps, timeouts and idempote
   assert.doesNotMatch(sync, /LIMIT 1000/);
   assert.doesNotMatch(sync, /case 'audit_logs'/);
   assert.match(syncClient, /\.slice\(0, 100\)/);
+});
+
+test('client logos are validated, size limited and selected per document tenant', async () => {
+  const [logoRules, clientsApi, sync, clientModal, reportEditor, orderEditor] = await Promise.all([
+    read('server/clientLogo.ts'),
+    read('server/vercel/handlers/clients.ts'),
+    read('server/vercel/handlers/sync.ts'),
+    read('src/components/modals/ClientModal.tsx'),
+    read('src/pages/EditorInforme.tsx'),
+    read('src/pages/EditorOrdenServicio.tsx')
+  ]);
+  assert.match(logoRules, /png\|jpeg\|webp/);
+  assert.match(logoRules, /MAX_CLIENT_LOGO_DATA_URL_LENGTH/);
+  assert.match(clientsApi, /validateClientLogoPayload/);
+  assert.match(sync, /case 'clientes'[\s\S]+validateClientLogoPayload/);
+  assert.match(clientModal, /accept="image\/png,image\/jpeg,image\/webp"/);
+  assert.match(clientModal, /logo_base64: logoBase64/);
+  assert.match(reportEditor, /documentClient\?\.logo_base64 \|\| appLogo/);
+  assert.match(orderEditor, /documentClient\?\.logo_base64 \|\| appLogo/);
 });
 
 test('client build and offline session follow minimum exposure rules', async () => {

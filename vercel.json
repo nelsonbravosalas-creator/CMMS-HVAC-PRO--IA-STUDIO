@@ -65,6 +65,7 @@
     { "source": "/api/export", "destination": "/api/communications.ts?handler=export" },
     { "source": "/api/import-data", "destination": "/api/admin.ts?handler=import-data" },
     { "source": "/api/init-db", "destination": "/api/admin.ts?handler=init-db" },
+    { "source": "/api/admin/fresh-start", "destination": "/api/admin.ts?handler=init-db&action=fresh-start" },
 
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]

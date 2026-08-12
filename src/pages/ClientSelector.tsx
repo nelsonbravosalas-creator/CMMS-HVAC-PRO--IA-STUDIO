@@ -151,8 +151,8 @@ export default function ClientSelector() {
                   }`}
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <div className={`p-3 rounded-xl transition-colors ${selected === client.id ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
-                      <Building className="w-6 h-6" />
+                    <div className={`w-12 h-12 flex items-center justify-center overflow-hidden rounded-xl transition-colors ${selected === client.id ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
+                      {client.logo_base64 ? <img src={client.logo_base64} alt={`Logo de ${client.nombre}`} className="h-full w-full bg-white object-contain p-1.5" /> : <Building className="w-6 h-6" />}
                     </div>
                     {selected === client.id && <Check className="w-5 h-5 text-blue-500" />}
                   </div>

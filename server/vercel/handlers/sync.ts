@@ -12,6 +12,7 @@ import {
   rejectRateLimit,
   writeSecurityAudit
 } from '../security.js';
+import { validateClientLogoPayload } from '../../clientLogo.js';
 
 const ALLOWED_TABLES = [
   'assets',
@@ -493,6 +494,8 @@ export default async function handler(req: any, res: any) {
               case 'ordenes_servicio': await sql`INSERT INTO ordenes_servicio (id, data, uuid_sync, updated_at, created_at, cliente_id, sucursal_id, estado) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}, ${data.sucursal_id || innerPayload(data).generalData?.sucursal || null}, ${data.estado || innerPayload(data).estado || 'abierto'}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id, sucursal_id = EXCLUDED.sucursal_id, estado = EXCLUDED.estado WHERE ordenes_servicio.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > ordenes_servicio.updated_at OR ordenes_servicio.updated_at IS NULL)`; break;
               case 'inventory': await sql`INSERT INTO inventory (id, data, uuid_sync, updated_at, created_at, cliente_id) VALUES (${id}, ${strData}, ${uuid_sync}, ${updated_at}, ${updated_at}, ${recordClienteId}) ON CONFLICT (uuid_sync) DO UPDATE SET id = EXCLUDED.id, data = EXCLUDED.data, updated_at = EXCLUDED.updated_at, cliente_id = EXCLUDED.cliente_id WHERE inventory.cliente_id = EXCLUDED.cliente_id AND (EXCLUDED.updated_at > inventory.updated_at OR inventory.updated_at IS NULL)`; break;
               case 'clientes': {
+                const logoError = validateClientLogoPayload(data);
+                if (logoError) throw new Error(logoError);
                 // El id funcional del cliente es la FK usada por sucursales y
                 // activos; uuid_sync solo identifica el registro offline.
                 const clientRowId = data.id || uuid_sync;

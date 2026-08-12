@@ -670,6 +670,10 @@ export default function EditorInforme() {
     tipoServicio: 'Preventivo',
     folio: ''
   });
+  const documentClient = clients.find(client =>
+    client.uuid_sync === generalData.cliente || client.id === generalData.cliente
+  ) || activeClient;
+  const documentLogo = documentClient?.logo_base64 || appLogo;
 
   const [machineData, setMachineData] = useState({
     tipo: '',
@@ -1026,16 +1030,16 @@ export default function EditorInforme() {
     doc.setLineWidth(0.5);
     doc.line(10, 24, 200, 24);
 
-    // Dynamic Snowflake Logo or Configured Corporate Logo
-    if (appLogo) {
+    // El logo del cliente prevalece; el logo corporativo queda como respaldo.
+    if (documentLogo) {
       try {
         let format = "PNG";
-        if (appLogo.startsWith("data:image/jpeg") || appLogo.startsWith("data:image/jpg")) {
+        if (documentLogo.startsWith("data:image/jpeg") || documentLogo.startsWith("data:image/jpg")) {
           format = "JPEG";
-        } else if (appLogo.startsWith("data:image/webp")) {
+        } else if (documentLogo.startsWith("data:image/webp")) {
           format = "WEBP";
         }
-        doc.addImage(appLogo, format, 13, 8, 10, 10);
+        doc.addImage(documentLogo, format, 13, 8, 10, 10);
       } catch (e) {
         console.error("Error drawing logo to PDF page 1:", e);
         doc.setDrawColor(11, 47, 100);
@@ -1404,15 +1408,15 @@ export default function EditorInforme() {
     doc.line(10, 21, 200, 21);
 
     // Mini Flake Logo or custom logo
-    if (appLogo) {
+    if (documentLogo) {
       try {
         let format = "PNG";
-        if (appLogo.startsWith("data:image/jpeg") || appLogo.startsWith("data:image/jpg")) {
+        if (documentLogo.startsWith("data:image/jpeg") || documentLogo.startsWith("data:image/jpg")) {
           format = "JPEG";
-        } else if (appLogo.startsWith("data:image/webp")) {
+        } else if (documentLogo.startsWith("data:image/webp")) {
           format = "WEBP";
         }
-        doc.addImage(appLogo, format, 15, 9, 6, 6);
+        doc.addImage(documentLogo, format, 15, 9, 6, 6);
       } catch (e) {
         console.error("Error drawing logo to PDF page 2:", e);
         doc.setDrawColor(11, 47, 100);
@@ -1795,8 +1799,8 @@ export default function EditorInforme() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b-2 border-[#0B2F64] gap-4">
               <div className="flex items-center gap-3">
                 {/* Snowflake or custom corporate logo */}
-                {appLogo ? (
-                  <img src={appLogo} className="w-10 h-10 rounded-xl object-contain shadow-md shadow-blue-900/10" alt="Logo" />
+                {documentLogo ? (
+                  <img src={documentLogo} className="w-10 h-10 rounded-xl object-contain shadow-md shadow-blue-900/10" alt={`Logo de ${documentClient?.nombre || 'la empresa'}`} />
                 ) : (
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0B2F64] to-blue-800 flex items-center justify-center text-white font-extrabold shadow-md shadow-blue-900/20">
                     ❄
@@ -1995,8 +1999,8 @@ export default function EditorInforme() {
             {/* Header Plate Page 2 */}
             <div className="flex justify-between items-center pb-6 border-b-2 border-[#0B2F64]">
               <div className="flex items-center gap-2">
-                {appLogo ? (
-                  <img src={appLogo} className="w-6 h-6 object-contain rounded shadow-sm shadow-blue-900/10" alt="Logo" />
+                {documentLogo ? (
+                  <img src={documentLogo} className="w-6 h-6 object-contain rounded shadow-sm shadow-blue-900/10" alt={`Logo de ${documentClient?.nombre || 'la empresa'}`} />
                 ) : (
                   <div className="text-[#0B2F64] font-extrabold text-lg">❄</div>
                 )}
