@@ -8,6 +8,20 @@ Este documento conserva las verificaciones que deben retomarse antes de declarar
 el sistema listo para un piloto controlado. No contiene PIN, contraseñas, API
 keys ni otros secretos.
 
+## Reinicio ejecutado el 12 de agosto de 2026
+
+- Se ejecutó un borrón y cuenta nueva controlado en producción.
+- Se conservaron la cuenta administrativa operativa y los catálogos/seed base.
+- Se eliminaron usuarios QA anteriores, SETPRO, QA Móvil y todos los registros
+  operativos previos.
+- Todas las sesiones existentes fueron revocadas.
+- La versión 16 de IndexedDB descarta datos y colas antiguas al actualizar la
+  PWA, evitando que un dispositivo vuelva a subir registros eliminados.
+- Se creó la campaña aislada `QA-20260812`, asignada a su propia casa matriz.
+- La campaña incluye cinco perfiles QA, un activo, un repuesto, un mantenimiento,
+  una orden abierta y un informe en borrador. Estos registros deben conservarse
+  durante la revisión del usuario.
+
 ## 1. QA funcional por perfil
 
 Ejecutar la matriz completa con administrador, supervisor, técnico,
