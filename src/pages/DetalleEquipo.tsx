@@ -50,6 +50,9 @@ import {
 import { useAppStore } from "../store/useAppStore";
 import { useAssets } from "../hooks/useAssets";
 import { confirmAction } from "../lib/confirmAction";
+import { QRLabelModal } from "../components/modals/QRLabelModal";
+import { syncEngine } from "../sync/syncEngine";
+import { useSyncStore } from "../store/useSyncStore";
 
 type Tab = "info" | "historial" | "historico" | "documentos";
 
@@ -61,6 +64,7 @@ export default function DetalleEquipo() {
   
   const assets = useAppStore(state => state.assets);
   const loading = useAppStore(state => state.isLoading);
+  const isSyncing = useSyncStore(state => state.isSyncing);
   const equipo = useMemo(
     () => assets.find(a => a.uuid_sync === assetId || a.id === assetId || a.tag === assetId),
     [assets, assetId]
@@ -79,11 +83,30 @@ export default function DetalleEquipo() {
   const [isEditing, setIsEditing] = useState(false);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [showMantenimientoForm, setShowMantenimientoForm] = useState(false);
+  const [showQrLabel, setShowQrLabel] = useState(false);
+  const [assetLookupStatus, setAssetLookupStatus] = useState<'idle' | 'resolving' | 'resolved'>('idle');
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
     if (equipo) setFormData(equipo);
   }, [equipo]);
+
+  // Un QR puede abrir la ficha justo después de seleccionar cliente, cuando
+  // IndexedDB todavía está vacío. Esperar la sincronización inicial evita
+  // mostrar falsamente "Equipo no encontrado" y elimina el paso manual de
+  // forzar sincronización.
+  useEffect(() => {
+    if (!assetId || equipo || loading || isSyncing || assetLookupStatus !== 'idle') return;
+    if (!navigator.onLine) {
+      setAssetLookupStatus('resolved');
+      return;
+    }
+
+    setAssetLookupStatus('resolving');
+    void syncEngine.triggerSync(true).finally(() => {
+      void useAppStore.getState().hydrate().finally(() => setAssetLookupStatus('resolved'));
+    });
+  }, [assetId, equipo, loading, isSyncing, assetLookupStatus]);
 
   const handleSave = async () => {
     if (!equipo) return;
@@ -95,8 +118,8 @@ export default function DetalleEquipo() {
     }
   };
 
-  if (loading) {
-    return <div className="p-8 text-center text-slate-500 font-medium">Cargando datos del equipo...</div>;
+  if (loading || (!equipo && assetLookupStatus !== 'resolved' && navigator.onLine)) {
+    return <div className="p-8 text-center text-slate-500 font-medium">Sincronizando ficha del equipo...</div>;
   }
 
   if (!equipo) {
@@ -343,10 +366,10 @@ export default function DetalleEquipo() {
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sincronizado con base de datos maestra</p>
               </div>
               <div className="grid grid-cols-2 gap-3 w-full">
-                 <button className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2">
+                 <button onClick={() => setShowQrLabel(true)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2">
                     <Printer className="w-3.5 h-3.5" /> Imprimir
                  </button>
-                 <button className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2">
+                 <button onClick={() => setShowQrLabel(true)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2">
                     <Download className="w-3.5 h-3.5" /> Exportar
                  </button>
               </div>
@@ -478,6 +501,16 @@ export default function DetalleEquipo() {
           equipoTag={equipo.tag}
         />
       )}
+      <QRLabelModal
+        isOpen={showQrLabel}
+        onClose={() => setShowQrLabel(false)}
+        equipment={{
+          uuid_sync: equipo.uuid_sync,
+          tag: equipo.tag,
+          desc: equipo.nombre,
+          cliente_id: equipo.cliente_id
+        }}
+      />
     </div>
   );
 }
