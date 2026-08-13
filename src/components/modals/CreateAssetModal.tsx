@@ -487,34 +487,50 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
                  {formError}
                </div>
              )}
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-                <div className="space-y-1 z-50">
-                   <div className="flex justify-between items-center">
-                     <label className="text-[10px] sm:text-xs font-black uppercase text-slate-400">Sucursal/Almacén/Proyecto/Edificio</label>
-                     <button type="button" onClick={() => setIsCodificacionModalOpen(true)} className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest">+ Crear Cód.</button>
+             <section className="rounded-3xl border border-blue-100 bg-blue-50/30 p-4 sm:p-5">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                   <div className="min-w-0">
+                      <h4 className="text-xs font-black uppercase tracking-widest text-slate-900">Codificación del TAG</h4>
+                      <p className="mt-1 text-[9px] font-bold uppercase leading-relaxed tracking-wide text-slate-400">
+                         Define la ubicación y la categoría que formarán el identificador del equipo.
+                      </p>
                    </div>
-                   <SearchableSelect
-                      options={localSucursales.map(s => ({ value: s.codigo || s.id, label: s.nombre }))}
-                      value={tagData.almacen}
-                      onChange={(val) => setTagData({...tagData, almacen: val})}
-                      placeholder="Seleccionar sucursal"
-                      ariaLabel="Sucursal del activo"
-                   />
+                   <button
+                     type="button"
+                     onClick={() => setIsCodificacionModalOpen(true)}
+                     className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-[9px] font-black uppercase tracking-widest text-blue-600 transition-colors hover:bg-blue-50"
+                   >
+                     Gestionar códigos
+                   </button>
                 </div>
-                <div className="space-y-1 z-40">
-                   <div className="flex justify-between items-center">
-                     <label className="text-[10px] font-black uppercase text-slate-400">Categoría de Equipo</label>
-                     <button type="button" onClick={() => setIsCodificacionModalOpen(true)} className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-widest">+ Crear Cód.</button>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5">
+                   <div className="min-w-0 space-y-2 z-50">
+                      <label className="block text-[10px] font-black uppercase leading-snug text-slate-500">
+                         Sucursal, almacén, proyecto o edificio
+                      </label>
+                      <SearchableSelect
+                         options={localSucursales.map(s => ({ value: s.codigo || s.id, label: s.nombre }))}
+                         value={tagData.almacen}
+                         onChange={(val) => setTagData({...tagData, almacen: val})}
+                         placeholder="Seleccionar ubicación"
+                         ariaLabel="Sucursal del activo"
+                      />
                    </div>
-                   <SearchableSelect
-                      options={localCatalogAssetTypes.map(c => ({ value: c.codigo, label: `${c.descripcion} (${c.codigo})` }))}
-                      value={tagData.tipo}
-                      onChange={(val) => setTagData({...tagData, tipo: val})}
-                      placeholder="Seleccionar categoría"
-                      ariaLabel="Categoría del activo"
-                   />
+                   <div className="min-w-0 space-y-2 z-40">
+                      <label className="block text-[10px] font-black uppercase leading-snug text-slate-500">
+                         Categoría del equipo
+                      </label>
+                      <SearchableSelect
+                         options={localCatalogAssetTypes.map(c => ({ value: c.codigo, label: `${c.descripcion} (${c.codigo})` }))}
+                         value={tagData.tipo}
+                         onChange={(val) => setTagData({...tagData, tipo: val})}
+                         placeholder="Seleccionar categoría"
+                         ariaLabel="Categoría del activo"
+                      />
+                   </div>
                 </div>
-             </div>
+             </section>
 
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
                 <div className="space-y-1">
