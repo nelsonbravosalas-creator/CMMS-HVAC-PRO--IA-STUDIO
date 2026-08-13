@@ -259,6 +259,14 @@ test('mobile operational views use accessible, non-overlapping controls', async 
   assert.match(syncIndicator, /hidden flex-col[\s\S]+lg:flex/);
 });
 
+test('empty dashboard park status keeps its labels in a dedicated layout', async () => {
+  const dashboard = await read('src/pages/Dashboard.tsx');
+  assert.match(dashboard, /Sin activos registrados/);
+  assert.match(dashboard, /Estado general sin datos/);
+  assert.match(dashboard, /\{kpis\.total > 0 && \(/);
+  assert.match(dashboard, /flex h-full flex-col items-center justify-center gap-3/);
+});
+
 test('sync inspector stays inside the mobile viewport', async () => {
   const [inspector, layout] = await Promise.all([
     read('src/components/debug/SyncInspectorPanel.tsx'),

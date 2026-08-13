@@ -367,11 +367,23 @@ export default function Dashboard() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-            ) : <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 uppercase">Sin activos registrados</div>}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-black text-slate-900">{kpis.total}</span>
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Activos</span>
-            </div>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-100">
+                  <span className="text-2xl font-black leading-none text-slate-900">0</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-black uppercase leading-snug tracking-wide text-slate-500">Sin activos registrados</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300">Estado general sin datos</p>
+                </div>
+              </div>
+            )}
+            {kpis.total > 0 && (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-black leading-none text-slate-900">{kpis.total}</span>
+                <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">Activos</span>
+              </div>
+            )}
           </div>
           <div className="mt-4 space-y-2">
             {dataStatus.map(s => (
