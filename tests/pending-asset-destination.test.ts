@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { assetQrUrl, parseAssetDestination } from '../src/navigation/pendingAssetDestination';
+import {
+  assetQrUrl,
+  parseAssetDestination,
+  resolvePendingAssetClient
+} from '../src/navigation/pendingAssetDestination';
 
 test('QR contains the immutable asset UUID and its client context', () => {
   const url = assetQrUrl(
@@ -31,4 +35,11 @@ test('equipment detail resolves an empty tenant cache before reporting not found
   assert.match(detail, /Sincronizando ficha del equipo/);
   assert.match(detail, /<QRLabelModal/);
   assert.match(detail, /cliente_id: equipo\.cliente_id/);
+});
+
+test('login activates only an assigned client encoded by the QR', () => {
+  const destination = { path: '/equipos/ASSET-1', clientId: 'CLIENT-2' };
+  assert.equal(resolvePendingAssetClient(destination, ['CLIENT-1', 'CLIENT-2']), 'CLIENT-2');
+  assert.equal(resolvePendingAssetClient(destination, ['CLIENT-1']), null);
+  assert.equal(resolvePendingAssetClient({ ...destination, clientId: null }, ['CLIENT-1']), 'CLIENT-1');
 });

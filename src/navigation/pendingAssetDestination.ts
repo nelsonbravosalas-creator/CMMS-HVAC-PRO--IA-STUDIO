@@ -51,6 +51,20 @@ export function assetQrUrl(
   return url.toString();
 }
 
+export function resolvePendingAssetClient(
+  destination: PendingAssetDestination | null,
+  allowedClientIds: Array<string | null | undefined>
+): string | null {
+  const allowed = [...new Set(allowedClientIds.filter((value): value is string => Boolean(value)))];
+  if (destination?.clientId && allowed.includes(destination.clientId)) {
+    return destination.clientId;
+  }
+  if (destination && !destination.clientId && allowed.length === 1) {
+    return allowed[0];
+  }
+  return null;
+}
+
 export function storePendingAssetDestination(destination: PendingAssetDestination): void {
   localStorage.setItem(PENDING_ASSET_PATH_KEY, destination.path);
   if (destination.clientId) {

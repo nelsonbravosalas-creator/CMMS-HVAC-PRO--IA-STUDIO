@@ -14,6 +14,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Usuario, Permisos, PERMISOS_POR_PERFIL, Perfil } from '../types';
 import { db } from '../db/database';
 import { useAppStore } from '../store/useAppStore';
+import { readPendingAssetDestination, resolvePendingAssetClient } from '../navigation/pendingAssetDestination';
 
 interface AuthContextType {
   /** Datos del usuario actual. Null si no hay sesión. */
@@ -223,6 +224,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!configureRoleContext(loggedUser)) {
           setAuthError('Tu usuario no tiene un cliente asignado. Contacta al administrador.');
           return false;
+        }
+
+        // Un acceso iniciado desde QR puede fijar directamente su cliente
+        // siempre que la sesión tenga autorización para dicho tenant.
+        const pendingAsset = readPendingAssetDestination();
+        const qrClientId = resolvePendingAssetClient(pendingAsset, [
+          loggedUser.cliente_id,
+          ...(loggedUser.cliente_ids || []),
+          ...(json.user.assigned_clients || []).flatMap((client: any) => [client.id, client.uuid_sync])
+        ]);
+        if (qrClientId) {
+          localStorage.setItem('active_client', qrClientId);
+          const matchedClient = (json.user.assigned_clients || []).find((client: any) => (
+            client.id === qrClientId || client.uuid_sync === qrClientId
+          ));
+          const clientName = matchedClient?.nombre || matchedClient?.data?.nombre;
+          if (clientName) localStorage.setItem('active_client_name', clientName);
         }
 
         setUser(loggedUser);
