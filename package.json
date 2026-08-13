@@ -14,7 +14,9 @@
     "test:functional:production": "node tests/production-functional-qa.mjs",
     "test:security": "node --test tests/security-regression.test.mjs",
     "test:order-reports": "tsx --test tests/order-report-rules.test.ts",
-    "test": "npm run lint && npm run test:security && npm run test:order-reports",
+    "test:pwa-update": "tsx --test tests/pwa-update-policy.test.ts",
+    "test:qr-navigation": "tsx --test tests/pending-asset-destination.test.ts",
+    "test": "npm run lint && npm run test:security && npm run test:order-reports && npm run test:pwa-update && npm run test:qr-navigation",
     "security:check": "npm test && npm audit --audit-level=moderate && node scripts/security/check-production-safety.mjs"
   },
   "dependencies": {

@@ -26,6 +26,12 @@ import { GlobalConfirmDialog } from "./components/GlobalConfirmDialog";
 import { GlobalAlertDialog } from "./components/GlobalAlertDialog";
 import { PwaUpdatePrompt } from "./components/PwaUpdatePrompt";
 import { db } from "./db/database";
+import {
+  clearPendingAssetDestination,
+  parseAssetDestination,
+  readPendingAssetDestination,
+  storePendingAssetDestination
+} from "./navigation/pendingAssetDestination";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ScannerQR = lazy(() => import("./pages/ScannerQR"));
@@ -197,9 +203,12 @@ function App() {
 
     // Initial routing logic
     const currentPath = window.location.pathname;
+    const scannedAssetDestination = parseAssetDestination(window.location.href);
 
     if (!auth && currentPath !== "/login") {
-      // Store the pending tag scan if any, to redirect after login
+      // Conservar únicamente destinos de ficha validados durante el login.
+      if (scannedAssetDestination) storePendingAssetDestination(scannedAssetDestination);
+      // Compatibilidad con códigos QR legados basados en ?tag=.
       if (tagParam) localStorage.setItem("pending_tag", tagParam);
       window.location.replace("/login");
       return;
@@ -230,12 +239,37 @@ function App() {
       return;
     }
 
+    const activeClientId = localStorage.getItem('active_client');
+    const pendingAsset = readPendingAssetDestination();
+    if (
+      auth
+      && scannedAssetDestination?.clientId
+      && scannedAssetDestination.clientId !== activeClientId
+      && (isAdmin || selectsClient)
+    ) {
+      storePendingAssetDestination(scannedAssetDestination);
+      window.location.replace('/client-selector');
+      return;
+    }
+    const hasRequiredAssetContext = !pendingAsset?.clientId
+      || pendingAsset.clientId === activeClientId;
+    if (auth && pendingAsset && hasRequiredAssetContext) {
+      clearPendingAssetDestination();
+      if (currentPath !== pendingAsset.path) {
+        window.location.replace(pendingAsset.path);
+      }
+      return;
+    }
+
     if (
       auth
       && ((isAdmin && !isAdminGlobalView) || selectsClient)
       && !client
       && currentPath !== "/client-selector"
     ) {
+      if (scannedAssetDestination && !pendingAsset) {
+        storePendingAssetDestination(scannedAssetDestination);
+      }
       window.location.replace("/client-selector");
     }
   }, [location, isAuthenticated, hasClientSelected, isAdmin, selectsClient, isAdminGlobalView, requiresPinChange]);

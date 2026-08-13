@@ -1,7 +1,7 @@
 # Pendientes de QA y preparación del piloto
 
 **Estado:** QA pausado por decisión del responsable del proyecto  
-**Fecha de actualización:** 10 de agosto de 2026  
+**Fecha de actualización:** 13 de agosto de 2026
 **Entorno:** `https://cmms-hvac-pro-ia-studio.vercel.app`
 
 Este documento conserva las verificaciones que deben retomarse antes de declarar
@@ -18,9 +18,15 @@ keys ni otros secretos.
 - La versión 16 de IndexedDB descarta datos y colas antiguas al actualizar la
   PWA, evitando que un dispositivo vuelva a subir registros eliminados.
 - Se creó la campaña aislada `QA-20260812`, asignada a su propia casa matriz.
-- La campaña incluye cinco perfiles QA, un activo, un repuesto, un mantenimiento,
+- La campaña incluye los cinco perfiles QA operativos, un supervisor nominal
+  adicional, un activo, un repuesto, un mantenimiento,
   una orden abierta y un informe en borrador. Estos registros deben conservarse
   durante la revisión del usuario.
+- El 13 de agosto las cuentas QA fueron renombradas a identificadores cortos:
+  `qa.sup`, `qa.tec`, `qa.con`, `qa.cli` y `qa.vis` bajo el dominio de pruebas.
+- Se agregó `nbravo.nbyb@gmail.com` como supervisor de la misma campaña.
+- Las seis cuentas fueron autenticadas y verificadas contra el cliente
+  `QA-20260812`. Las cuentas largas de campañas anteriores permanecen eliminadas.
 
 ## 1. QA funcional por perfil
 
@@ -111,7 +117,8 @@ contratista, cliente y visita:
 ## 8. Cuentas temporales y cierre de campaña
 
 Existen cuentas temporales para supervisor, técnico, contratista, cliente y
-visita asignadas a EECOL. Sus credenciales se entregaron fuera de este documento.
+visita, además de un supervisor nominal, asignadas exclusivamente a
+`QA-20260812`. Sus credenciales se entregaron fuera de este documento.
 
 Al finalizar el QA:
 

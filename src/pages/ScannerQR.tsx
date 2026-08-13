@@ -28,6 +28,7 @@ import { EQUIPOS_DATA } from "../data/assets";
 import { SUCURSALES } from "../data/branches";
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { useAssets } from "../hooks/useAssets";
+import { assetQrUrl } from "../navigation/pendingAssetDestination";
 
 /**
  * Componente ScannerQR.
@@ -118,7 +119,7 @@ export default function ScannerQR() {
   /** 
    * URL final incrustada en el código QR.
    */
-  const qrUrl = `${baseUrl}/equipos/${encodeURIComponent(assetUuid)}`;
+  const qrUrl = assetQrUrl(baseUrl, assetUuid, localStorage.getItem('active_client'));
   /** Endpoint externo para la generación del código QR */
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 

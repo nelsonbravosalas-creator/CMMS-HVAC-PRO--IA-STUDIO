@@ -6,6 +6,7 @@ import { useAssets } from '../../hooks/useAssets';
 import { CodificacionModal } from './CodificacionModal';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/database';
+import { assetQrUrl } from '../../navigation/pendingAssetDestination';
 
 import { 
   X, QrCode, Download, Save, Zap, AlertCircle, Info, Calculator, Image as ImageIcon, Printer, Camera, Sparkles, ChevronLeft, ChevronDown
@@ -124,7 +125,7 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ onClose }) =
   }, [localSucursales, tagData.almacen]);
 
   const fullTag = `${tagData.almacen}.${tagData.tipo}.${correlativoMostrado.padStart(3, '0')}`;
-  const qrUrl = `${baseUrl}/equipos/${encodeURIComponent(assetUuid)}`;
+  const qrUrl = assetQrUrl(baseUrl, assetUuid, activeClient);
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=0f172a&margin=10`;
 
   const handleOCR = async (e: React.ChangeEvent<HTMLInputElement>) => {

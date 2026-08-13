@@ -1,14 +1,19 @@
 import { Building, LogOut, ChevronRight, Check, Globe2, Plus } from "lucide-react";
 import { useLocation } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { useAuth } from "../context/AuthContext";
 import { ClientModal } from "../components/modals/ClientModal";
 import { clearTenantOperationalCache, db } from "../db/database";
+import {
+  clearPendingAssetDestination,
+  readPendingAssetDestination
+} from "../navigation/pendingAssetDestination";
 
 export default function ClientSelector() {
   const [, setLocation] = useLocation();
   const [selected, setSelected] = useState<string | null>(null);
+  const autoSelectingPendingAsset = useRef(false);
   const [showClientModal, setShowClientModal] = useState(false);
   const { user, logout } = useAuth();
   const isAdmin = user?.perfil === "administrador";
@@ -45,16 +50,38 @@ export default function ClientSelector() {
     localStorage.removeItem("last_sync_timestamp");
     localStorage.removeItem("admin_global_view");
     setTimeout(() => {
-      // Check if there was a pending tag
-      const pendingTag = localStorage.getItem("pending_tag");
-      if (pendingTag) {
-        // In a real app we'd redirect to the equipment card of that tag
-        // For now, let's just go to scanner or dashboard
-        localStorage.removeItem("pending_tag");
+      const pendingAsset = readPendingAssetDestination();
+      const matchesDestinationClient = !pendingAsset?.clientId
+        || pendingAsset.clientId === client.id
+        || pendingAsset.clientId === client.uuid_sync;
+      if (pendingAsset && matchesDestinationClient) {
+        clearPendingAssetDestination();
+        window.location.href = pendingAsset.path;
+        return;
       }
       window.location.href = "/";
     }, 500);
   };
+
+  useEffect(() => {
+    if (isLoading || selected || autoSelectingPendingAsset.current) return;
+    const pendingAsset = readPendingAssetDestination();
+    if (!pendingAsset) return;
+
+    const targetClient = pendingAsset.clientId
+      ? activeClients.find(client => (
+          client.id === pendingAsset.clientId || client.uuid_sync === pendingAsset.clientId
+        ))
+      : activeClients.length === 1
+        ? activeClients[0]
+        : undefined;
+    if (!targetClient) return;
+
+    autoSelectingPendingAsset.current = true;
+    void handleSelect(targetClient).finally(() => {
+      autoSelectingPendingAsset.current = false;
+    });
+  }, [activeClients, isLoading, selected]);
 
   const handleGlobalView = async () => {
     const pendingOperations = await db.sync_queue.count();

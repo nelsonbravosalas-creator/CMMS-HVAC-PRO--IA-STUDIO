@@ -11,6 +11,7 @@ import {
   Share2,
   Image as ImageIcon
 } from 'lucide-react';
+import { assetQrUrl } from '../../navigation/pendingAssetDestination';
 
 interface QRLabelModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface QRLabelModalProps {
     uuid_sync: string;
     tag: string;
     desc: string;
+    cliente_id?: string;
   } | null;
 }
 
@@ -34,7 +36,7 @@ export function QRLabelModal({ isOpen, onClose, equipment }: QRLabelModalProps) 
   if (!equipment) return null;
 
   // URL centralizada para el CMMS (Coincide con el URL Box)
-  const assetUrl = `${window.location.origin}/equipos/${encodeURIComponent(equipment.uuid_sync)}`;
+  const assetUrl = assetQrUrl(window.location.origin, equipment.uuid_sync, equipment.cliente_id);
   // API para generar el código QR
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(assetUrl)}&margin=10`;
 

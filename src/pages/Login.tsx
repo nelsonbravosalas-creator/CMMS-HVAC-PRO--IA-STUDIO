@@ -3,6 +3,7 @@ import { Eye, EyeOff, LogIn, Sun, Moon, ShieldCheck, Fingerprint, AlertCircle } 
 import { useLocation } from "wouter";
 import LoadingIndicator from "../components/LoadingIndicator";
 import { useAuth } from "../context/AuthContext";
+import { readPendingAssetDestination } from "../navigation/pendingAssetDestination";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -44,7 +45,10 @@ export default function Login() {
       const success = await login(pin, email);
       setIsLoading(false);
       if (success) {
-        window.location.href = localStorage.getItem('requires_pin_change') === 'true' ? "/biometria" : "/";
+        const pendingAsset = readPendingAssetDestination();
+        window.location.href = localStorage.getItem('requires_pin_change') === 'true'
+          ? "/biometria"
+          : pendingAsset?.path || "/";
       }
     }
   };
