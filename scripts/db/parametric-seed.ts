@@ -96,10 +96,18 @@ export async function seedParametricData(sql: SqlClient, options: SeedOptions = 
         throw new Error('Bootstrap admin requires a non-local email and a 6-digit CMMS_BOOTSTRAP_ADMIN_PIN');
       }
       const bootstrapHash = await hashPin(bootstrapPin);
-      const bootstrapUuid = 'BOOTSTRAP-ADMIN';
+      const existingBootstrapUsers = await sql`
+        SELECT uuid_sync
+        FROM users
+        WHERE uuid_sync = 'BOOTSTRAP-ADMIN'
+           OR LOWER(correo) = LOWER(${bootstrapEmail})
+        ORDER BY CASE WHEN LOWER(correo) = LOWER(${bootstrapEmail}) THEN 0 ELSE 1 END
+        LIMIT 1
+      `;
+      const bootstrapUuid = existingBootstrapUsers[0]?.uuid_sync || 'BOOTSTRAP-ADMIN';
       const bootstrapData = JSON.stringify({
         id: bootstrapUuid,
-        nombre: 'Administrador inicial',
+        nombre: 'Administrador QA',
         email: bootstrapEmail,
         rol: 'administrador',
         cliente_id: null,
@@ -109,8 +117,25 @@ export async function seedParametricData(sql: SqlClient, options: SeedOptions = 
       });
       await sql`
         INSERT INTO users (uuid_sync, id, nombre, correo, perfil, pin_hash, pin, activo, data, updated_at, created_at, deleted_at, cliente_id)
-        VALUES (${bootstrapUuid}, ${bootstrapUuid}, 'Administrador inicial', ${bootstrapEmail}, 'administrador', ${bootstrapHash}, NULL, true, ${bootstrapData}, ${ts}, ${ts}, NULL, NULL)
-        ON CONFLICT (uuid_sync) DO NOTHING
+        VALUES (${bootstrapUuid}, ${bootstrapUuid}, 'Administrador QA', ${bootstrapEmail}, 'administrador', ${bootstrapHash}, NULL, true, ${bootstrapData}, ${ts}, ${ts}, NULL, NULL)
+        ON CONFLICT (uuid_sync) DO UPDATE SET
+          nombre = EXCLUDED.nombre,
+          correo = EXCLUDED.correo,
+          perfil = EXCLUDED.perfil,
+          pin_hash = EXCLUDED.pin_hash,
+          pin = NULL,
+          activo = true,
+          data = EXCLUDED.data,
+          updated_at = EXCLUDED.updated_at,
+          deleted_at = NULL,
+          cliente_id = NULL
+      `;
+      await sql`DELETE FROM user_clientes WHERE user_id = ${bootstrapUuid}`;
+      await sql`
+        UPDATE cmms_sessions
+        SET revoked_at = ${ts}
+        WHERE user_id = ${bootstrapUuid}
+          AND revoked_at IS NULL
       `;
     }
 
