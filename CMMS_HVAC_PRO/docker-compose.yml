@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cmms_hvac}
+      POSTGRES_USER: ${POSTGRES_USER:-cmms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cmms_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - cmms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cmms} -d ${POSTGRES_DB:-cmms_hvac}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      ALLOW_MOCK_DB: "true"
+      DATABASE_URL: ${DATABASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-local_dev_jwt_secret_change_me}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      DEV_MOCK_ADMIN_EMAIL: ${DEV_MOCK_ADMIN_EMAIL:-admin@local.test}
+      DEV_MOCK_ADMIN_PIN: ${DEV_MOCK_ADMIN_PIN:-1234}
+    ports:
+      - "${APP_PORT:-3001}:3000"
+    command: sh -c "mkdir -p src/db && node dist/server.cjs"
+
+volumes:
+  cmms_postgres_data:

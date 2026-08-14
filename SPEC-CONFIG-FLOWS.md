@@ -1,6 +1,8 @@
 # SPEC-CONFIG-FLOWS — Centro de Configuración de Flujos
 ## CMMS HVAC PRO · Versión 1.0 · 2026-06-13
 
+> **Documento temático propio.** Desarrolla a los documentos normativos, nunca los contradice. Ante conflicto, prevalecen `CMMS_HVAC_PRO_Reglas_de_Negocio.md` y `CMMS_HVAC_PRO_Especificacion_Tecnica.md`. Ver [`DOCS_INDEX.md`](DOCS_INDEX.md) para la matriz de precedencia completa. Documento dueño del workflow **W-09** (configuración por cliente).
+
 > **Alineación normativa:** el Administrador es global y es el único rol que crea, edita, activa, desactiva o elimina clientes y sus sucursales. También administra las capacidades técnicas de plataforma.
 
 ---

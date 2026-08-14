@@ -1,0 +1,18 @@
+export const REGIONES_CHILE = [
+  { value: "Arica y Parinacota", label: "Arica y Parinacota" },
+  { value: "Tarapacá", label: "Tarapacá" },
+  { value: "Antofagasta", label: "Antofagasta" },
+  { value: "Atacama", label: "Atacama" },
+  { value: "Coquimbo", label: "Coquimbo" },
+  { value: "Valparaíso", label: "Valparaíso" },
+  { value: "Metropolitana de Santiago", label: "Metropolitana de Santiago" },
+  { value: "Libertador Gral. Bernardo O'Higgins", label: "Libertador Gral. Bernardo O'Higgins" },
+  { value: "Maule", label: "Maule" },
+  { value: "Ñuble", label: "Ñuble" },
+  { value: "Biobío", label: "Biobío" },
+  { value: "La Araucanía", label: "La Araucanía" },
+  { value: "Los Ríos", label: "Los Ríos" },
+  { value: "Los Lagos", label: "Los Lagos" },
+  { value: "Aysén del Gral. Carlos Ibáñez del Campo", label: "Aysén del Gral. Carlos Ibáñez del Campo" },
+  { value: "Magallanes y de la Antártica Chilena", label: "Magallanes y de la Antártica Chilena" },
+];

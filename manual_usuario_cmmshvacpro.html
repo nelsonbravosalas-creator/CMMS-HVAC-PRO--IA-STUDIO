@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual de Usuario CMMS HVAC PRO</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --card: #1e293b;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.08), transparent 32%), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 2rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.95);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+    }
+    header h1 { margin: 0; font-size: 2.2rem; letter-spacing: 0.04em; }
+    header p { margin: 0.75rem auto 0; max-width: 900px; color: var(--muted); }
+    nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 1rem; }
+    nav a {
+      color: var(--accent);
+      text-decoration: none;
+      padding: 0.55rem 0.9rem;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 999px;
+      font-size: 0.9rem;
+      transition: background 0.2s ease;
+    }
+    nav a:hover { background: rgba(56, 189, 248, 0.08); }
+    main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+    .page { page-break-after: always; margin-bottom: 4rem; }
+    .page:last-child { page-break-after: auto; }
+    .page-header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+    .page-header h2 { margin: 0; font-size: clamp(2rem, 2.4vw, 2.6rem); line-height: 1.05; }
+    .page-header .meta { flex: 1; min-width: 250px; color: var(--muted); }
+    .screenshot {
+      margin: 1.8rem 0;
+      border-radius: 2rem;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--card);
+      box-shadow: 0 30px 80px rgba(15, 23, 42, 0.4);
+    }
+    .screenshot svg { display: block; width: 100%; height: auto; }
+    .screenshot-caption {
+      padding: 1rem 1.2rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.12);
+      background: rgba(15, 23, 42, 0.88);
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .content-grid { display: grid; gap: 1.5rem; grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr); }
+    .card { background: rgba(30, 41, 59, 0.72); border: 1px solid rgba(148, 163, 184, 0.14); border-radius: 1.5rem; padding: 1.4rem; }
+    .card h3 { margin-top: 0; font-size: 1.05rem; color: #f8fafc; }
+    .card p, .card ul { margin: 0.75rem 0 0; color: var(--muted); font-size: 0.98rem; line-height: 1.65; }
+    .card ul { padding-left: 1.3rem; }
+    .card li { margin-bottom: 0.7rem; }
+    .tag { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; padding: 0.25rem 0.7rem; border-radius: 999px; background: rgba(56, 189, 248, 0.12); color: #7dd3fc; }
+    footer { margin-top: 4rem; padding: 2rem; border-top: 1px solid rgba(148, 163, 184, 0.18); color: var(--muted); font-size: 0.95rem; }
+    .qa-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+    .qa-list li { margin-bottom: 0.75rem; padding-left: 1.25rem; position: relative; }
+    .qa-list li::before { content: "•"; position: absolute; left: 0; color: #38bdf8; }
+    .summary-grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); }
+    @media (max-width: 900px) { .content-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Manual de Usuario CMMS HVAC PRO</h1>
+    <p>Perfil: Ingeniero Experto en Experiencia de Usuario. Esta guía en formato HTML presenta cada menú del sistema con capturas estilo pantalla, objetivos, flujos y un resumen de hallazgos QA.</p>
+    <nav>
+      <a href="#dashboard">Dashboard</a>
+      <a href="#scanner-qr">Scanner QR</a>
+      <a href="#equipos">Equipos</a>
+      <a href="#mapa">Mapa</a>
+      <a href="#clientes">Clientes</a>
+      <a href="#inventario">Inventario</a>
+      <a href="#mantenimientos">Mantenimientos</a>
+      <a href="#planificacion">Planificación</a>
+      <a href="#ordenes-servicio">Órdenes</a>
+      <a href="#informes-hvac">Informes HVAC</a>
+      <a href="#tickets">Tickets</a>
+      <a href="#reportes">Reportes</a>
+      <a href="#eficiencia">Eficiencia</a>
+      <a href="#usuarios">Usuarios</a>
+      <a href="#configuracion">Configuración</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page" id="dashboard">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 1</span>
+          <h2>Dashboard - Visión Ejecutiva</h2>
+        </div>
+        <div class="meta">Menú principal que muestra el estado global del cliente activo, KPIs de mantenimiento, alertas, carga de trabajo y acceso directo a los módulos operativos.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#0f172a"/>
+              <stop offset="100%" stop-color="#111827"/>
+            </linearGradient>
+          </defs>
+          <rect width="1200" height="500" fill="url(#bg1)" rx="30"/>
+          <rect x="40" y="40" width="260" height="50" rx="18" fill="#1e293b"/>
+          <text x="70" y="75" fill="#f8fafc" font-size="24">Dashboard</text>
+          <rect x="40" y="110" width="330" height="130" rx="24" fill="#111827"/>
+          <rect x="400" y="110" width="330" height="130" rx="24" fill="#111827"/>
+          <rect x="760" y="110" width="330" height="130" rx="24" fill="#111827"/>
+          <rect x="40" y="260" width="720" height="170" rx="30" fill="#1f2937"/>
+          <rect x="780" y="260" width="310" height="170" rx="30" fill="#1f2937"/>
+          <circle cx="115" cy="310" r="18" fill="#38bdf8"/>
+          <circle cx="145" cy="310" r="8" fill="#7dd3fc"/>
+          <rect x="170" y="295" width="120" height="18" rx="9" fill="#334155"/>
+          <rect x="170" y="330" width="90" height="18" rx="9" fill="#334155"/>
+          <rect x="430" y="295" width="220" height="18" rx="9" fill="#334155"/>
+          <rect x="430" y="330" width="160" height="18" rx="9" fill="#334155"/>
+          <rect x="790" y="295" width="160" height="18" rx="9" fill="#334155"/>
+          <rect x="790" y="330" width="220" height="18" rx="9" fill="#334155"/>
+          <rect x="60" y="290" width="220" height="100" rx="18" fill="#111827"/>
+          <text x="80" y="320" fill="#cbd5e1" font-size="18">Alertas</text>
+          <text x="80" y="360" fill="#94a3b8" font-size="16">Pendientes</text>
+          <text x="360" y="290" fill="#cbd5e1" font-size="18">Tareas</text>
+          <text x="770" y="290" fill="#cbd5e1" font-size="18">Operativos</text>
+          <text x="780" y="430" fill="#94a3b8" font-size="14">Trend</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la vista Dashboard con métricas de mantenimiento, órdenes abiertas y estado de activos.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Entregar un tablero ejecutivo que permita a técnicos, supervisores y administradores tomar decisiones rápidas sobre salud de equipos, carga de ordenes y riesgos operativos.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>El usuario ingresa y el sistema carga datos locales del cliente activo.</li>
+            <li>Se presentan KPIs de disponibilidad de activos, fallas y mantenimientos próximos.</li>
+            <li>Desde aquí se accede a órdenes de servicio, equipos, reportes y scanner QR.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="scanner-qr">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 2</span>
+          <h2>Scanner QR - Acceso rápido a activos</h2>
+        </div>
+        <div class="meta">Menu del lector QR para capturar el código de un activo y abrir su ficha técnica en terreno.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#0f172a"/>
+          <rect x="60" y="60" width="1080" height="380" rx="28" fill="#111827"/>
+          <rect x="120" y="120" width="960" height="120" rx="22" fill="#1e293b"/>
+          <text x="160" y="170" fill="#f8fafc" font-size="26">Scanner QR</text>
+          <rect x="120" y="260" width="350" height="240" rx="24" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+          <rect x="150" y="300" width="280" height="180" rx="16" fill="#111827"/>
+          <text x="200" y="340" fill="#94a3b8" font-size="18">Escanea un código</text>
+          <rect x="560" y="260" width="460" height="240" rx="24" fill="#1e293b"/>
+          <text x="600" y="320" fill="#cbd5e1" font-size="18">Estado del activo</text>
+          <text x="600" y="360" fill="#94a3b8" font-size="16">Activo no encontrado / cargado</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del módulo Scanner QR con el área de captura y resultado de búsqueda.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Permitir acceder al historial y la ficha de un equipo con un solo escaneo, acelerando operaciones de campo.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>El técnico selecciona Scanner QR desde el menú.</li>
+            <li>Se activa la cámara o se ingresa manualmente el código.</li>
+            <li>El sistema busca el activo y redirige a la ficha cuando encuentra coincidencia.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="equipos">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 3</span>
+          <h2>Equipos - Inventario de activos</h2>
+        </div>
+        <div class="meta">Listado de equipos con filtros por estado, sucursal y tipo, y acceso directo a la ficha técnica del activo.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#0f172a"/>
+          <rect x="50" y="50" width="1100" height="150" rx="24" fill="#111827"/>
+          <text x="90" y="110" fill="#f8fafc" font-size="28">Equipos</text>
+          <rect x="80" y="200" width="1000" height="230" rx="28" fill="#1e293b"/>
+          <rect x="110" y="240" width="260" height="150" rx="20" fill="#0f172a"/>
+          <rect x="410" y="240" width="260" height="150" rx="20" fill="#0f172a"/>
+          <rect x="710" y="240" width="260" height="150" rx="20" fill="#0f172a"/>
+          <rect x="1010" y="240" width="60" height="150" rx="20" fill="#0f172a"/>
+          <text x="140" y="280" fill="#cbd5e1" font-size="18">Activo 1</text>
+          <text x="140" y="310" fill="#94a3b8" font-size="14">Mantenimiento próximo</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del listado Equipos con card de activos y filtros laterales.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Gestionar el parque instaladode activos, conocer su estado y navegar rápidamente a las fichas de mantenimiento.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Acceso desde el menú Equipos para visualizar el inventario completo.</li>
+            <li>Aplicar filtros por cliente, estado y ubicación.</li>
+            <li>Seleccionar cualquier activo para abrir su ficha detallada.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="equipos-ficha">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 4</span>
+          <h2>Ficha de Equipo - Detalle del activo</h2>
+        </div>
+        <div class="meta">Subpantalla de equipo que documenta datos técnicos, historial e intervenciones asociadas.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#091124"/>
+          <rect x="60" y="60" width="1080" height="110" rx="24" fill="#111827"/>
+          <text x="100" y="110" fill="#f8fafc" font-size="26">Ficha de Equipo</text>
+          <rect x="60" y="190" width="520" height="260" rx="26" fill="#1f2937"/>
+          <rect x="620" y="190" width="520" height="260" rx="26" fill="#1f2937"/>
+          <rect x="90" y="230" width="420" height="28" rx="14" fill="#222c3d"/>
+          <rect x="90" y="280" width="200" height="22" rx="11" fill="#222c3d"/>
+          <rect x="90" y="320" width="320" height="22" rx="11" fill="#222c3d"/>
+          <rect x="650" y="230" width="410" height="28" rx="14" fill="#222c3d"/>
+          <rect x="650" y="280" width="320" height="22" rx="11" fill="#222c3d"/>
+          <rect x="650" y="320" width="320" height="22" rx="11" fill="#222c3d"/>
+          <text x="100" y="350" fill="#cbd5e1" font-size="18">Historial de intervenciones</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la ficha de equipo con información técnica y actividades recientes.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Ofrecer una vista detallada de un equipo, sus métricas clave y el histórico de mantenimientos y órdenes asociadas.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>El usuario selecciona un equipo desde la lista o escaneo QR.</li>
+            <li>Revisa datos técnicos, plan de mantenimiento y próximos vencimientos.</li>
+            <li>Desde aquí puede iniciar ordenes, generar informes o agregar comentario técnico.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="mapa">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 5</span>
+          <h2>Mapa - Localización de activos</h2>
+        </div>
+        <div class="meta">Visor geográfico para identificar activos en terreno y su estado operativo.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#0c1726"/>
+          <rect x="50" y="60" width="1100" height="60" rx="20" fill="#111827"/>
+          <text x="90" y="100" fill="#f8fafc" font-size="24">Mapa de Activos</text>
+          <rect x="60" y="140" width="900" height="320" rx="26" fill="#111827"/>
+          <rect x="980" y="140" width="170" height="320" rx="26" fill="#1e2937"/>
+          <circle cx="280" cy="260" r="32" fill="#38bdf8" opacity="0.9"/>
+          <circle cx="560" cy="330" r="32" fill="#f97316" opacity="0.9"/>
+          <circle cx="780" cy="220" r="32" fill="#22c55e" opacity="0.9"/>
+          <text x="420" y="340" fill="#94a3b8" font-size="16">Mapa interactivo del campus</text>
+          <rect x="1000" y="180" width="120" height="22" rx="12" fill="#222c3d"/>
+          <rect x="1000" y="220" width="120" height="22" rx="12" fill="#222c3d"/>
+          <rect x="1000" y="260" width="120" height="22" rx="12" fill="#222c3d"/>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la vista Mapa con pines de activos y panel lateral de filtros.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Mostrar la distribución física de activos y facilitar la inspección de ubicaciones con problemas.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Seleccionar el menú Mapa desde la navegación principal.</li>
+            <li>Observar la distribución de activos por estado y ubicación.</li>
+            <li>Abrir la ficha del activo directamente desde el mapa.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="clientes">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 6</span>
+          <h2>Clientes - Gestión multi-tenant</h2>
+        </div>
+        <div class="meta">Administración de clientes, sucursales y datos corporativos para la operación multi-tenant.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#011627"/>
+          <rect x="60" y="60" width="1100" height="100" rx="24" fill="#111827"/>
+          <text x="90" y="120" fill="#f8fafc" font-size="26">Clientes</text>
+          <rect x="60" y="180" width="520" height="280" rx="28" fill="#1e2937"/>
+          <rect x="620" y="180" width="520" height="280" rx="28" fill="#1e2937"/>
+          <rect x="90" y="220" width="420" height="24" rx="12" fill="#222c3d"/>
+          <rect x="90" y="260" width="420" height="24" rx="12" fill="#222c3d"/>
+          <rect x="90" y="300" width="260" height="22" rx="11" fill="#222c3d"/>
+          <rect x="640" y="220" width="420" height="24" rx="12" fill="#222c3d"/>
+          <rect x="640" y="260" width="320" height="22" rx="11" fill="#222c3d"/>
+          <rect x="640" y="300" width="320" height="22" rx="11" fill="#222c3d"/>
+          <text x="640" y="360" fill="#94a3b8" font-size="16">Registrar nuevo cliente y editar datos básicos.</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del módulo Clientes con cards de segmento y formulario administrativo.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Permitir al administrador global crear y gestionar clientes, sucursales y datos maestro del negocio.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Seleccionar Clientes desde la navegación.</li>
+            <li>Agregar o editar clientes con datos como nombre, RUT y dirección.</li>
+            <li>Asignar sucursales y validar duplicados para evitar inconsistencias.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="clientes-subitem">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 7</span>
+          <h2>Clientes - Selector & contexto de cliente</h2>
+        </div>
+        <div class="meta">Subpantalla de selección de cliente que controla el contexto del usuario en la plataforma.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#0f172a"/>
+          <rect x="90" y="80" width="1020" height="90" rx="24" fill="#111827"/>
+          <text x="120" y="135" fill="#f8fafc" font-size="26">Seleccionar cliente</text>
+          <rect x="90" y="210" width="1020" height="220" rx="28" fill="#1e2937"/>
+          <rect x="120" y="250" width="940" height="56" rx="18" fill="#0f172a"/>
+          <rect x="120" y="330" width="940" height="56" rx="18" fill="#0f172a"/>
+          <text x="140" y="290" fill="#94a3b8" font-size="18">Cliente A</text>
+          <text x="140" y="370" fill="#94a3b8" font-size="18">Cliente B</text>
+          <circle cx="1000" cy="335" r="16" fill="#38bdf8"/>
+          <circle cx="1000" cy="415" r="16" fill="#38bdf8"/>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del selector de cliente que garantiza sesión en el tenant correcto.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Validar y cambiar el contexto activo de cliente para usuarios que pueden operar en múltiples tenants.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>El usuario elige el cliente al iniciar sesión si tiene permiso para cambiar contexto.</li>
+            <li>El sistema guarda el cliente activo en localStorage y carga los datos asociados.</li>
+            <li>Si no hay cliente asignado, muestra un acceso denegado para proteger los datos.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="inventario">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 8</span>
+          <h2>Inventario Interno - Respuestos y herramientas</h2>
+        </div>
+        <div class="meta">Gestión de categorías internas: máquinas, instrumentos, vehículos, insumos y materiales de repuesto.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#08101f"/>
+          <rect x="80" y="70" width="1040" height="100" rx="24" fill="#111827"/>
+          <text x="120" y="130" fill="#f8fafc" font-size="26">Inventario Interno</text>
+          <rect x="80" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="120" y="240" width="260" height="140" rx="22" fill="#0f172a"/>
+          <rect x="420" y="240" width="260" height="140" rx="22" fill="#0f172a"/>
+          <rect x="720" y="240" width="260" height="140" rx="22" fill="#0f172a"/>
+          <rect x="1020" y="240" width="80" height="140" rx="22" fill="#0f172a"/>
+          <text x="150" y="300" fill="#94a3b8" font-size="18">Máquinas</text>
+          <text x="450" y="300" fill="#94a3b8" font-size="18">Instrumentos</text>
+          <text x="750" y="300" fill="#94a3b8" font-size="18">Vehículos</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del inventario interno con categorías de equipos y consumibles.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Controlar el stock de insumos y herramientas internas para soporte de mantenimiento.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Acceder a Inventario desde navegación.</li>
+            <li>Seleccionar categoría para ver disponibilidad y stock.</li>
+            <li>Registrar movimientos o items faltantes antes de una intervención.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="mantenimientos">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 9</span>
+          <h2>Mantenimientos - Plan preventivo</h2>
+        </div>
+        <div class="meta">Control de mantenimientos preventivos con estado, fechas y vinculación a equipos.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#07121f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Mantenimientos</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1e2937"/>
+          <rect x="110" y="240" width="280" height="140" rx="22" fill="#0f172a"/>
+          <rect x="430" y="240" width="280" height="140" rx="22" fill="#0f172a"/>
+          <rect x="750" y="240" width="280" height="140" rx="22" fill="#0f172a"/>
+          <text x="140" y="300" fill="#94a3b8" font-size="18">Preventivo</text>
+          <text x="460" y="300" fill="#94a3b8" font-size="18">En Proceso</text>
+          <text x="780" y="300" fill="#94a3b8" font-size="18">Reprogramado</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la lista de mantenimientos con estado y tarjetas de prioridad.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Organizar mantenimientos preventivos y asegurar cumplimiento de calendarios de actividad.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Seleccionar Mantenimientos para ver tareas planificadas y sus fechas de ejecución.</li>
+            <li>Filtrar por estado, técnico o cliente para priorizar.</li>
+            <li>Crear acciones de mantenimiento directo desde esta vista.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="planificacion">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 10</span>
+          <h2>Planificación - Calendario de actividades</h2>
+        </div>
+        <div class="meta">Agenda visual de eventos de mantenimiento, tareas y reuniones de seguimiento.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#0b172a"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Planificación</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1e2937"/>
+          <rect x="120" y="240" width="180" height="150" rx="20" fill="#0f172a"/>
+          <rect x="340" y="240" width="250" height="150" rx="20" fill="#0f172a"/>
+          <rect x="620" y="240" width="260" height="150" rx="20" fill="#0f172a"/>
+          <rect x="910" y="240" width="170" height="150" rx="20" fill="#0f172a"/>
+          <text x="150" y="290" fill="#cbd5e1" font-size="18">Evento 1</text>
+          <text x="360" y="290" fill="#cbd5e1" font-size="18">Revisión semestral</text>
+          <text x="650" y="290" fill="#cbd5e1" font-size="18">Carta de tareas</text>
+          <text x="930" y="290" fill="#cbd5e1" font-size="18">Check-in</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la agenda y actividades programadas en la vista Planificación.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Sincronizar el calendario de mantenimientos y eventos con las necesidades de operación y programación.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Acceso al calendario desde el menú lateral.</li>
+            <li>Revisión de eventos y planes futuros en formato de agenda.</li>
+            <li>Crear o editar actividades y asignarlas a técnicos y clientes.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="ordenes-servicio">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 11</span>
+          <h2>Órdenes de Servicio - Gestión de intervenciones</h2>
+        </div>
+        <div class="meta">Listado de órdenes, estados de ejecución y acceso a la edición de cada intervención.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#08101f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Órdenes de Servicio</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="100" y="240" width="320" height="140" rx="20" fill="#0f172a"/>
+          <rect x="460" y="240" width="320" height="140" rx="20" fill="#0f172a"/>
+          <rect x="820" y="240" width="220" height="140" rx="20" fill="#0f172a"/>
+          <text x="130" y="300" fill="#94a3b8" font-size="18">Abierta</text>
+          <text x="490" y="300" fill="#94a3b8" font-size="18">En Proceso</text>
+          <text x="840" y="300" fill="#94a3b8" font-size="18">Cerrada</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del listado de Órdenes de Servicio con tarjetas de estado y filtros.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Controlar cada intervención con su estado, prioridad y detalles operativos para su cierre</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Visualizar órdenes abiertas y pendientes.</li>
+            <li>Filtrar por estado, cliente y técnico.</li>
+            <li>Abrir orden para editar, agregar checklist y firmar.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="ordenes-servicio-editor">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 12</span>
+          <h2>Editor de Orden de Servicio</h2>
+        </div>
+        <div class="meta">Formulario de edición de orden con checklist técnico, ubicación GPS y estado de la intervención.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#0c1220"/>
+          <rect x="60" y="60" width="1080" height="120" rx="24" fill="#111827"/>
+          <text x="100" y="115" fill="#f8fafc" font-size="26">Editor Orden de Servicio</text>
+          <rect x="60" y="200" width="520" height="260" rx="28" fill="#1e2937"/>
+          <rect x="640" y="200" width="500" height="260" rx="28" fill="#1e2937"/>
+          <rect x="90" y="240" width="440" height="24" rx="12" fill="#222c3d"/>
+          <rect x="90" y="280" width="340" height="22" rx="11" fill="#222c3d"/>
+          <rect x="90" y="320" width="380" height="22" rx="11" fill="#222c3d"/>
+          <rect x="670" y="240" width="420" height="24" rx="12" fill="#222c3d"/>
+          <rect x="670" y="290" width="360" height="22" rx="11" fill="#222c3d"/>
+          <rect x="670" y="330" width="360" height="22" rx="11" fill="#222c3d"/>
+          <rect x="670" y="370" width="360" height="22" rx="11" fill="#222c3d"/>
+          <text x="95" y="380" fill="#94a3b8" font-size="16">GPS - 33.44 S / 70.65 W</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del editor de orden con campos técnicos y registro de geolocalización.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Registrar y completar una orden de servicio con checklist, datos de intervención y evidencia técnica.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>El técnico abre una orden desde la lista.</li>
+            <li>Completa el checklist, agrega observaciones y marca la ubicación GPS.</li>
+            <li>Guarda la orden y el sistema encola la sincronización local/online.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="informes-hvac">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 13</span>
+          <h2>Informes HVAC - Documentación técnica</h2>
+        </div>
+        <div class="meta">Lista de informes HVAC, estados de firma y acceso a borradores de reporte.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#08101f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Informes HVAC</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="110" y="240" width="300" height="140" rx="20" fill="#0f172a"/>
+          <rect x="450" y="240" width="300" height="140" rx="20" fill="#0f172a"/>
+          <rect x="790" y="240" width="300" height="140" rx="20" fill="#0f172a"/>
+          <text x="140" y="300" fill="#94a3b8" font-size="18">Borradores</text>
+          <text x="480" y="300" fill="#94a3b8" font-size="18">Firmas pendientes</text>
+          <text x="820" y="300" fill="#94a3b8" font-size="18">Historial</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la pantalla Informes HVAC con categorías de estado.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Centralizar la generación, revisión y firma de informes técnicos HVAC para operación y auditoría.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Seleccionar Informes HVAC para ver borradores y documentos firmados.</li>
+            <li>Abrir un informe para editar datos, mediciones y hallazgos.</li>
+            <li>Enviar al flujo de firma o archivar como evidencia técnica.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="informes-hvac-editor">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 14</span>
+          <h2>Editor de Informe HVAC</h2>
+        </div>
+        <div class="meta">Formulario multifase para llenar datos generales, checklist, mediciones, hallazgos y firma.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#09131f"/>
+          <rect x="60" y="60" width="1080" height="120" rx="24" fill="#111827"/>
+          <text x="100" y="115" fill="#f8fafc" font-size="26">Editor Informe HVAC</text>
+          <rect x="60" y="200" width="520" height="260" rx="28" fill="#1e2937"/>
+          <rect x="640" y="200" width="500" height="260" rx="28" fill="#1e2937"/>
+          <rect x="90" y="240" width="420" height="24" rx="12" fill="#222c3d"/>
+          <rect x="90" y="280" width="340" height="22" rx="11" fill="#222c3d"/>
+          <rect x="90" y="320" width="380" height="22" rx="11" fill="#222c3d"/>
+          <rect x="640" y="240" width="420" height="24" rx="12" fill="#222c3d"/>
+          <rect x="640" y="280" width="360" height="22" rx="11" fill="#222c3d"/>
+          <rect x="640" y="320" width="360" height="22" rx="11" fill="#222c3d"/>
+          <rect x="640" y="360" width="360" height="22" rx="11" fill="#222c3d"/>
+          <text x="90" y="430" fill="#94a3b8" font-size="16">Checklist & Firma</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del editor de informe con pestañas de secciones y formulario.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Guiar al técnico en la construcción de un informe completo con datos de servicio y evidencia.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Completar secciones de datos generales, equipos y mediciones.</li>
+            <li>Añadir hallazgos, recomendaciones y galería fotográfica si aplica.</li>
+            <li>Firmar digitalmente y guardar el informe para luego sincronizarlo.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="tickets">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 15</span>
+          <h2>Tickets - Soporte y seguimiento</h2>
+        </div>
+        <div class="meta">Panel de tickets para gestionar solicitudes, incidencias y acciones correctivas.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#08101f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Tickets</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="110" y="240" width="300" height="140" rx="20" fill="#0f172a"/>
+          <rect x="440" y="240" width="300" height="140" rx="20" fill="#0f172a"/>
+          <rect x="770" y="240" width="300" height="140" rx="20" fill="#0f172a"/>
+          <text x="140" y="300" fill="#94a3b8" font-size="18">Abiertos</text>
+          <text x="470" y="300" fill="#94a3b8" font-size="18">Asignados</text>
+          <text x="800" y="300" fill="#94a3b8" font-size="18">Cerrados</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la gestión de tickets con tarjetas de estado y filtros.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Registrar y seguir incidencias operativas para asegurar respuesta y cierre formal.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Crear un ticket para una anomalía o requerimiento.</li>
+            <li>Asignar responsable y seguir su estado hasta resolución.</li>
+            <li>Usar comentarios y sincronización opcional con Google Tasks.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="reportes">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 16</span>
+          <h2>Reportes - Analítica y exportación</h2>
+        </div>
+        <div class="meta">Vista de reportes para analizar el desempeño, los costos y el estado de la operación.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#0c1320"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Reportes</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="110" y="240" width="260" height="140" rx="20" fill="#0f172a"/>
+          <rect x="400" y="240" width="260" height="140" rx="20" fill="#0f172a"/>
+          <rect x="690" y="240" width="260" height="140" rx="20" fill="#0f172a"/>
+          <rect x="260" y="410" width="680" height="20" rx="10" fill="#222c3d"/>
+          <text x="130" y="300" fill="#94a3b8" font-size="18">KPIs</text>
+          <text x="420" y="300" fill="#94a3b8" font-size="18">Costos</text>
+          <text x="710" y="300" fill="#94a3b8" font-size="18">Actividad</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la sección Reportes con filtros y métricas.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Proveer dashboard analítico y herramientas de exportación para tomar decisiones de mantenimiento.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Seleccionar filtros de fecha, estado y área.</li>
+            <li>Visualizar KPIs y gráficos resumidos.</li>
+            <li>Exportar hojas de reporte para auditoría y seguimiento.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="eficiencia">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 17</span>
+          <h2>Eficiencia Energética</h2>
+        </div>
+        <div class="meta">Análisis de eficiencia energética de equipos HVAC y cálculo de consumo.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#08101f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Eficiencia Energética</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="110" y="240" width="420" height="140" rx="20" fill="#0f172a"/>
+          <rect x="560" y="240" width="420" height="140" rx="20" fill="#0f172a"/>
+          <rect x="110" y="400" width="860" height="30" rx="15" fill="#222c3d"/>
+          <text x="140" y="310" fill="#94a3b8" font-size="18">EER / COP</text>
+          <text x="590" y="310" fill="#94a3b8" font-size="18">Costo de consumo</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la vista de Eficiencia Energética con cálculos de consumo.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Mostrar el rendimiento energético de la flota HVAC y apoyar decisiones de optimización.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Ingresar al módulo desde el menú lateral.</li>
+            <li>Revisar los índices de eficiencia por activo y sucursal.</li>
+            <li>Usar resultados para planificar mejoras o ajustes de operación.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="usuarios">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 18</span>
+          <h2>Usuarios - Administración de perfiles</h2>
+        </div>
+        <div class="meta">Gestión de roles, permisos y asignación de cliente para cada usuario.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#09131f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Usuarios</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="110" y="240" width="900" height="48" rx="18" fill="#0f172a"/>
+          <rect x="110" y="310" width="300" height="120" rx="20" fill="#0f172a"/>
+          <rect x="440" y="310" width="300" height="120" rx="20" fill="#0f172a"/>
+          <rect x="770" y="310" width="220" height="120" rx="20" fill="#0f172a"/>
+          <text x="130" y="350" fill="#94a3b8" font-size="18">Administrador</text>
+          <text x="460" y="350" fill="#94a3b8" font-size="18">Supervisor</text>
+          <text x="790" y="350" fill="#94a3b8" font-size="18">Técnico</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del panel de Usuarios con roles y botones de edición.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Configurar accesos, permisos y clientes asignados para cada participante del sistema.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Crear o editar usuarios desde el módulo de administración.</li>
+            <li>Asignar roles como administrador, supervisor, técnico o cliente.</li>
+            <li>Verificar que permisos de visibilidad correspondan al perfil.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="biometria">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 19</span>
+          <h2>Acceso Biométrico</h2>
+        </div>
+        <div class="meta">Pantalla de configuración de login biométrico con PIN y validación de identidad.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#09131f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Acceso Biométrico</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1e2937"/>
+          <rect x="120" y="240" width="420" height="180" rx="24" fill="#0f172a"/>
+          <rect x="720" y="240" width="320" height="180" rx="24" fill="#0f172a"/>
+          <text x="150" y="320" fill="#94a3b8" font-size="18">PIN de 4 dígitos</text>
+          <text x="760" y="320" fill="#94a3b8" font-size="18">Lectura biométrica</text>
+          <text x="760" y="360" fill="#94a3b8" font-size="16">Estado: listo</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la pantalla biométrica con PIN y estado de autenticación.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Mejorar el acceso seguro en terreno mediante autenticación biométrica y PIN.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Configurar el PIN y/o lector biométrico desde el módulo.</li>
+            <li>Validar credenciales locales de usuario para iniciar sesión.</li>
+            <li>Usar biometría cuando el dispositivo lo soporte y haya permiso.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="consola">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 20</span>
+          <h2>Consola - Debug & Sincronización</h2>
+        </div>
+        <div class="meta">Herramienta para inspeccionar el estado de datos, errores de sincronización y operaciones en cola.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#06111d"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Consola</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1f2937"/>
+          <rect x="100" y="240" width="980" height="90" rx="20" fill="#0f172a"/>
+          <rect x="100" y="350" width="980" height="90" rx="20" fill="#0f172a"/>
+          <rect x="100" y="280" width="620" height="22" rx="11" fill="#222c3d"/>
+          <rect x="100" y="390" width="760" height="22" rx="11" fill="#222c3d"/>
+          <text x="130" y="295" fill="#94a3b8" font-size="16">sync_engine.init()</text>
+          <text x="130" y="405" fill="#94a3b8" font-size="16">Error: auth-session-invalid</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo de la consola de debugging con errores y estado de sincronización.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Facilitar la supervisión técnica de errores de sistema, sincronización y compatibilidad offline.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Abrir la consola para revisar fallas, logs y estado de la cola de sincronización.</li>
+            <li>Identificar operaciones pendientes y conflictos entre datos locales y servidor.</li>
+            <li>Usar la consola sólo bajo supervisión técnica para diagnóstico.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="configuracion">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 21</span>
+          <h2>Configuración</h2>
+        </div>
+        <div class="meta">Centro de mantenimiento de la app, gestión de base de datos local, sincronización y ajustes generales.</div>
+      </div>
+      <div class="screenshot">
+        <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1200" height="500" rx="30" fill="#09131f"/>
+          <rect x="70" y="70" width="1060" height="100" rx="24" fill="#111827"/>
+          <text x="110" y="130" fill="#f8fafc" font-size="26">Configuración</text>
+          <rect x="70" y="200" width="1040" height="250" rx="28" fill="#1e2937"/>
+          <rect x="120" y="240" width="380" height="120" rx="24" fill="#0f172a"/>
+          <rect x="560" y="240" width="380" height="120" rx="24" fill="#0f172a"/>
+          <rect x="420" y="380" width="360" height="50" rx="20" fill="#0f172a"/>
+          <text x="150" y="300" fill="#94a3b8" font-size="18">Base de datos local</text>
+          <text x="590" y="300" fill="#94a3b8" font-size="18">Sincronización</text>
+          <text x="460" y="415" fill="#94a3b8" font-size="16">Clonar DB / Reset</text>
+        </svg>
+        <div class="screenshot-caption">Pantallazo del módulo Configuración con acciones de sincronización y base local.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Objetivo</h3>
+          <p>Controlar los ajustes de sistema, la base local y las operaciones de sincronización manual y restauración.</p>
+        </div>
+        <div class="card">
+          <h3>Workflow</h3>
+          <ul>
+            <li>Acceder a configuración para ver datos técnicos y estado del servidor.</li>
+            <li>Ejecutar sincronización manual o restaurar datos locales cuando sea necesario.</li>
+            <li>Validar mensajes de error y clonar base de datos si hay problemas graves.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="qa-summary">
+      <div class="page-header">
+        <div>
+          <span class="tag">Página 22</span>
+          <h2>Resumen QA - Errores detectados</h2>
+        </div>
+        <div class="meta">Lista consolidada de fallos o riesgos detectados en el código y el flujo de la aplicación.</div>
+      </div>
+      <div class="content-grid">
+        <div class="card">
+          <h3>Errores identificados</h3>
+          <ul class="qa-list">
+            <li>Dependencia de geolocalización: múltiples pantallas asumen disponibilidad de GPS, pero se alerta de fallo cuando no está disponible.</li>
+            <li>Gestión de tokens: el flujo de sesión usa localStorage/sessionStorage y puede invalidar la sesión si uno de los valores queda inconsistente.</li>
+            <li>Modo offline / sincronización: hay riesgos en conflictos de datos y errores de cola que requieren resolución manual.</li>
+            <li>Validación de clientes: el formulario de cliente demanda RUT único y puede fallar si se repite un registro.</li>
+            <li>Scanner QR: puede mostrar "Activo no registrado" cuando el activo no existe, lo que indica dependencia de datos locales actualizados.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Riesgos de UX</h3>
+          <ul class="qa-list">
+            <li>Falta de feedback en operaciones largas: la experiencia puede quedar corta si la sincronización tarda y no hay indicadores claros.</li>
+            <li>Permisos de usuario: si un perfil no seleccione cliente o no tiene cliente asignado, se muestra acceso denegado en lugar de onboarding guiado.</li>
+            <li>Errores de importación/lectura: el módulo de carga masiva puede abortar sin recuperación suave en filas con datos incompletos.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 1.5rem;">
+        <h3>Recomendaciones rápidas</h3>
+        <ul class="qa-list">
+          <li>Agregar mensajes de carga y confirmación en sincronización manual y operaciones de guardado.</li>
+          <li>Incluir tutorial de selección de cliente para supervisores y técnicos en primer acceso.</li>
+          <li>Protocolizar resolución de conflictos local/servidor con mensajes claros de QA.</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+  <footer>
+    <p>Manual generado con base en el código fuente de CMMS HVAC PRO y las rutas de navegación identificadas en `src/App.tsx` y `src/components/Layout.tsx`.</p>
+  </footer>
+</body>
+</html>

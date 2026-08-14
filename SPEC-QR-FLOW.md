@@ -1,6 +1,8 @@
 # SPEC-QR-FLOW — Flujo QR de Activos
 ## CMMS HVAC PRO · Versión 1.0 · 2026-06-13
 
+> **Documento temático propio.** Desarrolla a los documentos normativos, nunca los contradice. Ante conflicto, prevalecen `CMMS_HVAC_PRO_Reglas_de_Negocio.md` y `CMMS_HVAC_PRO_Especificacion_Tecnica.md`. Ver [`DOCS_INDEX.md`](DOCS_INDEX.md) para la matriz de precedencia completa. Documento dueño del workflow **W-02** (escaneo de QR y deep-link).
+
 > **Alineación normativa:** el QR identifica al activo mediante `uuid_sync` dentro de una URL web universal. El TAG se muestra como referencia humana, pero no es la identidad del enlace.
 
 ---
