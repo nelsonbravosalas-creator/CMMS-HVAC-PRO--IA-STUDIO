@@ -255,7 +255,82 @@ dl.blk dd.fix{font-weight:500}
 .fixnote{border:1.5px solid var(--hu);background:var(--hu-bg);padding:10px 14px;font-size:13.5px;margin:0 0 16px}
 .fixnote b{font-family:var(--f-head)}
 
+/* Versión 3: flujo optimizado */
+.oband-g{fill:var(--sy-bg)} .oband-c{fill:var(--in-bg)} .oband-a{fill:var(--surface-2)}
+.oband-t{font:600 10.5px var(--f-mono);letter-spacing:.14em;fill:var(--ink)}
+.onode{cursor:pointer;transition:opacity .2s}
+.onode rect.box{fill:var(--surface);stroke:var(--ink);stroke-width:1.3}
+.onode.sM rect.box{stroke:var(--hu);stroke-width:2}
+.onode.sN rect.box{stroke:var(--ou);stroke-width:2;stroke-dasharray:6 3}
+.onode:hover rect.box,.onode:focus-visible rect.box{stroke-width:3}
+.onode:focus-visible{outline:none}
+.onode .code{font:500 9px var(--f-mono);fill:var(--ink-2)}
+.onode .ttl{font:700 13.5px var(--f-head);fill:var(--ink)}
+.onode .sub{font:400 9.5px var(--f-body);fill:var(--ink-2)}
+.ochip rect{stroke-width:1}
+.ochip text{font:700 7.5px var(--f-mono);letter-spacing:.08em;text-anchor:middle}
+.sE .ochip rect{fill:var(--surface-2);stroke:var(--ink-2)} .sE .ochip text{fill:var(--ink-2)}
+.sM .ochip rect{fill:var(--hu-bg);stroke:var(--hu)} .sM .ochip text{fill:var(--hu)}
+.sN .ochip rect{fill:var(--ou-bg);stroke:var(--ou)} .sN .ochip text{fill:var(--ou)}
+.oedge{fill:none;stroke-width:1.8;stroke-linecap:round;transition:opacity .2s}
+.oedge.k-ch{stroke:var(--da);stroke-width:2.4} .oedge.k-ct{stroke:var(--hu);stroke-dasharray:5 4} .oedge.k-su{stroke:var(--sy)} .oedge.k-fb{stroke:var(--ou);stroke-dasharray:7 4;stroke-width:2}
+.omk-ch{fill:var(--da)} .omk-ct{fill:var(--hu)} .omk-su{fill:var(--sy)} .omk-fb{fill:var(--ou)}
+.olbl{font:500 8.5px var(--f-mono);fill:var(--ink-2);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+.hoy .onode.sN{opacity:.22}
+.hoy .oedge.miss{stroke:var(--ex);stroke-dasharray:2 6;opacity:.8}
+.hoy .opk.miss,.hoy .olbl.miss{display:none}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:4px;overflow:hidden}
+.seg button{background:var(--surface);border:0;border-left:1.5px solid var(--ink);padding:6px 12px;font:600 12px var(--f-mono);letter-spacing:.04em;text-transform:uppercase}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.nms{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.nm{border:1.5px solid var(--line);background:var(--surface);padding:14px 16px;min-width:0;scroll-margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.nm.focus{border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 25%,transparent)}
+.nm .code{font:600 10px var(--f-mono);letter-spacing:.12em;color:var(--ou)}
+.nm h3{font-size:17px}
+.nm p{margin:0;font-size:13.5px}
+.nm dl{margin:4px 0 0;display:grid;grid-template-columns:86px minmax(0,1fr);font-size:12.5px}
+.nm dt{font:600 9.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);padding:5px 0;border-top:1px solid var(--line)}
+.nm dd{margin:0;padding:4px 0;border-top:1px solid var(--line)}
+td .go,.nm .go{background:var(--surface);border:1.5px solid var(--ink);border-radius:4px;padding:0 6px;font:700 11px var(--f-mono);margin:1px 2px 1px 0}
+td .go:hover,.nm .go:hover{background:var(--ink);color:var(--bg)}
+/* Calendario maestro (maqueta) */
+.mocknote{border:1.5px dashed var(--hu);background:var(--hu-bg);padding:9px 14px;font-size:13.5px;margin:0 0 14px}
+.tgl{background:var(--surface);border:1.5px solid var(--line);border-radius:4px;padding:5px 10px;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.tgl[aria-pressed="true"]{border-color:var(--ink)} .tgl[aria-pressed="false"]{opacity:.55}
+.dot{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.dot.mant{background:var(--in)} .dot.tk{background:var(--ex)} .dot.os{background:var(--da)} .dot.inf{background:var(--ou)} .dot.hito{background:var(--hu);transform:rotate(45deg) scale(.8)}
+.gantt{display:grid;grid-template-columns:minmax(0,480px) minmax(0,1fr);border:1.5px solid var(--ink);background:var(--surface);box-shadow:var(--shadow)}
+.gt{min-width:0;border-right:1.5px solid var(--ink)}
+.gh,.gr{display:grid;grid-template-columns:minmax(0,1fr) 92px 84px 62px 46px;box-sizing:border-box;align-items:center}
+.gh{height:44px;background:var(--surface-2);border-bottom:1.5px solid var(--ink);font:600 9.5px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.gr{height:30px;border-bottom:1px solid var(--line);font-size:12.5px}
+.gh span,.gr>span,.gr>button{padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.gr.grp{font-weight:600;background:color-mix(in srgb,var(--surface-2) 55%,transparent)}
+.gr.sel{background:var(--in-bg)}
+.gr .nmb{background:none;border:0;text-align:left;height:100%;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:inherit}
+.gr .nmb:hover{text-decoration:underline}
+.gr .tw{font:500 10px var(--f-mono);width:10px;flex:none;color:var(--ink-2)}
+.gr .warn{color:var(--ex);font-weight:600}
+.gs{min-width:0;overflow-x:auto}
+.gs svg{display:block}
+.g-hd{fill:var(--surface-2)} .g-wk{font:600 9.5px var(--f-mono);fill:var(--ink)} .g-dy{font:500 9px var(--f-mono);fill:var(--ink-2);text-anchor:middle}
+.g-we{fill:var(--surface-2);opacity:.55} .g-ln{stroke:var(--line);stroke-width:1} .g-hl{stroke:var(--ink);stroke-width:1.5}
+.g-sel{fill:var(--in-bg)} .g-today{stroke:var(--ex);stroke-width:1.5;stroke-dasharray:4 3} .g-todayt{font:600 9px var(--f-mono);fill:var(--ex)}
+.bar{cursor:pointer} .bar.mant{fill:var(--in)} .bar.tk{fill:var(--ex)} .bar.os{fill:var(--da)} .bar.inf{fill:var(--ou)} .bar.hito{fill:var(--hu)}
+.bar.over{stroke:var(--ex);stroke-width:2.5}
+.bar:hover{opacity:.8}
+.g-sum{fill:var(--ink)} .g-dep{fill:none;stroke:var(--ink-2);stroke-width:1.2} .g-depm{fill:var(--ink-2)}
+.g-bl{font:500 9px var(--f-mono);fill:var(--ink-2)}
+.cdet{border:1.5px solid var(--line);background:var(--surface);padding:12px 16px;margin-top:12px;font-size:13.5px}
+.cdet h3{font-size:17px;margin-bottom:6px}
+.cdet dl{display:grid;grid-template-columns:130px minmax(0,1fr);margin:0}
+.cdet dt{font:600 10px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);padding:5px 0}
+.cdet dd{margin:0;padding:4px 0}
+
 @media (max-width:900px){
+  .gantt{grid-template-columns:150px minmax(0,1fr)} .gh,.gr{grid-template-columns:minmax(0,1fr)} .gh span:not(:first-child),.gr>span{display:none}
+  .cdet dl{grid-template-columns:minmax(0,1fr)} .cdet dd{padding-top:0}
   .iss{grid-template-columns:minmax(0,1fr)} .iss .side{flex-direction:row;align-items:center}
   dl.blk{grid-template-columns:minmax(0,1fr)} dl.blk dd{border-top:0;padding-top:0}
   .ilist li{grid-template-columns:auto minmax(0,1fr)} .ilist li .sev{display:none}
@@ -294,20 +369,24 @@ dl.blk dd.fix{font-weight:500}
 
   <header class="titleblock">
     <div><div class="tb-l">Plano de procesos</div><h1>Mapa de procesos CMMS HVAC PRO</h1></div>
-    <div><div class="tb-l">Versión</div><div class="tb-v">2 · hallazgos y mejoras</div></div>
+    <div><div class="tb-l">Versión</div><div class="tb-v">3 · flujo optimizado</div></div>
     <div><div class="tb-l">Fuente</div><div class="tb-v">Código · commit f6c35f8</div></div>
     <div><div class="tb-l">Alcance</div><div class="tb-v" id="tb-scope">20 módulos · 9 apoyos</div></div>
   </header>
-  <p class="lead">Cada módulo con lo que recibe, lo que decide una persona, lo que hace el sistema y lo que entrega. Se levantó leyendo <span class="mono">src/</span>, <span class="mono">api/</span> y <span class="mono">server/</span>. Donde el código y la documentación no coinciden, manda el código. La versión 2 agrega los errores, las inconsistencias y las mejoras, cada uno con su evidencia y su corrección recomendada.</p>
+  <p class="lead">Cada módulo con lo que recibe, lo que decide una persona, lo que hace el sistema y lo que entrega. Se levantó leyendo <span class="mono">src/</span>, <span class="mono">api/</span> y <span class="mono">server/</span>. Donde el código y la documentación no coinciden, manda el código. La versión 2 agregó los errores, las inconsistencias y las mejoras. La versión 3 propone el flujo optimizado en tres bandas (gestión, proceso central y apoyo), los módulos nuevos y el Calendario maestro.</p>
 
   <nav class="tabs" role="tablist" aria-label="Vistas">
-    <button class="tab" role="tab" id="t-global" aria-controls="v-global" data-tab="global">Flujo global</button>
+    <button class="tab" role="tab" id="t-optimizado" aria-controls="v-optimizado" data-tab="optimizado">Flujo optimizado</button>
+    <button class="tab" role="tab" id="t-calendario" aria-controls="v-calendario" data-tab="calendario">Calendario maestro</button>
+    <button class="tab" role="tab" id="t-global" aria-controls="v-global" data-tab="global">Flujo actual</button>
     <button class="tab" role="tab" id="t-modulos" aria-controls="v-modulos" data-tab="modulos">Detalle por módulo</button>
     <button class="tab" role="tab" id="t-matriz" aria-controls="v-matriz" data-tab="matriz">Interrelaciones</button>
     <button class="tab" role="tab" id="t-hallazgos" aria-controls="v-hallazgos" data-tab="hallazgos">Hallazgos y mejoras</button>
   </nav>
 
   <main id="view">
+    <section class="view" id="v-optimizado" role="tabpanel" aria-labelledby="t-optimizado" hidden></section>
+    <section class="view" id="v-calendario" role="tabpanel" aria-labelledby="t-calendario" hidden></section>
     <section class="view" id="v-global" role="tabpanel" aria-labelledby="t-global" hidden></section>
     <section class="view" id="v-modulos" role="tabpanel" aria-labelledby="t-modulos" hidden></section>
     <section class="view" id="v-matriz" role="tabpanel" aria-labelledby="t-matriz" hidden></section>
@@ -830,18 +909,113 @@ var ISS={};ISSUES.forEach(function(x){ISS[x.id]=x});
 function issuesOf(mid){return ISSUES.filter(function(x){return x.mods.indexOf(mid)>-1}).sort(function(a,b){return SEVO[a.sev]-SEVO[b.sev]})}
 var WAVES=[[1,'Seguridad y pérdida de datos','Lo que puede dejar a alguien sin acceso o sin datos. Va primero.'],[2,'Coherencia entre módulos','Lo que hace que la aplicación diga una cosa y haga otra.'],[3,'Mejoras y limpieza','Lo que agrega valor una vez que lo anterior está resuelto.']];
 
+/* ===== DATOS: flujo optimizado (versión 3) =====
+   nodo: [id, banda g|c|a, posición, código, título, subtítulo, estado E existe · M cambia · N nuevo, destino]
+   destino: m:módulo · n:módulo nuevo · i:hallazgo · t:pestaña */
+var ON=[
+['g1','g',0,'G-1','Planes preventivos','frecuencia por equipo','N','n:planes'],
+['g2','g',1,'G-2','Calendario maestro','todo acontecimiento, Gantt','M','t:calendario'],
+['g3','g',2,'G-3','Contratos y SLA','plazos por cliente','N','n:sla'],
+['g4','g',3,'G-4','Costos','por orden y por equipo','N','n:costos'],
+['g5','g',4,'G-5','Auditoría','bitácora del servidor','N','n:auditoria'],
+['g6','g',5,'G-6','Indicadores','KPIs desde órdenes','M','n:indicadores'],
+['c1','c',0,'C-1','Solicitud o plan','ticket · portal · plan','M','m:tickets'],
+['c2','c',1,'C-2','Programación','técnico, fecha, recursos','N','t:calendario'],
+['c3','c',2,'C-3','Orden de servicio','hereda datos del origen','M','m:ordenes'],
+['c4','c',3,'C-4','Ejecución','QR, informes, repuestos','M','m:informes'],
+['c5','c',4,'C-5','Cierre y firma','técnico + cliente','E','m:ordenes'],
+['c6','c',5,'C-6','Entrega','PDF, correo y portal','M','n:portal'],
+['c7','c',6,'C-7','Retroalimentación','historial y próx. fecha','N','m:detalle'],
+['a1','a',0,'A-1','Acceso','sesión, PIN, 2.º factor','M','m:login'],
+['a2','a',1,'A-2','Maestros','clientes, equipos','E','m:equipos'],
+['a3','a',2,'A-3','Notificaciones','vencimientos, SLA, stock','N','n:alertas'],
+['a4','a',3,'A-4','Repuestos','consumo y reposición','M','n:repuestos'],
+['a5','a',4,'A-5','Sincronización','offline, sin pérdidas','M','i:E2'],
+['a6','a',5,'A-6','Documentos','marca y plantilla únicas','M','i:I5'],
+['a7','a',6,'A-7','Configuración','moneda, catálogos, deploy','M','m:config']
+];
+/* enlace: [id, desde, hasta, tipo ch cadena · ct control · su soporte · fb retroalimentación, existe hoy, etiqueta, bidireccional] */
+var OE=[
+['o1','c1','c2','ch',0,''],['o2','c2','c3','ch',0,''],['o3','c3','c4','ch',1,''],['o4','c4','c5','ch',1,''],['o5','c5','c6','ch',1,''],['o6','c6','c7','ch',0,''],
+['o7','c7','c1','fb',0,'la próxima fecha y el costo real vuelven al plan'],
+['o8','g1','c1','ct',0,'genera actividades'],['o9','g2','c2','ct',0,'programa y registra',1],['o10','g3','c3','ct',0,'plazo comprometido'],
+['o11','c4','g4','ct',0,'horas y repuestos'],['o12','c5','g5','ct',0,'firmas y cambios'],['o13','c7','g6','ct',0,'tiempos reales'],
+['o14','a1','c1','su',1,'identidad'],['o15','a2','c2','su',1,'equipo y sucursal'],['o16','a3','c3','su',0,'avisos'],['o17','a4','c4','su',0,'stock'],
+['o18','a5','c5','su',1,'cola offline'],['o19','a6','c6','su',1,'PDF'],['o20','a7','c7','su',1,'ajustes']
+];
+var OCHG=[
+['Encadenamiento','Mantenimientos, calendario, órdenes e informes se crean a mano y por separado.','Un mismo origen recorre la cadena: el plan o el ticket crea la actividad, la actividad abre la orden y la orden agrupa sus informes.',['I10','M1']],
+['Calendario','Agenda manual de actividades, sin relación con el resto.','Registro único de todos los acontecimientos, con vista tipo Gantt, dependencias y carga de recursos.',['I10']],
+['Doble digitación','Cliente, sucursal, equipo y técnico se escriben otra vez en cada pantalla.','La orden hereda los datos del ticket o del plan; el informe hereda los de la orden.',['M1']],
+['Mantenimiento ejecutado','Se pierden repuestos, costo y duración; el equipo no actualiza su próxima fecha.','Al cerrar, el equipo recibe último y próximo mantenimiento, y el costo queda registrado.',['E3']],
+['Estados y tiempos','El historial de la orden se inventa al cerrar; las reglas de ticket no se usan.','Cada cambio de estado se registra con su hora real; una sola regla por entidad.',['E5','I3','M3']],
+['Indicadores','El Dashboard mide tickets y Reportes está apagado.','MTTR, cumplimiento del plan y costo por equipo salen de órdenes e informes reales.',['I1','I2','M2']],
+['Repuestos','El stock solo cambia a mano.','Los repuestos se eligen en la orden y se descuentan al finalizar.',['M4']],
+['Entrega al cliente','PDF por correo, con marca fija en el código.','PDF con la marca configurada y consulta en el portal del cliente.',['I5','M5']],
+['Descarga de datos','Máximo 200 filas por tabla, sin aviso.','Descarga paginada hasta agotar, con la hora del servidor.',['E2']]
+];
+/* módulo propuesto: [id, código, nombre, banda, tipo, qué resuelve, valor, entradas, salidas, depende de, esfuerzo, prioridad, referencias] */
+var NEWM=[
+['calmaestro','N-01','Calendario maestro','Gestión','Rediseño','Hoy el calendario es una agenda aparte. Pasa a mostrar todos los acontecimientos: mantenimientos, tickets, órdenes e informes.','Una sola pantalla para ver qué viene, qué depende de qué y quién está ocupado.','Planes, tickets, órdenes, informes, técnicos y vehículos','Programación, dependencias, carga de recursos','Vínculos por ID entre entidades y fechas de inicio y fin','L','a',['I10','M1']],
+['planes','N-02','Planes de mantenimiento preventivo','Gestión','Nuevo','Hoy cada preventivo se registra a mano después de hacerlo. No existe un plan que diga cuándo toca.','Los preventivos se generan solos según la frecuencia de cada equipo; nada vence sin aviso.','Equipo, frecuencia, pauta de trabajo','Actividades programadas en el calendario','Calendario maestro','M','a',['M1','E3']],
+['sla','N-03','Contratos y SLA','Gestión','Nuevo','No hay registro de lo comprometido con cada cliente: tiempos de respuesta, visitas incluidas, vigencia.','Prioriza la programación y permite demostrar cumplimiento al cliente.','Cliente, plazos de respuesta, vigencia','Fecha límite por ticket y orden, alertas de vencimiento','Estados y tiempos reales','M','m',['M3']],
+['costos','N-04','Costos y presupuesto','Gestión','Nuevo','El costo de materiales se pide y se descarta. No hay costo por orden ni por equipo.','Saber cuánto cuesta mantener cada equipo y decidir reparar o reemplazar.','Horas, repuestos y traslado por orden','Costo por orden, por equipo y por cliente','Repuestos y registro de horas','M','m',['E3','I6','M2']],
+['indicadores','N-05','Indicadores y reportes','Gestión','Rediseño','El Dashboard mide tickets y Reportes está apagado.','Indicadores que reflejan el trabajo real: MTTR, cumplimiento del plan, costo por equipo.','Órdenes, informes, estados con hora','Dashboard, reportes y exportación','Estados reales y costos','M','a',['I1','I2','M2']],
+['portal','N-06','Portal del cliente','Central','Nuevo','El perfil cliente existe, pero recibe los documentos solo por correo.','El cliente crea tickets, sigue su orden y descarga informes firmados sin llamar.','Tickets del cliente','Seguimiento de órdenes e informes firmados','Permisos por perfil y aislamiento por cliente','M','m',['M5','M6']],
+['alertas','N-07','Notificaciones y alertas','Apoyo','Nuevo','Las "alertas" de hoy son textos fijos o listas en pantalla. Nadie recibe aviso.','El técnico se entera de su asignación y el supervisor de lo que está por vencer.','Vencimientos, SLA, stock bajo, asignaciones','Avisos en la app y por correo','Calendario maestro y SLA','M','m',['I7']],
+['repuestos','N-08','Gestión de repuestos','Apoyo','Rediseño','El inventario solo se ajusta a mano y nada lo consume.','Stock confiable y trazabilidad: qué repuesto se usó en qué orden.','Repuestos usados en órdenes y mantenimientos','Stock actualizado, punto de reposición','Inventario actual','M','m',['M4','I10']],
+['auditoria','N-09','Auditoría del servidor','Gestión','Nuevo','La Consola muestra solo el registro del navegador. La auditoría del servidor existe pero no se ve.','Saber quién hizo qué y cuándo, incluidos los intentos de acceso bloqueados.','audit_logs y eventos de seguridad','Bitácora consultable por administrador','Ninguna: los datos ya se guardan','S','b',['I10']]
+];
+var NM={};NEWM.forEach(function(x){NM[x[0]]=x});
+
+/* ===== DATOS: maqueta del Calendario maestro (ejemplo, no son datos reales) =====
+   evento: d día desde el lunes 9 nov · h0 hora de inicio · h duración en horas hábiles (jornada 08:00 a 18:00) */
+var CAL={base:[2026,10,9],days:28,today:3.45,
+ cli:[['ca','Clínica Andes'],['dc','Data Center Norte']],
+ suc:[['matr','ca','Casa Matriz'],['nort','ca','Sucursal Norte'],['sala','dc','Sala Principal']],
+ eq:[['e1','matr','MATR.AC.001','Split sala de servidores'],['e2','matr','MATR.CH.001','Chiller 1'],['e3','nort','NORT.AC.004','Split oficinas'],['e4','sala','SALA.CR.002','CRAC 2'],['e5','sala','SALA.GE.001','Grupo electrógeno']],
+ ev:[
+ {id:'T1',eq:'e1',t:'tk',n:'TK-0142 No enfría',tech:'Cliente',d:1,h0:10,h:2,st:'cerrado',dep:[]},
+ {id:'O1',eq:'e1',t:'os',n:'OS-0310 Correctivo',tech:'P. Rojas',veh:'Camioneta 1',d:2,h0:9,h:5,st:'cerrado',dep:['T1']},
+ {id:'I1',eq:'e1',t:'inf',n:'INF-0522 Informe del equipo',tech:'P. Rojas',d:2,h0:10,h:3,st:'finalizado',dep:['O1']},
+ {id:'H1',eq:'e1',t:'hito',n:'Firma del cliente',tech:'Cliente',d:2,h0:14,h:0,st:'cerrado',dep:['I1']},
+ {id:'P1',eq:'e2',t:'mant',n:'Preventivo trimestral',tech:'M. Soto',veh:'Camioneta 2',d:4,h0:9,h:6,st:'programado',dep:[]},
+ {id:'O2',eq:'e2',t:'os',n:'OS-0311 Preventivo',tech:'M. Soto',veh:'Camioneta 2',d:4,h0:9,h:6,st:'abierto',dep:['P1']},
+ {id:'I2',eq:'e2',t:'inf',n:'INF-0523 Informe del equipo',tech:'M. Soto',d:4,h0:10,h:4,st:'borrador',dep:['O2']},
+ {id:'T2',eq:'e3',t:'tk',n:'TK-0145 Ruido en la unidad',tech:'P. Rojas',d:3,h0:11,h:45,st:'en proceso',dep:[]},
+ {id:'P2',eq:'e3',t:'mant',n:'Preventivo semestral',tech:'P. Rojas',veh:'Camioneta 1',d:8,h0:9,h:4,st:'programado',dep:[]},
+ {id:'O3',eq:'e3',t:'os',n:'OS-0313 Preventivo + ticket',tech:'P. Rojas',veh:'Camioneta 1',d:8,h0:9,h:5,st:'programado',dep:['T2','P2']},
+ {id:'P3',eq:'e4',t:'mant',n:'Preventivo mensual',tech:'M. Soto',veh:'Camioneta 2',d:3,h0:9,h:4,st:'en proceso',dep:[]},
+ {id:'P4',eq:'e4',t:'mant',n:'Cambio de filtros',tech:'P. Rojas',veh:'Camioneta 1',d:8,h0:11,h:4,st:'programado',dep:[]},
+ {id:'O4',eq:'e4',t:'os',n:'OS-0314 Cambio de filtros',tech:'P. Rojas',veh:'Camioneta 1',d:8,h0:11,h:4,st:'programado',dep:['P4']},
+ {id:'T3',eq:'e5',t:'tk',n:'TK-0147 No arranca en prueba',tech:'Cliente',d:11,h0:9,h:2,st:'abierto',dep:[]},
+ {id:'O5',eq:'e5',t:'os',n:'OS-0315 Diagnóstico',tech:'L. Vera',veh:'Camioneta 2',d:14,h0:9,h:5,st:'programado',dep:['T3']},
+ {id:'I5',eq:'e5',t:'inf',n:'INF-0524 Informe del equipo',tech:'L. Vera',d:14,h0:10,h:3,st:'borrador',dep:['O5']},
+ {id:'P5',eq:'e5',t:'mant',n:'Preventivo semestral',tech:'M. Soto',veh:'Camioneta 2',d:17,h0:9,h:10,st:'programado',dep:[]}
+ ]};
+var CT={mant:'Mantenimiento',tk:'Ticket',os:'Orden de servicio',inf:'Informe',hito:'Hito'};
+var CSRC={mant:'preventive_maintenance',tk:'work_orders',os:'ordenes_servicio',inf:'reports',hito:'ordenes_servicio (firmas)'};
+var CSPEC=[
+['Mantenimiento','preventive_maintenance','equipo_tag, fecha, proxima_fecha, tecnico, estado','Hora de inicio y duración (hoy se piden y se descartan, E3)'],
+['Ticket','work_orders','equipo_tag, fecha_creacion, estado, asignado_a, prioridad','Fecha de cierre y vínculo con la orden que lo atiende'],
+['Orden de servicio','ordenes_servicio','cliente_id, sucursal_id, estado, fecha y técnico dentro de data','Inicio y fin reales (E5) y origen: ticket o plan'],
+['Informe por equipo','reports','orden_servicio_uuid, cliente_id, sucursal_id, TAG dentro de data','Nada: ya está ligado a su orden'],
+['Actividad','events','title, tech, vehicle, tag, startTime, duration, status; ticketNum y reportNum como texto libre','Reemplazar el texto libre por identificadores reales'],
+['Recursos','users · inventory (categoría vehiculos)','Técnicos y vehículos','Asignación por identificador, no por nombre escrito']
+];
+
 /* ===== Estado y navegación ===== */
-var S={tab:'global',mod:'login',playing:!RM,speed:1,sup:null,step:0,timer:0,onlyIss:false,focus:null,ft:'',fs:'',fm:'',fq:''};
+var S={tab:'optimizado',omode:'opt',nfocus:null,mod:'login',playing:!RM,speed:1,sup:null,step:0,timer:0,onlyIss:false,focus:null,ft:'',fs:'',fm:'',fq:''};
 var gp=[],busy=false;
-var VIEWS={global:$('#v-global'),modulos:$('#v-modulos'),matriz:$('#v-matriz'),hallazgos:$('#v-hallazgos')};
-var tbs=$('#tb-scope');if(tbs)tbs.textContent='20 módulos · '+ISSUES.length+' hallazgos';
+var VIEWS={optimizado:$('#v-optimizado'),calendario:$('#v-calendario'),global:$('#v-global'),modulos:$('#v-modulos'),matriz:$('#v-matriz'),hallazgos:$('#v-hallazgos')};
+var tbs=$('#tb-scope');if(tbs)tbs.textContent='20 módulos · '+ISSUES.length+' hallazgos · '+NEWM.length+' propuestos';
 function openIssue(id){S.focus=id;S.ft='';S.fs='';S.fm='';S.fq='';go('hallazgos',false)}
 
 function parseHash(){
   var h=(location.hash||'').replace('#','');
   if(h.indexOf('mod-')===0&&MOD[h.slice(4)]){S.tab='modulos';S.mod=h.slice(4)}
-  else if(h==='modulos'||h==='matriz'||h==='global'||h==='hallazgos')S.tab=h;
-  else S.tab='global';
+  else if(h==='modulos'||h==='matriz'||h==='global'||h==='hallazgos'||h==='optimizado'||h==='calendario')S.tab=h;
+  else S.tab='optimizado';
 }
 function go(h,scroll){
   var same=(location.hash||'#')==='#'+h;
@@ -855,6 +1029,8 @@ function route(scroll){
   Object.keys(VIEWS).forEach(function(k){VIEWS[k].hidden=k!==S.tab});
   stopStep();gp=[];
   if(S.tab==='global')drawGlobal();
+  else if(S.tab==='optimizado')drawOpt();
+  else if(S.tab==='calendario')drawCal();
   else if(S.tab==='modulos')drawModule();
   else if(S.tab==='hallazgos')drawIssues();
   else drawMatrix();
@@ -950,7 +1126,7 @@ function applySup(){
 var last=performance.now();
 function tick(now){
   var dt=Math.min(.1,(now-last)/1000);last=now;
-  if(S.tab==='global'&&S.playing&&gp.length&&!document.hidden){gp.forEach(function(p){p.t=(p.t+dt*S.speed*p.v)%1;placePk(p)})}
+  if((S.tab==='global'||S.tab==='optimizado')&&S.playing&&gp.length&&!document.hidden){gp.forEach(function(p){p.t=(p.t+dt*S.speed*p.v)%1;placePk(p)})}
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
@@ -985,6 +1161,7 @@ function drawModule(){
   var mi=issuesOf(m.id),oks=m.nt.filter(function(n){return n[0]==='ok'});
   h+='<div class="panel"><h3>Confirmado que funciona</h3>'+(oks.length?'<ul class="nt">'+oks.map(function(n){return '<li class="ok"><span class="m">✓</span><span>'+esc(n[1])+'</span></li>'}).join('')+'</ul>':'<p class="hint" style="margin:0">Sin puntos confirmados para este módulo.</p>')+'</div></div>';
   h+='<div class="panel" style="margin-top:18px"><h3>Hallazgos de este módulo ('+mi.length+')</h3>'+(mi.length?'<ul class="ilist">'+mi.map(function(x){return '<li><button class="go" data-iss="'+x.id+'" aria-label="Abrir hallazgo '+x.id+'">'+x.id+'</button><span class="sev '+x.sev+'">'+SEV[x.sev]+'</span><span>'+esc(x.title)+'</span></li>'}).join('')+'</ul><p class="hint" style="margin:10px 0 0">Abre un hallazgo para ver la evidencia y la corrección recomendada. Los pasos afectados llevan su código en rojo.</p>':'<p class="hint" style="margin:0">No encontré hallazgos propios de este módulo. Le aplican los generales (sincronización, dependencias, documentación).</p>')+'</div>';
+  if(m.id==='calendario')h+='<p class="fixnote" style="margin-top:18px"><b>Propuesta de la versión 3.</b> Este módulo pasa a ser el registro de todos los acontecimientos. <button class="row-go" id="tocal">Ver la maqueta del Calendario maestro</button></p>';
   if(m.matrix){
     h+='<div class="sec-h"><h2>Matriz de perfiles</h2><p>Permisos definidos en <span class="mono">PERMISOS_POR_PERFIL</span>.</p></div><div class="tbl-wrap"><table><thead><tr><th>Permiso</th>'+PROFILES.map(function(p){return '<th style="text-align:center">'+p+'</th>'}).join('')+'</tr></thead><tbody>';
     PERMS.forEach(function(p){h+='<tr><td class="mono">'+p[0]+'</td>'+p[1].split('').map(function(c){return '<td class="c">'+(c==='1'?'<span class="yes" aria-label="Sí">●</span>':'<span class="no" aria-label="No">–</span>')+'</td>'}).join('')+'</tr>'});
@@ -994,6 +1171,7 @@ function drawModule(){
   $$('.chip',el).forEach(function(c){c.addEventListener('click',function(){go('mod-'+c.dataset.m,false)})});
   $$('[data-go]',el).forEach(function(b){b.addEventListener('click',function(){go('mod-'+b.dataset.go,true)})});
   $$('[data-iss]',el).forEach(function(b){b.addEventListener('click',function(){openIssue(b.dataset.iss)})});
+  var tc=$('#tocal');if(tc)tc.addEventListener('click',function(){go('calendario',true)});
   $$('.stepbtn',el).forEach(function(b){b.addEventListener('click',function(){S.playing=false;syncPlayBtn();setStep(+b.parentNode.dataset.i)})});
   $('#mplay').addEventListener('click',function(){S.playing=!S.playing;syncPlayBtn();if(S.playing)startStep()});
   $('#mprev').addEventListener('click',function(){S.playing=false;syncPlayBtn();setStep((S.step+m.st.length-1)%m.st.length)});
@@ -1106,6 +1284,215 @@ function drawIssues(){
   $$('.wave [data-iss]',el).forEach(function(b){b.addEventListener('click',function(){jump(b.dataset.iss)})});
   paint();
   if(S.focus){var f=S.focus;S.focus=null;requestAnimationFrame(function(){jump(f)})}
+}
+
+
+/* ===== Vista: flujo optimizado ===== */
+function drawOpt(){
+  var el=VIEWS.optimizado,W=132,GW=150,H=56;
+  var pos={};
+  ON.forEach(function(n){
+    var x=n[1]==='g'?56+n[2]*176.4:56+n[2]*150,y=n[1]==='g'?52:(n[1]==='c'?222:420),w=n[1]==='g'?GW:W;
+    pos[n[0]]={x:x,y:y,w:w,cx:x+w/2};
+  });
+  var cnt={E:0,M:0,N:0};ON.forEach(function(n){cnt[n[6]]++});
+  var svg='<svg id="osvg" class="'+(S.omode==='hoy'?'hoy':'')+'" viewBox="0 0 1120 520" role="group" aria-label="Flujo optimizado en tres bandas: gestión, proceso central y apoyo"><defs>';
+  ['ch','ct','su','fb'].forEach(function(k){svg+='<marker id="oar-'+k+'" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="omk-'+k+'" d="M0 1l9 4-9 4z"/></marker>'});
+  svg+='</defs>';
+  [['g','GESTIÓN · dirige, programa y mide',20,118],['c','PROCESO CENTRAL · la cadena de valor del servicio',178,170],['a','APOYO · sostiene la operación',388,118]].forEach(function(b){
+    svg+='<rect class="oband-'+b[0]+'" x="20" y="'+b[2]+'" width="1080" height="'+b[3]+'" rx="5"/><text class="oband-t" x="34" y="'+(b[2]+19)+'">'+b[1]+'</text>';
+  });
+  var lbl='';
+  OE.forEach(function(e){
+    var a=pos[e[1]],b=pos[e[2]],d,lx,ly;
+    if(e[3]==='ch'){d='M'+(a.x+a.w)+' 250 L'+b.x+' 250'}
+    else if(e[3]==='fb'){d='M'+(a.cx+34)+' 278 V322 H'+(b.cx-34)+' V278';lx=560;ly=337}
+    else{
+      var up=a.y>b.y; /* soporte sube; control de gestión baja o sube */
+      var y1=a.y<b.y?a.y+H:a.y,y2=a.y<b.y?b.y:b.y+H;
+      d='M'+a.cx+' '+y1+' L'+b.cx+' '+y2;lx=(a.cx+b.cx)/2+13;ly=e[3]==='su'?372:158;
+    }
+    svg+='<path id="oe-'+e[0]+'" class="oedge k-'+e[3]+(e[4]?'':' miss')+'" d="'+d+'" marker-end="url(#oar-'+e[3]+')"'+(e[6]?' marker-start="url(#oar-'+e[3]+')"':'')+'/>';
+    if(e[5])lbl+='<text class="olbl'+(e[4]?'':' miss')+'" x="'+lx+'" y="'+ly+'"'+(e[3]==='fb'?' text-anchor="middle"':'')+'>'+esc(e[5])+'</text>';
+  });
+  svg+=lbl;
+  var CH={E:'EXISTE',M:'CAMBIA',N:'NUEVO'};
+  ON.forEach(function(n){
+    var p=pos[n[0]];
+    svg+='<g class="onode s'+n[6]+'" data-t="'+n[7]+'" tabindex="0" role="link" aria-label="'+esc(n[4]+': '+n[5]+'. '+CH[n[6]].toLowerCase())+'" transform="translate('+p.x+' '+p.y+')"><rect class="box" width="'+p.w+'" height="'+H+'" rx="6"/>'
+      +'<text class="code" x="9" y="15">'+n[3]+'</text><text class="ttl" x="9" y="33">'+esc(n[4])+'</text><text class="sub" x="9" y="47">'+esc(n[5])+'</text>'
+      +'<g class="ochip"><rect x="'+(p.w-47)+'" y="6" width="41" height="13" rx="2"/><text x="'+(p.w-26.5)+'" y="15.5">'+CH[n[6]]+'</text></g></g>';
+  });
+  OE.forEach(function(e){svg+='<g class="opk'+(e[4]?'':' miss')+'" id="opk-'+e[0]+'"><circle class="omk-'+e[3]+'" r="4.4"/></g>'});
+  svg+='</svg>';
+  var h='<div class="bar"><div class="seg" role="group" aria-label="Qué mostrar"><button data-om="opt" aria-pressed="'+(S.omode==='opt')+'">Optimizado</button><button data-om="hoy" aria-pressed="'+(S.omode==='hoy')+'">Qué falta hoy</button></div>'
+    +'<button class="btn" id="oplay" aria-pressed="'+S.playing+'">'+(S.playing?'Pausar':'Reproducir')+'</button><span class="hint">'+ON.length+' procesos: '+cnt.E+' existen, '+cnt.M+' cambian, '+cnt.N+' son nuevos. Toca uno para ver su ficha.</span></div>';
+  h+='<ul class="legend" aria-label="Leyenda"><li><span class="sw da"></span>Cadena central</li><li><span class="sw hu"></span>Control desde gestión (punteado)</li><li><span class="sw sy"></span>Soporte</li><li><span class="sw ou"></span>Retroalimentación y procesos nuevos</li><li><span class="sw ex"></span>En "Qué falta hoy": enlace que hoy no existe</li></ul>';
+  h+='<div class="diagram-scroll">'+svg+'</div><p class="hint" style="margin:8px 0 0">"Qué falta hoy" atenúa los procesos nuevos y marca en rojo los enlaces que el código actual no tiene. Es una propuesta de diseño: nada de esto está implementado.</p>';
+  h+='<div class="sec-h"><h2>Qué cambia en el flujo</h2><p>Cada fila apunta al hallazgo de la versión 2 que la justifica.</p></div><div class="tbl-wrap"><table><thead><tr><th>Tema</th><th>Hoy</th><th>Optimizado</th><th>Hallazgos</th></tr></thead><tbody>'
+    +OCHG.map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td><td>'+r[3].map(function(i){return '<button class="go" data-iss="'+i+'" aria-label="Abrir hallazgo '+i+'">'+i+'</button>'}).join('')+'</td></tr>'}).join('')+'</tbody></table></div>';
+  h+='<div class="sec-h"><h2>Módulos recomendados</h2><p>'+NEWM.length+' propuestas: '+NEWM.filter(function(x){return x[4]==='Nuevo'}).length+' módulos nuevos y '+NEWM.filter(function(x){return x[4]!=='Nuevo'}).length+' rediseños de módulos que ya existen.</p></div><div class="nms">';
+  var EF={S:'Esfuerzo bajo',M:'Esfuerzo medio',L:'Esfuerzo alto'},PR={a:'Prioridad alta',m:'Prioridad media',b:'Prioridad baja'};
+  NEWM.forEach(function(x){
+    h+='<article class="nm" id="nm-'+x[0]+'"><div class="code">'+x[1]+' · '+x[3].toUpperCase()+' · '+x[4].toUpperCase()+'</div><h3>'+esc(x[2])+'</h3><p>'+esc(x[5])+'</p>'
+      +'<dl><dt>Valor</dt><dd>'+esc(x[6])+'</dd><dt>Entradas</dt><dd>'+esc(x[7])+'</dd><dt>Salidas</dt><dd>'+esc(x[8])+'</dd><dt>Depende de</dt><dd>'+esc(x[9])+'</dd></dl>'
+      +'<div class="meta"><span class="k">'+EF[x[10]]+'</span><span class="sev '+x[11]+'">'+PR[x[11]]+'</span>'+x[12].map(function(i){return '<button class="go" data-iss="'+i+'" aria-label="Abrir hallazgo '+i+'">'+i+'</button>'}).join('')+(x[0]==='calmaestro'?'<button class="go" id="nmcal">Ver maqueta</button>':'')+'</div></article>';
+  });
+  h+='</div><p class="hint" style="margin:12px 0 0">El valor descrito es cualitativo. No estimé plazos ni ahorros: dependen de decisiones de negocio que no están en el código.</p>';
+  el.innerHTML=h;
+  var svgEl=$('#osvg');
+  var focusNm=function(id){var c=$('#nm-'+id);if(!c)return;$$('.nm.focus',el).forEach(function(n){n.classList.remove('focus')});c.classList.add('focus');c.scrollIntoView({behavior:RM?'auto':'smooth',block:'center'})};
+  $$('.onode',svgEl).forEach(function(g){
+    var open=function(){var t=g.dataset.t,k=t.charAt(0),v=t.slice(2);if(k==='m')go('mod-'+v,true);else if(k==='i')openIssue(v);else if(k==='t')go(v,true);else focusNm(v)};
+    g.addEventListener('click',open);g.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();open()}});
+  });
+  $$('[data-iss]',el).forEach(function(b){b.addEventListener('click',function(){openIssue(b.dataset.iss)})});
+  $$('[data-om]',el).forEach(function(b){b.addEventListener('click',function(){S.omode=b.dataset.om;svgEl.classList.toggle('hoy',S.omode==='hoy');$$('[data-om]',el).forEach(function(c){c.setAttribute('aria-pressed',c.dataset.om===S.omode)})})});
+  $('#oplay').addEventListener('click',function(){S.playing=!S.playing;this.setAttribute('aria-pressed',S.playing);this.textContent=S.playing?'Pausar':'Reproducir'});
+  var nc=$('#nmcal');if(nc)nc.addEventListener('click',function(){go('calendario',true)});
+  gp=[];
+  OE.forEach(function(e,k){var path=$('#oe-'+e[0]),len=path.getTotalLength();gp.push({path:path,len:len,g:$('#opk-'+e[0]),rev:false,t:(k*0.173)%1,v:(e[3]==='ch'?70:55)/len})});
+  gp.forEach(placePk);
+  if(S.nfocus){var f=S.nfocus;S.nfocus=null;requestAnimationFrame(function(){focusNm(f)})}
+}
+
+/* ===== Vista: Calendario maestro (maqueta) ===== */
+var CS={view:'ev',zoom:32,cli:'',suc:'',eq:'',st:'',tech:'',types:{mant:1,tk:1,os:1,inf:1},closed:{},sel:null};
+var MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'],DIA=['dom','lun','mar','mié','jue','vie','sáb'],DL=['D','L','M','X','J','V','S'];
+function cDate(d){return new Date(CAL.base[0],CAL.base[1],CAL.base[2]+d)}
+function cFmt(d){var x=cDate(d);return DIA[x.getDay()]+' '+x.getDate()+' '+MES[x.getMonth()]}
+function cHr(h){var hh=Math.floor(h),mm=Math.round((h-hh)*60);return (hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm}
+function cX0(e){return e.d+(e.h0-8)/10}
+function cX1(e){return cX0(e)+e.h/10}
+function cDur(e){return e.h===0?'hito':(e.h>=10?(Math.round(e.h/10*10)/10)+' d':e.h+' h')}
+function cEq(id){return CAL.eq.filter(function(x){return x[0]===id})[0]}
+function cSuc(id){return CAL.suc.filter(function(x){return x[0]===id})[0]}
+function cCli(id){return CAL.cli.filter(function(x){return x[0]===id})[0]}
+function cEv(id){return CAL.ev.filter(function(x){return x.id===id})[0]}
+function cFiltered(){
+  return CAL.ev.filter(function(e){
+    var q=cEq(e.eq),s=cSuc(q[1]),tt=e.t==='hito'?'os':e.t;
+    return CS.types[tt]&&(!CS.cli||s[1]===CS.cli)&&(!CS.suc||s[0]===CS.suc)&&(!CS.eq||e.eq===CS.eq)&&(!CS.st||e.st===CS.st)&&(!CS.tech||e.tech===CS.tech);
+  });
+}
+function cRowsEv(evs){
+  var rows=[],span=function(l){return [Math.min.apply(null,l.map(cX0)),Math.max.apply(null,l.map(cX1))]};
+  CAL.cli.forEach(function(c){
+    var ce=evs.filter(function(e){return cSuc(cEq(e.eq)[1])[1]===c[0]});if(!ce.length)return;
+    rows.push({k:'g',id:'c-'+c[0],lvl:0,name:c[1],n:ce.length,span:span(ce)});if(CS.closed['c-'+c[0]])return;
+    CAL.suc.filter(function(s){return s[1]===c[0]}).forEach(function(su){
+      var se=ce.filter(function(e){return cEq(e.eq)[1]===su[0]});if(!se.length)return;
+      rows.push({k:'g',id:'s-'+su[0],lvl:1,name:su[2],n:se.length,span:span(se)});if(CS.closed['s-'+su[0]])return;
+      CAL.eq.filter(function(q){return q[1]===su[0]}).forEach(function(q){
+        var qe=se.filter(function(e){return e.eq===q[0]});if(!qe.length)return;
+        rows.push({k:'g',id:'q-'+q[0],lvl:2,name:q[2]+' · '+q[3],n:qe.length,span:span(qe)});if(CS.closed['q-'+q[0]])return;
+        qe.sort(function(a,b){return cX0(a)-cX0(b)}).forEach(function(e){rows.push({k:'e',ev:e,lvl:3})});
+      });
+    });
+  });
+  return rows;
+}
+function cRowsRes(evs){
+  /* carga real: órdenes, y mantenimientos que todavía no tienen orden */
+  var hasOs={};CAL.ev.forEach(function(e){if(e.t==='os')e.dep.forEach(function(d){hasOs[d]=1})});
+  var load=evs.filter(function(e){return e.t==='os'||(e.t==='mant'&&!hasOs[e.id])}),rows=[];
+  [['tech','Técnico'],['veh','Vehículo']].forEach(function(k){
+    var names=[];load.forEach(function(e){if(e[k[0]]&&e[k[0]]!=='Cliente'&&names.indexOf(e[k[0]])<0)names.push(e[k[0]])});
+    names.sort().forEach(function(nm){
+      var l=load.filter(function(e){return e[k[0]]===nm}).sort(function(a,b){return cX0(a)-cX0(b)}),over={};
+      l.forEach(function(a,i){l.forEach(function(b,j){if(i<j&&cX0(b)<cX1(a)&&cX0(a)<cX1(b)){over[a.id]=1;over[b.id]=1}})});
+      rows.push({k:'r',name:nm,kind:k[1],evs:l,over:over,hours:l.reduce(function(t,e){return t+e.h},0)});
+    });
+  });
+  return rows;
+}
+function drawCal(){
+  var el=VIEWS.calendario,h='';
+  var opt=function(v,l,cur){return '<option value="'+esc(v)+'"'+(v===cur?' selected':'')+'>'+esc(l)+'</option>'};
+  var techs=[],sts=[];CAL.ev.forEach(function(e){if(techs.indexOf(e.tech)<0)techs.push(e.tech);if(sts.indexOf(e.st)<0)sts.push(e.st)});
+  h+='<p class="mocknote"><b>Maqueta con datos de ejemplo.</b> Clientes, equipos, folios y fechas son inventados para mostrar el diseño. Esta pantalla no existe todavía en la aplicación.</p>';
+  h+='<div class="bar"><div class="seg" role="group" aria-label="Vista"><button data-cv="ev" aria-pressed="'+(CS.view==='ev')+'">Acontecimientos</button><button data-cv="res" aria-pressed="'+(CS.view==='res')+'">Recursos</button></div>'
+    +'<div class="seg" role="group" aria-label="Escala de tiempo"><button data-cz="64" aria-pressed="'+(CS.zoom===64)+'">Día</button><button data-cz="32" aria-pressed="'+(CS.zoom===32)+'">Semana</button><button data-cz="18" aria-pressed="'+(CS.zoom===18)+'">Mes</button></div>'
+    +'<button class="btn ghost" id="cexp">Expandir todo</button><span class="hint" id="ccount"></span></div>';
+  h+='<div class="filter"><label class="sr" for="c-cli">Cliente</label><select id="c-cli">'+opt('','Todos los clientes',CS.cli)+CAL.cli.map(function(c){return opt(c[0],c[1],CS.cli)}).join('')+'</select>'
+    +'<label class="sr" for="c-suc">Sucursal</label><select id="c-suc">'+opt('','Todas las sucursales',CS.suc)+CAL.suc.map(function(c){return opt(c[0],c[2],CS.suc)}).join('')+'</select>'
+    +'<label class="sr" for="c-eq">Equipo</label><select id="c-eq">'+opt('','Todos los equipos',CS.eq)+CAL.eq.map(function(c){return opt(c[0],c[2],CS.eq)}).join('')+'</select>'
+    +'<label class="sr" for="c-st">Estado</label><select id="c-st">'+opt('','Todo estado',CS.st)+sts.map(function(c){return opt(c,c.charAt(0).toUpperCase()+c.slice(1),CS.st)}).join('')+'</select>'
+    +'<label class="sr" for="c-tech">Responsable</label><select id="c-tech">'+opt('','Todo responsable',CS.tech)+techs.sort().map(function(c){return opt(c,c,CS.tech)}).join('')+'</select></div>';
+  h+='<div class="filter" role="group" aria-label="Tipos de acontecimiento">'+['mant','tk','os','inf'].map(function(t){return '<button class="tgl" data-ct="'+t+'" aria-pressed="'+!!CS.types[t]+'"><span class="dot '+t+'"></span>'+CT[t]+'</button>'}).join('')+'<span class="hint"><span class="dot hito" style="margin-right:6px"></span>Hito (firma o cierre)</span></div>';
+  h+='<div class="gantt"><div class="gt" id="cgt"></div><div class="gs" id="cgs" tabindex="0" aria-label="Línea de tiempo; se desplaza hacia los lados"></div></div><div id="cdet"></div>';
+  h+='<div class="sec-h"><h2>De dónde saldría cada dato</h2><p>Campos que hoy existen en la base y lo que falta para alimentar esta pantalla.</p></div><div class="tbl-wrap"><table><thead><tr><th>Acontecimiento</th><th>Tabla actual</th><th>Lo que ya hay</th><th>Lo que falta</th></tr></thead><tbody>'
+    +CSPEC.map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td class="mono">'+esc(r[1])+'</td><td>'+esc(r[2])+'</td><td>'+esc(r[3])+'</td></tr>'}).join('')+'</tbody></table></div>';
+  h+='<div class="two"><div class="panel"><h3>Cambios de datos necesarios</h3><ul class="nt">'
+    +['Guardar en cada orden su origen (ticket o plan) y en cada ticket la orden que lo atiende.','Agregar inicio y fin planificados, e inicio y fin reales, a mantenimientos y órdenes.','Asignar técnico y vehículo por identificador (users, inventory) y no por nombre escrito.','Hacer del calendario una vista derivada: lee las tablas de origen y no pide volver a digitar.','Corregir antes la descarga cortada en 200 filas (E2): esta pantalla necesita todos los registros.'].map(function(t){return '<li class="obs"><span class="m">→</span><span>'+t+'</span></li>'}).join('')+'</ul></div>'
+    +'<div class="panel"><h3>Cómo se lee la pantalla</h3><ul class="nt">'
+    +['Tabla a la izquierda y barras a la derecha, como en MS Project: cliente, sucursal, equipo y sus acontecimientos.','Las flechas unen lo que depende de algo: ticket o plan, orden, informe y firma.','La barra negra de cada grupo resume desde su primer hasta su último acontecimiento.','La vista Recursos muestra la carga de cada técnico y vehículo; el borde rojo marca dos trabajos a la misma hora.','La línea roja punteada marca el día de hoy.'].map(function(t){return '<li class="ok"><span class="m">✓</span><span>'+t+'</span></li>'}).join('')+'</ul></div></div>';
+  el.innerHTML=h;
+  var redraw=function(){
+    var evs=cFiltered(),rows=CS.view==='ev'?cRowsEv(evs):cRowsRes(evs),W=CS.zoom,HD=44,RH=30,TW=CAL.days*W,TH=HD+rows.length*RH;
+    $('#ccount').textContent=evs.length+' de '+CAL.ev.length+' acontecimientos';
+    /* tabla */
+    var t=CS.view==='ev'?'<div class="gh"><span>Nombre</span><span>Tipo</span><span>Responsable</span><span>Inicio</span><span>Dur.</span></div>':'<div class="gh"><span>Recurso</span><span>Tipo</span><span>Carga</span><span>Trabajos</span><span></span></div>';
+    rows.forEach(function(r){
+      if(r.k==='g')t+='<div class="gr grp"><button class="nmb" data-tg="'+r.id+'" style="padding-left:'+(8+r.lvl*14)+'px" aria-expanded="'+!CS.closed[r.id]+'"><span class="tw">'+(CS.closed[r.id]?'▸':'▾')+'</span>'+esc(r.name)+'</button><span>'+r.n+' reg.</span><span></span><span>'+cFmt(Math.floor(r.span[0])).slice(4)+'</span><span></span></div>';
+      else if(r.k==='e'){var e=r.ev;t+='<div class="gr'+(CS.sel===e.id?' sel':'')+'"><button class="nmb" data-ev="'+e.id+'" style="padding-left:'+(8+r.lvl*14)+'px"><span class="dot '+e.t+'"></span>'+esc(e.n)+'</button><span>'+CT[e.t]+'</span><span>'+esc(e.tech)+'</span><span>'+cFmt(e.d).slice(4)+'</span><span>'+cDur(e)+'</span></div>'}
+      else{var ov=Object.keys(r.over).length;t+='<div class="gr"><span style="font-weight:600">'+esc(r.name)+'</span><span>'+r.kind+'</span><span'+(ov?' class="warn"':'')+'>'+(ov?'Sobreasignado':r.hours+' h')+'</span><span>'+r.evs.length+'</span><span></span></div>'}
+    });
+    if(!rows.length)t+='<div class="gr"><span>Sin acontecimientos con estos filtros.</span></div>';
+    $('#cgt').innerHTML=t;
+    /* línea de tiempo */
+    var g='<svg width="'+TW+'" height="'+TH+'" viewBox="0 0 '+TW+' '+TH+'" role="img" aria-label="Línea de tiempo de '+CAL.days+' días con '+evs.length+' acontecimientos"><defs><marker id="cdm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="g-depm" d="M0 1l9 4-9 4z"/></marker></defs>';
+    g+='<rect class="g-hd" x="0" y="0" width="'+TW+'" height="'+HD+'"/>';
+    for(var d=0;d<CAL.days;d++){
+      var dt=cDate(d),wd=dt.getDay();
+      if(wd===0||wd===6)g+='<rect class="g-we" x="'+d*W+'" y="'+HD+'" width="'+W+'" height="'+(TH-HD)+'"/>';
+      if(wd===1){g+='<line class="g-hl" x1="'+d*W+'" y1="0" x2="'+d*W+'" y2="'+TH+'" style="opacity:.35"/><text class="g-wk" x="'+(d*W+6)+'" y="16">Semana del '+dt.getDate()+' '+MES[dt.getMonth()]+'</text>'}
+      else g+='<line class="g-ln" x1="'+d*W+'" y1="22" x2="'+d*W+'" y2="'+TH+'"/>';
+      g+='<text class="g-dy" x="'+(d*W+W/2)+'" y="37">'+(W>=32?DL[wd]+' '+dt.getDate():DL[wd])+'</text>';
+    }
+    g+='<line class="g-ln" x1="0" y1="22" x2="'+TW+'" y2="22"/><line class="g-hl" x1="0" y1="'+(HD-.75)+'" x2="'+TW+'" y2="'+(HD-.75)+'"/>';
+    var yOf={},bar=function(e,y,over){
+      var x=cX0(e)*W,w=Math.max(7,(cX1(e)-cX0(e))*W),cls='bar '+e.t+(over?' over':'');
+      if(e.t==='hito')return '<path class="'+cls+'" data-ev="'+e.id+'" d="M'+x+' '+(y+7)+'l7 8-7 8-7-8z"><title>'+esc(e.n)+'</title></path>';
+      return '<rect class="'+cls+'" data-ev="'+e.id+'" x="'+x.toFixed(1)+'" y="'+(y+8)+'" width="'+w.toFixed(1)+'" height="14" rx="3"><title>'+esc(e.n+' · '+cFmt(e.d)+' '+cHr(e.h0)+' · '+cDur(e))+'</title></rect>';
+    };
+    var bars='',deps='';
+    rows.forEach(function(r,i){
+      var y=HD+i*RH;
+      if(r.k==='e'&&CS.sel===r.ev.id)g+='<rect class="g-sel" x="0" y="'+y+'" width="'+TW+'" height="'+RH+'"/>';
+      g+='<line class="g-ln" x1="0" y1="'+(y+RH-.5)+'" x2="'+TW+'" y2="'+(y+RH-.5)+'"/>';
+      if(r.k==='g'){var a=r.span[0]*W,b=Math.max(a+8,r.span[1]*W);bars+='<path class="g-sum" d="M'+a.toFixed(1)+' '+(y+11)+'H'+b.toFixed(1)+'v9l-4-4H'+(a+4).toFixed(1)+'l-4 4z"/>'}
+      else if(r.k==='e'){yOf[r.ev.id]=y;bars+=bar(r.ev,y,false);if(W>=32&&r.ev.t!=='hito')bars+='<text class="g-bl" x="'+(Math.max(cX1(r.ev)*W,cX0(r.ev)*W+7)+5).toFixed(1)+'" y="'+(y+19)+'">'+esc(r.ev.tech)+'</text>'}
+      else r.evs.forEach(function(e){bars+=bar(e,y,!!r.over[e.id])});
+    });
+    if(CS.view==='ev')rows.forEach(function(r){
+      if(r.k!=='e')return;
+      r.ev.dep.forEach(function(pid){
+        if(yOf[pid]===undefined)return;
+        var p=cEv(pid),x1=Math.max(cX1(p)*W,cX0(p)*W+7)+(p.t==='hito'?0:0),y1=yOf[pid]+15,x2=cX0(r.ev)*W-(r.ev.t==='hito'?7:0),y2=yOf[r.ev.id]+15,mx=Math.min(x1+8,x2-8);
+        deps+=mx>x1?'<path class="g-dep" marker-end="url(#cdm)" d="M'+x1.toFixed(1)+' '+y1+'H'+mx.toFixed(1)+'V'+y2+'H'+(x2-1).toFixed(1)+'"/>':'<path class="g-dep" marker-end="url(#cdm)" d="M'+x1.toFixed(1)+' '+y1+'h6V'+(y2-11)+'H'+(x2-9).toFixed(1)+'V'+y2+'H'+(x2-1).toFixed(1)+'"/>';
+      });
+    });
+    var tx=CAL.today*W;
+    g+=deps+bars+'<line class="g-today" x1="'+tx+'" y1="22" x2="'+tx+'" y2="'+TH+'"/><text class="g-todayt" x="'+(tx+4)+'" y="'+(HD+11)+'">hoy</text></svg>';
+    $('#cgs').innerHTML=g;
+    /* detalle */
+    var e=CS.sel?cEv(CS.sel):null,dh='';
+    if(e){
+      var q=cEq(e.eq),su=cSuc(q[1]),cl=cCli(su[1]),next=CAL.ev.filter(function(x){return x.dep.indexOf(e.id)>-1});
+      dh='<div class="cdet"><h3><span class="dot '+e.t+'" style="margin-right:8px"></span>'+esc(e.n)+'</h3><dl><dt>Tipo</dt><dd>'+CT[e.t]+' · '+esc(e.st)+'</dd><dt>Equipo</dt><dd>'+esc(q[2]+' · '+q[3])+'</dd><dt>Cliente</dt><dd>'+esc(cl[1]+' · '+su[2])+'</dd><dt>Cuándo</dt><dd>'+cFmt(e.d)+', '+cHr(e.h0)+(e.h?' · '+cDur(e):'')+'</dd><dt>Recursos</dt><dd>'+esc(e.tech)+(e.veh?' · '+esc(e.veh):'')+'</dd><dt>Viene de</dt><dd>'+(e.dep.length?e.dep.map(function(i){return esc(cEv(i).n)}).join(' · '):'Es el origen de la cadena')+'</dd><dt>Sigue con</dt><dd>'+(next.length?next.map(function(x){return esc(x.n)}).join(' · '):'Nada pendiente')+'</dd><dt>Dato de origen</dt><dd class="mono">'+CSRC[e.t]+'</dd></dl></div>';
+    }else dh='<p class="hint" style="margin:10px 0 0">Selecciona un acontecimiento en la tabla o una barra para ver de dónde viene y qué sigue.</p>';
+    $('#cdet').innerHTML=dh;
+    $$('#cgt [data-tg]').forEach(function(b){b.addEventListener('click',function(){CS.closed[b.dataset.tg]=!CS.closed[b.dataset.tg];redraw()})});
+    $$('#cgt [data-ev],#cgs [data-ev]').forEach(function(b){b.addEventListener('click',function(){CS.sel=CS.sel===b.dataset.ev?null:b.dataset.ev;redraw()})});
+  };
+  var bind=function(id,key){$(id).addEventListener('change',function(){CS[key]=this.value;redraw()})};
+  bind('#c-cli','cli');bind('#c-suc','suc');bind('#c-eq','eq');bind('#c-st','st');bind('#c-tech','tech');
+  $$('[data-ct]',el).forEach(function(b){b.addEventListener('click',function(){CS.types[b.dataset.ct]=CS.types[b.dataset.ct]?0:1;b.setAttribute('aria-pressed',!!CS.types[b.dataset.ct]);redraw()})});
+  $$('[data-cv]',el).forEach(function(b){b.addEventListener('click',function(){CS.view=b.dataset.cv;$$('[data-cv]',el).forEach(function(c){c.setAttribute('aria-pressed',c.dataset.cv===CS.view)});redraw()})});
+  $$('[data-cz]',el).forEach(function(b){b.addEventListener('click',function(){CS.zoom=+b.dataset.cz;$$('[data-cz]',el).forEach(function(c){c.setAttribute('aria-pressed',+c.dataset.cz===CS.zoom)});redraw()})});
+  $('#cexp').addEventListener('click',function(){CS.closed={};redraw()});
+  redraw();
 }
 
 route(false);
