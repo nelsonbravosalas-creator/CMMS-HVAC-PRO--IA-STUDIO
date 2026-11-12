@@ -187,7 +187,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .panel{border:1.5px solid var(--line);background:var(--surface);padding:14px 16px;min-width:0}
 .panel h3{font-size:17px;margin-bottom:8px}
 .lk{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.lk li{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:baseline;font-size:13.5px}
+.lk li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:baseline;font-size:13.5px}
 .lk button{background:var(--sy-bg);border:1.5px solid var(--sy);color:var(--sy);border-radius:4px;padding:2px 8px;font:600 12px var(--f-mono);white-space:nowrap}
 .lk button:hover{background:var(--sy);color:var(--surface)}
 .nt{list-style:none;margin:0;padding:0;display:grid;gap:8px}
@@ -213,7 +213,53 @@ td.c{text-align:center;font-family:var(--f-mono)}
 .row-go{background:none;border:0;padding:0;color:var(--in);font:600 13px var(--f-mono);text-align:left}
 .row-go:hover{text-decoration:underline}
 
+
+/* Hallazgos (versión 2) */
+.sev{display:inline-flex;align-items:center;font:600 10px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;border:1.5px solid currentColor;white-space:nowrap}
+.sev.c{color:var(--ex);background:var(--ex-bg)} .sev.a{color:var(--hu);background:var(--hu-bg)} .sev.m{color:var(--sy);background:var(--sy-bg)} .sev.b{color:var(--ink-2);background:var(--surface-2)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+.sumt{background:var(--surface);border:1.5px solid var(--line);padding:10px 14px;text-align:left;min-width:0}
+button.sumt:hover{border-color:var(--ink)}
+button.sumt[aria-pressed="true"]{border-color:var(--ink);background:var(--surface-2)}
+.sumt .v{font:600 28px var(--f-mono);line-height:1.1;font-variant-numeric:tabular-nums}
+.sumt .l{font:600 10px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.sumt .d{font-size:12px;color:var(--ink-2)}
+.issues{display:grid;gap:10px}
+.iss{display:grid;grid-template-columns:72px minmax(0,1fr);gap:14px;border:1.5px solid var(--line);background:var(--surface);padding:14px 16px;scroll-margin-top:14px}
+.iss.focus{border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 25%,transparent)}
+.iss .side{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.iss .iid{font:700 20px var(--f-mono);line-height:1}
+.iss h3{font-size:17px;line-height:1.25}
+.meta{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:7px 0 4px;font:500 11.5px var(--f-mono);color:var(--ink-2)}
+.meta .k{border:1px solid var(--line);border-radius:3px;padding:1px 7px;background:var(--surface)}
+.meta button{background:var(--sy-bg);border:1.5px solid var(--sy);color:var(--sy);border-radius:4px;padding:1px 7px;font:600 11px var(--f-mono)}
+.meta button:hover{background:var(--sy);color:var(--surface)}
+dl.blk{display:grid;grid-template-columns:150px minmax(0,1fr);margin:6px 0 0}
+dl.blk dt,dl.blk dd{border-top:1px solid var(--line);padding:7px 0;margin:0}
+dl.blk dt{font:600 10px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);padding-top:10px;padding-right:12px}
+dl.blk dd{font-size:13.5px;min-width:0}
+dl.blk dd.ev{font:500 12px var(--f-mono);color:var(--ink-2);overflow-wrap:anywhere}
+dl.blk dd.fix{font-weight:500}
+.waves{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.wave{border:1.5px solid var(--line);background:var(--surface);padding:14px 16px;min-width:0}
+.wave .wn{font:600 10px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--in)}
+.wave h3{font-size:17px;margin:2px 0 4px}
+.wave p{margin:0 0 10px;font-size:13px;color:var(--ink-2)}
+.ilist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.ilist li{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:8px;align-items:baseline;font-size:13.5px}
+.ilist .go{background:var(--surface);border:1.5px solid var(--ink);border-radius:4px;padding:1px 7px;font:700 12px var(--f-mono)}
+.ilist .go:hover{background:var(--ink);color:var(--bg)}
+.sflag{float:right;margin-left:8px;font:700 10px var(--f-mono);color:var(--ex);background:var(--ex-bg);border:1.5px solid var(--ex);border-radius:3px;padding:0 5px}
+.gb-c{fill:var(--ex)} .gb-a{fill:var(--hu)} .gb-m{fill:var(--sy)} .gb-b{fill:var(--ink-2)}
+.gbadge text{font:700 9.5px var(--f-mono);fill:var(--surface);text-anchor:middle}
+.fixnote{border:1.5px solid var(--hu);background:var(--hu-bg);padding:10px 14px;font-size:13.5px;margin:0 0 16px}
+.fixnote b{font-family:var(--f-head)}
+
 @media (max-width:900px){
+  .iss{grid-template-columns:minmax(0,1fr)} .iss .side{flex-direction:row;align-items:center}
+  dl.blk{grid-template-columns:minmax(0,1fr)} dl.blk dd{border-top:0;padding-top:0}
+  .ilist li{grid-template-columns:auto minmax(0,1fr)} .ilist li .sev{display:none}
+  .lk li{grid-template-columns:minmax(0,1fr);gap:2px} .lk button{white-space:normal;text-align:left;justify-self:start}
   .flow{grid-template-columns:minmax(0,1fr);gap:18px}
   .flow .col-steps{order:2} .flow .col-in{order:1} .flow .col-out{order:3}
   .wires{display:none}
@@ -248,22 +294,24 @@ td.c{text-align:center;font-family:var(--f-mono)}
 
   <header class="titleblock">
     <div><div class="tb-l">Plano de procesos</div><h1>Mapa de procesos CMMS HVAC PRO</h1></div>
-    <div><div class="tb-l">Estado</div><div class="tb-v">Como funciona hoy</div></div>
+    <div><div class="tb-l">Versión</div><div class="tb-v">2 · hallazgos y mejoras</div></div>
     <div><div class="tb-l">Fuente</div><div class="tb-v">Código · commit f6c35f8</div></div>
-    <div><div class="tb-l">Alcance</div><div class="tb-v">20 módulos · 9 apoyos</div></div>
+    <div><div class="tb-l">Alcance</div><div class="tb-v" id="tb-scope">20 módulos · 9 apoyos</div></div>
   </header>
-  <p class="lead">Cada módulo con lo que recibe, lo que decide una persona, lo que hace el sistema y lo que entrega. Se levantó leyendo <span class="mono">src/</span>, <span class="mono">api/</span> y <span class="mono">server/</span>. Donde el código y la documentación no coinciden, manda el código y queda marcado como observación.</p>
+  <p class="lead">Cada módulo con lo que recibe, lo que decide una persona, lo que hace el sistema y lo que entrega. Se levantó leyendo <span class="mono">src/</span>, <span class="mono">api/</span> y <span class="mono">server/</span>. Donde el código y la documentación no coinciden, manda el código. La versión 2 agrega los errores, las inconsistencias y las mejoras, cada uno con su evidencia y su corrección recomendada.</p>
 
   <nav class="tabs" role="tablist" aria-label="Vistas">
     <button class="tab" role="tab" id="t-global" aria-controls="v-global" data-tab="global">Flujo global</button>
     <button class="tab" role="tab" id="t-modulos" aria-controls="v-modulos" data-tab="modulos">Detalle por módulo</button>
     <button class="tab" role="tab" id="t-matriz" aria-controls="v-matriz" data-tab="matriz">Interrelaciones</button>
+    <button class="tab" role="tab" id="t-hallazgos" aria-controls="v-hallazgos" data-tab="hallazgos">Hallazgos y mejoras</button>
   </nav>
 
   <main id="view">
     <section class="view" id="v-global" role="tabpanel" aria-labelledby="t-global" hidden></section>
     <section class="view" id="v-modulos" role="tabpanel" aria-labelledby="t-modulos" hidden></section>
     <section class="view" id="v-matriz" role="tabpanel" aria-labelledby="t-matriz" hidden></section>
+    <section class="view" id="v-hallazgos" role="tabpanel" aria-labelledby="t-hallazgos" hidden></section>
   </main>
 </div>
 
@@ -392,8 +440,8 @@ var M=[
      ['d','¿Estado final = ejecutado?','Genera un PDF y lo envía por correo','Solo guarda'],
      ['s','Actualiza el contador de pendientes del menú']],
  in:[['Equipo (TAG)',1],['Tipo, fecha, frecuencia y próxima fecha',1],['Hallazgos y descripción',1]],
- out:[['Bitácora de mantenimientos',3],['PDF por correo',4],['Próximas fechas para Dashboard y Reportes',3]],
- ln:[['equipos','elige el equipo por TAG'],['dashboard','mantenimientos prioritarios'],['reportes','conteo mensual'],['detalle','historial del equipo']],
+ out:[['Bitácora de mantenimientos',3],['PDF por correo',4],['Contador de pendientes del menú',5]],
+ ln:[['equipos','elige el equipo por TAG'],['dashboard','mantenimientos prioritarios'],['detalle','historial del equipo']],
  nt:[['obs','Repuestos, costo de materiales, duración y ubicación se piden en el formulario pero no se guardan (NuevoMantenimientoModal.tsx:181-196).'],['obs','No hay vínculo por ID con órdenes de servicio, informes ni calendario.'],['ok','El borrador del formulario se conserva en el navegador hasta guardar.']]},
 
 {id:'calendario',g:'operacion',name:'Calendario y planificación',route:'/planificacion',roles:['Todos'],
@@ -422,7 +470,7 @@ var M=[
      ['x','Opcional: sincroniza con Google Tasks']],
  in:[['TAG del equipo',1],['Título, descripción, prioridad y tipo',1],['Fotos adjuntas',1],['Responsable asignado',1]],
  out:[['Ticket en el tablero',3],['PDF y correo al cierre',7],['CSV exportable',3],['Pendientes que lee el Dashboard',3]],
- ln:[['equipos','elige el equipo por TAG'],['detalle','se lanza desde la ficha'],['dashboard','MTBF, MTTR y pendientes de firma salen de esta tabla'],['reportes','conteo mensual']],
+ ln:[['equipos','elige el equipo por TAG'],['detalle','se lanza desde la ficha'],['dashboard','MTBF, MTTR y pendientes de firma salen de esta tabla']],
  nt:[['ok','La visita no puede crear tickets; el cliente sí.'],['obs','Las reglas de transición (canTransitionTicket) incluyen el estado "asignado"; la pantalla ofrece En proceso, Resuelto y Cerrado directamente.'],['ok','La tabla work_orders es hoy el almacén de los tickets.']]},
 
 {id:'ordenes',g:'ejecucion',name:'Órdenes de servicio',route:'/ordenes-servicio',roles:['Técnico','Contratista','Supervisor','Administrador'],
@@ -457,7 +505,7 @@ var M=[
  in:[['Orden padre (orderId)',0],['TAG del equipo',1],['Mediciones y checklist',3],['Fotos de evidencia',3],['Firma del técnico',5]],
  out:[['Informe finalizado con folio',6],['PDF del informe',6],['Correo al cliente',7],['Informe contado en la orden padre',8]],
  ln:[['ordenes','el informe pertenece a una orden'],['equipos','valida el TAG contra los activos']],
- nt:[['ok','Los enlaces antiguos /informes y /informes/:id redirigen a la lista de órdenes: no existen informes huérfanos.'],['ok','Solo el técnico firma el informe; la firma del cliente va en la orden.'],['obs','El OCR llama a /api/ocr; sin conexión no está disponible.']]},
+ nt:[['ok','Los enlaces antiguos /informes y /informes/:id redirigen a la lista de órdenes: no existen informes huérfanos.'],['ok','Solo el técnico firma el informe; la firma del cliente va en la orden.'],['ok','Solo el técnico firma; el informe finalizado queda bloqueado y con folio definitivo.']]},
 
 {id:'dashboard',g:'analisis',name:'Dashboard',route:'/',roles:['Todos'],
  purpose:'Resumen de salud operativa del cliente activo: estado del parque, alertas y qué mantenimientos vienen.',
@@ -472,14 +520,15 @@ var M=[
  nt:[['obs','MTBF, MTTR, costos y pendientes de firma se calculan sobre work_orders (tickets), no sobre ordenes_servicio ni informes.'],['ok','Sin datos muestra estados vacíos explícitos ("Sin activos registrados").']]},
 
 {id:'reportes',g:'analisis',name:'Reportes y analítica',route:'/reportes',roles:['Cliente','Supervisor','Administrador'],
- purpose:'Tendencias de tickets y mantenimientos por mes, y el ranking de equipos por costo de mantención.',
- st:[['s','Agrega por mes los tickets (work_orders) y los mantenimientos preventivos'],
-     ['h','La persona revisa los gráficos y el ranking "Top equipos por costo"'],
-     ['h','Configura la exportación y genera el archivo']],
- in:[['Tickets y mantenimientos del cliente',0],['Parámetros de exportación',2]],
- out:[['Gráficos de tendencia',0],['Top equipos por costo de mantención',0],['Exportación CSV',2]],
- ln:[['tickets','serie mensual'],['mant','serie mensual'],['equipos','ranking por equipo']],
- nt:[['ok','Permiso ver_reportes: cliente, supervisor y administrador.'],['obs','Sin registros muestra "Analítica pendiente de datos"; el selector de formato ofrece solo CSV.']]},
+ purpose:'Pensado para tendencias, costos y exportación. Hoy está apagado: la pantalla siempre muestra "Analítica pendiente de datos".',
+ st:[['h','La persona abre Reportes desde el menú'],
+     ['d','¿Tiene el permiso ver_reportes?','Continúa','Muestra "Acceso denegado"'],
+     ['s','Evalúa hasAnalyticsDataset, que es una constante fija en false'],
+     ['s','Muestra "Analítica pendiente de datos"; los gráficos, las pestañas y el botón "Generar CSV" existen en el código pero nunca se muestran']],
+ in:[['Permiso ver_reportes del perfil',1]],
+ out:[['Aviso "Analítica pendiente de datos"',3]],
+ ln:[['dashboard','hoy es la única vista de indicadores que funciona']],
+ nt:[['ok','Permiso ver_reportes: cliente, supervisor y administrador.']]},
 
 {id:'eficiencia',g:'analisis',name:'Eficiencia energética',route:'/eficiencia',roles:['Todos'],
  purpose:'Estima potencia y eficiencia (EER) del parque a partir de los datos nominales de cada equipo, y muestra la metodología.',
@@ -552,7 +601,7 @@ var PERMS=[
 /* ===== DATOS: apoyos ===== */
 var SUP=[
 {id:'auth',code:'S-01',name:'Autenticación y sesión',txt:'JWT con jti revocable en cmms_sessions, límites de intentos por IP, cuenta y cuenta + IP, cierre a los 30 min de inactividad y cambio de PIN obligatorio.',serves:['perfiles','login','bio','selector','usuarios']},
-{id:'sync',code:'S-02',name:'Sincronización offline-first',txt:'Todo se guarda primero en Dexie y entra a sync_queue. El motor envía lotes de hasta 100 operaciones a /api/sync, baja cambios cada 15 s y al reconectar, y reintenta a los 30 s y a los 5 min.',serves:['usuarios','clientes','equipos','inventario','mant','calendario','tickets','ordenes','informes','dashboard','reportes','eficiencia','mapa']},
+{id:'sync',code:'S-02',name:'Sincronización offline-first',txt:'Todo se guarda primero en Dexie y entra a sync_queue. El motor envía lotes de hasta 100 operaciones a /api/sync, baja cambios cada 15 s y al reconectar, y reintenta a los 30 s y a los 5 min.',serves:['usuarios','clientes','equipos','inventario','mant','calendario','tickets','ordenes','informes','dashboard','eficiencia','mapa']},
 {id:'tenant',code:'S-03',name:'Aislamiento por cliente',txt:'Cada tabla lleva cliente_id. El navegador envía X-Client-ID y el servidor comprueba que la cuenta pertenezca a ese cliente (user_clientes); si no, responde 403.',serves:['selector','clientes','usuarios','equipos','calendario','tickets','ordenes','informes','inventario','mant']},
 {id:'perm',code:'S-04',name:'Permisos por perfil',txt:'Seis perfiles con una matriz de permisos (crear_*, ver_*). Clientes, usuarios, consola y configuración son rutas solo de administrador.',serves:['clientes','usuarios','equipos','mant','tickets','ordenes','informes','reportes']},
 {id:'docs',code:'S-05',name:'Documentos y correo',txt:'jsPDF arma el PDF en el navegador, POST /api/export valida que sea un PDF y Resend lo envía con Idempotency-Key. Lo usan órdenes, informes, tickets cerrados y mantenimientos ejecutados.',serves:['mant','tickets','ordenes','informes','firma','pdf']},
@@ -583,7 +632,7 @@ var GN=[
 ['informes','M-13','Informes por equipo','N por orden',2,R4,'m:informes',1],
 ['firma','M-12','Firma y cierre','técnico + cliente',3,R4,'m:ordenes',1],
 ['pdf','S-05','PDF + correo','Resend al cliente',4,R4,'s:docs',0],
-['reportes','M-15','Reportes','tendencias y CSV',1,R5,'m:reportes',1],
+['reportes','M-15','Reportes','apagado por constante',1,R5,'m:reportes',1],
 ['eficiencia','M-16','Eficiencia','EER y costo de energía',2,R5,'m:eficiencia',1],
 ['mapa','M-17','Mapa','activos georreferenciados',3,R5,'m:mapa',0]
 ];
@@ -611,8 +660,8 @@ var ENT=[
 ['assets (equipos)','Equipos, Ficha (edición y baja)','Mapa, EFI, Dashboard, Tickets, Mantenimientos, Informes (valida TAG), Scanner'],
 ['clients / branches','Clientes y sucursales','Selector, Dashboard, Equipos, Órdenes (cabecera y logo)'],
 ['users / user_clientes','Usuarios, PIN y huella, bootstrap de deploy','Login, Selector, sincronización por cliente'],
-['preventive_maintenance','Mantenimientos','Dashboard (prioritarios), Reportes'],
-['work_orders (= tickets)','Tickets','Tickets, Dashboard (MTBF, MTTR, pendientes, costos), Reportes'],
+['preventive_maintenance','Mantenimientos','Mantenimientos, Dashboard (prioritarios)'],
+['work_orders (= tickets)','Tickets','Tickets, Dashboard (MTBF, MTTR, pendientes, costos)'],
 ['ordenes_servicio','Editor de orden','Órdenes (lista), Informes (orden padre), validación de cierre en el servidor'],
 ['reports (informes)','Editor de informe','Órdenes (conteo, cierre, PDF resumen)'],
 ['events','Calendario','Calendario'],
@@ -631,15 +680,167 @@ var FIND=[
 ['good','El destino de un QR sobrevive al login','Se valida, se guarda y se retoma tras el login y la elección de cliente; hay pruebas automatizadas.','src/navigation/pendingAssetDestination.ts · tests/pending-asset-destination.test.ts']
 ];
 
+
+/* ===== DATOS: hallazgos (versión 2) =====
+   t: E error · I inconsistencia · M mejora   sev: c crítica · a alta · m media · b baja
+   ver: rep reproducido en esta sesión · cod confirmado en el código · pv por verificar en producción
+   st: {módulo:[pasos afectados, base 0]}   w: oleada de la hoja de ruta */
+var TYPE={E:'Error',I:'Inconsistencia',M:'Mejora'},SEV={c:'Crítica',a:'Alta',m:'Media',b:'Baja'},SEVO={c:0,a:1,m:2,b:3};
+var VER={rep:'Reproducido en esta sesión',cod:'Confirmado en el código',pv:'Por verificar en producción'},EFF={S:'Esfuerzo bajo',M:'Esfuerzo medio',L:'Esfuerzo alto'};
+var ISSUES=[
+{id:'E1',t:'E',sev:'c',w:1,eff:'S',ver:'rep',mods:['login','bio','usuarios'],st:{login:[5]},
+ title:'El bootstrap del administrador corre en cada deploy',
+ now:'Cada deploy ejecuta el bootstrap de la base. Si CMMS_BOOTSTRAP_ADMIN_EMAIL y CMMS_BOOTSTRAP_ADMIN_PIN siguen definidas, restablece el PIN del administrador, vuelve a exigir el cambio de PIN y revoca sus sesiones. Si el correo coincide con otra cuenta, la convierte en administrador y le quita sus clientes. No pude comprobar si las variables siguen definidas en producción.',
+ ev:'scripts/db/parametric-seed.ts:99-140 · package.json (vercel-build) · traza con base simulada en docs/QA_COMMIT_f6c35f8_2026-11-10.md',
+ fix:'Retirar las dos variables en Vercel después del primer ingreso. En el seed: crear el administrador solo si no existe uno operativo, no reutilizar cuentas por coincidencia de correo y no reactivar requiere_cambio_pin.'},
+{id:'E2',t:'E',sev:'a',w:1,eff:'M',ver:'cod',mods:['equipos','tickets','mant','ordenes','informes'],
+ title:'La descarga de datos se corta en 200 filas por tabla',
+ now:'Cada descarga trae como máximo 200 filas por tabla y no avisa si quedan más. El navegador da la descarga por completa y avanza su marca con su propio reloj (lastSync = Date.now()), ignorando el serverTime que envía el servidor. Un cliente con más de 200 equipos, o un teléfono con la hora adelantada, puede quedarse sin registros y sin aviso. Forzar la sincronización vuelve a pedir las mismas 200 más antiguas.',
+ ev:'server/vercel/handlers/sync.ts:347-367 (LIMIT 200) y :377-381 · src/sync/syncEngine.ts:80 y :265',
+ fix:'Devolver un cursor (última fecha + uuid) y un indicador de "quedan más"; repetir la descarga hasta agotar; guardar como marca el serverTime del servidor. Probar con un cliente de más de 200 equipos.'},
+{id:'E3',t:'E',sev:'a',w:1,eff:'S',ver:'cod',mods:['mant','equipos','dashboard'],st:{mant:[1,3]},
+ title:'El formulario de mantenimiento descarta datos',
+ now:'El formulario pide repuestos, costo de materiales, duración, recomendaciones y ubicación, pero createMantenimiento no los recibe: se pierden al guardar. Tampoco encontré código que actualice el último y el próximo mantenimiento del equipo, así que la columna "Próximo mantenimiento" del inventario no refleja lo registrado. Por eso los gráficos de costos quedan vacíos.',
+ ev:'src/components/modals/NuevoMantenimientoModal.tsx:181-196 (repuestos comentado en :194) · src/db/database.ts:58-72',
+ fix:'Guardar los cinco campos en el registro (ampliar LocalMantenimiento con costo y duración) y, al ejecutar, actualizar ultimo_mantenimiento y proximo_mantenimiento del equipo en la misma operación.'},
+{id:'E4',t:'E',sev:'a',w:1,eff:'S',ver:'cod',mods:['informes'],st:{informes:[3]},
+ title:'El OCR de la placa no tiene ruta en producción',
+ now:'El informe llama a POST /api/ocr. Esa ruta existe solo en server.ts (servidor local). En Vercel no hay función en api/ ni regla en vercel.json, así que en producción el botón debería fallar. No lo ejecuté contra producción.',
+ ev:'src/pages/EditorInforme.tsx:2227 · server.ts:1074 · vercel.json (sin regla /api/ocr) · carpeta api/ (6 funciones, ninguna de OCR)',
+ fix:'Publicar el handler de OCR como función de Vercel con su regla, o esconder el botón cuando la ruta no exista. Agregar la ruta a la prueba de producción.'},
+{id:'E5',t:'E',sev:'m',w:2,eff:'S',ver:'cod',mods:['ordenes'],st:{ordenes:[7]},
+ title:'El historial de estados de la orden se inventa al cerrar',
+ now:'Al cerrar, la orden guarda cuatro estados (abierto, en progreso, completado, cerrado) con la misma fecha y hora. Los estados "en progreso" y "completado" nunca ocurren de verdad: la orden pasa de abierto a cerrado. El historial no sirve para medir tiempos.',
+ ev:'src/pages/EditorOrdenServicio.tsx:982-987 y :861-871',
+ fix:'Registrar cada cambio de estado cuando ocurre (al crear, al agregar el primer informe, al finalizar el último, al firmar) y eliminar el historial fabricado.'},
+{id:'E6',t:'E',sev:'m',w:1,eff:'M',ver:'rep',mods:[],
+ title:'La verificación de seguridad del CI falla por dependencias',
+ now:'npm audit informa 27 vulnerabilidades (2 críticas, 10 altas), entre ellas vite, qs y source-map-js. Como security:check incluye npm audit, el job "verify" del workflow falla en main.',
+ ev:'npm run security:check (ejecutado el 2026-11-10) · .github/workflows/security.yml · package.json',
+ fix:'Actualizar vite y las dependencias señaladas con npm audit fix, revisar las que exigen cambio mayor y volver a correr npm test y npm run build.'},
+{id:'E7',t:'E',sev:'b',w:3,eff:'S',ver:'cod',mods:['mant','ordenes'],
+ title:'Folios creados con la hora del dispositivo',
+ now:'Los folios MANT- y OS- se arman con Date.now() en el dispositivo. Dos equipos trabajando sin conexión pueden generar el mismo folio; la probabilidad es baja y la clave real es el UUID, pero el folio es lo que ve el cliente en el documento.',
+ ev:'src/components/modals/NuevoMantenimientoModal.tsx:180 · src/pages/EditorOrdenServicio.tsx:901 y :995',
+ fix:'Usar un folio provisional local y asignar el definitivo en el servidor al sincronizar, como ya se hace con el folio de los informes (src/lib/reportFolio.ts).'},
+
+{id:'I1',t:'I',sev:'a',w:2,eff:'M',ver:'cod',mods:['dashboard','ordenes','tickets'],st:{dashboard:[0,2]},
+ title:'El Dashboard mide tickets, no órdenes de servicio',
+ now:'MTBF, MTTR, costos y "Pendientes de firma" se calculan sobre work_orders, que hoy solo escribe Tickets. Las órdenes y los informes no cuentan. "Pendientes de firma" además reparte estados de ticket como si fueran firmas: abierto = Cliente, en proceso = Contratista, asignado = Visita; el estado "asignado" no lo fija ninguna pantalla, así que Visita queda siempre en 00.',
+ ev:'src/pages/Dashboard.tsx:103, :174-198 y :490 · src/hooks/useTickets.ts',
+ fix:'Calcular los indicadores desde ordenes_servicio e informes (firmas reales pendientes, tiempos entre estados) y dejar los tickets como indicador aparte.'},
+{id:'I2',t:'I',sev:'a',w:2,eff:'M',ver:'cod',mods:['reportes'],st:{reportes:[2]},
+ title:'Reportes aparece en el menú pero está apagado',
+ now:'La página fija hasAnalyticsDataset = false y siempre muestra "Analítica pendiente de datos". Los gráficos, las pestañas y la exportación CSV están escritos pero son inalcanzables. La versión 1 de este mapa lo describía como funcional; queda corregido.',
+ ev:'src/pages/Reportes.tsx:47 y :53-66',
+ fix:'Ocultar la entrada del menú mientras no haya datos, o conectarla a datos reales (ver M2). No dejar una constante como interruptor.'},
+{id:'I3',t:'I',sev:'m',w:2,eff:'S',ver:'cod',mods:['tickets'],st:{tickets:[4]},
+ title:'Las reglas de estado de los tickets no se usan',
+ now:'canTransitionTicket define abierto → asignado → en proceso → resuelto → cerrado, con cancelación. Ninguna pantalla la llama. La interfaz permite abierto → resuelto directo y no ofrece "asignado" ni "cancelado".',
+ ev:'src/rules/businessRules.ts:81-95 (sin usos) · src/pages/Tickets.tsx:116, :351, :359 y :367',
+ fix:'Decidir el flujo real y aplicarlo en un solo lugar: validar cada cambio con canTransitionTicket en la pantalla y en el servidor, o simplificar la regla a lo que hoy se usa.'},
+{id:'I4',t:'I',sev:'m',w:2,eff:'S',ver:'cod',mods:['usuarios','informes','ordenes'],
+ title:'Dos definiciones distintas de roles, permisos y estados',
+ now:'businessRules.ts declara roles que no existen como perfil (tecnico_lider, ingeniero_confiabilidad), un bloque PERMISSIONS sin uso y estados de informe (firmado, bloqueado, anulado) distintos del que se usa (finalizado). La fuente real es PERMISOS_POR_PERFIL en types.ts y orderReportRules.ts.',
+ ev:'src/rules/businessRules.ts:26-63 · src/types.ts:12 y :54-97 · src/rules/orderReportRules.ts',
+ fix:'Dejar una sola fuente por concepto. Borrar lo que no se usa o migrar las pantallas a esas reglas, y cubrirlo con una prueba.'},
+{id:'I5',t:'I',sev:'m',w:2,eff:'M',ver:'cod',mods:['ordenes','informes','config','scanner'],
+ title:'Tres marcas distintas en la misma aplicación',
+ now:'Los PDF de órdenes e informes llevan "CLIMASOL" y un correo de contacto fijo en el código. Configuración muestra "STK HVAC EXPERT". Las etiquetas QR dicen "NBYB SPA". El logo por cliente sí cambia, pero el nombre y el correo no.',
+ ev:'src/pages/EditorInforme.tsx:1074, :1140 y :1397 · src/pages/EditorOrdenServicio.tsx (8 apariciones) · src/pages/Configuracion.tsx:210 · src/pages/ScannerQR.tsx',
+ fix:'Llevar razón social, correo y pie de página a Configuración (o al cliente) y leerlos al generar cada documento.'},
+{id:'I6',t:'I',sev:'m',w:2,eff:'S',ver:'cod',mods:['config','dashboard','eficiencia'],st:{config:[1]},
+ title:'La moneda configurada no se usa',
+ now:'Configuración permite elegir CLP, UF, USD o EUR y lo guarda en system_currency. Ninguna otra pantalla lo lee: el Dashboard rotula "Costos (USD)" y Eficiencia calcula en CLP.',
+ ev:'src/pages/Configuracion.tsx:34 y :177 (únicos usos de system_currency) · src/pages/Dashboard.tsx:334 · src/pages/EFIEnergia.tsx:368 y :490',
+ fix:'Leer la moneda desde un único ajuste en todas las pantallas y en los PDF, y sincronizarlo con el servidor en lugar de guardarlo solo en el navegador.'},
+{id:'I7',t:'I',sev:'m',w:2,eff:'M',ver:'cod',mods:['scanner','equipos','eficiencia','calendario'],
+ title:'Datos de ejemplo dentro del código productivo',
+ now:'El scanner consulta EQUIPOS_DATA (equipos de ejemplo) para los QR antiguos con ?tag= y como respaldo. El alta de equipos compara contra esos ejemplos al buscar duplicados. Eficiencia muestra dos "alertas operativas" con texto fijo y ciudades por defecto. El generador de etiquetas tiene los tipos de activo escritos a mano, mientras el alta usa el catálogo. Calendario conserva un arreglo ACTIVITIES_MOCK sin uso.',
+ ev:'src/pages/ScannerQR.tsx:91, :175 y :527 · src/components/modals/CreateAssetModal.tsx:45 · src/pages/EFIEnergia.tsx:508-518 · src/pages/Planificacion.tsx:76',
+ fix:'Quitar EQUIPOS_DATA del código de producción, leer siempre de la base local, tomar los tipos del catálogo y calcular las alertas desde datos o retirarlas.'},
+{id:'I8',t:'I',sev:'b',w:3,eff:'S',ver:'cod',mods:[],
+ title:'La documentación no describe el sistema actual',
+ now:'ARCHITECTURE.md habla de React 18 y de "Neon/Vercel Auth"; el proyecto usa React 19 y autenticación propia con PIN. README.md es la plantilla de AI Studio. package.json se llama "react-example". lib/api.ts lista rutas que no existen (/api/technicians, /api/dashboard/*).',
+ ev:'ARCHITECTURE.md:23 y :40 · README.md · package.json:2 · src/lib/api.ts:23-29',
+ fix:'Actualizar ARCHITECTURE.md y README con la arquitectura real (este mapa sirve de base), renombrar el paquete y depurar api.ts.'},
+{id:'I9',t:'I',sev:'b',w:3,eff:'S',ver:'cod',mods:[],
+ title:'Código y archivos sin uso',
+ now:'Hay páginas que nadie importa (MiEmpresa.tsx con 882 líneas, InformesHVAC, Assets, Maintenance, Parts, WorkOrders) y archivos sueltos en la raíz: pruebas vacías (test_404_post.cjs, test_e2e_sync.cjs, test_sync.js), scripts fix_api_server*.cjs, tmp.txt y mouse-jiggler.ps1.',
+ ev:'src/pages/ (sin importaciones en src/) · raíz del repositorio',
+ fix:'Eliminar lo que no se usa o moverlo a scripts/archive, y mover las pruebas útiles a tests/.'},
+{id:'I10',t:'I',sev:'m',w:2,eff:'L',ver:'cod',mods:['mant','calendario','ordenes','inventario','consola'],
+ title:'Módulos que no se hablan entre sí',
+ now:'Mantenimientos, calendario y órdenes no comparten ningún identificador: un preventivo programado no genera actividad ni orden. El inventario solo lo lee el calendario; nada descuenta stock. La Consola muestra el registro del navegador, no la auditoría del servidor.',
+ ev:'búsqueda de mantenimiento_id y orden_servicio_uuid en src/ · src/components/modals/CrearActividadModal.tsx:98 · src/pages/Consola.tsx:16-29',
+ fix:'Ver M1 y M4. Para la Consola, agregar una vista de audit_logs del servidor solo para administrador.'},
+{id:'I11',t:'I',sev:'b',w:3,eff:'S',ver:'cod',mods:['mapa'],st:{mapa:[0]},
+ title:'El mapa depende de un CDN y no funciona sin conexión',
+ now:'Leaflet se descarga de unpkg cada vez que se abre el mapa. La aplicación se presenta como utilizable sin conexión, pero el mapa no carga en ese caso.',
+ ev:'src/pages/Mapa.tsx:52-57',
+ fix:'Empaquetar Leaflet con la aplicación y mostrar un aviso claro cuando falten los mosaicos del mapa.'},
+{id:'I12',t:'I',sev:'m',w:2,eff:'S',ver:'cod',mods:['config'],st:{config:[4]},
+ title:'Herramienta de desarrollo visible en Configuración',
+ now:'"Clonar Prod a Desarrollo" llama a /api/admin/clone-production-db, que existe solo en el servidor local. En producción la sección se muestra igual y la llamada no tiene ruta.',
+ ev:'src/pages/Configuracion.tsx:42-96 y :336 · server.ts:2715 · vercel.json (sin regla)',
+ fix:'Mostrar la sección solo en desarrollo, o quitarla de la interfaz y dejarla como script.'},
+{id:'I13',t:'I',sev:'m',w:1,eff:'S',ver:'cod',mods:[],
+ title:'El límite de descargas choca con el sondeo cada 15 segundos',
+ now:'Cada dispositivo pide cambios cada 15 s (60 veces en 15 min). El servidor admite 120 descargas por usuario cada 15 min. Con la misma cuenta en dos o tres dispositivos o pestañas el límite se alcanza y la sincronización empieza a ser rechazada. No lo reproduje.',
+ ev:'src/sync/syncEngine.ts:23-25 · server/vercel/handlers/sync.ts:334',
+ fix:'Espaciar el sondeo (por ejemplo 60 s y al volver a primer plano) o limitar por sesión en vez de por usuario.'},
+
+{id:'M1',t:'M',sev:'a',w:3,eff:'L',ver:'cod',mods:['mant','calendario','ordenes','informes'],
+ title:'Encadenar preventivo, actividad, orden e informe',
+ now:'Hoy cada registro se crea a mano y por separado.',
+ ev:'I10',
+ fix:'Que un mantenimiento programado cree su actividad en el calendario; que la actividad abra la orden; que la orden y sus informes guarden esos identificadores. Así el historial del equipo queda completo sin doble digitación.'},
+{id:'M2',t:'M',sev:'a',w:3,eff:'L',ver:'cod',mods:['dashboard','reportes','ordenes'],
+ title:'Indicadores y reportes desde las órdenes reales',
+ now:'El Dashboard mide tickets y Reportes está apagado.',
+ ev:'I1 · I2 · E3 · E5',
+ fix:'Registrar costo, duración y cambios de estado reales, y calcular desde ahí MTTR, cumplimiento del plan preventivo y costo por equipo. Con eso se puede encender Reportes y su exportación.'},
+{id:'M3',t:'M',sev:'m',w:3,eff:'M',ver:'cod',mods:['tickets','ordenes','informes'],
+ title:'Una sola máquina de estados por entidad',
+ now:'Los estados viven repartidos entre reglas sin uso, pantallas y validaciones del servidor.',
+ ev:'I3 · I4 · E5',
+ fix:'Definir las transiciones de ticket, orden e informe en un módulo compartido por la pantalla y el servidor, con pruebas como las de orderReportRules.'},
+{id:'M4',t:'M',sev:'m',w:3,eff:'M',ver:'cod',mods:['inventario','mant','ordenes'],
+ title:'Consumo de repuestos desde el trabajo en terreno',
+ now:'El stock solo cambia a mano.',
+ ev:'I10 · E3',
+ fix:'Permitir elegir repuestos del inventario en mantenimientos e informes y descontarlos al finalizar, con registro de quién y en qué orden.'},
+{id:'M5',t:'M',sev:'m',w:3,eff:'M',ver:'cod',mods:['config','clientes'],
+ title:'Marca y moneda configurables',
+ now:'Nombre, correo y moneda están escritos en el código.',
+ ev:'I5 · I6',
+ fix:'Un único ajuste de empresa (razón social, correo, pie, moneda) sincronizado con el servidor y usado por todas las pantallas y documentos.'},
+{id:'M6',t:'M',sev:'a',w:1,eff:'M',ver:'pv',mods:['login','usuarios'],
+ title:'Segundo factor para administradores y prueba de aislamiento',
+ now:'Pendiente declarado del proyecto; no se ha ejecutado.',
+ ev:'docs/PENDIENTES_QA.md, sección 3',
+ fix:'Agregar un segundo factor para el perfil administrador y ejecutar una prueba de acceso cruzado entre clientes (activos, órdenes, informes, usuarios) con dos cuentas de clientes distintos.'},
+{id:'M7',t:'M',sev:'m',w:3,eff:'M',ver:'cod',mods:[],
+ title:'Pruebas de punta a punta de los flujos del mapa',
+ now:'Las pruebas automatizadas cubren seguridad, reglas de órdenes, actualización de la PWA y navegación por QR. No hay pruebas de navegador de los flujos completos.',
+ ev:'tests/ (5 archivos)',
+ fix:'Automatizar con Playwright los flujos de este mapa: login por perfil, QR a ficha, orden con dos informes y cierre con firmas, trabajo sin conexión y sincronización.'}
+];
+var ISS={};ISSUES.forEach(function(x){ISS[x.id]=x});
+function issuesOf(mid){return ISSUES.filter(function(x){return x.mods.indexOf(mid)>-1}).sort(function(a,b){return SEVO[a.sev]-SEVO[b.sev]})}
+var WAVES=[[1,'Seguridad y pérdida de datos','Lo que puede dejar a alguien sin acceso o sin datos. Va primero.'],[2,'Coherencia entre módulos','Lo que hace que la aplicación diga una cosa y haga otra.'],[3,'Mejoras y limpieza','Lo que agrega valor una vez que lo anterior está resuelto.']];
+
 /* ===== Estado y navegación ===== */
-var S={tab:'global',mod:'login',playing:!RM,speed:1,sup:null,step:0,timer:0};
+var S={tab:'global',mod:'login',playing:!RM,speed:1,sup:null,step:0,timer:0,onlyIss:false,focus:null,ft:'',fs:'',fm:'',fq:''};
 var gp=[],busy=false;
-var VIEWS={global:$('#v-global'),modulos:$('#v-modulos'),matriz:$('#v-matriz')};
+var VIEWS={global:$('#v-global'),modulos:$('#v-modulos'),matriz:$('#v-matriz'),hallazgos:$('#v-hallazgos')};
+var tbs=$('#tb-scope');if(tbs)tbs.textContent='20 módulos · '+ISSUES.length+' hallazgos';
+function openIssue(id){S.focus=id;S.ft='';S.fs='';S.fm='';S.fq='';go('hallazgos',false)}
 
 function parseHash(){
   var h=(location.hash||'').replace('#','');
   if(h.indexOf('mod-')===0&&MOD[h.slice(4)]){S.tab='modulos';S.mod=h.slice(4)}
-  else if(h==='modulos'||h==='matriz'||h==='global')S.tab=h;
+  else if(h==='modulos'||h==='matriz'||h==='global'||h==='hallazgos')S.tab=h;
   else S.tab='global';
 }
 function go(h,scroll){
@@ -655,6 +856,7 @@ function route(scroll){
   stopStep();gp=[];
   if(S.tab==='global')drawGlobal();
   else if(S.tab==='modulos')drawModule();
+  else if(S.tab==='hallazgos')drawIssues();
   else drawMatrix();
   if(scroll||S.pendingScroll){S.pendingScroll=false;var t=$('.tabs');if(t)t.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'})}
 }
@@ -691,6 +893,8 @@ function drawGlobal(){
     svg+='<g class="gnode" id="gn-'+n[0]+'" data-id="'+n[0]+'" data-t="'+n[6]+'" tabindex="0" role="link" aria-label="'+esc(n[2]+': '+n[3])+'" transform="translate('+x+' '+y+')">';
     svg+='<rect class="box" width="'+NW+'" height="'+NH+'" rx="6"/><text class="code" x="10" y="15">'+n[1]+'</text><text class="ttl" x="10" y="32">'+esc(n[2])+'</text><text class="sub" x="10" y="44">'+esc(n[3])+'</text>';
     if(n[7])svg+='<circle class="hb" cx="'+(NW-14)+'" cy="14" r="8.5"/><circle class="hg" cx="'+(NW-14)+'" cy="12" r="2.4"/><path class="hg" d="M'+(NW-19.5)+' 19c0-3 2.4-4.6 5.5-4.6s5.5 1.6 5.5 4.6"/>';
+    var il=(kind==='m'&&n[0]===tgt)?issuesOf(tgt).filter(function(x){return x.t!=='M'}):[];
+    if(il.length)svg+='<g class="gbadge"><title>'+il.length+' errores e inconsistencias; el más grave: '+SEV[il[0].sev].toLowerCase()+'</title><rect class="gb-'+il[0].sev+'" x="'+(NW-56)+'" y="6" width="26" height="15" rx="3"/><text x="'+(NW-43)+'" y="17">'+il.length+'</text></g>';
     svg+='</g>';
   });
   GE.forEach(function(e){
@@ -698,8 +902,8 @@ function drawGlobal(){
     for(var i=0;i<n;i++)svg+='<g class="pkt" id="pk-'+e[0]+'-'+i+'"><circle class="pk-'+e[6]+'" r="4.6"/></g>';
   });
   svg+='</svg>';
-  var h='<div class="bar"><button class="btn" id="gplay" aria-pressed="'+S.playing+'">'+(S.playing?'Pausar':'Reproducir')+'</button><button class="btn ghost" id="gspeed" aria-pressed="'+(S.speed>1)+'">Velocidad ×'+S.speed+'</button><span class="hint">Toca un módulo para ver su detalle. Pasa el cursor por un módulo para resaltar sus flujos.</span></div>';
-  h+='<ul class="legend" aria-label="Leyenda"><li><span class="sw in"></span>Entra al sistema</li><li><span class="sw da"></span>Dato que pasa de un módulo a otro</li><li><span class="sw ou"></span>Sale como documento</li><li><span class="sw hu"></span>Disparo humano (línea punteada)</li><li><span class="sw hu">'+ic('h')+'</span>Módulo con interacción humana</li></ul>';
+  var h='<div class="bar"><button class="btn" id="gplay" aria-pressed="'+S.playing+'">'+(S.playing?'Pausar':'Reproducir')+'</button><button class="btn ghost" id="gspeed" aria-pressed="'+(S.speed>1)+'">Velocidad ×'+S.speed+'</button><button class="btn ghost" id="gonly" aria-pressed="'+S.onlyIss+'">Solo con hallazgos</button><span class="hint">Toca un módulo para ver su detalle. El número de cada módulo cuenta sus errores e inconsistencias.</span></div>';
+  h+='<ul class="legend" aria-label="Leyenda"><li><span class="sw in"></span>Entra al sistema</li><li><span class="sw da"></span>Dato que pasa de un módulo a otro</li><li><span class="sw ou"></span>Sale como documento</li><li><span class="sw hu"></span>Disparo humano (línea punteada)</li><li><span class="sw hu">'+ic('h')+'</span>Módulo con interacción humana</li><li><span class="sev c">n</span><span class="sev a">n</span><span class="sev m">n</span>Errores e inconsistencias del módulo; el color indica el más grave</li></ul>';
   h+='<div class="diagram-scroll" id="gscroll">'+svg+'</div><p class="hint" style="margin:8px 0 0">En pantallas angostas el plano se desplaza hacia los lados. Al pasar el cursor o enfocar un módulo, sus líneas muestran qué viaja por ellas.</p>';
   h+='<div class="sec-h"><h2>Procesos de apoyo</h2><p>Sirven a varios módulos a la vez. Elige uno para ver a quiénes alcanza.</p></div><div class="supports">';
   SUP.forEach(function(s){h+='<button class="sup" data-sup="'+s.id+'" aria-pressed="false"><span class="code">'+s.code+'</span><h3>'+esc(s.name)+'</h3><p>'+esc(s.txt)+'</p></button>'});
@@ -717,6 +921,7 @@ function drawGlobal(){
   $$('.sup',el).forEach(function(b){b.addEventListener('click',function(){toggleSup(b.dataset.sup,false)})});
   $('#gplay').addEventListener('click',function(){S.playing=!S.playing;this.setAttribute('aria-pressed',S.playing);this.textContent=S.playing?'Pausar':'Reproducir'});
   $('#gspeed').addEventListener('click',function(){S.speed=S.speed===1?2:1;this.textContent='Velocidad ×'+S.speed;this.setAttribute('aria-pressed',S.speed>1)});
+  $('#gonly').addEventListener('click',function(){S.onlyIss=!S.onlyIss;if(S.onlyIss)S.sup=null;this.setAttribute('aria-pressed',S.onlyIss);applySup()});
   gp=[];
   GE.forEach(function(e,k){
     var path=$('#ge-'+e[0]),len=path.getTotalLength(),n=e[7]?2:1;
@@ -731,12 +936,15 @@ function placePk(p){
   var t=p.rev?1-p.t:p.t,pt=p.path.getPointAtLength(t*p.len),o=Math.min(1,p.t*7,(1-p.t)*7);
   p.g.setAttribute('transform','translate('+pt.x.toFixed(1)+' '+pt.y.toFixed(1)+')');p.g.style.opacity=o.toFixed(2);
 }
-function toggleSup(id,scroll){S.sup=S.sup===id?null:id;applySup();if(scroll&&S.sup){var b=$('.sup[data-sup="'+id+'"]');if(b)b.scrollIntoView({behavior:RM?'auto':'smooth',block:'center'})}}
+function toggleSup(id,scroll){S.sup=S.sup===id?null:id;if(S.sup){S.onlyIss=false;var gb=$('#gonly');if(gb)gb.setAttribute('aria-pressed',false)}applySup();if(scroll&&S.sup){var b=$('.sup[data-sup="'+id+'"]');if(b)b.scrollIntoView({behavior:RM?'auto':'smooth',block:'center'})}}
 function applySup(){
   var svg=$('#gsvg');if(!svg)return;
   var s=SUP.filter(function(x){return x.id===S.sup})[0];
-  svg.classList.toggle('dim',!!s);
-  $$('.gnode',svg).forEach(function(g){var on=!!s&&s.serves.indexOf(g.dataset.id)>-1;g.classList.toggle('hl',on);g.classList.toggle('off',!!s&&!on)});
+  svg.classList.toggle('dim',!!s||S.onlyIss);
+  $$('.gnode',svg).forEach(function(g){
+    var on=!!s&&s.serves.indexOf(g.dataset.id)>-1,has=!!g.querySelector('.gbadge');
+    g.classList.toggle('hl',on);g.classList.toggle('off',s?!on:(S.onlyIss&&!has));
+  });
   $$('.sup').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.sup===S.sup)});
 }
 var last=performance.now();
@@ -749,10 +957,11 @@ requestAnimationFrame(tick);
 
 /* ===== Vista de módulo ===== */
 function stepsHtml(m){
+  var fl={};issuesOf(m.id).forEach(function(x){((x.st||{})[m.id]||[]).forEach(function(i){(fl[i]=fl[i]||[]).push(x.id)})});
   return m.st.map(function(s,i){
-    var k=s[0],b='';
+    var k=s[0],b='',f=fl[i]?'<span class="sflag" title="Hallazgos en este paso">'+fl[i].join(' · ')+'</span>':'';
     if(k==='d')b='<span class="br"><span class="y"><b>SÍ →</b> '+esc(s[2])+'</span><span class="no"><b>NO →</b> '+esc(s[3])+'</span></span>';
-    return '<li class="step k-'+k+'" data-i="'+i+'"><span class="n">'+(i+1)+'</span><button class="stepbtn" aria-label="Paso '+(i+1)+': '+esc(s[1])+'"><span class="tag">'+ic(k)+KIND[k]+'</span><span class="stxt">'+esc(s[1])+'</span>'+b+'</button></li>';
+    return '<li class="step k-'+k+'" data-i="'+i+'"><span class="n">'+(i+1)+'</span><button class="stepbtn" aria-label="Paso '+(i+1)+': '+esc(s[1])+'">'+f+'<span class="tag">'+ic(k)+KIND[k]+'</span><span class="stxt">'+esc(s[1])+'</span>'+b+'</button></li>';
   }).join('');
 }
 function drawModule(){
@@ -773,7 +982,9 @@ function drawModule(){
   h+='<div class="col col-out"><h4>Salidas</h4>'+m.out.map(function(x,i){return '<div class="io out" data-from="'+x[1]+'" data-ix="'+i+'">'+ic('out')+'<span>'+esc(x[0])+'</span><span class="at">← paso '+(x[1]+1)+'</span></div>'}).join('')+'</div></div>';
   h+='<div class="ctrl"><button class="btn" id="mprev" aria-label="Paso anterior">‹ Anterior</button><button class="btn" id="mplay" aria-pressed="'+S.playing+'">'+(S.playing?'Pausar':'Reproducir')+'</button><button class="btn" id="mnext" aria-label="Paso siguiente">Siguiente ›</button><button class="btn ghost" id="mspeed" aria-pressed="'+(S.speed>1)+'">Velocidad ×'+S.speed+'</button><span class="cap" id="mcap" aria-live="polite"></span></div>';
   h+='<div class="two"><div class="panel"><h3>Se interrelaciona con</h3><ul class="lk">'+m.ln.map(function(l){var t=MOD[l[0]];return '<li><button data-go="'+l[0]+'">'+t.code+' '+esc(t.name)+'</button><span>'+esc(l[1])+'</span></li>'}).join('')+'</ul></div>';
-  h+='<div class="panel"><h3>Estado actual</h3><ul class="nt">'+m.nt.map(function(n){return '<li class="'+n[0]+'"><span class="m">'+(n[0]==='ok'?'✓':'!')+'</span><span>'+esc(n[1])+'</span></li>'}).join('')+'</ul><p class="hint" style="margin:10px 0 0">✓ confirmado en el código · ! observación</p></div></div>';
+  var mi=issuesOf(m.id),oks=m.nt.filter(function(n){return n[0]==='ok'});
+  h+='<div class="panel"><h3>Confirmado que funciona</h3>'+(oks.length?'<ul class="nt">'+oks.map(function(n){return '<li class="ok"><span class="m">✓</span><span>'+esc(n[1])+'</span></li>'}).join('')+'</ul>':'<p class="hint" style="margin:0">Sin puntos confirmados para este módulo.</p>')+'</div></div>';
+  h+='<div class="panel" style="margin-top:18px"><h3>Hallazgos de este módulo ('+mi.length+')</h3>'+(mi.length?'<ul class="ilist">'+mi.map(function(x){return '<li><button class="go" data-iss="'+x.id+'" aria-label="Abrir hallazgo '+x.id+'">'+x.id+'</button><span class="sev '+x.sev+'">'+SEV[x.sev]+'</span><span>'+esc(x.title)+'</span></li>'}).join('')+'</ul><p class="hint" style="margin:10px 0 0">Abre un hallazgo para ver la evidencia y la corrección recomendada. Los pasos afectados llevan su código en rojo.</p>':'<p class="hint" style="margin:0">No encontré hallazgos propios de este módulo. Le aplican los generales (sincronización, dependencias, documentación).</p>')+'</div>';
   if(m.matrix){
     h+='<div class="sec-h"><h2>Matriz de perfiles</h2><p>Permisos definidos en <span class="mono">PERMISOS_POR_PERFIL</span>.</p></div><div class="tbl-wrap"><table><thead><tr><th>Permiso</th>'+PROFILES.map(function(p){return '<th style="text-align:center">'+p+'</th>'}).join('')+'</tr></thead><tbody>';
     PERMS.forEach(function(p){h+='<tr><td class="mono">'+p[0]+'</td>'+p[1].split('').map(function(c){return '<td class="c">'+(c==='1'?'<span class="yes" aria-label="Sí">●</span>':'<span class="no" aria-label="No">–</span>')+'</td>'}).join('')+'</tr>'});
@@ -782,6 +993,7 @@ function drawModule(){
   el.innerHTML=h;
   $$('.chip',el).forEach(function(c){c.addEventListener('click',function(){go('mod-'+c.dataset.m,false)})});
   $$('[data-go]',el).forEach(function(b){b.addEventListener('click',function(){go('mod-'+b.dataset.go,true)})});
+  $$('[data-iss]',el).forEach(function(b){b.addEventListener('click',function(){openIssue(b.dataset.iss)})});
   $$('.stepbtn',el).forEach(function(b){b.addEventListener('click',function(){S.playing=false;syncPlayBtn();setStep(+b.parentNode.dataset.i)})});
   $('#mplay').addEventListener('click',function(){S.playing=!S.playing;syncPlayBtn();if(S.playing)startStep()});
   $('#mprev').addEventListener('click',function(){S.playing=false;syncPlayBtn();setStep((S.step+m.st.length-1)%m.st.length)});
@@ -831,7 +1043,7 @@ function drawMatrix(){
   h+='<div class="filter"><label class="sr" for="fmod">Filtrar por módulo</label><select id="fmod"><option value="">Todos los módulos</option>'+M.map(function(m){return '<option value="'+m.id+'">'+m.code+' '+esc(m.name)+'</option>'}).join('')+'</select><label class="sr" for="fq">Buscar</label><input id="fq" type="search" placeholder="Buscar texto" autocomplete="off"><span class="hint" id="fcount"></span></div>';
   h+='<div class="tbl-wrap"><table><thead><tr><th>Origen</th><th></th><th>Destino</th><th>Qué viaja</th></tr></thead><tbody id="mx"></tbody></table></div>';
   h+='<div class="sec-h"><h2>Datos compartidos</h2><p>Qué tabla escribe cada módulo y quién la lee.</p></div><div class="tbl-wrap"><table><thead><tr><th>Dato</th><th>Lo escribe</th><th>Lo leen</th></tr></thead><tbody>'+ENT.map(function(e){return '<tr><td class="mono">'+esc(e[0])+'</td><td>'+esc(e[1])+'</td><td>'+esc(e[2])+'</td></tr>'}).join('')+'</tbody></table></div>';
-  h+='<div class="sec-h"><h2>Lo que muestra el código hoy</h2><p>Observaciones sobre cómo se conectan los módulos, con su evidencia.</p></div><div class="finds">'+FIND.map(function(f,i){return '<div class="find '+(f[0]==='good'?'good':'')+'"><div class="num">'+(f[0]==='good'?'✓':'!')+'</div><div><h3>'+esc(f[1])+'</h3><p>'+esc(f[2])+'</p><div class="ev">'+esc(f[3])+'</div></div></div>'}).join('')+'</div>';
+  h+='<div class="sec-h"><h2>Lo que está bien resuelto</h2><p>Los problemas están en la pestaña <button class="row-go" id="toiss">Hallazgos y mejoras</button>.</p></div><div class="finds">'+FIND.filter(function(f){return f[0]==='good'}).map(function(f,i){return '<div class="find '+(f[0]==='good'?'good':'')+'"><div class="num">'+(f[0]==='good'?'✓':'!')+'</div><div><h3>'+esc(f[1])+'</h3><p>'+esc(f[2])+'</p><div class="ev">'+esc(f[3])+'</div></div></div>'}).join('')+'</div>';
   el.innerHTML=h;
   var rows=[];M.forEach(function(m){m.ln.forEach(function(l){rows.push({a:m,b:MOD[l[0]],t:l[1]})})});
   var paint=function(){
@@ -842,6 +1054,58 @@ function drawMatrix(){
     $$('#mx .row-go').forEach(function(b){b.addEventListener('click',function(){go('mod-'+b.dataset.go,true)})});
   };
   $('#fmod').addEventListener('change',paint);$('#fq').addEventListener('input',paint);paint();
+  $('#toiss').addEventListener('click',function(){go('hallazgos',true)});
+}
+
+/* ===== Vista de hallazgos ===== */
+function drawIssues(){
+  var el=VIEWS.hallazgos,h='',cnt=function(f){return ISSUES.filter(f).length};
+  h+='<p class="fixnote"><b>Correcciones a la versión 1.</b> Reportes figuraba como funcional y está apagado por una constante (I2). El OCR de la placa figuraba como dependiente de la conexión y en realidad no tiene ruta en producción (E4). Ambos flujos están corregidos en "Detalle por módulo".</p>';
+  h+='<div class="sum" role="group" aria-label="Resumen de hallazgos">';
+  [['E','Errores','Algo falla o pierde datos'],['I','Inconsistencias','La aplicación dice una cosa y hace otra'],['M','Mejoras','Propuestas para después']].forEach(function(t){h+='<button class="sumt" data-ft="'+t[0]+'" aria-pressed="false"><div class="l">'+t[1]+'</div><div class="v">'+cnt(function(x){return x.t===t[0]})+'</div><div class="d">'+t[2]+'</div></button>'});
+  h+='<div class="sumt"><div class="l">Críticos y altos</div><div class="v">'+cnt(function(x){return x.t!=='M'&&(x.sev==='c'||x.sev==='a')})+'</div><div class="d">Errores e inconsistencias</div></div>';
+  h+='<div class="sumt"><div class="l">Reproducidos</div><div class="v">'+cnt(function(x){return x.ver==='rep'})+'</div><div class="d">El resto se confirmó leyendo el código</div></div></div>';
+  h+='<div class="filter"><label class="sr" for="ft">Tipo</label><select id="ft"><option value="">Todos los tipos</option><option value="E">Errores</option><option value="I">Inconsistencias</option><option value="M">Mejoras</option></select>';
+  h+='<label class="sr" for="fs">Severidad</label><select id="fs"><option value="">Toda severidad</option><option value="c">Crítica</option><option value="a">Alta</option><option value="m">Media</option><option value="b">Baja</option></select>';
+  h+='<label class="sr" for="fmi">Módulo</label><select id="fmi"><option value="">Todos los módulos</option>'+M.map(function(m){return '<option value="'+m.id+'">'+m.code+' '+esc(m.name)+'</option>'}).join('')+'</select>';
+  h+='<label class="sr" for="fqi">Buscar</label><input id="fqi" type="search" placeholder="Buscar texto" autocomplete="off"><span class="hint" id="icount"></span></div>';
+  h+='<div class="issues" id="ilistv"></div>';
+  h+='<div class="sec-h"><h2>Hoja de ruta sugerida</h2><p>Orden recomendado de corrección. Dentro de cada oleada, de más grave a menos.</p></div><div class="waves">';
+  WAVES.forEach(function(w){
+    var l=ISSUES.filter(function(x){return x.w===w[0]}).sort(function(a,b){return SEVO[a.sev]-SEVO[b.sev]});
+    h+='<div class="wave"><div class="wn">Oleada '+w[0]+'</div><h3>'+w[1]+'</h3><p>'+w[2]+'</p><ul class="ilist">'+l.map(function(x){return '<li><button class="go" data-iss="'+x.id+'" aria-label="Ir al hallazgo '+x.id+'">'+x.id+'</button><span class="sev '+x.sev+'">'+SEV[x.sev]+'</span><span>'+esc(x.title)+'</span></li>'}).join('')+'</ul></div>';
+  });
+  h+='</div><p class="hint" style="margin:12px 0 0">Niveles de verificación: "Reproducido" significa que lo ejecuté en esta sesión; "Confirmado en el código" significa que lo leí en el código pero no lo ejecuté; "Por verificar en producción" requiere acceso que esta sesión no tiene.</p>';
+  el.innerHTML=h;
+  var ft=$('#ft'),fs=$('#fs'),fm=$('#fmi'),fq=$('#fqi');
+  ft.value=S.ft;fs.value=S.fs;fm.value=S.fm;fq.value=S.fq;
+  var card=function(x){
+    var mods=x.mods.length?x.mods.map(function(id){return '<button data-go="'+id+'">'+MOD[id].code+' '+esc(MOD[id].name)+'</button>'}).join(''):'<span class="k">Todo el proyecto</span>';
+    return '<article class="iss" id="iss-'+x.id+'"><div class="side"><span class="iid">'+x.id+'</span><span class="sev '+x.sev+'">'+SEV[x.sev]+'</span></div><div><h3>'+esc(x.title)+'</h3>'
+      +'<div class="meta"><span class="k">'+TYPE[x.t]+'</span><span class="k">'+EFF[x.eff]+'</span><span class="k">'+VER[x.ver]+'</span>'+mods+'</div>'
+      +'<dl class="blk"><dt>Qué pasa hoy</dt><dd>'+esc(x.now)+'</dd><dt>'+(x.t==='M'?'Se apoya en':'Evidencia')+'</dt><dd class="ev">'+esc(x.ev)+'</dd><dt>'+(x.t==='M'?'Propuesta':'Corrección recomendada')+'</dt><dd class="fix">'+esc(x.fix)+'</dd></dl></div></article>';
+  };
+  var paint=function(){
+    S.ft=ft.value;S.fs=fs.value;S.fm=fm.value;S.fq=fq.value;
+    var q=S.fq.toLowerCase().trim();
+    var r=ISSUES.filter(function(x){return(!S.ft||x.t===S.ft)&&(!S.fs||x.sev===S.fs)&&(!S.fm||x.mods.indexOf(S.fm)>-1)&&(!q||(x.id+' '+x.title+' '+x.now+' '+x.fix+' '+x.ev).toLowerCase().indexOf(q)>-1)});
+    $('#ilistv').innerHTML=r.map(card).join('')||'<p class="hint">Sin coincidencias con estos filtros.</p>';
+    $('#icount').textContent=r.length+' de '+ISSUES.length;
+    $$('.sumt[data-ft]',el).forEach(function(b){b.setAttribute('aria-pressed',b.dataset.ft===S.ft)});
+    $$('#ilistv [data-go]').forEach(function(b){b.addEventListener('click',function(){go('mod-'+b.dataset.go,true)})});
+  };
+  var jump=function(id){
+    var c=$('#iss-'+id);
+    if(!c){ft.value='';fs.value='';fm.value='';fq.value='';paint();c=$('#iss-'+id)}
+    if(!c)return;
+    $$('.iss.focus',el).forEach(function(n){n.classList.remove('focus')});c.classList.add('focus');
+    c.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});
+  };
+  [ft,fs,fm].forEach(function(c){c.addEventListener('change',paint)});fq.addEventListener('input',paint);
+  $$('.sumt[data-ft]',el).forEach(function(b){b.addEventListener('click',function(){ft.value=ft.value===b.dataset.ft?'':b.dataset.ft;paint()})});
+  $$('.wave [data-iss]',el).forEach(function(b){b.addEventListener('click',function(){jump(b.dataset.iss)})});
+  paint();
+  if(S.focus){var f=S.focus;S.focus=null;requestAnimationFrame(function(){jump(f)})}
 }
 
 route(false);
