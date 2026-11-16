@@ -1,5 +1,7 @@
 # SPEC — Módulo «Inspección de Obra» (Inspecciones y Protocolos)
 
+> **Documento histórico.** Reemplazado por `PLAN_MAESTRO_ITO.md`, que compila todas las decisiones. Donde difieran, vale el plan maestro.
+
 Estado: **PLAN (sin código), decisiones tomadas el 2026-11-16** · Fecha: 2026-11-16 · Fuente: transcripción del flujo de
 controlobrax.cl (video no verificado por el autor del plan) + revisión del repositorio.
 
