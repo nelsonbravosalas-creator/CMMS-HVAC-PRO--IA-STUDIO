@@ -117,17 +117,72 @@ canvas.sig{width:100%;height:150px;border:1.5px dashed var(--mute);border-radius
 .day small{font-weight:700;color:var(--mute);font-size:11px}
 .ev{display:block;width:100%;text-align:left;border:0;border-radius:6px;padding:2px 5px;margin-top:3px;font-size:10.5px;font-weight:700;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e-ito{background:var(--ito-bg);color:var(--ito)} .e-due{background:var(--no-bg);color:var(--no)} .e-sol{background:var(--warn-bg);color:var(--warn)}
-.paper{background:#fff;color:#111827;border:1px solid #cbd5e1;border-radius:6px;padding:26px;max-width:760px;margin:0 auto;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
-.paper h4{margin:0;font-size:16px;letter-spacing:.04em}
-.paper table{width:100%;border-collapse:collapse;margin:10px 0} .paper th,.paper td{border:1px solid #d1d5db;padding:5px 7px;text-align:left;vertical-align:top}
-.paper th{background:#f3f4f6;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
-.st-ok{color:#047857;font-weight:800} .st-no{color:#b91c1c;font-weight:800} .st-na{color:#475569;font-weight:800} .st-nul{color:#b45309;font-weight:800}
-.logoCli{width:90px;height:44px;border:2px solid #4f46e5;border-radius:6px;display:grid;place-items:center;font-weight:900;color:#4f46e5;letter-spacing:.1em}
-.sigrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
-.sigbox{border-top:1.5px solid #111827;padding-top:4px;min-height:70px;font-size:11px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;font-size:13px;z-index:9;max-width:90vw}
 @media (max-width:980px){.app{grid-template-columns:1fr}.side{display:none}.phoneWrap{grid-template-columns:1fr}.planoWrap{grid-template-columns:1fr}.ito{grid-template-columns:1fr}.side-r{align-items:flex-start;text-align:left}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- Informe: Plano Maestro ---------- */
+.paper{--pi:#0f172a;--pa:#4338ca;--pm:#64748b;--pl:#e2e8f0;--ps:#f8fafc;background:#fff;color:var(--pi);border:1px solid #cbd5e1;border-radius:4px;max-width:794px;margin:0 auto;font-size:11.5px;line-height:1.45;box-shadow:0 10px 30px rgba(15,23,42,.14);overflow:hidden;font-family:'Inter',system-ui,sans-serif}
+.paper *{box-sizing:border-box}
+.pp-top{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:26px 34px 18px}
+.pp-logo{width:76px;height:54px;background:var(--pa);color:#fff;display:grid;place-items:center;font-weight:800;font-size:11px;letter-spacing:.1em;border-radius:3px}
+.pp-title small{display:block;font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--pm);font-weight:700}
+.pp-title b{display:block;font-size:19px;letter-spacing:-.01em;font-weight:800;margin-top:2px}
+.pp-code{text-align:right}
+.pp-code .c{font:600 17px 'JetBrains Mono',monospace;letter-spacing:.02em;color:var(--pa)}
+.pp-code .sgl{display:flex;justify-content:flex-end;gap:10px;margin-top:3px;font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--pm);font-weight:700}
+.pp-rule{height:3px;background:linear-gradient(90deg,var(--pa) 0 22%,var(--pi) 22% 100%);margin:0 34px}
+.pp-status{display:flex;justify-content:space-between;align-items:center;padding:10px 34px;font-size:9.5px;color:var(--pm);letter-spacing:.06em}
+.pp-badge{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:9px;padding:3px 10px;border-radius:99px;background:#eef2ff;color:var(--pa)}
+.pp-badge.ok{background:#dcfce7;color:#166534}
+.pp-sum{display:grid;grid-template-columns:repeat(4,1fr);margin:6px 34px 0;border-top:1px solid var(--pl);border-bottom:1px solid var(--pl)}
+.pp-sum>div{padding:14px 12px;border-right:1px solid var(--pl);display:flex;align-items:center;gap:12px;min-width:0}
+.pp-sum>div:last-child{border-right:0}
+.pp-sum b{display:block;font-size:22px;letter-spacing:-.02em;font-weight:800;line-height:1}
+.pp-sum span{display:block;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--pm);font-weight:700;margin-top:4px}
+.pp-sec{padding:20px 34px 0}
+.pp-h{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--pi);padding-bottom:5px;margin-bottom:10px}
+.pp-h b{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;font-weight:800}
+.pp-h span{font:500 9px 'JetBrains Mono',monospace;color:var(--pm)}
+.pp-dl{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 22px}
+.pp-dl dt{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--pm);font-weight:700}
+.pp-dl dd{margin:1px 0 0;font-weight:600;font-size:12px}
+.pp-part{display:grid;grid-template-columns:34px 1fr 190px 74px;gap:12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--pl)}
+.pp-part:last-child{border-bottom:0}
+.pp-part .k{font:600 10px 'JetBrains Mono',monospace;color:var(--pm)}
+.pp-track{position:relative;height:7px;background:var(--pl);border-radius:4px}
+.pp-track i{position:absolute;left:0;top:0;bottom:0;background:var(--pa);border-radius:4px}
+.pp-track u{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--pi);text-decoration:none}
+.pp-delta{font:600 10px 'JetBrains Mono',monospace;text-align:right;color:#166534}
+.pp-row{display:grid;grid-template-columns:22px 1fr auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--pl)}
+.pp-row:last-child{border-bottom:0}
+.pp-row .n{font:600 10px 'JetBrains Mono',monospace;color:var(--pm)}
+.pp-pill{font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pp-ok{background:#dcfce7;color:#166534}.pp-no{background:#fee2e2;color:#991b1b}.pp-na{background:#e2e8f0;color:#475569}.pp-nul{background:#fef3c7;color:#92400e}
+.pp-med{font:500 9.5px 'JetBrains Mono',monospace;color:var(--pm);white-space:nowrap}
+.pp-obs{display:grid;grid-template-columns:26px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--pl);break-inside:avoid}
+.pp-obs:last-child{border-bottom:0}
+.pp-num{width:24px;height:24px;border-radius:50%;background:var(--pi);color:#fff;display:grid;place-items:center;font:700 10px 'JetBrains Mono',monospace}
+.pp-tag{font-size:8px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-right:6px}
+.pp-t-p{background:#e0e7ff;color:#3730a3}.pp-t-n{background:#fef3c7;color:#92400e}.pp-t-c{background:#991b1b;color:#fff}
+.pp-obs p{margin:4px 0 5px;font-size:11.5px}
+.pp-obs .m{font-size:9.5px;color:var(--pm);display:flex;flex-wrap:wrap;gap:3px 16px}
+.pp-photos{display:flex;gap:6px;margin-top:7px}
+.pp-ph{width:62px;height:44px;border-radius:2px;background:repeating-linear-gradient(135deg,#e2e8f0 0 4px,#f1f5f9 4px 8px);display:grid;place-items:end start;padding:3px;font:600 7px 'JetBrains Mono',monospace;color:#64748b}
+.pp-plano{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:center}
+.pp-plano svg{width:100%;height:auto;display:block;border:1px solid var(--pl);background:var(--ps)}
+.pp-plano small{display:block;color:var(--pm);font-size:9.5px;margin-top:4px}
+.pp-sigs{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pp-sig{border-top:1.5px solid var(--pi);padding-top:6px;min-height:112px;position:relative}
+.pp-sig .r{font-size:8px;letter-spacing:.18em;text-transform:uppercase;font-weight:800}
+.pp-sig .nm{font-weight:700;font-size:11.5px;margin-top:38px}
+.pp-sig .d{font-size:9px;color:var(--pm);line-height:1.4}
+.pp-sig svg{position:absolute;left:0;top:22px;width:96px;height:34px}
+.pp-sig.pend .nm{color:#94a3b8;font-style:italic;font-weight:500}
+.pp-foot{margin:22px 34px 0;padding:14px 0 20px;border-top:1px solid var(--pi);display:flex;justify-content:space-between;align-items:center;gap:16px}
+.pp-foot .v{font:600 12px 'JetBrains Mono',monospace;letter-spacing:.04em}
+.pp-foot small{display:block;font-size:8.5px;color:var(--pm);letter-spacing:.06em;margin-top:2px}
+.pp-reg{position:absolute}
 </style>
 
 <div class="wrap">
@@ -320,24 +375,42 @@ function vCal(){
   return '<h2>Calendario · noviembre 2026</h2><p class="sub">Las ITO programadas, las fechas límite de hallazgos y las solicitudes de clientes aparecen junto al resto de las actividades.</p><div class="grid2" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr)"><div class="cal">'+cells+'</div>'+det+'</div>'+
    '<div class="row" style="margin-top:10px"><span class="ev e-ito" style="width:auto">ITO</span><span class="ev e-due" style="width:auto">Vencimiento de hallazgo</span><span class="ev e-sol" style="width:auto">Solicitud del cliente</span></div>';
 }
+function donut(pct,col){var r=24,C=2*Math.PI*r,d=C*pct/100;return '<svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true"><circle cx="29" cy="29" r="'+r+'" fill="none" stroke="#e2e8f0" stroke-width="6"/><circle cx="29" cy="29" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+d.toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 29 29)"/></svg>';}
+function planThumb(){
+  var W=640,H=380,s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Plano con capa de marcas"><g fill="none" stroke="#94a3b8" stroke-width="2"><rect x="10" y="10" width="620" height="360"/><rect x="10" y="10" width="250" height="170"/><rect x="260" y="10" width="370" height="170"/><rect x="10" y="180" width="330" height="190"/><rect x="340" y="180" width="290" height="190"/><line x1="450" y1="180" x2="450" y2="370"/></g><g font-size="12" fill="#94a3b8" font-family="Inter,sans-serif"><text x="26" y="34">Sala técnica</text><text x="276" y="34">Oficinas</text><text x="26" y="204">Pasillo de cañerías</text><text x="356" y="204">Bodega FC-03</text></g>';
+  MARKS.filter(function(m){return m.pl===0&&m.rev==='B';}).forEach(function(m){
+    if(m.t==='circle')s+='<circle cx="'+m.x*W+'" cy="'+m.y*H+'" r="34" fill="none" stroke="#b91c1c" stroke-width="3" stroke-dasharray="6 4"/>';
+    if(m.t==='line')s+='<line x1="'+m.x*W+'" y1="'+m.y*H+'" x2="'+m.x2*W+'" y2="'+m.y2*H+'" stroke="#4338ca" stroke-width="4" stroke-linecap="round"/>';
+    if(m.t==='text')s+='<text x="'+m.x*W+'" y="'+m.y*H+'" font-size="14" font-weight="800" fill="#4338ca" font-family="Inter,sans-serif">'+esc(m.txt)+'</text>';});
+  ITEMS.forEach(function(i,ix){if(!i.pin)return;var col=i.st==='no'?'#b91c1c':(i.st==='ok'?'#15803d':'#b45309');s+='<circle cx="'+i.pin.x*W+'" cy="'+i.pin.y*H+'" r="13" fill="'+col+'" stroke="#fff" stroke-width="3"/><text x="'+i.pin.x*W+'" y="'+(i.pin.y*H+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="Inter,sans-serif">'+(ix+1)+'</text>';});
+  return s+'</svg>';
+}
 function vInf(){
   var c=counts(),all=SIG.every(function(s){return s.ok;});
-  var prow=PART.map(function(p){return '<tr><td>'+esc(p.c)+'</td><td>'+esc(p.t)+(p.added?' (agregada en terreno)':'')+'</td><td>'+p.prev+'%</td><td><b>'+p.av+'%</b></td></tr>';}).join('');
+  var code=CUR.c.split('.'),avg=Math.round(PART.reduce(function(a,p){return a+p.av;},0)/PART.length);
+  var open=c.no+c.npo;
+  var sum='<div class="pp-sum"><div>'+donut(c.cum,'#4338ca')+'<div><b>'+c.cum+'%</b><span>Cumplimiento</span></div></div><div><div><b>'+c.ev+'<small style="font-size:12px;color:#64748b;font-weight:600"> / '+c.tot+'</small></b><span>Ítems evaluados</span></div></div><div><div><b style="color:'+(open?'#b91c1c':'#166534')+'">'+open+'</b><span>Observaciones abiertas</span></div></div><div><div><b>'+avg+'%</b><span>Avance de partidas</span></div></div></div>';
+  var part=PART.map(function(p){var d=p.av-p.prev;return '<div class="pp-part"><span class="k">'+esc(p.c)+'</span><span>'+esc(p.t)+(p.added?' <em style="color:#92400e;font-size:9px">· agregada en terreno</em>':'')+'</span><div class="pp-track" role="img" aria-label="Avance '+p.av+'%, ITO anterior '+p.prev+'%"><i style="width:'+p.av+'%"></i><u style="left:'+p.prev+'%"></u></div><span class="pp-delta">'+p.av+'% · '+(d>=0?'+':'')+d+'</span></div>';}).join('');
+  var chk=ITEMS.map(function(i,ix){var pc=i.st==='ok'?'pp-ok':i.st==='no'?'pp-no':i.st==='na'?'pp-na':'pp-nul',lb=i.st==='ok'?'Cumple':i.st==='no'?'No cumple':i.st==='na'?'N/A':'Sin evaluar';
+    var m=i.med?'<span class="pp-med">'+i.med.v+' '+i.med.u+' · '+(i.med.min?i.med.min+'–':'≤ ')+i.med.max+'</span>':'<span></span>';
+    return '<div class="pp-row"><span class="n">'+String(ix+1).padStart(2,'0')+'</span><span>'+esc(i.t)+'</span>'+m+'<span class="pp-pill '+pc+'">'+lb+'</span></div>';}).join('');
   var obs=[];
-  ITEMS.forEach(function(i,ix){if(i.st==='no')obs.push(['Planificado','Ítem '+(ix+1)+': '+i.obs+' → '+i.acc,i.resp||'','No','Abierta']);else if(i.had&&i.hist&&i.hist.length)obs.push(['Planificado','Ítem '+(ix+1)+': '+i.obs,i.resp||'','No','Cerrada']);});
-  NP.forEach(function(o){obs.push(['No planificado',o.d,o.resp,o.crit?'Sí':'No',o.open?'Abierta':'Cerrada']);});
-  var orow=obs.map(function(o,k){return '<tr><td>'+(k+1)+'</td><td><b style="color:'+(o[0]==='Planificado'?'#1d4ed8':'#b45309')+'">'+o[0]+'</b></td><td>'+esc(o[1])+'</td><td>'+esc(o[2])+'</td><td>'+o[3]+'</td><td>'+o[4]+'</td></tr>';}).join('');
-  var rows=ITEMS.map(function(i,ix){var m=i.med?' ('+i.med.v+' '+i.med.u+')':'';var s=i.st==='ok'?'<span class="st-ok">Cumple</span>':i.st==='no'?'<span class="st-no">No cumple</span>':i.st==='na'?'<span class="st-na">N/A</span>':'<span class="st-nul">Sin evaluar</span>';
-    return '<tr><td>'+(ix+1)+'</td><td>'+esc(i.t)+m+'</td><td>'+s+'</td></tr>';}).join('');
-  var sg=SIG.map(function(s){return '<div class="sigbox"><b>'+s.n+'</b><br>'+(s.ok?esc(s.nm)+'<br>RUT '+esc(s.rut)+'<br>'+esc(s.ok):'<i>Pendiente</i>')+'</div>';}).join('');
+  ITEMS.forEach(function(i,ix){if(i.st==='no')obs.push({tp:'p',d:'Ítem '+(ix+1)+' · '+i.obs+' → '+i.acc,r:i.resp||'',cr:false,op:true,f:i.fotos||0,fl:i.fl});else if(i.had&&i.hist&&i.hist.length)obs.push({tp:'p',d:'Ítem '+(ix+1)+' · '+i.obs,r:i.resp||'',cr:false,op:false,f:i.fotos||0,fl:i.fl});});
+  NP.forEach(function(o){obs.push({tp:'n',d:o.d,r:o.resp,cr:o.crit,op:o.open,f:o.fotos,fl:''});});
+  var ob=obs.map(function(o,k){var ph='';for(var q=0;q<Math.min(o.f,3);q++)ph+='<div class="pp-ph">OBS '+(k+1)+' · F'+(q+1)+'</div>';
+    return '<div class="pp-obs"><span class="pp-num">'+(k+1)+'</span><div><div><span class="pp-tag '+(o.tp==='p'?'pp-t-p':'pp-t-n')+'">'+(o.tp==='p'?'Planificado':'No planificado')+'</span>'+(o.cr?'<span class="pp-tag pp-t-c">Crítica</span>':'')+'<span class="pp-pill '+(o.op?'pp-nul':'pp-ok')+'">'+(o.op?'Abierta':'Cerrada')+'</span></div><p>'+esc(o.d)+'</p><div class="m"><span>Responsable · <b>'+esc(o.r)+'</b></span>'+(o.fl?'<span>Fecha límite · <b>'+esc(o.fl)+'</b></span>':'')+'</div>'+(ph?'<div class="pp-photos">'+ph+'</div>':'')+'</div></div>';}).join('');
+  var sg=SIG.map(function(g){return '<div class="pp-sig '+(g.ok?'':'pend')+'"><span class="r">'+g.n+'</span>'+(g.ok?'<svg viewBox="0 0 96 34" aria-hidden="true"><path d="M4 24 C14 2 22 34 32 14 S52 4 60 20 S80 28 92 8" fill="none" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/></svg>':'')+'<div class="nm">'+(g.ok?esc(g.nm):'Pendiente de firma')+'</div><div class="d">'+(g.ok?esc(g.cg)+'<br>RUT '+esc(g.rut)+'<br>'+esc(g.ok):'&nbsp;')+'</div></div>';}).join('');
+  var seal='<svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="'+(all?'#166534':'#94a3b8')+'" stroke-width="1.5"/><circle cx="32" cy="32" r="24" fill="none" stroke="'+(all?'#166534':'#94a3b8')+'" stroke-width=".8" stroke-dasharray="2 3"/>'+(all?'<path d="M20 33 l8 8 16-18" fill="none" stroke="#166534" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>':'<text x="32" y="36" text-anchor="middle" font-size="9" font-weight="700" fill="#94a3b8" font-family="Inter,sans-serif">PENDIENTE</text>')+'</svg>';
   return '<h2>Informe PDF</h2><p class="sub">Vista previa del documento que se genera al aprobar la ITO.</p><div class="callout '+(all?'c-ok':'c-info')+'">'+(all?'Enviado por correo (Resend) al cliente, al contratista y al inspector.':'Se enviará automáticamente por correo al cliente, al contratista y al inspector cuando se apruebe.')+'</div>'+
-  '<div class="paper"><div class="row" style="justify-content:space-between"><div class="logoCli">NORTEC</div><div style="text-align:right"><h4>INFORME DE INSPECCIÓN TÉCNICA DE OBRA</h4><div style="font-family:monospace">ITO '+esc(CUR.c)+'</div></div></div>'+
-  '<table><tr><th>Obra</th><td>07 · Torre Los Aromos</td><th>Zona</th><td>Piso 3 · Sala técnica</td></tr><tr><th>Inspector</th><td>Marcela Rojas</td><th>Contratista</th><td>Montajes Sur</td></tr><tr><th>Cumplimiento checklist</th><td>'+c.cum+'%</td><th>Ítems evaluados</th><td>'+c.ev+' de '+c.tot+'</td></tr></table>'+
-  '<b>Avance por partida</b><table><tr><th>Cód.</th><th>Partida</th><th>ITO anterior</th><th>Esta ITO</th></tr>'+prow+'</table>'+
-  '<b>Checklist técnico</b><table><tr><th>N.º</th><th>Ítem</th><th>Resultado</th></tr>'+rows+'</table>'+
-  '<b>Observaciones (planificadas y no planificadas)</b><table><tr><th>N.º</th><th>Tipo</th><th>Descripción</th><th>Responsable</th><th>Crítica</th><th>Estado</th></tr>'+(orow||'<tr><td colspan="6">Sin observaciones</td></tr>')+'</table>'+
-  '<div style="border:1px dashed #9ca3af;padding:8px;color:#6b7280">Planos de la biblioteca con su capa de marcas encima (el documento base no se altera) y anexo fotográfico con referencia al N.º de observación.</div>'+
-  '<div class="sigrow">'+sg+'</div><p style="margin-top:12px;font-family:monospace;color:#374151">Código de verificación: '+(all?'CO-2026-7F3A9C21B84E':'se asigna al aprobar')+'</p></div>';
+  '<div class="paper" id="paper"><div class="pp-top"><div class="pp-logo">NORTEC</div><div class="pp-title"><small>Inspección técnica de obra</small><b>Informe de inspección</b></div><div class="pp-code"><div class="c">'+esc(CUR.c)+'</div><div class="sgl"><span>Correl.</span><span>Obra</span><span>Cliente</span><span>Mes</span><span>Año</span></div></div></div><div class="pp-rule"></div>'+
+  '<div class="pp-status"><span>Emitido · '+new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})+'</span><span class="pp-badge '+(all?'ok':'')+'">'+(all?'Aprobada':'Borrador · pendiente de firmas')+'</span></div>'+sum+
+  '<div class="pp-sec"><div class="pp-h"><b>Ficha</b></div><dl class="pp-dl"><div><dt>Obra</dt><dd>07 · Torre Los Aromos</dd></div><div><dt>Zona</dt><dd>Piso 3 · Sala técnica</dd></div><div><dt>Fecha</dt><dd>18 de noviembre de 2026</dd></div><div><dt>Inspector</dt><dd>Marcela Rojas</dd></div><div><dt>Contratista</dt><dd>Montajes Sur</dd></div><div><dt>Plantilla</dt><dd>Fan-coil · v3</dd></div></dl></div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Avance por partida</b><span>marca negra = ITO anterior</span></div>'+part+'</div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Checklist técnico</b><span>'+c.ev+' de '+c.tot+' evaluados</span></div>'+chk+'</div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Observaciones</b><span>planificadas y no planificadas · '+obs.length+'</span></div>'+(ob||'<p style="color:#64748b">Sin observaciones.</p>')+'</div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Plano</b><span>Plano piso 3 · Rev B</span></div><div class="pp-plano">'+planThumb()+'<div><b>Capa de marcas</b><small>Los pines numerados corresponden a los ítems del checklist. Las marcas viven sobre una capa transparente: el documento base no se altera.</small></div></div></div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Firmas</b><span>inspector · contratista · cliente</span></div><div class="pp-sigs">'+sg+'</div></div>'+
+  '<div class="pp-foot"><div><div class="v">'+(all?'CO-2026-7F3A9C21B84E':'Código pendiente')+'</div><small>Código de verificación · se valida en /verificar</small></div>'+seal+'</div></div>';
 }
 
 /* ---------- ruteo y eventos ---------- */
