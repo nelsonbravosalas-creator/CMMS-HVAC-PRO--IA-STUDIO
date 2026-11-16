@@ -156,7 +156,7 @@ canvas.sig{width:100%;height:150px;border:1.5px dashed var(--mute);border-radius
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 var $=function(id){return document.getElementById(id);};
 var NAV=['Dashboard','Scanner QR','Equipos','Mapa','Clientes','Inventario Interno','Mantenimientos','Calendario','Órdenes de Servicio','Tickets','Reportes','Eficiencia Energética'];
-var SCR=[['panel','Panel ITO'],['nueva','Nueva ITO'],['ejecucion','Ejecución en terreno'],['plano','Plano y hallazgos'],['firmas','Firmas'],['calendario','Calendario'],['informe','Informe PDF']];
+var SCR=[['panel','Panel ITO'],['nueva','Nueva ITO'],['ejecucion','Ejecución en terreno'],['plano','Planos y marcas'],['firmas','Firmas'],['calendario','Calendario'],['informe','Informe PDF']];
 var EST={solicitada:'Solicitada',progreso:'En progreso',porfirmar:'Por firmar',observada:'Observada',aprobada:'Aprobada'};
 var ITOS=[
  {c:'0042.07.NORTEC.11.26',t:'Montaje de unidades fan-coil, piso 3',obra:'07 · Torre Los Aromos',insp:'M. Rojas',est:'progreso',av:71,h:1,f:'18 nov',cur:true},
@@ -175,18 +175,23 @@ var ITEMS=[
  {g:'Unidades fan-coil',t:'Rotulado con TAG del equipo',st:'na'}
 ];
 var SIG=[{n:'Inspector',nm:'Marcela Rojas',rut:'12.345.678-5',cg:'Inspector ITO',ok:null},{n:'Contratista',nm:'Juan Pérez',rut:'15.222.333-4',cg:'Jefe de obra',ok:null},{n:'Cliente',nm:'Paula Vidal',rut:'9.876.543-2',cg:'Administradora NORTEC',ok:null}];
-var NEW={plantilla:'Montaje de unidades fan-coil · v3',obra:'07',cli:'NORTEC',fecha:'2026-11-25',origen:false};
+var NEW={plantilla:'Montaje de unidades fan-coil · v3',obra:'07',cli:'NORTEC',fecha:'2026-11-25',origen:false,zona:'Piso 3 · Sala técnica',partidas:['Tendido de cañería de cobre, piso 3','Instalación de unidades fan-coil'],planos:[0],informar:false};
+var PART=[{c:'1.1',t:'Tendido de cañería de cobre, piso 3',av:80,prev:60},{c:'1.2',t:'Instalación de unidades fan-coil',av:40,prev:20},{c:'1.3',t:'Aislación y soportes',av:90,prev:90}];
+var NP=[{d:'Perforación adicional en losa por interferencia con ducto',resp:'J. Pérez (contratista)',fotos:1,adj:0,crit:true,open:true},{d:'Soporte provisorio de cañería hasta que llegue el definitivo',resp:'Montajes Sur · bodega',fotos:1,adj:0,crit:false,open:true}];
+var PLANOS=[{n:'Plano piso 3 · Climatización',revs:['A','B'],rev:'B'},{n:'Plano sala de máquinas',revs:['A'],rev:'A'}];
+var MARKS=[{t:'circle',x:.27,y:.42,rev:'B',pl:0},{t:'text',x:.5,y:.3,txt:'Interferencia con ducto',rev:'B',pl:0},{t:'line',x:.15,y:.82,x2:.6,y2:.82,rev:'B',pl:0},{t:'circle',x:.4,y:.5,rev:'A',pl:0}];
+var mode='plan',tool='pin',plSel=0,showOv=true,lineStart=null,planoSel=2;
 var CUR=ITOS[0];
-var screen='panel',filter='todas',query='',calSel=null,planoSel=2,corr=43;
+var screen='panel',filter='todas',query='',calSel=null,planoSel=2,corr=43,_x=0;
 
 function counts(){var ev=ITEMS.filter(function(i){return i.st;}).length,no=ITEMS.filter(function(i){return i.st==='no';}).length,ok=ITEMS.filter(function(i){return i.st==='ok';}).length;
-  return {ev:ev,tot:ITEMS.length,no:no,ok:ok,pct:Math.round(ev/ITEMS.length*100),cum:(ok+no)?Math.round(ok/(ok+no)*100):0};}
+  return {npc:NP.filter(function(o){return o.open&&o.crit;}).length,npo:NP.filter(function(o){return o.open;}).length,ev:ev,tot:ITEMS.length,no:no,ok:ok,pct:Math.round(ev/ITEMS.length*100),cum:(ok+no)?Math.round(ok/(ok+no)*100):0};}
 function noEvid(i){return i.st==='no'&&(!i.obs||!i.acc||!(i.fotos>0)||!i.fl);}
 function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.k);toast.k=setTimeout(function(){t.hidden=true;},2600);}
 function code(){var d=NEW.fecha.split('-');return String(corr).padStart(4,'0')+'.'+NEW.obra+'.'+NEW.cli+'.'+d[1]+'.'+d[0].slice(2);}
-function syncCur(){var c=counts(),it=CUR;it.av=c.pct;it.h=c.no;
+function syncCur(){var c=counts(),it=CUR;it.av=c.pct;it.h=c.no+c.npc;
   var allSig=SIG.every(function(s){return s.ok;});
-  it.est=allSig?'aprobada':(SIG[1].ok&&c.no>0?'observada':(c.pct===100&&SIG[0].ok?'porfirmar':'progreso'));}
+  it.est=allSig?'aprobada':(SIG[1].ok&&(c.no+c.npc)>0?'observada':(c.pct===100&&SIG[0].ok?'porfirmar':'progreso'));}
 
 /* ---------- pantallas ---------- */
 function vPanel(){
@@ -202,21 +207,25 @@ function vPanel(){
 }
 function vNueva(){
   var d=NEW.fecha.split('-'),MES=['','ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  return '<h2>Nueva ITO</h2><p class="sub">'+(NEW.origen?'Solicitud del cliente: el supervisor la acepta y asigna inspector.':'Creada por el supervisor y asignada a un inspector.')+'</p>'+
-  '<div class="grid2"><div class="card"><h3>Datos de la ITO</h3>'+
-  '<label class="fl" for="n-pl">Plantilla (por especialidad)</label><select class="in" id="n-pl"><option>Montaje de unidades fan-coil · v3</option><option>Instalación eléctrica de climatización · v2</option><option>Puesta en marcha de chiller · v4</option><option>Reparación de equipos · v1</option></select>'+
+  return '<h2>Nueva ITO</h2><p class="sub">'+(NEW.origen?'Solicitud del cliente: el supervisor la acepta y asigna inspector.':'Creada por el supervisor y asignada a un inspector.')+' Los campos con * son obligatorios.</p>'+
+  '<div class="grid2"><div class="card"><h3>Cabecera</h3>'+
   '<label class="fl" for="n-cli">Cliente</label><select class="in" id="n-cli"><option value="NORTEC">NORTEC</option></select>'+
-  '<label class="fl" for="n-ob">Obra</label><select class="in" id="n-ob"><option value="07">07 · Torre Los Aromos</option><option value="03">03 · Planta Quilicura</option><option value="12">12 · Centro Logístico</option></select>'+
-  '<label class="fl" for="n-zo">Zona o sector</label><input class="in" id="n-zo" value="Piso 3 · Sala técnica">'+
-  '<label class="fl" for="n-pn">Plano</label><div class="pill" id="n-pn">⬆ plano-piso3.png · 1,2 MB</div>'+
-  '<label class="fl" for="n-in">Inspector</label><select class="in" id="n-in"><option>Marcela Rojas</option><option>Carlos Soto</option></select>'+
-  '<label class="fl" for="n-co">Contratista responsable</label><select class="in" id="n-co"><option>Juan Pérez · Montajes Sur</option></select>'+
-  '<label class="fl" for="n-fe">Fecha programada</label><input class="in" type="date" id="n-fe" value="'+esc(NEW.fecha)+'">'+
+  '<label class="fl" for="n-ob">Obra *</label><select class="in" id="n-ob"><option value="07">07 · Torre Los Aromos</option><option value="03">03 · Planta Quilicura</option><option value="12">12 · Centro Logístico</option></select>'+
+  '<label class="fl" for="n-zo">Zona o sector *</label><input class="in" id="n-zo" value="'+esc(NEW.zona)+'">'+
+  '<label class="fl" for="n-in">Inspector *</label><select class="in" id="n-in"><option>Marcela Rojas</option><option>Carlos Soto</option></select>'+
+  '<label class="fl" for="n-co">Contratista *</label><select class="in" id="n-co"><option>Juan Pérez · Montajes Sur</option></select>'+
+  '<label class="fl" for="n-fe">Fecha programada *</label><input class="in" type="date" id="n-fe" value="'+esc(NEW.fecha)+'">'+
   '<label class="fl" style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" id="n-or" '+(NEW.origen?'checked':'')+'> Origen: solicitud del cliente</label></div>'+
+  '<div class="card"><h3>Plan de inspección (opcional ahora)</h3>'+
+  '<label class="fl" for="n-pl">Plantilla de checklist</label><select class="in" id="n-pl"><option>Montaje de unidades fan-coil · v3</option><option>Instalación eléctrica de climatización · v2</option><option>Puesta en marcha de chiller · v4</option><option>Reparación de equipos · v1</option></select>'+
+  '<label class="fl">Planos de la biblioteca</label>'+PLANOS.map(function(p,k){return '<label class="row" style="font-size:12.5px;gap:8px;margin-bottom:4px"><input type="checkbox" data-npl="'+k+'" '+(NEW.planos.indexOf(k)>=0?'checked':'')+'> '+esc(p.n)+' · Rev '+p.rev+'</label>';}).join('')+'<div class="pill" style="margin-top:4px">⬆ Subir plano nuevo a la biblioteca</div>'+
+  '<label class="fl">Partidas a revisar</label><div class="chips" style="display:flex;flex-wrap:wrap;gap:6px">'+NEW.partidas.map(function(t,k){return '<span class="pill" data-rmp="'+k+'">'+esc(t)+' ✕</span>';}).join('')+'</div><div class="row" style="margin-top:6px"><input class="in" id="n-pa" style="flex:1" placeholder="Escribir una partida"><button class="btn" id="n-pa-add">Agregar</button></div>'+
+  '<label class="row" style="margin-top:10px;font-size:12.5px;font-weight:700;gap:8px"><input type="checkbox" id="n-inf" '+(NEW.informar?'checked':'')+'> Informar el plan de inspección al contratista (opcional)</label></div>'+
   '<div style="display:grid;gap:14px;align-content:start"><div class="card"><h3>Número de ITO</h3><div class="code" style="font-size:20px">ITO '+code()+'</div>'+
   '<div class="anat"><div class="seg"><b>'+String(corr).padStart(4,'0')+'</b><span>Correlativo</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.obra+'</b><span>Obra</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.cli+'</b><span>Cliente</span></div><span class="sepd">.</span><div class="seg"><b>'+d[1]+'</b><span>Mes</span></div><span class="sepd">.</span><div class="seg"><b>'+d[0].slice(2)+'</b><span>Año</span></div></div>'+
   '<p class="note">El correlativo (0001–9999) se reinicia cada año por cliente. Sin conexión queda provisional y el servidor asigna el definitivo al sincronizar.</p></div>'+
-  '<div class="card"><h3>Se verá en el Calendario</h3><div class="ev e-ito" style="white-space:normal">ITO '+code()+' · '+esc(NEW.plantilla.split(' · ')[0])+'</div><p class="note">Fecha: '+parseInt(d[2],10)+' '+MES[parseInt(d[1],10)]+' '+d[0]+'. Las fechas límite de hallazgos se agregan solas.</p></div>'+
+  '<div class="card"><h3>Se verá en el Calendario</h3><div class="ev e-ito" style="white-space:normal">ITO '+code()+' · '+esc(NEW.plantilla.split(' · ')[0])+'</div><p class="note">Fecha: '+parseInt(d[2],10)+' '+MES[parseInt(d[1],10)]+' '+d[0]+'. Las fechas límite de observaciones se agregan solas.</p></div>'+
+  '<div class="card"><h3>Al crear la ITO</h3><p class="note">Los planos elegidos quedan cargados para marcar en terreno, sin modificar el original. '+(NEW.informar?'Se avisará por correo al contratista con el plan de inspección.':'El contratista no recibirá aviso del plan.')+'</p></div>'+
   '<button class="btn itob" id="n-cr">Crear ITO</button></div></div>';
 }
 function itemCard(i,ix){
@@ -231,29 +240,51 @@ function itemCard(i,ix){
    (noEvid(i)?'<div class="callout c-bad" style="margin:4px 0 0">Falta evidencia: observación, acción correctiva, fecha límite y al menos una foto.</div>':'<div class="callout c-ok" style="margin:4px 0 0">Se avisará por correo al responsable al guardar y al vencer la fecha.</div>')+'</div>';}
   return h+'</div>';
 }
+function partCard(p,ix){return '<div class="it"><p>'+esc(p.c)+' · '+esc(p.t)+(p.added?' <span class="badge b-solicitada">Agregada en terreno</span>':'')+'</p><div class="row"><input type="range" min="0" max="100" step="5" value="'+p.av+'" data-part="'+ix+'" aria-label="Avance de la partida '+esc(p.c)+'" style="flex:1;min-width:120px"><b style="min-width:44px;text-align:right">'+p.av+'%</b></div><div class="note" style="margin:2px 0 0">ITO anterior: '+p.prev+'% · variación '+(p.av-p.prev>=0?'+':'')+(p.av-p.prev)+' pts</div></div>';}
+function npCard(o,ix){return '<div class="it" style="'+(o.open?'':'opacity:.6')+'"><label class="fl" style="margin:0 0 4px" for="np'+ix+'">Descripción del trabajo no planificado</label><textarea class="in" id="np'+ix+'" data-npd="'+ix+'">'+esc(o.d)+'</textarea>'+
+ '<label class="fl" style="margin:6px 0 4px" for="npr'+ix+'">Responsable</label><select class="in" id="npr'+ix+'"><option>J. Pérez (contratista)</option><option>Montajes Sur · bodega</option></select>'+
+ '<div class="row" style="margin-top:6px"><button class="pill" data-npf="'+ix+'">📷 Foto ('+o.fotos+')</button><button class="pill" data-npa="'+ix+'">📎 Adjunto ('+o.adj+')</button></div>'+
+ '<label class="row" style="margin-top:8px;font-size:12.5px;font-weight:700;gap:8px"><input type="checkbox" data-npc="'+ix+'" '+(o.crit?'checked':'')+'> Crítica: bloquea la aprobación</label>'+
+ '<div class="row" style="margin-top:6px"><span class="badge '+(o.open?(o.crit?'b-observada':'b-solicitada'):'b-aprobada')+'">'+(o.open?(o.crit?'Abierta · crítica':'Abierta'):'Cerrada')+'</span><button class="pill" data-npx="'+ix+'">'+(o.open?'Cerrar observación':'Reabrir')+'</button></div></div>';}
 function vEjec(){
   var c=counts(),last='';
   var items=ITEMS.map(function(i,ix){var s='';if(i.g!==last){s='<div class="grp">'+esc(i.g)+'</div>';last=i.g;}return s+itemCard(i,ix);}).join('');
-  return '<h2>Ejecución en terreno</h2><p class="sub">Vista del inspector en el celular. Funciona sin conexión.</p><div class="phoneWrap"><div class="side-note"><b>Qué ve el inspector</b><p>Cada ítem tiene tres estados. Algunos piden una medición con su rango esperado. Un No cumple exige observación, acción correctiva, responsable, fecha límite y foto.</p><p>El avance y los hallazgos se actualizan al marcar.</p></div>'+
-  '<div class="phone"><div class="ph-h"><span class="code">ITO '+esc(CUR.c)+'</span><b>Montaje de unidades fan-coil, piso 3</b><div class="bar" style="background:rgba(255,255,255,.3)"><i style="width:'+c.pct+'%;background:#fff"></i></div><small>'+c.ev+' de '+c.tot+' ítems · '+c.pct+'% · '+c.no+' hallazgo'+(c.no===1?'':'s')+'</small></div><div class="ph-b">'+items+'</div></div>'+
-  '<div class="side-note"><b>Reglas visibles</b><p>• No se puede firmar con ítems sin evaluar.</p><p>• Si se corrige un hallazgo, la misma ITO se reabre y solo se re-evalúan los No cumple.</p><p>• Fotos y adjuntos PDF se guardan en la ITO.</p></div></div>';
+  var inner=mode==='plan'?
+   '<div class="grp">Avance de partidas del contrato</div>'+PART.map(partCard).join('')+'<button class="pill" id="addpart">+ Agregar partida en terreno</button><div class="grp">Checklist técnico</div>'+items
+   :'<div class="callout c-info" style="margin:0">Trabajos que no estaban en el plan. Solo bloquean la aprobación si el inspector los marca como críticos.</div>'+NP.map(npCard).join('')+'<button class="pill" id="addnp">+ Agregar observación no planificada</button>';
+  return '<h2>Ejecución en terreno</h2><p class="sub">Vista del inspector en el celular. Funciona sin conexión.</p><div class="phoneWrap"><div class="side-note"><b>Qué ve el inspector</b><p>El interruptor del encabezado alterna entre observaciones de <b>trabajo planificado</b> (partidas y checklist) y de <b>trabajo no planificado</b>.</p><p>En lo planificado registra el % de avance de cada partida y evalúa el checklist. Puede agregar partidas nuevas en terreno para levantar una observación.</p></div>'+
+  '<div class="phone"><div class="ph-h"><span class="code">ITO '+esc(CUR.c)+'</span><b>Montaje de unidades fan-coil, piso 3</b><div class="bar" style="background:rgba(255,255,255,.3)"><i style="width:'+c.pct+'%;background:#fff"></i></div><small>'+c.ev+' de '+c.tot+' ítems · '+c.no+' No cumple · '+c.npo+' no planificadas abiertas</small>'+
+  '<div class="segb" style="margin-top:8px" role="group" aria-label="Tipo de observaciones"><button class="'+(mode==='plan'?'ok on':'')+'" data-mode="plan" style="'+(mode==='plan'?'':'color:#111')+'">Planificado</button><button class="'+(mode==='np'?'ok on':'')+'" data-mode="np" style="grid-column:span 2;'+(mode==='np'?'':'color:#111')+'">No planificado ('+NP.length+')</button></div></div><div class="ph-b">'+inner+'</div></div>'+
+  '<div class="side-note"><b>Reglas visibles</b><p>• No se puede firmar con ítems sin evaluar.</p><p>• Un No cumple o una observación crítica abierta impide la aprobación del cliente.</p><p>• Si se corrige, la misma ITO se reabre.</p></div></div>';
 }
 function planoSVG(){
-  var W=640,H=380,s='<svg class="pl" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Plano del piso 3 con pines de hallazgos"><rect x="10" y="10" width="620" height="360" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-width="3"/>'+
+  var W=640,H=380,pl=PLANOS[plSel],rev=pl.rev;
+  var s='<svg class="pl" id="plsvg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Plano con capa de marcas"><g id="base"><rect x="10" y="10" width="620" height="360" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-width="3"/>'+
   '<rect x="10" y="10" width="250" height="170" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="260" y="10" width="370" height="170" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="10" y="180" width="330" height="190" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="340" y="180" width="290" height="190" fill="none" stroke="currentColor" stroke-opacity=".4"/>'+
-  '<text x="30" y="40" font-size="13" fill="currentColor" opacity=".6">Sala técnica</text><text x="280" y="40" font-size="13" fill="currentColor" opacity=".6">Oficinas</text><text x="30" y="210" font-size="13" fill="currentColor" opacity=".6">Pasillo de cañerías</text><text x="360" y="210" font-size="13" fill="currentColor" opacity=".6">Bodega FC-03</text>';
-  ITEMS.forEach(function(i,ix){if(!i.pin)return;var col=i.st==='no'?'var(--no)':(i.st==='ok'?'var(--ok)':'var(--warn)');
-    s+='<g class="pin" data-pin="'+ix+'" tabindex="0" role="button" aria-label="Pin ítem '+(ix+1)+'"><circle cx="'+i.pin.x*W+'" cy="'+i.pin.y*H+'" r="'+(planoSel===ix?17:13)+'" fill="'+col+'" stroke="#fff" stroke-width="3"/><text x="'+i.pin.x*W+'" y="'+(i.pin.y*H+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">'+(ix+1)+'</text></g>';});
+  (rev==='B'?'<line x1="450" y1="180" x2="450" y2="370" stroke="currentColor" stroke-opacity=".4"/>':'')+
+  '<text x="30" y="40" font-size="13" fill="currentColor" opacity=".6">Sala técnica</text><text x="280" y="40" font-size="13" fill="currentColor" opacity=".6">Oficinas</text><text x="30" y="210" font-size="13" fill="currentColor" opacity=".6">Pasillo de cañerías</text><text x="360" y="210" font-size="13" fill="currentColor" opacity=".6">Bodega FC-03</text><text x="560" y="362" font-size="11" fill="currentColor" opacity=".6">Rev '+rev+'</text></g>';
+  if(showOv){s+='<g id="ov">';
+    MARKS.filter(function(m){return m.pl===plSel&&m.rev===rev;}).forEach(function(m){
+      if(m.t==='circle')s+='<circle cx="'+m.x*W+'" cy="'+m.y*H+'" r="34" fill="none" stroke="var(--no)" stroke-width="3" stroke-dasharray="6 4"/>';
+      if(m.t==='line')s+='<line x1="'+m.x*W+'" y1="'+m.y*H+'" x2="'+m.x2*W+'" y2="'+m.y2*H+'" stroke="var(--ito)" stroke-width="4" stroke-linecap="round"/>';
+      if(m.t==='text')s+='<text x="'+m.x*W+'" y="'+m.y*H+'" font-size="14" font-weight="800" fill="var(--ito)" stroke="var(--panel)" stroke-width="4" paint-order="stroke">'+esc(m.txt)+'</text>';
+      if(m.t==='pin')s+='<circle cx="'+m.x*W+'" cy="'+m.y*H+'" r="9" fill="var(--warn)" stroke="#fff" stroke-width="2"/>';});
+    if(plSel===0)ITEMS.forEach(function(i,ix){if(!i.pin)return;var col=i.st==='no'?'var(--no)':(i.st==='ok'?'var(--ok)':'var(--warn)');
+      s+='<g class="pin" data-pin="'+ix+'" tabindex="0" role="button" aria-label="Pin ítem '+(ix+1)+'"><circle cx="'+i.pin.x*W+'" cy="'+i.pin.y*H+'" r="'+(planoSel===ix?17:13)+'" fill="'+col+'" stroke="#fff" stroke-width="3"/><text x="'+i.pin.x*W+'" y="'+(i.pin.y*H+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">'+(ix+1)+'</text></g>';});
+    s+='</g>';}
   return s+'</svg>';
 }
 function vPlano(){
-  var it=ITEMS[planoSel]||ITEMS[2];
+  var it=ITEMS[planoSel]||ITEMS[2],pl=PLANOS[plSel];
   var det='<div class="card"><h3>Ítem '+(planoSel+1)+'</h3><b>'+esc(it.t)+'</b><p class="note">Estado: '+(it.st==='no'?'No cumple (pin rojo)':it.st==='ok'?(it.had?'Resuelto (pin verde)':'Cumple (pin verde)'):'Pendiente (pin ámbar)')+'</p>'+
-   (it.obs?'<p class="note"><b>Hallazgo:</b> '+esc(it.obs)+'</p>':'')+(it.fl?'<p class="note"><b>Fecha límite:</b> '+esc(it.fl)+' · '+esc(it.resp||'')+'</p>':'')+
+   (it.obs?'<p class="note"><b>Observación:</b> '+esc(it.obs)+'</p>':'')+(it.fl?'<p class="note"><b>Fecha límite:</b> '+esc(it.fl)+' · '+esc(it.resp||'')+'</p>':'')+
    (it.hist&&it.hist.length?'<p class="note"><b>Historial:</b><br>'+it.hist.map(esc).join('<br>')+'</p>':'')+
    (it.st==='no'?'<button class="btn itob" data-resolve="'+planoSel+'">Re-inspeccionar: marcar Cumple</button><p class="note">La misma ITO se reabre y el historial se conserva.</p>':'')+'</div>';
-  return '<h2>Plano y hallazgos</h2><p class="sub">Pines normalizados sobre el plano de la zona. Toca un pin para ver el hallazgo.</p><div class="planoWrap"><div class="plano">'+planoSVG()+'</div><div style="display:grid;gap:12px;align-content:start">'+det+
-   '<div class="card"><h3>Leyenda</h3><div class="row"><span class="badge b-observada">Rojo · No cumple</span><span class="badge b-aprobada">Verde · Resuelto</span><span class="badge b-solicitada">Ámbar · Pendiente</span></div></div></div></div>';
+  var lib='<div class="card"><h3>Biblioteca de planos</h3>'+PLANOS.map(function(p,k){return '<div class="row" style="margin-bottom:6px"><button class="f" data-pls="'+k+'" aria-pressed="'+(k===plSel)+'" style="flex:1;text-align:left">'+esc(p.n)+'</button><label class="sr" style="font-size:11px;font-weight:700">Rev <select data-rev="'+k+'" style="border:1px solid var(--line);border-radius:6px;background:var(--soft)">'+p.revs.map(function(r){return '<option '+(r===p.rev?'selected':'')+'>'+r+'</option>';}).join('')+'</select></label></div>';}).join('')+'<button class="pill" id="addrev">+ Subir revisión nueva</button><p class="note">El documento base no se modifica: las marcas viven en una capa transparente aparte y se conservan por revisión.</p></div>';
+  var tools='<div class="row" style="margin:0 0 8px" role="group" aria-label="Herramientas de marcado">'+[['pin','Pin'],['line','Línea'],['circle','Círculo'],['text','Texto']].map(function(t){return '<button class="f" data-tool="'+t[0]+'" aria-pressed="'+(tool===t[0])+'">'+t[1]+'</button>';}).join('')+
+   (tool==='text'?'<input class="in" id="txtv" style="width:170px" placeholder="Nota corta" value="Revisar aquí">':'')+'<label style="font-size:12px;font-weight:700;display:flex;gap:6px;align-items:center"><input type="checkbox" id="showov" '+(showOv?'checked':'')+'> Mostrar capa de marcas</label><button class="pill" id="clrov">Borrar marcas</button></div>';
+  return '<h2>Planos y marcas</h2><p class="sub">Los planos se adjuntan a una biblioteca. En terreno el inspector marca sobre una capa transparente. '+(tool==='line'?(lineStart?'Toca el punto final de la línea.':'Toca el punto inicial de la línea.'):'Toca el plano para agregar un '+({pin:'pin',circle:'círculo',text:'texto',line:'inicio de línea'}[tool])+'.')+'</p><div class="planoWrap"><div><div class="plano">'+tools+planoSVG()+'</div></div><div style="display:grid;gap:12px;align-content:start">'+lib+(plSel===0?det:'')+
+   '<div class="card"><h3>Leyenda</h3><div class="row"><span class="badge b-observada">Rojo · No cumple</span><span class="badge b-aprobada">Verde · Cumple</span><span class="badge b-solicitada">Ámbar · Pendiente</span></div></div></div></div>';
 }
 var drawn=false;
 function sigState(k){
@@ -261,7 +292,7 @@ function sigState(k){
   if(SIG[k].ok)return {done:true};
   if(k>0&&!SIG[k-1].ok)return {lock:'Primero firma '+SIG[k-1].n.toLowerCase()+'.'};
   if(k===0){if(pend>0)return {lock:'Faltan '+pend+' ítem'+(pend>1?'s':'')+' por evaluar.'};if(ITEMS.some(noEvid))return {lock:'Hay hallazgos sin evidencia completa.'};}
-  if(k===2&&c.no>0)return {lock:'No se puede aprobar: hay '+c.no+' hallazgo'+(c.no>1?'s':'')+' abierto'+(c.no>1?'s':'')+'. Se debe re-inspeccionar.'};
+  if(k===2&&(c.no+c.npc)>0){var op=c.no+c.npc;return {lock:'No se puede aprobar: hay '+op+' observación'+(op>1?'es':'')+' abierta'+(op>1?'s':'')+' ('+c.no+' No cumple y '+c.npc+' no planificada'+(c.npc===1?'':'s')+' crítica'+(c.npc===1?'':'s')+'). Se debe re-inspeccionar o cerrar.'};}
   return {};
 }
 function vFirmas(){
@@ -270,7 +301,7 @@ function vFirmas(){
   var body='';
   if(all){body='<div class="callout c-ok">ITO aprobada. Se generó el informe con el logo del cliente y se envió por correo al cliente, al contratista y al inspector.</div><button class="btn itob" data-go="informe">Ver informe PDF</button>';}
   else{var x=sigState(cur),s=SIG[cur];
-    body='<div class="card"><h3>Firma del '+s.n.toLowerCase()+'</h3>'+(x.lock?'<div class="callout c-bad">'+esc(x.lock)+'</div>':'')+(cur===1&&counts().no>0?'<div class="callout c-warn">El contratista recibe el resultado con '+counts().no+' hallazgo(s) abierto(s). La ITO quedará Observada.</div>':'')+
+    body='<div class="card"><h3>Firma del '+s.n.toLowerCase()+'</h3>'+(x.lock?'<div class="callout c-bad">'+esc(x.lock)+'</div>':'')+(cur===1&&(counts().no+counts().npc)>0?'<div class="callout c-warn">El contratista recibe el resultado con '+(counts().no+counts().npc)+' observación(es) abierta(s). La ITO quedará Observada.</div>':'')+
      '<div class="grid2"><div><label class="fl" for="s-n">Nombre completo</label><input class="in" id="s-n" value="'+esc(s.nm)+'"><label class="fl" for="s-r">RUT</label><input class="in" id="s-r" value="'+esc(s.rut)+'"><label class="fl" for="s-c">Cargo</label><input class="in" id="s-c" value="'+esc(s.cg)+'"></div><div><label class="fl" for="cv">Firma manuscrita</label><canvas class="sig" id="cv" width="600" height="300" aria-label="Zona de firma"></canvas><div class="row" style="margin-top:8px"><button class="btn" id="s-cl">Limpiar</button><button class="btn itob" id="s-ok" '+(x.lock?'disabled':'')+'>Firmar como '+s.n.toLowerCase()+'</button></div></div></div></div>';}
   return '<h2>Firmas de la ITO 0042</h2><p class="sub">Orden: inspector, contratista y cliente. Se firma dentro de la app o con un enlace temporal para quien no tiene cuenta.</p><div class="sigs">'+st+'</div><div style="margin-top:14px">'+body+'</div>';
 }
@@ -291,13 +322,21 @@ function vCal(){
 }
 function vInf(){
   var c=counts(),all=SIG.every(function(s){return s.ok;});
+  var prow=PART.map(function(p){return '<tr><td>'+esc(p.c)+'</td><td>'+esc(p.t)+(p.added?' (agregada en terreno)':'')+'</td><td>'+p.prev+'%</td><td><b>'+p.av+'%</b></td></tr>';}).join('');
+  var obs=[];
+  ITEMS.forEach(function(i,ix){if(i.st==='no')obs.push(['Planificado','Ítem '+(ix+1)+': '+i.obs+' → '+i.acc,i.resp||'','No','Abierta']);else if(i.had&&i.hist&&i.hist.length)obs.push(['Planificado','Ítem '+(ix+1)+': '+i.obs,i.resp||'','No','Cerrada']);});
+  NP.forEach(function(o){obs.push(['No planificado',o.d,o.resp,o.crit?'Sí':'No',o.open?'Abierta':'Cerrada']);});
+  var orow=obs.map(function(o,k){return '<tr><td>'+(k+1)+'</td><td><b style="color:'+(o[0]==='Planificado'?'#1d4ed8':'#b45309')+'">'+o[0]+'</b></td><td>'+esc(o[1])+'</td><td>'+esc(o[2])+'</td><td>'+o[3]+'</td><td>'+o[4]+'</td></tr>';}).join('');
   var rows=ITEMS.map(function(i,ix){var m=i.med?' ('+i.med.v+' '+i.med.u+')':'';var s=i.st==='ok'?'<span class="st-ok">Cumple</span>':i.st==='no'?'<span class="st-no">No cumple</span>':i.st==='na'?'<span class="st-na">N/A</span>':'<span class="st-nul">Sin evaluar</span>';
-    return '<tr><td>'+(ix+1)+'</td><td>'+esc(i.t)+m+'</td><td>'+s+'</td><td>'+esc(i.st==='no'?i.obs+' → '+i.acc:'')+(i.fotos?' [fotos: '+i.fotos+']':'')+(i.adj?' [adj.: '+i.adj+']':'')+'</td></tr>';}).join('');
+    return '<tr><td>'+(ix+1)+'</td><td>'+esc(i.t)+m+'</td><td>'+s+'</td></tr>';}).join('');
   var sg=SIG.map(function(s){return '<div class="sigbox"><b>'+s.n+'</b><br>'+(s.ok?esc(s.nm)+'<br>RUT '+esc(s.rut)+'<br>'+esc(s.ok):'<i>Pendiente</i>')+'</div>';}).join('');
   return '<h2>Informe PDF</h2><p class="sub">Vista previa del documento que se genera al aprobar la ITO.</p><div class="callout '+(all?'c-ok':'c-info')+'">'+(all?'Enviado por correo (Resend) al cliente, al contratista y al inspector.':'Se enviará automáticamente por correo al cliente, al contratista y al inspector cuando se apruebe.')+'</div>'+
   '<div class="paper"><div class="row" style="justify-content:space-between"><div class="logoCli">NORTEC</div><div style="text-align:right"><h4>INFORME DE INSPECCIÓN TÉCNICA DE OBRA</h4><div style="font-family:monospace">ITO '+esc(CUR.c)+'</div></div></div>'+
-  '<table><tr><th>Obra</th><td>07 · Torre Los Aromos</td><th>Zona</th><td>Piso 3 · Sala técnica</td></tr><tr><th>Inspector</th><td>Marcela Rojas</td><th>Contratista</th><td>Montajes Sur</td></tr><tr><th>Cumplimiento</th><td>'+c.cum+'%</td><th>Ítems evaluados</th><td>'+c.ev+' de '+c.tot+'</td></tr></table>'+
-  '<table><tr><th>N.º</th><th>Ítem</th><th>Resultado</th><th>Hallazgo y evidencia</th></tr>'+rows+'</table><div style="border:1px dashed #9ca3af;padding:8px;color:#6b7280">Plano de la zona con pines y anexo fotográfico en cuadrícula (referencias al N.º de ítem).</div>'+
+  '<table><tr><th>Obra</th><td>07 · Torre Los Aromos</td><th>Zona</th><td>Piso 3 · Sala técnica</td></tr><tr><th>Inspector</th><td>Marcela Rojas</td><th>Contratista</th><td>Montajes Sur</td></tr><tr><th>Cumplimiento checklist</th><td>'+c.cum+'%</td><th>Ítems evaluados</th><td>'+c.ev+' de '+c.tot+'</td></tr></table>'+
+  '<b>Avance por partida</b><table><tr><th>Cód.</th><th>Partida</th><th>ITO anterior</th><th>Esta ITO</th></tr>'+prow+'</table>'+
+  '<b>Checklist técnico</b><table><tr><th>N.º</th><th>Ítem</th><th>Resultado</th></tr>'+rows+'</table>'+
+  '<b>Observaciones (planificadas y no planificadas)</b><table><tr><th>N.º</th><th>Tipo</th><th>Descripción</th><th>Responsable</th><th>Crítica</th><th>Estado</th></tr>'+(orow||'<tr><td colspan="6">Sin observaciones</td></tr>')+'</table>'+
+  '<div style="border:1px dashed #9ca3af;padding:8px;color:#6b7280">Planos de la biblioteca con su capa de marcas encima (el documento base no se altera) y anexo fotográfico con referencia al N.º de observación.</div>'+
   '<div class="sigrow">'+sg+'</div><p style="margin-top:12px;font-family:monospace;color:#374151">Código de verificación: '+(all?'CO-2026-7F3A9C21B84E':'se asigna al aprobar')+'</p></div>';
 }
 
@@ -313,6 +352,25 @@ function render(){
 function go(s){if(location.hash==='#'+s)render();else location.hash='#'+s;}
 function bind(){
   var b=$('body');
+  b.querySelectorAll('[data-mode]').forEach(function(e){e.onclick=function(){mode=e.getAttribute('data-mode');render();};});
+  b.querySelectorAll('[data-part]').forEach(function(e){e.oninput=function(){PART[+e.getAttribute('data-part')].av=+e.value;e.parentNode.querySelector('b').textContent=e.value+'%';};e.onchange=render;});
+  var ap=$('addpart');if(ap)ap.onclick=function(){PART.push({c:'T-'+(PART.filter(function(p){return p.added;}).length+1),t:'Partida agregada en terreno',av:0,prev:0,added:true});render();};
+  var an=$('addnp');if(an)an.onclick=function(){NP.push({d:'',resp:'J. Pérez (contratista)',fotos:0,adj:0,crit:false,open:true});render();};
+  b.querySelectorAll('[data-npd]').forEach(function(e){e.oninput=function(){NP[+e.getAttribute('data-npd')].d=e.value;};});
+  b.querySelectorAll('[data-npf]').forEach(function(e){e.onclick=function(){NP[+e.getAttribute('data-npf')].fotos++;render();};});
+  b.querySelectorAll('[data-npa]').forEach(function(e){e.onclick=function(){NP[+e.getAttribute('data-npa')].adj++;render();};});
+  b.querySelectorAll('[data-npc]').forEach(function(e){e.onchange=function(){NP[+e.getAttribute('data-npc')].crit=e.checked;render();};});
+  b.querySelectorAll('[data-npx]').forEach(function(e){e.onclick=function(){var o=NP[+e.getAttribute('data-npx')];o.open=!o.open;render();};});
+  b.querySelectorAll('[data-pls]').forEach(function(e){e.onclick=function(){plSel=+e.getAttribute('data-pls');render();};});
+  b.querySelectorAll('[data-rev]').forEach(function(e){e.onchange=function(){PLANOS[+e.getAttribute('data-rev')].rev=e.value;plSel=+e.getAttribute('data-rev');render();};});
+  var ar=$('addrev');if(ar)ar.onclick=function(){var p=PLANOS[plSel],n=String.fromCharCode(65+p.revs.length);p.revs.push(n);p.rev=n;toast('Revisión '+n+' cargada: las marcas de la revisión anterior se conservan');render();};
+  b.querySelectorAll('[data-tool]').forEach(function(e){e.onclick=function(){tool=e.getAttribute('data-tool');lineStart=null;render();};});
+  var so=$('showov');if(so)so.onchange=function(){showOv=so.checked;render();};
+  var co=$('clrov');if(co)co.onclick=function(){var r=PLANOS[plSel].rev;MARKS=MARKS.filter(function(m){return !(m.pl===plSel&&m.rev===r);});toast('Capa de marcas borrada; el plano base no cambió');render();};
+  var sv=$('plsvg');if(sv)sv.onclick=function(ev){if(ev.target.closest&&ev.target.closest('[data-pin]'))return;var r=sv.getBoundingClientRect(),x=(ev.clientX-r.left)/r.width,y=(ev.clientY-r.top)/r.height,rev=PLANOS[plSel].rev;
+    if(tool==='line'){if(!lineStart){lineStart=[x,y];render();return;}MARKS.push({t:'line',x:lineStart[0],y:lineStart[1],x2:x,y2:y,rev:rev,pl:plSel});lineStart=null;}
+    else if(tool==='text'){MARKS.push({t:'text',x:x,y:y,txt:($('txtv')&&$('txtv').value)||'Nota',rev:rev,pl:plSel});}
+    else MARKS.push({t:tool,x:x,y:y,rev:rev,pl:plSel});render();};
   b.querySelectorAll('[data-go]').forEach(function(e){e.onclick=function(){go(e.getAttribute('data-go'));};});
   b.querySelectorAll('[data-f]').forEach(function(e){e.onclick=function(){filter=e.getAttribute('data-f');render();};});
   var q=$('q');if(q)q.oninput=function(){query=q.value;var p=q.selectionStart;render();var n=$('q');n.focus();n.setSelectionRange(p,p);};
@@ -328,11 +386,15 @@ function bind(){
   b.querySelectorAll('[data-resolve]').forEach(function(e){e.onclick=function(){var i=ITEMS[+e.getAttribute('data-resolve')];i.st='ok';i.had=true;i.hist=(i.hist||[]).concat(['Re-inspección: Cumple · '+new Date().toLocaleDateString('es-CL')]);toast('Hallazgo resuelto: la ITO se reabrió y el pin pasó a verde');render();};});
   b.querySelectorAll('[data-ev]').forEach(function(e){e.onclick=function(){calSel=e.getAttribute('data-ev');render();};});
   if(screen==='nueva'){
-    var cr=$('n-cr');
     $('n-ob').value=NEW.obra;$('n-pl').value=NEW.plantilla;
     $('n-ob').onchange=function(){NEW.obra=this.value;render();};$('n-fe').onchange=function(){if(this.value){NEW.fecha=this.value;render();}};$('n-pl').onchange=function(){NEW.plantilla=this.value;render();};
-    $('n-or').onchange=function(){NEW.origen=this.checked;render();};
-    cr.onclick=function(){var c=code();var d=NEW.fecha.split('-');ITOS.unshift({c:c,t:NEW.plantilla.split(' · ')[0]+' · '+($('n-zo').value||'Zona'),obra:$('n-ob').options[$('n-ob').selectedIndex].text,insp:NEW.origen?'Sin asignar':$('n-in').value,est:NEW.origen?'solicitada':'progreso',av:0,h:0,f:parseInt(d[2],10)+'/'+d[1]});corr++;toast('ITO '+c+' creada · aparece en el Calendario');go('panel');};
+    $('n-zo').oninput=function(){NEW.zona=this.value;};$('n-or').onchange=function(){NEW.origen=this.checked;render();};$('n-inf').onchange=function(){NEW.informar=this.checked;render();};
+    b.querySelectorAll('[data-npl]').forEach(function(e){e.onchange=function(){var k=+e.getAttribute('data-npl'),i=NEW.planos.indexOf(k);if(e.checked&&i<0)NEW.planos.push(k);if(!e.checked&&i>=0)NEW.planos.splice(i,1);};});
+    b.querySelectorAll('[data-rmp]').forEach(function(e){e.onclick=function(){NEW.partidas.splice(+e.getAttribute('data-rmp'),1);render();};});
+    $('n-pa-add').onclick=function(){var v=$('n-pa').value.trim();if(v){NEW.partidas.push(v);render();}};
+    $('n-cr').onclick=function(){if(!NEW.zona.trim()){toast('Falta la zona o sector');return;}var c=code(),d=NEW.fecha.split('-');
+      ITOS.unshift({c:c,t:NEW.plantilla.split(' · ')[0]+' · '+NEW.zona,obra:$('n-ob').options[$('n-ob').selectedIndex].text,insp:NEW.origen?'Sin asignar':$('n-in').value,est:NEW.origen?'solicitada':'progreso',av:0,h:0,f:parseInt(d[2],10)+'/'+d[1]});corr++;
+      toast('ITO '+c+' creada con '+NEW.planos.length+' plano(s) y '+NEW.partidas.length+' partida(s)'+(NEW.informar?' · plan enviado al contratista':''));go('panel');};
   }
   if(screen==='firmas'){
     var cv=$('cv');

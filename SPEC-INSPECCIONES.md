@@ -40,6 +40,31 @@ Puntos que esta entrevista deja por confirmar:
 - El flujo de firma por tres partes reemplaza al de dos partes descrito en secciones posteriores y en `docs/PLAN_INSPECCION_DE_OBRA.html`; ese diagrama aún muestra la versión anterior.
 - Prototipo de las pantallas: `docs/PROTOTIPO_FRONT_ITO.html`.
 
+### 0.2 Segunda entrevista: contenido de la ITO (2026-11-16)
+
+| # | Tema | Decisión |
+|---|------|----------|
+| 1 | Marcas sobre el plano | **Pines y dibujo** (línea, círculo, texto) |
+| 2 | Planos | **Varios por ITO, con revisiones** (Rev A, B, C); las marcas de una revisión se conservan con ella |
+| 3 | Switch de observaciones | **Dos pestañas dentro de la ITO**: observaciones de trabajo planificado y de trabajo **no** planificado |
+| 4 | Qué es «planificado» | Checklist técnico **más** el avance de cada partida del contrato, y partidas que el inspector agrega en terreno para levantar una observación |
+| 5 | Partidas | Se escriben **una por una** en la obra (sin importar archivos) o se planifican antes. Informar el plan de inspección al contratista es **opcional**. Crear la ITO con sus partidas permite tener el plano cargado |
+| 6 | Observación no planificada | **Descripción, foto y responsable** |
+| 7 | Efecto en la aprobación | Una observación no planificada **bloquea solo si el inspector la marca como crítica** |
+| 8 | Cabecera obligatoria | **Obra, zona, inspector, contratista y fecha**; plantilla, planos y partidas pueden agregarse después |
+| 9 | Avance por partida | **Porcentaje de avance** con la fecha de la ITO (historial por ITO) |
+| 10 | Informe PDF | **Una sola lista de observaciones con etiqueta** Planificado / No planificado |
+
+Principio de diseño de los planos: se adjuntan a una **biblioteca** y las marcas se dibujan en una **capa transparente aparte**; el documento base nunca se modifica. El informe incluye cada plano con su capa encima.
+
+Consecuencias para el modelo y las reglas:
+
+- Nueva entidad **partida** por obra, con registro de avance (%) por ITO.
+- Nueva entidad **plano** con revisiones, y entidad **marca** (tipo, coordenadas 0–1, revisión, plano) separada del archivo original.
+- La observación tiene un tipo (`planificada` o `no_planificada`) y, si es no planificada, una bandera `critica`.
+- La regla de aprobación (R3) pasa a: 0 No cumple abiertos **y** 0 observaciones no planificadas críticas abiertas.
+- Pendiente de definir: cómo se cierra una observación no planificada crítica (re-inspección o aceptación del inspector).
+
 > Donde el resto de este documento mencione avance de OS o mantenimiento, `onInspectionApproved` o PDF de planos en la Fase 2, **esta sección prevalece**. El diagrama animado en `docs/PLAN_INSPECCION_DE_OBRA.html` ya refleja estas decisiones.
 
 ## 1. Resumen ejecutivo
