@@ -1,0 +1,453 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><title>Plan Inspección de Obra</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Concepto: plano de control de procesos. Tres tipos de actor (persona, dispositivo, servidor) con color fijo en todo el documento. */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#13202b; --mute:#566673; --line:#cdd7de; --soft:#e4eaee;
+  --human:#a85a00; --human-bg:#fdf0d5;
+  --sys:#1b4fb8;   --sys-bg:#e1ebfb;
+  --srv:#6a2fc2;   --srv-bg:#eee6fb;
+  --out:#06795a;   --out-bg:#d8f3e8;
+  --gap:#c0262d;   --gap-bg:#fde6e7;
+  --accent:#0b6e86; --new:#0b6e86; --new-bg:#d3eef4;
+  --font:'IBM Plex Sans',system-ui,sans-serif; --font-d:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; --new:#4fc3dc; --new-bg:#0b2b33; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; --new:#4fc3dc; --new-bg:#0b2b33; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+a{color:var(--accent)}
+.wrap{max-width:1240px;margin:0 auto}
+header.top{padding:22px 0 14px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+h1{font-family:var(--font-d);font-size:30px;line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--mute);margin:6px 0 0;max-width:62ch}
+.meta{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+nav.tabs a,nav.tabs button{font:500 13px var(--font);color:var(--ink);text-decoration:none;padding:7px 13px;border:1px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+nav.tabs .sp{flex:1}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-family:var(--font-d);font-size:21px;margin:30px 0 8px}
+h3{font-family:var(--font-d);font-size:15px;margin:0 0 6px;letter-spacing:.02em;text-transform:uppercase;color:var(--mute)}
+p{margin:0 0 10px;max-width:78ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0;font-size:12.5px;color:var(--mute)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:18px;height:12px;border-radius:3px;border:1.5px solid}
+.sw.h{background:var(--human-bg);border-color:var(--human)} .sw.s{background:var(--sys-bg);border-color:var(--sys)}
+.sw.x{background:var(--srv-bg);border-color:var(--srv)} .sw.o{background:var(--out-bg);border-color:var(--out);border-radius:8px}
+.sw.d{background:var(--panel);border-color:var(--ink);transform:rotate(45deg) scale(.8)} .sw.g{background:var(--gap-bg);border-color:var(--gap);border-style:dashed}
+figure{margin:12px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+figure .scroll{overflow-x:auto}
+figcaption{font-size:12.5px;color:var(--mute);padding:8px 4px 2px;max-width:90ch}
+svg.dg{display:block;width:100%;height:auto;min-width:760px}
+svg text{font-family:var(--font);fill:var(--ink)}
+.band{fill:var(--soft);opacity:.55} .band.alt{opacity:.25}
+.band-l{font:600 10px var(--font);letter-spacing:.12em;fill:var(--mute)!important}
+.node rect,.node polygon{stroke-width:1.6;transition:filter .2s,opacity .2s}
+.node text{font-size:11px;text-anchor:middle;pointer-events:none}
+.node .t2{font-size:10px;fill:var(--mute)}
+.n-h rect{fill:var(--human-bg);stroke:var(--human)} .n-h text{fill:var(--ink)}
+.n-s rect{fill:var(--sys-bg);stroke:var(--sys)}
+.n-x rect{fill:var(--srv-bg);stroke:var(--srv)}
+.n-o rect{fill:var(--out-bg);stroke:var(--out)}
+.n-d polygon{fill:var(--panel);stroke:var(--ink)} .n-d text{font-size:10.5px}
+.n-g rect{fill:var(--gap-bg);stroke:var(--gap);stroke-dasharray:5 3}
+.node.link{cursor:pointer} .node.link:hover rect{filter:brightness(1.07);stroke-width:2.4}
+.node.link:focus-visible rect{stroke-width:3}
+.pic{fill:none;stroke:var(--human);stroke-width:1.4}
+.edge{fill:none;stroke:var(--mute);stroke-width:1.5;stroke-dasharray:6 5;animation:flow 1.1s linear infinite}
+.edge.gap{stroke:var(--gap);stroke-width:1.8;animation:none;stroke-dasharray:3 5}
+.edge.hot{stroke:var(--accent);stroke-width:2.6;stroke-dasharray:none;animation:none}
+.elab{font-size:10px;paint-order:stroke;stroke:var(--panel);stroke-width:4px;fill:var(--mute)!important}
+.elab.gap{fill:var(--gap)!important;font-weight:600}
+.dot{fill:var(--accent)} .dot.gap{display:none}
+.arrow path{fill:var(--mute)}
+.dim .node{opacity:.3} .dim .node.seen{opacity:.8} .dim .node.on{opacity:1}
+.node.on rect,.node.on polygon{filter:drop-shadow(0 0 5px var(--accent));stroke:var(--accent);stroke-width:2.8}
+.paused .edge{animation-play-state:paused}
+@keyframes flow{to{stroke-dashoffset:-22}}
+@media (prefers-reduced-motion:reduce){.edge{animation:none}}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 4px 2px}
+.btn{font:500 12.5px var(--font);padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.stepcap{font-size:13px;flex:1;min-width:220px;color:var(--ink)} .stepcap b{font-family:var(--mono);font-weight:500;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-top:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink)}
+.card:hover{border-color:var(--accent)}
+.card h4{margin:0;font:700 16px var(--font-d)}
+.route{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid}
+.chip.i{background:var(--sys-bg);border-color:var(--sys);color:var(--ink)}
+.chip.o{background:var(--out-bg);border-color:var(--out);color:var(--ink)}
+.chip.h{background:var(--human-bg);border-color:var(--human);color:var(--ink)}
+.lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-top:2px}
+.st{font-size:11px;font-weight:600;padding:1px 8px;border-radius:4px;display:inline-block;align-self:flex-start}
+.st.ok{background:var(--out-bg);color:var(--out)} .st.partial{background:var(--human-bg);color:var(--human)}
+.st.stub,.st.orphan{background:var(--gap-bg);color:var(--gap)} .st.apoyo{background:var(--srv-bg);color:var(--srv)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.panel ul{margin:0;padding-left:18px} .panel li{margin:3px 0}
+.panel.gapbox{border-color:var(--gap)} .panel.gapbox h3{color:var(--gap)}
+.back{display:inline-block;margin:16px 0 0;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi b{font:700 24px var(--font-d);display:block}
+.kpi span{font-size:12px;color:var(--mute)}
+code{font-family:var(--mono);font-size:12px;background:var(--soft);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.tw{overflow-x:auto}
+
+.sw.n{background:var(--new-bg);border-color:var(--new);border-width:2px}
+.n-n rect{fill:var(--new-bg);stroke:var(--new);stroke-width:2.2}
+.st.ph{background:var(--new-bg);color:var(--new)}
+.phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
+.phase{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.phase ul{margin:0;padding-left:18px;font-size:13px} .phase p{font-size:13px;margin:0}
+.ph-h{display:flex;gap:10px;align-items:center}
+.ph-n{width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--bg);font:700 17px var(--font-d);display:grid;place-items:center;flex:none}
+.bar{height:6px;background:var(--soft);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:100%;background:var(--accent);transform-origin:left;animation:grow 1.2s ease-out both;animation-delay:var(--d,0s)}
+@keyframes grow{from{transform:scaleX(0)}}
+@media (prefers-reduced-motion:reduce){.bar i{animation:none}}
+</style>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Inspección de Obra · plan del módulo</h1>
+    <p class="sub">Cómo funcionará el módulo de inspecciones y protocolos dentro del CMMS HVAC PRO: etapas, estados, conexión con lo existente, fases y reglas.</p>
+  </div>
+  <div class="meta">Plan sin código · 16-nov-2026<br>Basado en el flujo de controlobrax.cl</div>
+</header>
+<nav class="tabs" id="tabs" aria-label="Vistas">
+  <a href="#resumen" data-v="resumen">Plan general</a>
+  <a href="#estados" data-v="estados">Estados</a>
+  <a href="#integracion" data-v="integracion">Integración</a>
+  <a href="#fases" data-v="fases">Fases</a>
+  <a href="#reglas" data-v="reglas">Reglas y decisiones</a>
+  <span class="sp"></span>
+  <button type="button" id="pauseBtn" aria-pressed="false">Animación: activa</button>
+</nav>
+<main id="app"></main>
+</div>
+<script>
+(function(){
+'use strict';
+var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var NS='http://www.w3.org/2000/svg';
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* ---------- MOTOR DE DIAGRAMAS ---------- */
+function lines(t){return String(t).split('|');}
+function toNodes(flow){ // lane/col -> coordenadas
+  var LW=122,CW=172,LH=108,T=14;
+  var ncol=0;flow.nodes.forEach(function(n){ncol=Math.max(ncol,n[2]+1);});
+  var out=flow.nodes.map(function(n){
+    var t=n[3];
+    return {id:n[0],t:t,lab:n[4],cx:LW+n[2]*CW+CW/2,cy:T+n[1]*LH+LH/2,w:156,h:t==='d'?66:54,lane:n[1]};
+  });
+  return {nodes:out,W:LW+ncol*CW+8,H:T*2+LANEB.length*LH,bands:LANEB.map(function(l,i){return {y:T+i*LH,h:LH,label:l};}),bandX:0,LW:LW};
+}
+function rectOf(n){return {x1:n.cx-n.w/2-3,x2:n.cx+n.w/2+3,y1:n.cy-n.h/2-3,y2:n.cy+n.h/2+3};}
+function segHit(p,q,r){ // segmento ortogonal vs rect
+  var x1=Math.min(p[0],q[0]),x2=Math.max(p[0],q[0]),y1=Math.min(p[1],q[1]),y2=Math.max(p[1],q[1]);
+  return !(x2<r.x1||x1>r.x2||y2<r.y1||y1>r.y2);
+}
+function clear(pts,all,a,b){
+  for(var i=0;i<pts.length-1;i++){
+    for(var k=0;k<all.length;k++){var n=all[k];if(n===a||n===b)continue;if(segHit(pts[i],pts[i+1],rectOf(n)))return false;}
+  }
+  return true;
+}
+function route(a,b,all,hint){
+  var s=Math.sign(b.cx-a.cx), dy=Math.sign(b.cy-a.cy), c=[];
+  var sameRow=Math.abs(a.cy-b.cy)<4, sameCol=Math.abs(a.cx-b.cx)<4;
+  if(sameCol){var sy=a.cy+dy*a.h/2,ey=b.cy-dy*b.h/2;c.push([[a.cx,sy],[b.cx,ey]]);}
+  if(sameRow){var sx0=a.cx+s*a.w/2,ex0=b.cx-s*b.w/2;c.push([[sx0,a.cy],[ex0,b.cy]]);
+    var gy=a.cy-a.h/2-20; c.push([[a.cx,a.cy-a.h/2],[a.cx,gy],[b.cx,gy],[b.cx,b.cy-b.h/2]]);
+    var gy2=a.cy+a.h/2+20; c.push([[a.cx,a.cy+a.h/2],[a.cx,gy2],[b.cx,gy2],[b.cx,b.cy+b.h/2]]);
+    if(hint==='back'){c.shift();}}
+  if(!sameRow&&!sameCol){
+    var sx=a.cx+s*a.w/2, ex=b.cx-s*b.w/2;
+    if(hint!=='back'){
+      c.push([[sx,a.cy],[ex-s*12,a.cy],[ex-s*12,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[sx+s*12,a.cy],[sx+s*12,b.cy],[ex,b.cy]]);
+      c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[b.cx,a.cy],[b.cx,b.cy-dy*b.h/2]]);
+    }
+    var g1=a.cy+dy*(a.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);
+    var g2=b.cy-dy*(b.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g2],[b.cx,g2],[b.cx,b.cy-dy*b.h/2]]);
+    if(hint==='back'){c.unshift([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);}
+  }
+  for(var i=0;i<c.length;i++){if(clear(c[i],all,a,b))return c[i];}
+  return c[c.length-1];
+}
+function plen(p){var L=0;for(var i=0;i<p.length-1;i++)L+=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);return L;}
+function dstr(p){return p.map(function(q,i){return (i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1);}).join(' ');}
+function labelPos(p){ // punto medio del segmento más largo
+  var best=0,bi=0;for(var i=0;i<p.length-1;i++){var l=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);if(l>best){best=l;bi=i;}}
+  var a=p[bi],b=p[bi+1];return [(a[0]+b[0])/2,(a[1]+b[1])/2,Math.abs(b[1]-a[1])>Math.abs(b[0]-a[0]),best];
+}
+function nodeSVG(n,link){
+  var L=lines(n.lab),cls='node n-'+n.t+(link?' link':'');
+  var x=n.cx-n.w/2,y=n.cy-n.h/2,g='<g class="'+cls+'" data-id="'+n.id+'"'+(link?' tabindex="0" role="link" aria-label="'+esc(L.join(' '))+'" data-go="'+link+'"':'')+'>';
+  if(n.t==='d'){g+='<polygon points="'+n.cx+','+y+' '+(n.cx+n.w/2)+','+n.cy+' '+n.cx+','+(y+n.h)+' '+(n.cx-n.w/2)+','+n.cy+'"/>';}
+  else if(n.t==='o'){g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.h/2)+'"/>';}
+  else{g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.t==='h'?10:4)+'"/>';}
+  if(n.t==='h'){g+='<circle class="pic" cx="'+(x+11)+'" cy="'+(y+11)+'" r="3"/><path class="pic" d="M'+(x+5.5)+' '+(y+20)+' q5.5 -8 11 0"/>';}
+  var lh=13.5,y0=n.cy-(L.length-1)*lh/2+4;
+  L.forEach(function(t,i){g+='<text x="'+n.cx+'" y="'+(y0+i*lh)+'" class="'+(i>0?'t2':'')+'">'+esc(t)+'</text>';});
+  return g+'</g>';
+}
+// flow: {nodes:[..coords..], edges, W,H, bands}
+function drawDiagram(D,edges,opts){
+  opts=opts||{};
+  var byId={};D.nodes.forEach(function(n){byId[n.id]=n;});
+  var s='<svg class="dg" style="min-width:'+Math.round(Math.min(D.W,Math.max(760,D.W*0.85)))+'px" viewBox="0 0 '+D.W+' '+D.H+'" role="img" aria-label="'+esc(opts.aria||'Diagrama de proceso')+'" xmlns="'+NS+'">';
+  s+='<defs><marker id="ar'+opts.uid+'" class="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs>';
+  (D.bands||[]).forEach(function(b,i){
+    s+='<rect class="band'+(i%2?' alt':'')+'" x="0" y="'+b.y+'" width="'+D.W+'" height="'+b.h+'" rx="6"/>';
+    var bl=lines(b.label);bl.forEach(function(t,k){s+='<text class="band-l" x="10" y="'+(b.y+b.h/2-(bl.length-1)*7+k*14+4)+'">'+esc(t.toUpperCase())+'</text>';});
+  });
+  var eh='',dots='',labs='';
+  edges.forEach(function(e,i){
+    var a=byId[e[0]],b=byId[e[1]];if(!a||!b)return;
+    var gap=e[3]==='gap';
+    var p=route(a,b,D.nodes,e[3]);
+    var d=dstr(p);
+    eh+='<path class="edge'+(gap?' gap':'')+'" data-f="'+e[0]+'" data-t="'+e[1]+'" d="'+d+'" marker-end="url(#ar'+opts.uid+')"/>';
+    if(!REDUCED&&!gap){var dur=Math.max(1.6,plen(p)/70);dots+='<circle class="dot" r="3"><animateMotion dur="'+dur.toFixed(2)+'s" begin="-'+((i*0.53)%dur).toFixed(2)+'s" repeatCount="indefinite" path="'+d+'"/></circle>';}
+    if(e[2]){var lp=labelPos(p);var segL=lp[3];if(segL>=e[2].length*5.3+6){labs+='<text class="elab'+(gap?' gap':'')+'" text-anchor="middle" x="'+lp[0]+'" y="'+(lp[1]+(lp[2]?3:-5))+'"'+(lp[2]?' dx="'+(e[2].length*2.9+6)+'"':'')+'>'+esc(e[2])+'</text>';}}
+  });
+  s+=eh+dots+labs;
+  D.nodes.forEach(function(n){s+=nodeSVG(n,n.link);});
+  return s+'</svg>';
+}
+var UID=0;
+
+/* ---------- DATOS: plan del módulo ---------- */
+var LANES=['Técnico o supervisor','Firmante externo','App en el dispositivo','Servidor y servicios'];
+var LANEB=['TÉCNICO O|SUPERVISOR','FIRMANTE|EXTERNO','APP EN EL|DISPOSITIVO','SERVIDOR Y|SERVICIOS'];
+// nodo: [id, carril, columna, tipo, texto]
+var OVER={
+ nodes:[['v0',0,0,'h','E1 · Crea la inspección|plantilla, plano, equipo'],['v1',2,1,'s','Genera INS-NNN|y checklist local'],['v2',0,2,'h','E2 · Evalúa en terreno|Cumple, No cumple, N/A'],['v3',2,3,'d','¿Completa y con|evidencia?'],['v4',0,4,'h','E3 · Ubica hallazgos|en el plano'],['v5',3,5,'x','E4 · Crea el enlace|token de un solo uso'],['v6',1,6,'h','Firmante revisa|y firma sin cuenta'],['v7',3,7,'d','¿0 No cumple?'],['v8',3,8,'x','E5 · Aprueba, hash|y bloquea edición'],['v9',2,9,'o','E6 · PDF verificable|y avance al día']],
+ edges:[['v0','v1'],['v1','v2'],['v2','v3'],['v3','v2','No: falta algo','back'],['v3','v4','Sí'],['v4','v5','envía a firma'],['v5','v6','correo o enlace'],['v6','v7','pulsa firmar'],['v7','v8','Sí'],['v7','v2','No: se bloquea','back'],['v8','v9']],
+ path:['v0','v1','v2','v3','v4','v5','v6','v7','v8','v9']
+};
+var ST=[
+{id:'panel',e:'',n:'Panel de inspecciones',route:'/inspecciones',roles:'Ver: todos los perfiles con permiso · Cliente y visita: solo aprobadas',fase:1,
+ sum:'Tablero con KPIs, filtros por estado y listado de tarjetas. Se calcula en el navegador, igual que el Dashboard actual.',
+ ins:['Inspecciones locales','Cliente activo'],outs:['KPIs','Listado filtrado'],hum:['Filtra y busca','Abre una inspección'],
+ nodes:[['a0',0,0,'h','Abre Inspecciones'],['a1',2,1,'s','Lee inspections|del cliente activo (Dexie)'],['a2',2,2,'s','Calcula total, liberadas,|pendientes y % cumplimiento'],['a3',2,3,'s','Cuenta hallazgos abiertos|(No cumple sin resolver)'],['a4',0,4,'h','Filtra por estado|o busca INS, título, responsable'],['a5',2,5,'o','Tarjetas con avance|e ítems evaluados']],
+ edges:[['a0','a1'],['a1','a2'],['a2','a3'],['a3','a4'],['a4','a5']],path:['a0','a1','a2','a3','a4','a5'],
+ reglas:['Sin llamadas al servidor: todo sale de Dexie, como el Dashboard.','Estados filtrables: todas, en progreso, por firmar, aprobadas, con observaciones.']},
+{id:'e1',e:'Etapa 1',n:'Creación y plantillas',route:'/inspecciones/nueva',roles:'Crear: técnico, supervisor, contratista, administrador · Plantillas: supervisor, administrador',fase:1,
+ sum:'Se elige una plantilla, se completa la ficha y el sistema copia los ítems a una inspección nueva.',
+ ins:['Plantilla','Plano o diagrama','Zona y equipo','Técnico y supervisor','Fecha'],outs:['Inspección en borrador','Código INS-NNN'],hum:['Elige plantilla','Completa la ficha','Agrega ítems manuales'],
+ nodes:[['b0',0,0,'h','Pulsa Nueva|inspección'],['b1',0,1,'h','Elige plantilla|o crea una propia'],['b2',0,2,'h','Ficha: plano, zona,|equipo, técnico, fecha'],['b3',2,3,'s','Copia los ítems|(foto fija de la plantilla)'],['b4',2,4,'s','Guarda en Dexie|pending_insert'],['b5',3,5,'x','Sincroniza y asigna|correlativo INS-NNN'],['b6',2,6,'o','Inspección en|estado borrador']],
+ edges:[['b0','b1'],['b1','b2'],['b2','b3'],['b3','b4'],['b4','b5'],['b5','b6']],path:['b0','b1','b2','b3','b4','b5','b6'],
+ reglas:['La inspección guarda una copia de los ítems: editar la plantilla después no cambia inspecciones ya creadas.','Sin red, el código es provisional (PEND-…), igual que el resto de los registros; el servidor asigna el correlativo por cliente.','Plantillas semilla HVAC: puesta en marcha, recepción de UMA o fan-coil, ductos, tablero, sala de máquinas, entrega final.']},
+{id:'e2',e:'Etapa 2',n:'Ejecución en terreno',route:'/inspecciones/:id',roles:'Técnico asignado, supervisor',fase:1,
+ sum:'El técnico evalúa cada ítem desde el celular, incluso sin conexión. El sistema no lo deja cerrar si falta evidencia.',
+ ins:['Checklist','Cámara','Observaciones'],outs:['Ítems evaluados','Fotos','Estado completada'],hum:['Marca Cumple, No cumple o N/A','Fotografía y describe el hallazgo'],
+ nodes:[['c0',0,0,'h','Abre la inspección|en el celular'],['c1',0,1,'h','Marca el ítem:|Cumple, No cumple, N/A'],['c2',2,2,'d','¿Qué marcó?'],['c3',0,3,'h','No cumple: observación,|acción correctiva y foto'],['c4',2,3,'s','Comprime la foto y|la guarda en Dexie'],['c5',2,4,'s','Actualiza avance %|y hallazgos abiertos'],['c6',2,5,'d','¿Todo evaluado|y con evidencia?'],['c7',2,6,'o','Estado completada|lista para firma']],
+ edges:[['c0','c1'],['c1','c2'],['c2','c3','No cumple'],['c2','c4','Cumple o N/A'],['c3','c4'],['c4','c5'],['c5','c6'],['c6','c1','No: faltan','back'],['c6','c7','Sí']],path:['c0','c1','c2','c3','c4','c5','c6','c7'],
+ reglas:['R1: no se completa con ítems sin evaluar, ni con No cumple sin observación, acción correctiva y foto.','R8: la foto en Cumple es obligatoria solo si la plantilla lo exige.','Todo se guarda en el dispositivo; la sincronización ocurre al volver la red.']},
+{id:'e3',e:'Etapa 3',n:'Planos y pines',route:'/inspecciones/:id/plano',roles:'Supervisor, técnico',fase:2,
+ sum:'Cada hallazgo se ubica en el plano con un pin rojo. Al re-inspeccionar y pasar a Cumple, el pin se vuelve verde.',
+ ins:['Plano (imagen o PDF)','Ítems No cumple'],outs:['Pines con coordenadas 0 a 1','Responsable y fecha límite'],hum:['Toca el plano','Asigna responsable','Re-inspecciona'],
+ nodes:[['d0',0,0,'h','Abre el plano|de la inspección'],['d1',2,1,'s','Dibuja el plano|con zoom y paneo'],['d2',0,2,'h','Toca el plano|en el punto del hallazgo'],['d3',2,3,'d','¿Es un ítem|No cumple existente?'],['d4',2,4,'s','Vincula el pin al ítem|coordenadas x, y de 0 a 1'],['d5',0,4,'h','Crea pin libre:|incidencia, RFI o nota'],['d6',0,5,'h','Asigna responsable|y fecha límite'],['d7',0,6,'h','Re-inspecciona|y marca Cumple'],['d8',2,7,'o','Pin pasa a verde|el historial se conserva']],
+ edges:[['d0','d1'],['d1','d2'],['d2','d3'],['d3','d4','Sí'],['d3','d5','No'],['d4','d6'],['d5','d6'],['d6','d7'],['d7','d8']],path:['d0','d1','d2','d3','d4','d6','d7','d8'],
+ reglas:['Las coordenadas van normalizadas (0 a 1) para que el pin quede igual con cualquier zoom o tamaño de pantalla.','R2: pasar de No cumple a Cumple cambia el pin de abierto a resuelto sin borrar la observación anterior.','Los planos en PDF requieren una librería nueva (pdfjs-dist); en la Fase 2 puede empezar solo con imágenes.']},
+{id:'e4',e:'Etapa 4',n:'Liberación externa',route:'/liberar/:token',roles:'Envía: supervisor, administrador · Firma: persona externa sin cuenta',fase:3,
+ sum:'El firmante abre un enlace temporal, revisa el resultado y firma sin crear cuenta. El enlace sirve una sola vez.',
+ ins:['Inspección completada','Correo o enlace','Nombre, RUT, cargo','Firma manuscrita'],outs:['Firma registrada','Estado aprobada u observada'],hum:['Supervisor envía a firma','Firmante revisa y firma o rechaza'],
+ nodes:[['f0',0,0,'h','Pulsa Enviar|a firma'],['f1',3,1,'x','Crea token de 256 bits|guarda solo el hash'],['f2',3,2,'x','Correo con Resend|o enlace para copiar'],['f3',1,3,'h','Abre /liberar/token|sin iniciar sesión'],['f4',3,4,'d','¿Token vigente|y sin usar?'],['f5',1,5,'h','Revisa resumen,|plano y fotos'],['f6',3,6,'d','¿0 No cumple?'],['f7',1,7,'h','Nombre, RUT, cargo|y firma en canvas'],['f8',3,8,'x','Registra la firma|e invalida el token'],['f9',3,7,'x','Estado observada|vuelve a terreno']],
+ edges:[['f0','f1'],['f1','f2'],['f2','f3'],['f3','f4'],['f4','f0','No: pide otro','back'],['f4','f5','Sí'],['f5','f6'],['f6','f7','Sí'],['f6','f9','No'],['f7','f8']],path:['f0','f1','f2','f3','f4','f5','f6','f7','f8'],
+ reglas:['R3: la firma solo se habilita con 0 No cumple y al menos un ítem aplicable en Cumple; el servidor lo vuelve a validar.','R7: token aleatorio de 256 bits, se guarda solo su hash, vence en 7 días (configurable), un solo uso y con límite de intentos por IP.','El portal es una ruta pública: debe atenderse antes del control de sesión de App.tsx y devolver solo datos mínimos, sin identificadores internos.','El correo reutiliza /api/export (Resend); si no está configurado, queda el enlace para copiar.']},
+{id:'e5',e:'Etapa 5',n:'PDF y verificación',route:'/verificar/:código',roles:'Descarga: todos con acceso · Verifica: cualquiera con el código',fase:4,
+ sum:'Al aprobarse, la inspección queda sellada con un hash y un código. El PDF reúne ítems, plano con pines, fotos y firmas.',
+ ins:['Inspección aprobada','Firmas','Fotos y plano'],outs:['PDF final','Código CO-AAAA-XXXXXXXXXXXX','Hash SHA-256'],hum:['Descarga o envía el informe','Verifica un PDF recibido'],
+ nodes:[['g0',3,0,'x','Calcula hash SHA-256|del contenido final'],['g1',3,1,'x','Asigna el código|CO-AAAA-XXXXXXXXXXXX'],['g2',2,2,'s','Arma el PDF (jsPDF)|ítems, plano con pines, fotos'],['g3',2,3,'s','Agrega firmas con|fecha, hora y método'],['g4',3,4,'x','Guarda el PDF y|bloquea la edición'],['g5',0,5,'h','Descarga o envía|el informe'],['g6',1,6,'h','Verifica el código|en /verificar'],['g7',3,7,'o','Autenticidad|confirmada']],
+ edges:[['g0','g1'],['g1','g2'],['g2','g3'],['g3','g4'],['g4','g5'],['g5','g6','entrega al cliente'],['g6','g7']],path:['g0','g1','g2','g3','g4','g5','g6','g7'],
+ reglas:['R4: desde aprobada, ítems, fotos y pines quedan bloqueados; el servidor rechaza cualquier escritura con 409, también la que llegue por /api/sync.','El hash lo fija el servidor, así el cliente no puede recalcularlo ni alterarlo.','El PDF se arma en el navegador con jsPDF (ya incluido en el proyecto); Puppeteer no funciona en las funciones de Vercel.']},
+{id:'e6',e:'Etapa 6',n:'Trazabilidad y avance',route:'panel lateral de la inspección',roles:'Automático · Lectura: todos con acceso',fase:4,
+ sum:'La aprobación dispara un evento que actualiza el avance de la orden de servicio o mantenimiento vinculado y deja registro.',
+ ins:['Evento onInspectionApproved','Vínculo a OS, mantenimiento o equipo'],outs:['Avance actualizado','Línea de tiempo','Registro de auditoría'],hum:['Consulta la línea de tiempo'],
+ nodes:[['h0',3,0,'x','Evento|onInspectionApproved'],['h1',3,1,'d','¿Tiene OS o|mantenimiento vinculado?'],['h2',3,2,'x','Actualiza el avance|de la entidad vinculada'],['h3',3,3,'x','Registra en audit_logs|quién y cuándo'],['h4',2,4,'s','La sincronización lleva|el cambio a los equipos'],['h5',0,5,'h','Consulta línea de tiempo|y avance 63% → 100%']],
+ edges:[['h0','h1'],['h1','h2','Sí'],['h1','h3','No'],['h2','h3'],['h3','h4'],['h4','h5']],path:['h0','h1','h2','h3','h4','h5'],
+ reglas:['R5: el avance se actualiza en la misma operación que aprueba la inspección.','Línea de tiempo: creada, asignada, completada, enviada a firma, liberada.','Hoy ningún módulo del CMMS recibe avance de otro; la OS necesita un campo nuevo para guardarlo.']}
+];
+var SBY={};ST.forEach(function(x){SBY[x.id]=x;});
+
+/* ---------- Máquina de estados ---------- */
+function stateDiagram(){
+  function N(id,t,cx,cy,lab){return {id:id,t:t,lab:lab,cx:cx,cy:cy,w:150,h:50};}
+  var nodes=[N('bor','s',100,60,'borrador|se creó la inspección'),N('prog','s',350,60,'en progreso|ya hay ítems evaluados'),N('comp','s',600,60,'completada|lista para firma'),N('env','x',850,60,'enviada a firma|enlace activo'),N('apr','o',1100,60,'aprobada|bloqueada (R4)'),
+    N('obs','g',850,200,'observada|el firmante la rechazó')];
+  nodes.forEach(function(n){n.cy=n.cy;});
+  var edges=[['bor','prog','primer ítem'],['prog','comp','R1 cumplida'],['comp','env','envía a firma'],['env','apr','firma válida'],['env','obs','rechaza u observa'],['obs','prog','re-inspección','back'],['env','comp','el enlace vence','back']];
+  return drawDiagram({nodes:nodes,W:1200,H:270,bands:null},edges,{uid:'s'+(++UID),aria:'Estados de una inspección: borrador, en progreso, completada, enviada a firma, aprobada y observada'});
+}
+function itemDiagram(){
+  function N(id,t,cx,cy,lab){return {id:id,t:t,lab:lab,cx:cx,cy:cy,w:150,h:50};}
+  var nodes=[N('nul','s',120,85,'sin evaluar'),N('ok','o',480,40,'Cumple'),N('nok','g',480,130,'No cumple|con pin rojo'),N('na','s',840,40,'N/A|no cuenta en el %')];
+  var edges=[['nul','ok'],['nul','nok'],['ok','na'],['nok','ok']];
+  return drawDiagram({nodes:nodes,W:1000,H:175,bands:null},edges,{uid:'i'+(++UID),aria:'Estados de un ítem del checklist'});
+}
+
+/* ---------- Integración ---------- */
+function intDiagram(){
+  var CX=[90,250,410,570,730,890,1050],RY=[48,152,256,360,464];
+  function N(id,t,col,row,lab,w){return {id:id,t:t,lab:lab,cx:CX[col],cy:RY[row],w:w||138,h:46};}
+  var nodes=[N('cli','s',0,0,'Clientes y|sucursales'),N('seg','s',6,0,'Seguridad|y tenant'),
+    N('eq','s',1,1,'Equipos'),N('usr','s',2,1,'Usuarios|y perfiles'),N('qr','s',3,1,'Escáner QR'),N('tpl','n',4,1,'Plantillas'),N('pub','n',6,1,'Portal público|/liberar/token'),
+    N('ins','n',3,2,'Inspecciones|(módulo nuevo)'),
+    N('os','s',0,3,'Órdenes de|servicio'),N('man','s',1,3,'Mantenimientos'),N('exp','s',3,3,'Envío por correo|(Resend)'),N('pdf','n',4,3,'PDF + código|de verificación'),N('bp','n',5,3,'Planos y pines'),
+    N('syn','s',3,4,'Sincronización')];
+  var edges=[['cli','eq','sucursal'],['eq','ins','TAG y zona'],['qr','ins','inicia con QR'],['usr','ins','técnico y supervisor'],['tpl','ins','ítems'],['ins','bp','pines'],['seg','pub','valida token'],['pub','ins','firma o rechazo'],
+    ['ins','os','avance al aprobar'],['ins','man'],['ins','exp','enlace de firma'],['ins','pdf','aprobada'],['pdf','exp','adjunto'],['ins','syn','cola de sync']];
+  return drawDiagram({nodes:nodes,W:1140,H:RY[4]+46,bands:null},edges,{uid:'n'+(++UID),aria:'Cómo se conecta el módulo de Inspecciones con los módulos existentes'});
+}
+
+/* ---------- Fases ---------- */
+var FASES=[
+{n:1,t:'Núcleo y checklist',tam:'Grande',obj:'Crear, ejecutar y completar inspecciones sin conexión.',ent:['inspectionRules.ts con tests (R1, R3, R6, estados)','Dexie v17: inspections, plantillas, planos','Tablas Neon y alta en las listas de sincronización','Panel, wizard, gestor de plantillas con 6 semillas','Ejecución móvil con fotos comprimidas','Menú y permisos nuevos'],ok:'Un técnico completa una inspección sin red y se sincroniza al volver la conexión.',riesgo:'La migración Dexie no debe vaciar tablas (las v14 y v16 lo hicieron).',ar:['src/rules/inspectionRules.ts','src/db/database.ts','scripts/db/bootstrap.ts','server.ts','src/App.tsx','src/components/Layout.tsx','src/types.ts']},
+{n:2,t:'Planos y pines',tam:'Mediano',obj:'Ubicar hallazgos en el plano y sincronizarlos con el checklist.',ent:['Visor con zoom y paneo','Pines libres y vinculados (coordenadas 0 a 1)','Rojo y verde automáticos (R2)','Planos en imagen; PDF con pdfjs-dist','Iniciar inspección escaneando el QR del equipo'],ok:'Un hallazgo se ve en el plano y pasa a verde al re-inspeccionar.',riesgo:'El visor de PDF suma una dependencia y requiere revisar la CSP.',ar:['src/pages (visor nuevo)','src/pages/ScannerQR.tsx','vercel.json (CSP)']},
+{n:3,t:'Firma externa',tam:'Mediano',obj:'Liberar con un enlace temporal, sin cuenta.',ent:['Tabla de tokens solo en servidor','Endpoints públicos con límite de intentos','Ruta /liberar antes del control de sesión','Firma en canvas con RUT, nombre y cargo','Rechazo con observación','Envío del enlace por Resend'],ok:'El firmante aprueba una inspección sin cuenta y el enlace deja de funcionar.',riesgo:'Es la primera ruta pública de la app: exige pruebas de seguridad antes de publicar.',ar:['src/App.tsx','api/operations.ts','vercel.json','api/communications.ts']},
+{n:4,t:'PDF, trazabilidad y avance',tam:'Mediano',obj:'Sellar la inspección y actualizar la entidad vinculada.',ent:['PDF con jsPDF y código CO-AAAA-XXXXXXXXXXXX','Hash SHA-256 fijado por el servidor','Inmutabilidad con 409 (R4)','onInspectionApproved y auditoría (R5)','Página pública /verificar','Pruebas de seguridad de regresión'],ok:'Un PDF aprobado se verifica por código y la OS vinculada sube su avance.',riesgo:'La OS no tiene campo de avance hoy: hay que agregarlo sin romper la sincronización.',ar:['src/lib/DocumentExportService.ts','tests/security-regression.test.mjs','server.ts']}
+];
+var REGLAS=[
+['R1','No completar con ítems sin evaluar, ni No cumple sin observación, acción correctiva y foto','E2','Cliente y servidor'],
+['R2','No cumple → Cumple pasa el pin a resuelto sin perder el historial','E3','Reglas puras'],
+['R3','Firmar solo con 0 No cumple y al menos un ítem aplicable en Cumple','E4','Servidor al firmar y portal'],
+['R4','Aprobada es inmutable: ítems, fotos y pines bloqueados, escritura rechazada con 409','E5','Servidor (sync y API)'],
+['R5','Aprobar dispara onInspectionApproved y actualiza el avance vinculado','E6','Servidor'],
+['R6','Cumplimiento % = Cumple ÷ (Cumple + No cumple); N/A no cuenta','Panel y E2','Reglas puras'],
+['R7','Token de 256 bits, solo su hash en la base, vence en 7 días, un uso, límite por IP','E4','Servidor'],
+['R8','Foto obligatoria en Cumple si la plantilla lo exige','E2','Cliente y servidor']];
+var DEC=[
+['Almacenamiento de fotos','Neon con compresión en el MVP; pasar a Vercel Blob si el volumen crece.'],
+['Formato de planos','Imágenes en la Fase 1 y 2; PDF con pdfjs-dist cuando se necesite.'],
+['Entidad que recibe el avance','Orden de servicio primero, porque los informes ya cuelgan de ella; mantenimientos después.'],
+['Envío al firmante','Reutilizar Resend (ya existe) y dejar el enlace copiable como respaldo.'],
+['Alcance del perfil cliente','Solo lectura de inspecciones aprobadas.']];
+var CONTACTO=[
+['src/components/Layout.tsx','Entrada "Inspecciones" en el menú de escritorio y en el drawer móvil'],
+['src/App.tsx','Rutas lazy de /inspecciones; rutas públicas /liberar y /verificar atendidas antes del control de sesión'],
+['src/db/database.ts','Dexie v17: solo agrega tablas, sin clear()'],
+['src/types.ts','Permisos ver_inspecciones, crear_inspeccion, gestionar_plantillas, enviar_a_firma'],
+['scripts/db/bootstrap.ts','Tablas inspections, plantillas, planos, media y tokens (esta última solo servidor)'],
+['server.ts','SYNC_WRITABLE_TABLES, ALLOWED_TABLES, V1_WRITABLE_RESOURCES y un validador por tabla (R4)'],
+['api/operations.ts + vercel.json','Nuevos handler= y rewrites para producción en Vercel (se mantiene duplicado con server.ts)'],
+['src/rules/inspectionRules.ts','Reglas puras compartidas entre cliente y servidor, con tests en tests/'],
+['src/pages/ScannerQR.tsx','Iniciar una inspección desde el QR del equipo (Fase 2)']];
+
+/* ---------- Vistas ---------- */
+var app=document.getElementById('app'),timers=[];
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+function chips(a,c){return '<div class="chips">'+a.map(function(x){return '<span class="chip '+c+'">'+esc(x)+'</span>';}).join('')+'</div>';}
+function legend(){return '<div class="legend" aria-label="Leyenda"><span><i class="sw h"></i>Persona interviene</span><span><i class="sw s"></i>App en el dispositivo</span><span><i class="sw x"></i>Servidor o servicio externo</span><span><i class="sw d"></i>Decisión</span><span><i class="sw o"></i>Resultado</span><span><i class="sw n"></i>Módulo nuevo</span></div>';}
+function ctl(){return '<div class="ctl"><button class="btn pri" id="play" type="button">▶ Reproducir recorrido</button><button class="btn" id="step" type="button">Paso ›</button><button class="btn" id="reset" type="button">Reiniciar</button><div class="stepcap" id="cap" aria-live="polite">Pulsa reproducir para seguir el camino principal paso a paso.</div></div>';}
+function mount(D,path){
+  var svg=app.querySelector('svg.dg'),cap=document.getElementById('cap'),i=-1,running=false,byId={};
+  D.nodes.forEach(function(n){byId[n.id]=n;});
+  function show(k){
+    i=k;svg.classList.add('dim');
+    svg.querySelectorAll('.node.on,.node.seen').forEach(function(n){n.classList.remove('on','seen');});
+    svg.querySelectorAll('.edge.hot').forEach(function(n){n.classList.remove('hot');});
+    for(var j=0;j<=k;j++){var nd=svg.querySelector('.node[data-id="'+path[j]+'"]');if(nd)nd.classList.add(j===k?'on':'seen');
+      if(j>0){var ed=svg.querySelector('.edge[data-f="'+path[j-1]+'"][data-t="'+path[j]+'"]');if(ed)ed.classList.add('hot');}}
+    var n=byId[path[k]];cap.innerHTML='<b>Paso '+(k+1)+' de '+path.length+'</b> · '+esc(LANES[n.lane])+': '+esc(lines(n.lab).join(' '));
+  }
+  function stop(){running=false;clearTimers();document.getElementById('play').textContent='▶ Reproducir recorrido';}
+  function tick(){if(!running)return;if(i+1>=path.length){stop();return;}show(i+1);timers.push(setTimeout(tick,1300));}
+  document.getElementById('play').addEventListener('click',function(){if(running){stop();return;}if(i+1>=path.length)i=-1;running=true;this.textContent='⏸ Pausar';tick();});
+  document.getElementById('step').addEventListener('click',function(){stop();show(Math.min(i+1,path.length-1));});
+  document.getElementById('reset').addEventListener('click',function(){stop();i=-1;svg.classList.remove('dim');svg.querySelectorAll('.on,.hot,.seen').forEach(function(n){n.classList.remove('on','hot','seen');});cap.textContent='Pulsa reproducir para seguir el camino principal paso a paso.';});
+  if(!REDUCED){running=true;document.getElementById('play').textContent='⏸ Pausar';timers.push(setTimeout(tick,700));}
+}
+function viewResumen(){
+  var D=toNodes(OVER);
+  app.innerHTML='<h2>Plan del módulo Inspección de Obra</h2>'+
+  '<p>Un técnico crea la inspección y la evalúa en terreno, ubica los hallazgos en un plano, un firmante externo la libera con un enlace temporal y el sistema sella un PDF verificable y actualiza el avance de la orden de servicio. Todo el recorrido está diseñado sobre la arquitectura actual: Dexie sin conexión, sincronización a Neon y el envío por correo que ya existe.</p>'+
+  '<div class="kpis"><div class="kpi"><b>6</b><span>etapas del flujo</span></div><div class="kpi"><b>4</b><span>fases de construcción</span></div><div class="kpi"><b>8</b><span>reglas de negocio</span></div><div class="kpi"><b>3</b><span>piezas nuevas en la app: portal público, fotos y PDF verificable</span></div></div>'+
+  legend()+'<figure><div class="scroll">'+drawDiagram(D,OVER.edges,{uid:'o'+(++UID),aria:'Flujo completo de una inspección en seis etapas, de la creación a la liberación y el PDF'})+'</div>'+ctl()+
+  '<figcaption>Los cuatro carriles separan quién actúa. El camino con No cumple vuelve a terreno: una inspección con hallazgos abiertos nunca llega a firmarse.</figcaption></figure>'+
+  '<h2>Las seis etapas</h2><div class="grid">'+ST.map(function(x){return '<a class="card" href="#et-'+x.id+'"><div><h4>'+esc(x.e?x.e+' · '+x.n:x.n)+'</h4><div class="route">'+esc(x.route)+'</div></div><span class="st ph">Fase '+x.fase+'</span><p style="margin:0;font-size:13px">'+esc(x.sum)+'</p></a>';}).join('')+'</div>';
+  mount(D,OVER.path);
+}
+function viewEtapa(id){
+  var x=SBY[id];if(!x){location.hash='#resumen';return;}
+  var D=toNodes(x);
+  app.innerHTML='<a class="back" href="#resumen">← Plan general</a><h2 style="margin-top:8px">'+esc(x.e?x.e+' · '+x.n:x.n)+'</h2><div class="route">'+esc(x.route)+' · '+esc(x.roles)+'</div><p style="margin-top:8px"><span class="st ph">Fase '+x.fase+'</span> '+esc(x.sum)+'</p>'+
+  '<div class="two"><div class="panel"><h3>Entra</h3>'+chips(x.ins,'i')+'</div><div class="panel"><h3>Sale</h3>'+chips(x.outs,'o')+'</div><div class="panel"><h3>Interviene la persona</h3>'+chips(x.hum,'h')+'</div></div>'+
+  legend()+'<figure><div class="scroll">'+drawDiagram(D,x.edges,{uid:'e'+(++UID),aria:'Flujo de '+x.n})+'</div>'+ctl()+'<figcaption>Camino principal en '+x.path.length+' pasos.</figcaption></figure>'+
+  '<div class="panel" style="margin-top:14px"><h3>Reglas y decisiones de diseño</h3><ul>'+x.reglas.map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></div>';
+  mount(D,x.path);
+}
+function viewEstados(){
+  app.innerHTML='<h2>Estados</h2><p>La inspección avanza solo hacia adelante, con dos retornos: el enlace vencido y la observación del firmante. Una vez aprobada queda bloqueada.</p>'+legend()+
+  '<figure><div class="scroll">'+stateDiagram()+'</div><figcaption>Estados de una inspección. El rechazo del firmante la deja observada y obliga a re-inspeccionar; si el enlace vence, vuelve a completada para generar otro.</figcaption></figure>'+
+  '<h2>Estados de un ítem</h2><figure><div class="scroll">'+itemDiagram()+'</div><figcaption>Un ítem No cumple conserva su observación aunque se resuelva: el historial no se borra.</figcaption></figure>';
+}
+function viewInt(){
+  app.innerHTML='<h2>Integración con lo existente</h2><p>Los módulos en celeste ya existen; los de borde turquesa son nuevos. El módulo se apoya en equipos, clientes, usuarios, sincronización y envío por correo sin cambiar su comportamiento.</p>'+legend()+
+  '<figure><div class="scroll">'+intDiagram()+'</div><figcaption>El avance hacia órdenes de servicio y mantenimientos es lo único que obliga a modificar módulos existentes.</figcaption></figure>'+
+  '<h2>Dónde se toca el código</h2><div class="panel"><div class="tw"><table><thead><tr><th>Archivo</th><th>Cambio</th></tr></thead><tbody>'+CONTACTO.map(function(r){return '<tr><td><code>'+esc(r[0])+'</code></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+}
+function viewFases(){
+  app.innerHTML='<h2>Fases</h2><p>Cada fase es una rama y un PR independiente, con <code>npm test</code> y <code>npm run build</code> en verde. El tamaño es relativo entre fases; no es una estimación de tiempo.</p>'+
+  '<div class="phases">'+FASES.map(function(f,i){return '<section class="phase" style="--d:'+(i*0.18)+'s"><div class="ph-h"><span class="ph-n">'+f.n+'</span><div><h3 style="margin:0;color:var(--ink)">'+esc(f.t)+'</h3><span class="route">Tamaño relativo: '+f.tam+'</span></div></div><div class="bar"><i></i></div><p>'+esc(f.obj)+'</p><div class="lbl">Entregables</div><ul>'+f.ent.map(function(e){return '<li>'+esc(e)+'</li>';}).join('')+'</ul><div class="lbl">Criterio de aceptación</div><p>'+esc(f.ok)+'</p><div class="lbl">Riesgo</div><p>'+esc(f.riesgo)+'</p><div class="chips">'+f.ar.map(function(a){return '<span class="chip i"><code>'+esc(a)+'</code></span>';}).join('')+'</div></section>';}).join('')+'</div>';
+}
+function viewReglas(){
+  app.innerHTML='<h2>Reglas de negocio</h2><p>Viven en un módulo puro (<code>src/rules/inspectionRules.ts</code>) que usan el cliente y el servidor. El servidor es la autoridad: la interfaz solo anticipa el error.</p>'+
+  '<div class="panel"><div class="tw"><table><thead><tr><th>Regla</th><th>Qué exige</th><th>Etapa</th><th>Dónde se impone</th></tr></thead><tbody>'+REGLAS.map(function(r){return '<tr><td><b>'+r[0]+'</b></td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td><td>'+esc(r[3])+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>Decisiones abiertas</h2><p>Todas siguen abiertas. Esta es la recomendación para cada una.</p><div class="panel gapbox"><div class="tw"><table><thead><tr><th>Decisión</th><th>Recomendación</th></tr></thead><tbody>'+DEC.map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+}
+function route_(){
+  clearTimers();
+  var h=(location.hash||'#resumen').slice(1);
+  var v=h.indexOf('et-')===0?'resumen':h;
+  document.querySelectorAll('#tabs a').forEach(function(a){if(a.getAttribute('data-v')===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  if(h.indexOf('et-')===0)viewEtapa(h.slice(3));
+  else if(h==='estados')viewEstados();
+  else if(h==='integracion')viewInt();
+  else if(h==='fases')viewFases();
+  else if(h==='reglas')viewReglas();
+  else viewResumen();
+  window.scrollTo(0,0);applyPause();
+}
+var paused=REDUCED;
+function applyPause(){
+  document.body.classList.toggle('paused',paused);
+  document.querySelectorAll('svg.dg').forEach(function(s){try{if(paused)s.pauseAnimations();else s.unpauseAnimations();}catch(e){}});
+  var b=document.getElementById('pauseBtn');b.textContent='Animación: '+(paused?'pausada':'activa');b.setAttribute('aria-pressed',String(paused));
+}
+document.getElementById('pauseBtn').addEventListener('click',function(){paused=!paused;applyPause();});
+window.addEventListener('hashchange',route_);
+route_();
+
+})();
+</script>
+</body></html>
