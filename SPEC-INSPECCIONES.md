@@ -1,7 +1,21 @@
 # SPEC — Módulo «Inspección de Obra» (Inspecciones y Protocolos)
 
-Estado: **PLAN (sin código)** · Fecha: 2026-11-16 · Fuente: transcripción del flujo de
+Estado: **PLAN (sin código), decisiones tomadas el 2026-11-16** · Fecha: 2026-11-16 · Fuente: transcripción del flujo de
 controlobrax.cl (video no verificado por el autor del plan) + revisión del repositorio.
+
+## 0. Decisiones tomadas (2026-11-16)
+
+| Tema | Decisión |
+|------|----------|
+| Fotos | Neon con compresión en el celular; migrar a otro almacén si el volumen crece |
+| Planos | Imágenes primero; PDF en una fase posterior |
+| Relación con otros módulos | **Módulo paralelo a Órdenes de Servicio.** Se conecta con Cliente (cliente y sucursal) y con Calendario (fecha programada y estado). **No actualiza avances** de OS ni mantenimientos |
+| Envío al firmante | Correo con Resend (ya existe) y enlace copiable como respaldo |
+| Perfil `cliente` | Ve y firma **dentro de la app** con su sesión; el enlace temporal queda para quien no tiene cuenta |
+
+Supuestos derivados, por confirmar: el Calendario lee las inspecciones programadas desde su tabla sin duplicar eventos; el perfil cliente ve las inspecciones de su empresa enviadas a firma, aprobadas u observadas (no borradores); cada inspección y plano pertenece al cliente activo y a una sucursal.
+
+> Donde el resto de este documento mencione avance de OS o mantenimiento, `onInspectionApproved` o PDF de planos en la Fase 2, **esta sección prevalece**. El diagrama animado en `docs/PLAN_INSPECCION_DE_OBRA.html` ya refleja estas decisiones.
 
 ## 1. Resumen ejecutivo
 
@@ -37,7 +51,7 @@ Tres piezas **no encajan** en lo existente y requieren decisiones:
 | Especialidad | Climatización, Eléctrica, Control, Refrigeración, Seguridad, Obra civil |
 | ITO / Cliente / Auditor | Firmante externo sin cuenta (cliente final, ITO, mandante) |
 | Supervisor responsable | Usuario `supervisor`; ejecuta el `tecnico` |
-| Avance de partida | `avance` (0–100) de la OS/mantenimiento vinculado → evento `onInspectionApproved` |
+| Avance de partida | **Descartado.** El módulo es paralelo; su estado se refleja en el Calendario |
 
 Plantillas semilla HVAC sugeridas: Puesta en marcha de chiller/VRF, Recepción de UMA/fan-coil,
 Estanqueidad y aislación de ductos, Tablero eléctrico de climatización, Sala de máquinas y
@@ -85,7 +99,7 @@ testeable con `node --test` como `orderReportRules`).
 | R2 | `NO_CUMPLE → CUMPLE` en re-inspección: pin pasa a `RESUELTO` conservando historial | reglas puras |
 | R3 | Liberar solo si 0 `NO_CUMPLE` y ≥1 ítem aplicable evaluado en `CUMPLE` (todo-`N/A` bloquea) | servidor al firmar + UI del portal |
 | R4 | `APROBADA` ⇒ inmutable (ítems, fotos, pines); toda escritura posterior rechazada con 409 | validador servidor en `/api/sync` y `/api/v1/...` |
-| R5 | `onInspectionApproved` actualiza avance de la entidad vinculada y deja registro en `audit_logs` | servidor, en la misma transacción lógica |
+| R5 | Módulo paralelo: no modifica OS ni mantenimientos; la aprobación deja registro en `audit_logs` y el Calendario muestra el estado | servidor y Calendario |
 | R6 | Cumplimiento % = `CUMPLE / (CUMPLE + NO_CUMPLE)`; `N/A` excluido | reglas puras |
 | R7 | Token: 256 bits aleatorios, hash en BD, vigencia configurable (default 7 d), un solo uso, `rateLimit` por IP | servidor |
 | R8 | Foto obligatoria en `CUMPLE` según flag de plantilla | cliente + servidor |
@@ -153,7 +167,7 @@ Cada fase = una rama/PR independiente, con `npm test` y `npm run build` en verde
 - PDF con `jspdf`: encabezado, miniatura de plano con pines, tabla de ítems, anexo fotográfico, firmas con timestamp, código `CO-AAAA-XXXXXXXXXXXX`.
 - Hash SHA-256 del contenido canónico fijado en servidor al aprobar (no recalculable por el cliente).
 - Línea de tiempo auditada (creada → asignada → completada → enviada → liberada) desde `historial`.
-- `onInspectionApproved` → actualiza avance de OS/mantenimiento vinculado (R5) + `audit_logs`.
+- Auditoría en `audit_logs` y lectura de inspecciones programadas desde `Planificacion.tsx` (R5), sin duplicar eventos.
 - Página pública `/verificar/:codigo`.
 - Pruebas de seguridad en `tests/security-regression.test.mjs`: token reutilizado, vencido, inmutabilidad, aislamiento entre tenants.
 

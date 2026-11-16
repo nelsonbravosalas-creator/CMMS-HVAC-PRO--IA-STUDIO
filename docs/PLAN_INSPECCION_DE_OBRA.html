@@ -246,12 +246,12 @@ function drawDiagram(D,edges,opts){
 var UID=0;
 
 /* ---------- DATOS: plan del módulo ---------- */
-var LANES=['Técnico o supervisor','Firmante externo','App en el dispositivo','Servidor y servicios'];
-var LANEB=['TÉCNICO O|SUPERVISOR','FIRMANTE|EXTERNO','APP EN EL|DISPOSITIVO','SERVIDOR Y|SERVICIOS'];
+var LANES=['Técnico o supervisor','Cliente o firmante externo','App en el dispositivo','Servidor y servicios'];
+var LANEB=['TÉCNICO O|SUPERVISOR','CLIENTE O|EXTERNO','APP EN EL|DISPOSITIVO','SERVIDOR Y|SERVICIOS'];
 // nodo: [id, carril, columna, tipo, texto]
 var OVER={
- nodes:[['v0',0,0,'h','E1 · Crea la inspección|plantilla, plano, equipo'],['v1',2,1,'s','Genera INS-NNN|y checklist local'],['v2',0,2,'h','E2 · Evalúa en terreno|Cumple, No cumple, N/A'],['v3',2,3,'d','¿Completa y con|evidencia?'],['v4',0,4,'h','E3 · Ubica hallazgos|en el plano'],['v5',3,5,'x','E4 · Crea el enlace|token de un solo uso'],['v6',1,6,'h','Firmante revisa|y firma sin cuenta'],['v7',3,7,'d','¿0 No cumple?'],['v8',3,8,'x','E5 · Aprueba, hash|y bloquea edición'],['v9',2,9,'o','E6 · PDF verificable|y avance al día']],
- edges:[['v0','v1'],['v1','v2'],['v2','v3'],['v3','v2','No: falta algo','back'],['v3','v4','Sí'],['v4','v5','envía a firma'],['v5','v6','correo o enlace'],['v6','v7','pulsa firmar'],['v7','v8','Sí'],['v7','v2','No: se bloquea','back'],['v8','v9']],
+ nodes:[['v0',0,0,'h','E1 · Crea la inspección|plantilla, plano, equipo'],['v1',2,1,'s','Genera INS-NNN|y checklist local'],['v2',0,2,'h','E2 · Evalúa en terreno|Cumple, No cumple, N/A'],['v3',2,3,'d','¿Completa y con|evidencia?'],['v4',0,4,'h','E3 · Ubica hallazgos|en el plano'],['v5',3,5,'x','E4 · Envía a firma|aviso y token'],['v6',1,6,'h','Cliente o externo|revisa y firma'],['v7',3,7,'d','¿0 No cumple?'],['v8',3,8,'x','E5 · Aprueba, hash|y bloquea edición'],['v9',2,9,'o','E6 · PDF verificable|y agenda al día']],
+ edges:[['v0','v1'],['v1','v2'],['v2','v3'],['v3','v2','No: falta algo','back'],['v3','v4','Sí'],['v4','v5','envía a firma'],['v5','v6','app o enlace'],['v6','v7','pulsa firmar'],['v7','v8','Sí'],['v7','v2','No: se bloquea','back'],['v8','v9']],
  path:['v0','v1','v2','v3','v4','v5','v6','v7','v8','v9']
 };
 var ST=[
@@ -263,40 +263,40 @@ var ST=[
  reglas:['Sin llamadas al servidor: todo sale de Dexie, como el Dashboard.','Estados filtrables: todas, en progreso, por firmar, aprobadas, con observaciones.']},
 {id:'e1',e:'Etapa 1',n:'Creación y plantillas',route:'/inspecciones/nueva',roles:'Crear: técnico, supervisor, contratista, administrador · Plantillas: supervisor, administrador',fase:1,
  sum:'Se elige una plantilla, se completa la ficha y el sistema copia los ítems a una inspección nueva.',
- ins:['Plantilla','Plano o diagrama','Zona y equipo','Técnico y supervisor','Fecha'],outs:['Inspección en borrador','Código INS-NNN'],hum:['Elige plantilla','Completa la ficha','Agrega ítems manuales'],
- nodes:[['b0',0,0,'h','Pulsa Nueva|inspección'],['b1',0,1,'h','Elige plantilla|o crea una propia'],['b2',0,2,'h','Ficha: plano, zona,|equipo, técnico, fecha'],['b3',2,3,'s','Copia los ítems|(foto fija de la plantilla)'],['b4',2,4,'s','Guarda en Dexie|pending_insert'],['b5',3,5,'x','Sincroniza y asigna|correlativo INS-NNN'],['b6',2,6,'o','Inspección en|estado borrador']],
+ ins:['Plantilla','Cliente y sucursal','Plano (imagen)','Zona y equipo','Técnico y supervisor','Fecha programada'],outs:['Inspección en borrador','Código INS-NNN'],hum:['Elige plantilla','Completa la ficha','Agrega ítems manuales'],
+ nodes:[['b0',0,0,'h','Pulsa Nueva|inspección'],['b1',0,1,'h','Elige plantilla|o crea una propia'],['b2',0,2,'h','Ficha: cliente, sucursal,|plano, zona, fecha'],['b3',2,3,'s','Copia los ítems|(foto fija de la plantilla)'],['b4',2,4,'s','Guarda en Dexie|pending_insert'],['b5',3,5,'x','Sincroniza y asigna|correlativo INS-NNN'],['b6',2,6,'o','Inspección en|estado borrador']],
  edges:[['b0','b1'],['b1','b2'],['b2','b3'],['b3','b4'],['b4','b5'],['b5','b6']],path:['b0','b1','b2','b3','b4','b5','b6'],
- reglas:['La inspección guarda una copia de los ítems: editar la plantilla después no cambia inspecciones ya creadas.','Sin red, el código es provisional (PEND-…), igual que el resto de los registros; el servidor asigna el correlativo por cliente.','Plantillas semilla HVAC: puesta en marcha, recepción de UMA o fan-coil, ductos, tablero, sala de máquinas, entrega final.']},
+ reglas:['La inspección guarda una copia de los ítems: editar la plantilla después no cambia inspecciones ya creadas.','La inspección pertenece al cliente activo y a una sucursal; la fecha programada la muestra el Calendario sin crear un evento aparte.','Sin red, el código es provisional (PEND-…), igual que el resto de los registros; el servidor asigna el correlativo por cliente.','Plantillas semilla HVAC: puesta en marcha, recepción de UMA o fan-coil, ductos, tablero, sala de máquinas, entrega final.']},
 {id:'e2',e:'Etapa 2',n:'Ejecución en terreno',route:'/inspecciones/:id',roles:'Técnico asignado, supervisor',fase:1,
  sum:'El técnico evalúa cada ítem desde el celular, incluso sin conexión. El sistema no lo deja cerrar si falta evidencia.',
  ins:['Checklist','Cámara','Observaciones'],outs:['Ítems evaluados','Fotos','Estado completada'],hum:['Marca Cumple, No cumple o N/A','Fotografía y describe el hallazgo'],
  nodes:[['c0',0,0,'h','Abre la inspección|en el celular'],['c1',0,1,'h','Marca el ítem:|Cumple, No cumple, N/A'],['c2',2,2,'d','¿Qué marcó?'],['c3',0,3,'h','No cumple: observación,|acción correctiva y foto'],['c4',2,3,'s','Comprime la foto y|la guarda en Dexie'],['c5',2,4,'s','Actualiza avance %|y hallazgos abiertos'],['c6',2,5,'d','¿Todo evaluado|y con evidencia?'],['c7',2,6,'o','Estado completada|lista para firma']],
  edges:[['c0','c1'],['c1','c2'],['c2','c3','No cumple'],['c2','c4','Cumple o N/A'],['c3','c4'],['c4','c5'],['c5','c6'],['c6','c1','No: faltan','back'],['c6','c7','Sí']],path:['c0','c1','c2','c3','c4','c5','c6','c7'],
- reglas:['R1: no se completa con ítems sin evaluar, ni con No cumple sin observación, acción correctiva y foto.','R8: la foto en Cumple es obligatoria solo si la plantilla lo exige.','Todo se guarda en el dispositivo; la sincronización ocurre al volver la red.']},
+ reglas:['R1: no se completa con ítems sin evaluar, ni con No cumple sin observación, acción correctiva y foto.','R8: la foto en Cumple es obligatoria solo si la plantilla lo exige.','Las fotos se comprimen en el celular (aprox. 1280 px) y se guardan en una tabla aparte de Neon.','Todo se guarda en el dispositivo; la sincronización ocurre al volver la red.']},
 {id:'e3',e:'Etapa 3',n:'Planos y pines',route:'/inspecciones/:id/plano',roles:'Supervisor, técnico',fase:2,
  sum:'Cada hallazgo se ubica en el plano con un pin rojo. Al re-inspeccionar y pasar a Cumple, el pin se vuelve verde.',
- ins:['Plano (imagen o PDF)','Ítems No cumple'],outs:['Pines con coordenadas 0 a 1','Responsable y fecha límite'],hum:['Toca el plano','Asigna responsable','Re-inspecciona'],
+ ins:['Plano (imagen)','Ítems No cumple'],outs:['Pines con coordenadas 0 a 1','Responsable y fecha límite'],hum:['Toca el plano','Asigna responsable','Re-inspecciona'],
  nodes:[['d0',0,0,'h','Abre el plano|de la inspección'],['d1',2,1,'s','Dibuja el plano|con zoom y paneo'],['d2',0,2,'h','Toca el plano|en el punto del hallazgo'],['d3',2,3,'d','¿Es un ítem|No cumple existente?'],['d4',2,4,'s','Vincula el pin al ítem|coordenadas x, y de 0 a 1'],['d5',0,4,'h','Crea pin libre:|incidencia, RFI o nota'],['d6',0,5,'h','Asigna responsable|y fecha límite'],['d7',0,6,'h','Re-inspecciona|y marca Cumple'],['d8',2,7,'o','Pin pasa a verde|el historial se conserva']],
  edges:[['d0','d1'],['d1','d2'],['d2','d3'],['d3','d4','Sí'],['d3','d5','No'],['d4','d6'],['d5','d6'],['d6','d7'],['d7','d8']],path:['d0','d1','d2','d3','d4','d6','d7','d8'],
- reglas:['Las coordenadas van normalizadas (0 a 1) para que el pin quede igual con cualquier zoom o tamaño de pantalla.','R2: pasar de No cumple a Cumple cambia el pin de abierto a resuelto sin borrar la observación anterior.','Los planos en PDF requieren una librería nueva (pdfjs-dist); en la Fase 2 puede empezar solo con imágenes.']},
-{id:'e4',e:'Etapa 4',n:'Liberación externa',route:'/liberar/:token',roles:'Envía: supervisor, administrador · Firma: persona externa sin cuenta',fase:3,
- sum:'El firmante abre un enlace temporal, revisa el resultado y firma sin crear cuenta. El enlace sirve una sola vez.',
- ins:['Inspección completada','Correo o enlace','Nombre, RUT, cargo','Firma manuscrita'],outs:['Firma registrada','Estado aprobada u observada'],hum:['Supervisor envía a firma','Firmante revisa y firma o rechaza'],
- nodes:[['f0',0,0,'h','Pulsa Enviar|a firma'],['f1',3,1,'x','Crea token de 256 bits|guarda solo el hash'],['f2',3,2,'x','Correo con Resend|o enlace para copiar'],['f3',1,3,'h','Abre /liberar/token|sin iniciar sesión'],['f4',3,4,'d','¿Token vigente|y sin usar?'],['f5',1,5,'h','Revisa resumen,|plano y fotos'],['f6',3,6,'d','¿0 No cumple?'],['f7',1,7,'h','Nombre, RUT, cargo|y firma en canvas'],['f8',3,8,'x','Registra la firma|e invalida el token'],['f9',3,7,'x','Estado observada|vuelve a terreno']],
+ reglas:['Las coordenadas van normalizadas (0 a 1) para que el pin quede igual con cualquier zoom o tamaño de pantalla.','R2: pasar de No cumple a Cumple cambia el pin de abierto a resuelto sin borrar la observación anterior.','Los planos son imágenes (PNG o JPG). El soporte de PDF queda para una fase posterior y requeriría pdfjs-dist.']},
+{id:'e4',e:'Etapa 4',n:'Liberación externa',route:'/liberar/:token',roles:'Envía: supervisor, administrador · Firma: perfil cliente dentro de la app, o persona externa con enlace',fase:3,
+ sum:'El cliente firma dentro de la app con su sesión. Quien no tiene cuenta firma con un enlace temporal que sirve una sola vez.',
+ ins:['Inspección completada','Sesión del cliente o enlace','Nombre, RUT, cargo','Firma manuscrita'],outs:['Firma registrada','Estado aprobada u observada'],hum:['Supervisor envía a firma','Cliente o externo revisa y firma o rechaza'],
+ nodes:[['f0',0,0,'h','Pulsa Enviar|a firma'],['f1',3,1,'x','Marca enviada a firma|y crea token de 256 bits'],['f2',3,2,'x','Aviso por correo (Resend)|o enlace para copiar'],['f3',1,3,'h','Abre la inspección|en la app o por enlace'],['f4',3,4,'d','¿Sesión de cliente|o token vigente?'],['f5',1,5,'h','Revisa resumen,|plano y fotos'],['f6',3,6,'d','¿0 No cumple?'],['f7',1,7,'h','Nombre, RUT, cargo|y firma en canvas'],['f8',3,8,'x','Registra la firma|e invalida el token'],['f9',3,7,'x','Estado observada|vuelve a terreno']],
  edges:[['f0','f1'],['f1','f2'],['f2','f3'],['f3','f4'],['f4','f0','No: pide otro','back'],['f4','f5','Sí'],['f5','f6'],['f6','f7','Sí'],['f6','f9','No'],['f7','f8']],path:['f0','f1','f2','f3','f4','f5','f6','f7','f8'],
- reglas:['R3: la firma solo se habilita con 0 No cumple y al menos un ítem aplicable en Cumple; el servidor lo vuelve a validar.','R7: token aleatorio de 256 bits, se guarda solo su hash, vence en 7 días (configurable), un solo uso y con límite de intentos por IP.','El portal es una ruta pública: debe atenderse antes del control de sesión de App.tsx y devolver solo datos mínimos, sin identificadores internos.','El correo reutiliza /api/export (Resend); si no está configurado, queda el enlace para copiar.']},
+ reglas:['R3 (app y enlace): la firma solo se habilita con 0 No cumple y al menos un ítem aplicable en Cumple; el servidor lo vuelve a validar.','R7: token aleatorio de 256 bits, se guarda solo su hash, vence en 7 días (configurable), un solo uso y con límite de intentos por IP.','El perfil cliente firma dentro de la app; el token y el enlace público existen solo para quien no tiene cuenta. Las reglas son las mismas.','El portal por enlace es una ruta pública: debe atenderse antes del control de sesión de App.tsx y devolver solo datos mínimos, sin identificadores internos.','El correo reutiliza /api/export (Resend); si no está configurado, queda el enlace para copiar.']},
 {id:'e5',e:'Etapa 5',n:'PDF y verificación',route:'/verificar/:código',roles:'Descarga: todos con acceso · Verifica: cualquiera con el código',fase:4,
  sum:'Al aprobarse, la inspección queda sellada con un hash y un código. El PDF reúne ítems, plano con pines, fotos y firmas.',
  ins:['Inspección aprobada','Firmas','Fotos y plano'],outs:['PDF final','Código CO-AAAA-XXXXXXXXXXXX','Hash SHA-256'],hum:['Descarga o envía el informe','Verifica un PDF recibido'],
  nodes:[['g0',3,0,'x','Calcula hash SHA-256|del contenido final'],['g1',3,1,'x','Asigna el código|CO-AAAA-XXXXXXXXXXXX'],['g2',2,2,'s','Arma el PDF (jsPDF)|ítems, plano con pines, fotos'],['g3',2,3,'s','Agrega firmas con|fecha, hora y método'],['g4',3,4,'x','Guarda el PDF y|bloquea la edición'],['g5',0,5,'h','Descarga o envía|el informe'],['g6',1,6,'h','Verifica el código|en /verificar'],['g7',3,7,'o','Autenticidad|confirmada']],
  edges:[['g0','g1'],['g1','g2'],['g2','g3'],['g3','g4'],['g4','g5'],['g5','g6','entrega al cliente'],['g6','g7']],path:['g0','g1','g2','g3','g4','g5','g6','g7'],
  reglas:['R4: desde aprobada, ítems, fotos y pines quedan bloqueados; el servidor rechaza cualquier escritura con 409, también la que llegue por /api/sync.','El hash lo fija el servidor, así el cliente no puede recalcularlo ni alterarlo.','El PDF se arma en el navegador con jsPDF (ya incluido en el proyecto); Puppeteer no funciona en las funciones de Vercel.']},
-{id:'e6',e:'Etapa 6',n:'Trazabilidad y avance',route:'panel lateral de la inspección',roles:'Automático · Lectura: todos con acceso',fase:4,
- sum:'La aprobación dispara un evento que actualiza el avance de la orden de servicio o mantenimiento vinculado y deja registro.',
- ins:['Evento onInspectionApproved','Vínculo a OS, mantenimiento o equipo'],outs:['Avance actualizado','Línea de tiempo','Registro de auditoría'],hum:['Consulta la línea de tiempo'],
- nodes:[['h0',3,0,'x','Evento|onInspectionApproved'],['h1',3,1,'d','¿Tiene OS o|mantenimiento vinculado?'],['h2',3,2,'x','Actualiza el avance|de la entidad vinculada'],['h3',3,3,'x','Registra en audit_logs|quién y cuándo'],['h4',2,4,'s','La sincronización lleva|el cambio a los equipos'],['h5',0,5,'h','Consulta línea de tiempo|y avance 63% → 100%']],
+{id:'e6',e:'Etapa 6',n:'Trazabilidad y agenda',route:'panel lateral y Calendario',roles:'Automático · Lectura: todos con acceso',fase:4,
+ sum:'La inspección es un módulo paralelo: no modifica órdenes de servicio. Su historial queda auditado y el Calendario muestra su estado.',
+ ins:['Inspección aprobada','Fecha programada'],outs:['Línea de tiempo','Registro de auditoría','Estado en el Calendario'],hum:['Consulta la línea de tiempo','Revisa la agenda'],
+ nodes:[['h0',3,0,'x','Inspección|aprobada'],['h1',3,1,'d','¿Estaba programada|en el Calendario?'],['h2',2,2,'s','El Calendario lee el estado|y la muestra realizada'],['h3',3,3,'x','Registra en audit_logs|quién y cuándo'],['h4',2,4,'s','La sincronización lleva|el cambio a los equipos'],['h5',0,5,'h','Consulta línea de tiempo|y agenda']],
  edges:[['h0','h1'],['h1','h2','Sí'],['h1','h3','No'],['h2','h3'],['h3','h4'],['h4','h5']],path:['h0','h1','h2','h3','h4','h5'],
- reglas:['R5: el avance se actualiza en la misma operación que aprueba la inspección.','Línea de tiempo: creada, asignada, completada, enviada a firma, liberada.','Hoy ningún módulo del CMMS recibe avance de otro; la OS necesita un campo nuevo para guardarlo.']}
+ reglas:['R5: la inspección es independiente de órdenes de servicio y mantenimientos; no cambia su avance ni su estado.','El Calendario lee las inspecciones programadas como una fuente más, igual que hoy lee los eventos de Google; no se copian a la tabla de eventos.','Línea de tiempo: creada, asignada, completada, enviada a firma, liberada.','Cambio en Planificacion.tsx: agregar la nueva fuente sin duplicar eventos.']}
 ];
 var SBY={};ST.forEach(function(x){SBY[x.id]=x;});
 
@@ -321,47 +321,52 @@ function intDiagram(){
   var CX=[90,250,410,570,730,890,1050],RY=[48,152,256,360,464];
   function N(id,t,col,row,lab,w){return {id:id,t:t,lab:lab,cx:CX[col],cy:RY[row],w:w||138,h:46};}
   var nodes=[N('cli','s',0,0,'Clientes y|sucursales'),N('seg','s',6,0,'Seguridad|y tenant'),
-    N('eq','s',1,1,'Equipos'),N('usr','s',2,1,'Usuarios|y perfiles'),N('qr','s',3,1,'Escáner QR'),N('tpl','n',4,1,'Plantillas'),N('pub','n',6,1,'Portal público|/liberar/token'),
-    N('ins','n',3,2,'Inspecciones|(módulo nuevo)'),
-    N('os','s',0,3,'Órdenes de|servicio'),N('man','s',1,3,'Mantenimientos'),N('exp','s',3,3,'Envío por correo|(Resend)'),N('pdf','n',4,3,'PDF + código|de verificación'),N('bp','n',5,3,'Planos y pines'),
+    N('eq','s',1,1,'Equipos'),N('usr','s',2,1,'Usuarios y perfiles|(incluye cliente)'),N('qr','s',3,1,'Escáner QR'),N('tpl','n',4,1,'Plantillas'),N('pub','n',6,1,'Enlace de firma|/liberar/token'),
+    N('ins','n',3,2,'Inspecciones|(módulo paralelo)'),
+    N('cal','s',1,3,'Calendario'),N('exp','s',3,3,'Envío por correo|(Resend)'),N('pdf','n',4,3,'PDF + código|de verificación'),N('bp','n',5,3,'Planos y pines'),
     N('syn','s',3,4,'Sincronización')];
-  var edges=[['cli','eq','sucursal'],['eq','ins','TAG y zona'],['qr','ins','inicia con QR'],['usr','ins','técnico y supervisor'],['tpl','ins','ítems'],['ins','bp','pines'],['seg','pub','valida token'],['pub','ins','firma o rechazo'],
-    ['ins','os','avance al aprobar'],['ins','man'],['ins','exp','enlace de firma'],['ins','pdf','aprobada'],['pdf','exp','adjunto'],['ins','syn','cola de sync']];
+  var edges=[['cli','ins','cliente y sucursal'],['cli','eq','sucursal'],['eq','ins','TAG y zona'],['qr','ins','inicia con QR'],['usr','ins','técnico, supervisor y cliente'],['tpl','ins','ítems'],['ins','bp','pines'],['seg','pub','valida token'],['pub','ins','firma o rechazo'],
+    ['ins','cal','programada y estado'],['ins','exp','aviso de firma'],['ins','pdf','aprobada'],['pdf','exp','adjunto'],['ins','syn','cola de sync']];
   return drawDiagram({nodes:nodes,W:1140,H:RY[4]+46,bands:null},edges,{uid:'n'+(++UID),aria:'Cómo se conecta el módulo de Inspecciones con los módulos existentes'});
 }
 
 /* ---------- Fases ---------- */
 var FASES=[
 {n:1,t:'Núcleo y checklist',tam:'Grande',obj:'Crear, ejecutar y completar inspecciones sin conexión.',ent:['inspectionRules.ts con tests (R1, R3, R6, estados)','Dexie v17: inspections, plantillas, planos','Tablas Neon y alta en las listas de sincronización','Panel, wizard, gestor de plantillas con 6 semillas','Ejecución móvil con fotos comprimidas','Menú y permisos nuevos'],ok:'Un técnico completa una inspección sin red y se sincroniza al volver la conexión.',riesgo:'La migración Dexie no debe vaciar tablas (las v14 y v16 lo hicieron).',ar:['src/rules/inspectionRules.ts','src/db/database.ts','scripts/db/bootstrap.ts','server.ts','src/App.tsx','src/components/Layout.tsx','src/types.ts']},
-{n:2,t:'Planos y pines',tam:'Mediano',obj:'Ubicar hallazgos en el plano y sincronizarlos con el checklist.',ent:['Visor con zoom y paneo','Pines libres y vinculados (coordenadas 0 a 1)','Rojo y verde automáticos (R2)','Planos en imagen; PDF con pdfjs-dist','Iniciar inspección escaneando el QR del equipo'],ok:'Un hallazgo se ve en el plano y pasa a verde al re-inspeccionar.',riesgo:'El visor de PDF suma una dependencia y requiere revisar la CSP.',ar:['src/pages (visor nuevo)','src/pages/ScannerQR.tsx','vercel.json (CSP)']},
-{n:3,t:'Firma externa',tam:'Mediano',obj:'Liberar con un enlace temporal, sin cuenta.',ent:['Tabla de tokens solo en servidor','Endpoints públicos con límite de intentos','Ruta /liberar antes del control de sesión','Firma en canvas con RUT, nombre y cargo','Rechazo con observación','Envío del enlace por Resend'],ok:'El firmante aprueba una inspección sin cuenta y el enlace deja de funcionar.',riesgo:'Es la primera ruta pública de la app: exige pruebas de seguridad antes de publicar.',ar:['src/App.tsx','api/operations.ts','vercel.json','api/communications.ts']},
-{n:4,t:'PDF, trazabilidad y avance',tam:'Mediano',obj:'Sellar la inspección y actualizar la entidad vinculada.',ent:['PDF con jsPDF y código CO-AAAA-XXXXXXXXXXXX','Hash SHA-256 fijado por el servidor','Inmutabilidad con 409 (R4)','onInspectionApproved y auditoría (R5)','Página pública /verificar','Pruebas de seguridad de regresión'],ok:'Un PDF aprobado se verifica por código y la OS vinculada sube su avance.',riesgo:'La OS no tiene campo de avance hoy: hay que agregarlo sin romper la sincronización.',ar:['src/lib/DocumentExportService.ts','tests/security-regression.test.mjs','server.ts']}
+{n:2,t:'Planos y pines',tam:'Mediano',obj:'Ubicar hallazgos en el plano y sincronizarlos con el checklist.',ent:['Visor con zoom y paneo','Pines libres y vinculados (coordenadas 0 a 1)','Rojo y verde automáticos (R2)','Planos en imagen (el PDF queda para después)','Iniciar inspección escaneando el QR del equipo'],ok:'Un hallazgo se ve en el plano y pasa a verde al re-inspeccionar.',riesgo:'Un plano grande en el celular puede ir lento: hay que limitar el tamaño al subirlo.',ar:['src/pages (visor nuevo)','src/pages/ScannerQR.tsx']},
+{n:3,t:'Firma externa',tam:'Mediano',obj:'Liberar con un enlace temporal, sin cuenta.',ent:['Tabla de tokens solo en servidor','Endpoints públicos con límite de intentos','Ruta /liberar antes del control de sesión','Firma en canvas con RUT, nombre y cargo','Firma dentro de la app para el perfil cliente','Rechazo con observación','Aviso y enlace por Resend'],ok:'El firmante aprueba una inspección sin cuenta y el enlace deja de funcionar.',riesgo:'Es la primera ruta pública de la app: exige pruebas de seguridad antes de publicar.',ar:['src/App.tsx','api/operations.ts','vercel.json','api/communications.ts']},
+{n:4,t:'PDF, trazabilidad y agenda',tam:'Mediano',obj:'Sellar la inspección y mostrarla en el Calendario.',ent:['PDF con jsPDF y código CO-AAAA-XXXXXXXXXXXX','Hash SHA-256 fijado por el servidor','Inmutabilidad con 409 (R4)','Auditoría y estado reflejado en el Calendario (R5)','Página pública /verificar','Pruebas de seguridad de regresión'],ok:'Un PDF aprobado se verifica por código y el Calendario muestra la inspección como realizada.',riesgo:'El Calendario ya mezcla eventos propios y de Google: la tercera fuente no debe duplicar eventos.',ar:['src/pages/Planificacion.tsx','src/lib/DocumentExportService.ts','tests/security-regression.test.mjs','server.ts']}
 ];
 var REGLAS=[
 ['R1','No completar con ítems sin evaluar, ni No cumple sin observación, acción correctiva y foto','E2','Cliente y servidor'],
 ['R2','No cumple → Cumple pasa el pin a resuelto sin perder el historial','E3','Reglas puras'],
-['R3','Firmar solo con 0 No cumple y al menos un ítem aplicable en Cumple','E4','Servidor al firmar y portal'],
+['R3','Firmar solo con 0 No cumple y al menos un ítem aplicable en Cumple (en la app o por enlace)','E4','Servidor al firmar y portal'],
 ['R4','Aprobada es inmutable: ítems, fotos y pines bloqueados, escritura rechazada con 409','E5','Servidor (sync y API)'],
-['R5','Aprobar dispara onInspectionApproved y actualiza el avance vinculado','E6','Servidor'],
+['R5','Módulo paralelo: no modifica órdenes de servicio ni mantenimientos; se refleja en el Calendario','E6','Servidor y Calendario'],
 ['R6','Cumplimiento % = Cumple ÷ (Cumple + No cumple); N/A no cuenta','Panel y E2','Reglas puras'],
 ['R7','Token de 256 bits, solo su hash en la base, vence en 7 días, un uso, límite por IP','E4','Servidor'],
 ['R8','Foto obligatoria en Cumple si la plantilla lo exige','E2','Cliente y servidor']];
 var DEC=[
-['Almacenamiento de fotos','Neon con compresión en el MVP; pasar a Vercel Blob si el volumen crece.'],
-['Formato de planos','Imágenes en la Fase 1 y 2; PDF con pdfjs-dist cuando se necesite.'],
-['Entidad que recibe el avance','Orden de servicio primero, porque los informes ya cuelgan de ella; mantenimientos después.'],
-['Envío al firmante','Reutilizar Resend (ya existe) y dejar el enlace copiable como respaldo.'],
-['Alcance del perfil cliente','Solo lectura de inspecciones aprobadas.']];
+['Almacenamiento de fotos','Neon con compresión en el celular. Se puede migrar a otro almacén si el volumen crece.'],
+['Formato de planos','Imágenes primero; el PDF queda para una fase posterior.'],
+['Relación con otros módulos','Módulo paralelo a Órdenes de servicio. Se conecta con Cliente (cliente y sucursal) y con Calendario (fecha programada y estado). No actualiza avances.'],
+['Envío al firmante','Correo con Resend (ya existe) y enlace copiable como respaldo.'],
+['Perfil cliente','Ve y firma dentro de la app con su sesión. El enlace temporal queda para quien no tiene cuenta.']];
+var SUPUESTOS=[
+['Calendario','Muestra las inspecciones programadas leyéndolas de su tabla, sin crear eventos duplicados.'],
+['Perfil cliente','Ve las inspecciones de su empresa enviadas a firma, aprobadas u observadas; no ve borradores ni inspecciones en curso.'],
+['Cliente y sucursal','Cada inspección y cada plano pertenecen al cliente activo y a una de sus sucursales.']];
 var CONTACTO=[
 ['src/components/Layout.tsx','Entrada "Inspecciones" en el menú de escritorio y en el drawer móvil'],
 ['src/App.tsx','Rutas lazy de /inspecciones; rutas públicas /liberar y /verificar atendidas antes del control de sesión'],
 ['src/db/database.ts','Dexie v17: solo agrega tablas, sin clear()'],
-['src/types.ts','Permisos ver_inspecciones, crear_inspeccion, gestionar_plantillas, enviar_a_firma'],
+['src/types.ts','Permisos ver_inspecciones, crear_inspeccion, gestionar_plantillas, enviar_a_firma y firmar_inspeccion (perfil cliente)'],
 ['scripts/db/bootstrap.ts','Tablas inspections, plantillas, planos, media y tokens (esta última solo servidor)'],
 ['server.ts','SYNC_WRITABLE_TABLES, ALLOWED_TABLES, V1_WRITABLE_RESOURCES y un validador por tabla (R4)'],
 ['api/operations.ts + vercel.json','Nuevos handler= y rewrites para producción en Vercel (se mantiene duplicado con server.ts)'],
 ['src/rules/inspectionRules.ts','Reglas puras compartidas entre cliente y servidor, con tests en tests/'],
-['src/pages/ScannerQR.tsx','Iniciar una inspección desde el QR del equipo (Fase 2)']];
+['src/pages/ScannerQR.tsx','Iniciar una inspección desde el QR del equipo (Fase 2)'],
+['src/pages/Planificacion.tsx','Mostrar las inspecciones programadas como una fuente más de lectura, junto a los eventos propios y los de Google (Fase 4)']];
 
 /* ---------- Vistas ---------- */
 var app=document.getElementById('app'),timers=[];
@@ -390,7 +395,7 @@ function mount(D,path){
 function viewResumen(){
   var D=toNodes(OVER);
   app.innerHTML='<h2>Plan del módulo Inspección de Obra</h2>'+
-  '<p>Un técnico crea la inspección y la evalúa en terreno, ubica los hallazgos en un plano, un firmante externo la libera con un enlace temporal y el sistema sella un PDF verificable y actualiza el avance de la orden de servicio. Todo el recorrido está diseñado sobre la arquitectura actual: Dexie sin conexión, sincronización a Neon y el envío por correo que ya existe.</p>'+
+  '<p>Un técnico crea la inspección y la evalúa en terreno, ubica los hallazgos en un plano, el cliente la firma en la app (o un firmante externo con un enlace temporal) y el sistema sella un PDF verificable que el Calendario refleja. Es un módulo paralelo a las órdenes de servicio, conectado con Cliente y Calendario, y diseñado sobre la arquitectura actual: Dexie sin conexión, sincronización a Neon y el envío por correo que ya existe.</p>'+
   '<div class="kpis"><div class="kpi"><b>6</b><span>etapas del flujo</span></div><div class="kpi"><b>4</b><span>fases de construcción</span></div><div class="kpi"><b>8</b><span>reglas de negocio</span></div><div class="kpi"><b>3</b><span>piezas nuevas en la app: portal público, fotos y PDF verificable</span></div></div>'+
   legend()+'<figure><div class="scroll">'+drawDiagram(D,OVER.edges,{uid:'o'+(++UID),aria:'Flujo completo de una inspección en seis etapas, de la creación a la liberación y el PDF'})+'</div>'+ctl()+
   '<figcaption>Los cuatro carriles separan quién actúa. El camino con No cumple vuelve a terreno: una inspección con hallazgos abiertos nunca llega a firmarse.</figcaption></figure>'+
@@ -412,8 +417,8 @@ function viewEstados(){
   '<h2>Estados de un ítem</h2><figure><div class="scroll">'+itemDiagram()+'</div><figcaption>Un ítem No cumple conserva su observación aunque se resuelva: el historial no se borra.</figcaption></figure>';
 }
 function viewInt(){
-  app.innerHTML='<h2>Integración con lo existente</h2><p>Los módulos en celeste ya existen; los de borde turquesa son nuevos. El módulo se apoya en equipos, clientes, usuarios, sincronización y envío por correo sin cambiar su comportamiento.</p>'+legend()+
-  '<figure><div class="scroll">'+intDiagram()+'</div><figcaption>El avance hacia órdenes de servicio y mantenimientos es lo único que obliga a modificar módulos existentes.</figcaption></figure>'+
+  app.innerHTML='<h2>Integración con lo existente</h2><p>Los módulos en celeste ya existen; los de borde turquesa son nuevos. El módulo es paralelo a Órdenes de servicio y Mantenimientos, que no se tocan. Se conecta con Clientes y sucursales, con el Calendario y con lo ya existente: equipos, usuarios, sincronización y correo.</p>'+legend()+
+  '<figure><div class="scroll">'+intDiagram()+'</div><figcaption>El único módulo existente que cambia es el Calendario, y solo para leer las inspecciones programadas.</figcaption></figure>'+
   '<h2>Dónde se toca el código</h2><div class="panel"><div class="tw"><table><thead><tr><th>Archivo</th><th>Cambio</th></tr></thead><tbody>'+CONTACTO.map(function(r){return '<tr><td><code>'+esc(r[0])+'</code></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>';
 }
 function viewFases(){
@@ -423,7 +428,7 @@ function viewFases(){
 function viewReglas(){
   app.innerHTML='<h2>Reglas de negocio</h2><p>Viven en un módulo puro (<code>src/rules/inspectionRules.ts</code>) que usan el cliente y el servidor. El servidor es la autoridad: la interfaz solo anticipa el error.</p>'+
   '<div class="panel"><div class="tw"><table><thead><tr><th>Regla</th><th>Qué exige</th><th>Etapa</th><th>Dónde se impone</th></tr></thead><tbody>'+REGLAS.map(function(r){return '<tr><td><b>'+r[0]+'</b></td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td><td>'+esc(r[3])+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
-  '<h2>Decisiones abiertas</h2><p>Todas siguen abiertas. Esta es la recomendación para cada una.</p><div class="panel gapbox"><div class="tw"><table><thead><tr><th>Decisión</th><th>Recomendación</th></tr></thead><tbody>'+DEC.map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+  '<h2>Decisiones tomadas</h2><div class="panel"><div class="tw"><table><thead><tr><th>Tema</th><th>Decisión</th></tr></thead><tbody>'+DEC.map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div><h2>Supuestos por confirmar</h2><p>Los derivé de tus respuestas; confírmalos o corrígelos.</p><div class="panel gapbox"><div class="tw"><table><thead><tr><th>Tema</th><th>Supuesto</th></tr></thead><tbody>'+SUPUESTOS.map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>';
 }
 function route_(){
   clearTimers();
