@@ -1,6 +1,6 @@
 # Plan Maestro — Módulo ITO (Inspección Técnica de Obra)
 
-Estado: **plan consolidado, sin código, pendiente de revisión externa antes de lanzar** · 2026-11-16
+Estado: **plan consolidado, sin código, revisado por Gemini (veredicto: listo con condiciones), sin lanzar** · 2026-11-16
 
 Este documento compila y reemplaza a `SPEC-INSPECCIONES.md`. Donde ambos difieran, vale este.
 Fuentes: transcripción del flujo de controlobrax.cl (el video no fue visto por quien redactó),
@@ -61,6 +61,9 @@ solicitada ──(supervisor acepta y asigna)──► programada ──(primer 
 - **por_firmar**: el inspector firmó (R1 cumplida). Esperan contratista y cliente.
 - **observada**: el contratista acusó recibo y quedan bloqueantes abiertos (No cumple u observación crítica).
 - **aprobada**: firmó el cliente. Queda sellada (R4).
+- **rechazada**: el contratista o el cliente se niegan a firmar, con motivo obligatorio. Se avisa al supervisor, que la reabre a `en_progreso` o la archiva. *(Agregado tras la revisión externa.)*
+- Pasar a `por_firmar` y crear enlaces de firma exige conexión: sin red, la firma del inspector queda en cola hasta sincronizar y recibir el correlativo definitivo.
+- Mientras el número sea provisional, la pantalla muestra «Pendiente de sincronización» en lugar del número de ITO.
 
 ## 4. Modelo de datos
 
@@ -73,18 +76,21 @@ espejo en Dexie y cola de sincronización.
 | `obra_partidas` | sí | obra, código, descripción, origen (`planificada` o `terreno`) |
 | `ito_plantillas` | sí | nombre, especialidad, **versión**, ítems (con medición y regla de foto) |
 | `planos` | sí | biblioteca por cliente u obra: nombre, revisiones `[{rev, media_id, ancho, alto}]` |
-| `itos` | sí | cabecera, estado, plantilla y versión, ítems, avances de partidas, observaciones no planificadas, **marcas**, firmas, historial |
+| `itos` | sí | cabecera, estado, plantilla y versión, ítems del checklist, avances de partidas, firmas, historial |
+| `ito_observaciones` | sí | observaciones planificadas y no planificadas: tipo, crítica, responsable, fecha límite, estado, historial |
+| `ito_marcas` | sí | marcas sobre planos: ITO, plano, revisión, tipo y coordenadas |
 | `ito_media` | sí (subida aparte) | fotos y adjuntos: mime, tamaño, sha256, ITO, ítem u observación |
 | `ito_secuencias` | **solo servidor** | contador por cliente y año |
 | `ito_tokens_firma` | **solo servidor** | hash del token, vencimiento, uso, firmante |
 
 Decisiones de diseño:
 
-1. **Ítems, avances, observaciones y marcas viven dentro de la ITO** (`data`). La ITO la edita un inspector a la vez, el guardado es atómico y funciona sin red.
-2. **Las marcas son de la ITO, no del plano**: `{plano_id, rev, tipo, x, y, x2?, y2?, texto?}` con coordenadas 0–1. Así la capa se conserva por revisión y el plano base queda intacto.
-3. **Fotos y adjuntos fuera del JSON** (`ito_media`), para no inflar la sincronización.
-4. **Tokens de firma 1:N** por ITO; se guarda solo `sha256(token)`; nunca llegan al dispositivo.
-5. **Dexie v17 solo agrega tablas.** Las versiones 14 y 16 vaciaron datos; no se repite.
+1. **Checklist y avances viven dentro de la ITO** (`data`); **observaciones y marcas van en tablas propias**. Cambio tras la revisión externa: con un solo JSON y «gana el último», un cambio del supervisor en la cabecera y el trabajo del inspector sin red se pisarían.
+2. **Desde `en_progreso`, la cabecera solo la edita el servidor en línea** (reasignar inspector, cambiar fecha), nunca por sincronización de un dispositivo.
+3. **Las marcas son de la ITO, no del plano**: `{plano_id, rev, tipo, x, y, x2?, y2?, texto?}` con coordenadas 0–1. Cada revisión guarda ancho, alto y proporción; si una revisión nueva cambia la proporción, el sistema avisa y las marcas anteriores quedan con su revisión, sin trasladarse.
+4. **Fotos y adjuntos fuera del JSON** (`ito_media`), para no inflar la sincronización.
+5. **Tokens de firma 1:N** por ITO; se guarda solo `sha256(token)`; nunca llegan al dispositivo.
+6. **Dexie v17 solo agrega tablas.** Las versiones 14 y 16 vaciaron datos; no se repite.
 
 ## 5. Reglas de negocio
 
@@ -93,18 +99,19 @@ servidor es la autoridad.
 
 | ID | Regla |
 |----|-------|
-| R1 | El inspector no puede firmar con ítems sin evaluar, ni con un No cumple sin observación, acción correctiva, responsable, fecha límite y al menos una foto |
+| R1 | El inspector no puede firmar con ítems sin evaluar, ni con un No cumple sin observación, acción correctiva, responsable, fecha límite y al menos una foto. Tampoco con una observación no planificada **crítica** sin descripción, responsable y foto |
 | R2 | No cumple → Cumple en re-inspección: el pin pasa a resuelto y la observación original se conserva en el historial |
 | R3 | El cliente aprueba solo con **0 No cumple abiertos y 0 observaciones no planificadas críticas abiertas**, y con al menos un ítem aplicable en Cumple |
 | R4 | `aprobada` es inmutable: el servidor rechaza con 409 toda escritura posterior, también la que llegue por `/api/sync` |
 | R5 | El módulo no escribe en órdenes de servicio ni mantenimientos |
 | R6 | Cumplimiento % = Cumple ÷ (Cumple + No cumple). N/A no cuenta |
-| R7 | Token de 256 bits, solo su hash en la base, vence en 7 días (configurable), un uso, límite de intentos por IP |
+| R7 | Token de 256 bits, solo su hash en la base, vence en 7 días (configurable), un uso. Límite de intentos con el limitador respaldado en base de datos (`cmms_rate_limits`), no en memoria. Un enlace vencido se regenera desde la pantalla de firmas, lo que invalida el anterior |
 | R8 | Foto obligatoria en Cumple solo si la plantilla lo exige |
 | R9 | El correlativo lo asigna el servidor de forma atómica por cliente y año; nunca se reutiliza un número |
 | R10 | Orden de firmas: inspector, contratista, cliente. Ninguna se salta |
 | R11 | El archivo original de un plano no se modifica; una revisión nueva no borra las marcas de la anterior |
 | R12 | Una ITO conserva la versión de plantilla con que nació |
+| R13 | Si el servidor rechaza un cambio por inmutabilidad (409), el dispositivo descarta ese cambio de su cola y reemplaza su copia local por la versión del servidor |
 
 ## 6. Perfiles
 
@@ -158,11 +165,12 @@ relativos entre sí, no estimaciones de tiempo.
 | Fase | Contenido | Tamaño | Criterio de aceptación |
 |------|-----------|--------|------------------------|
 | **0. Cierre del plan** | Resolver los puntos abiertos de la sección 11; revisión externa del plan | Pequeño | Sin puntos abiertos que cambien el modelo de datos |
-| **1. Núcleo** | Reglas con tests; Dexie v17; obras y partidas; plantillas con versiones; crear ITO; ejecución con checklist, mediciones, avance de partidas y observaciones no planificadas; fotos y adjuntos; panel; menú y permisos | Grande | Un inspector completa una ITO sin red y se sincroniza al volver |
+| **1A. Estructura** | Reglas con tests; Dexie v17; tablas en Neon; obras y partidas; código corto del cliente; plantillas con versiones; menú y permisos | Mediano | Datos maestros creados y sincronizados; migración sin pérdida de datos |
+| **1B. Ejecución** | Crear ITO; ejecución con checklist, mediciones, avance de partidas y observaciones; fotos y adjuntos; panel. **Incluye los tests de inmutabilidad (R4, R13) y de aislamiento entre clientes** | Grande | Un inspector completa una ITO sin red y se sincroniza al volver; los tests de seguridad pasan |
 | **2. Planos** | Biblioteca, revisiones, visor con zoom, capa de marcas (pin, línea, círculo, texto), pines ligados a ítems | Mediano | Una marca hecha en Rev A sigue con Rev A tras subir Rev B; el original no cambia |
-| **3. Firmas y avisos** | Tres firmas en orden; solicitud del cliente; firma del cliente en la app; enlace temporal; avisos por correo de hallazgos | Mediano | El cliente no puede aprobar con bloqueantes; el enlace usado deja de servir |
+| **3. Firmas y avisos** | Tres firmas en orden; rechazo con motivo; solicitud del cliente; firma del cliente en la app; enlace temporal y su regeneración; avisos por correo de hallazgos. **Incluye los tests del token** (reutilizado, vencido, fuerza bruta) | Mediano | El cliente no puede aprobar con bloqueantes; el enlace usado deja de servir; los tests del token pasan |
 | **4. Informe y calendario** | PDF con el diseño aprobado en jsPDF; hash y código de verificación; envío automático; página de verificación; fuente en el Calendario | Mediano | Un PDF aprobado se verifica por código y la ITO aparece en el Calendario |
-| **5. Endurecimiento** | Pruebas de seguridad (token, inmutabilidad, aislamiento entre clientes), piloto con una obra real | Pequeño | Pruebas de regresión en verde y piloto sin incidentes |
+| **5. Piloto** | Repaso completo de seguridad y piloto con una obra real | Pequeño | Pruebas de regresión en verde y piloto sin incidentes |
 
 ## 10. Riesgos
 
@@ -203,8 +211,42 @@ relativos entre sí, no estimaciones de tiempo.
 
 ## 13. Lista de lanzamiento
 
-- [ ] Revisión externa del plan (pendiente)
+- [x] Revisión externa del plan (Gemini, sección 14)
 - [ ] Puntos abiertos 1 a 5 resueltos (cambian el modelo o el flujo)
 - [ ] Puntos abiertos 6 a 10 resueltos o aceptados como riesgo
 - [ ] Diagrama del plan actualizado o retirado
 - [ ] Aprobación del propietario para iniciar la Fase 1
+
+## 14. Revisión externa (Gemini)
+
+Revisión hecha con `gemini-3.6-flash` el 2026-11-16. El modelo Pro no estaba disponible en el
+nivel gratuito de la clave. Respuesta completa, sin editar: `docs/REVISION_GEMINI_PLAN_MAESTRO.md`.
+**Veredicto: listo con condiciones.**
+
+| # | Hallazgo de Gemini | Gravedad | Qué se hizo |
+|---|--------------------|----------|-------------|
+| 1.1 | Las firmas al reabrir no están definidas y chocan con R10 | Alta | **Pendiente del propietario** (punto abierto 4). Gemini recomienda invalidarlas y pedir las tres de nuevo |
+| 1.2 | R1 no cubría las observaciones críticas no planificadas | Media | **Aceptado**: R1 ampliada |
+| 2.1 | No había salida si el contratista o el cliente rechazan | Alta | **Aceptado**: estado `rechazada` |
+| 2.2 | Firma del inspector sin red con número provisional | Alta | **Aceptado**: `por_firmar` exige conexión |
+| 2.3 | Token vencido sin forma de regenerarlo | Media | **Aceptado**: regeneración en R7 |
+| 3.1 | Un solo JSON por ITO con «gana el último» pierde cambios | Alta | **Aceptado en parte**: observaciones y marcas pasan a tablas propias, y la cabecera deja de editarse por sincronización. El checklist sigue dentro de la ITO |
+| 3.2 | Coordenadas 0–1 se desalinean si la revisión cambia de proporción | Media | **Aceptado**: se guarda la proporción y las marcas no se trasladan entre revisiones |
+| 3.3 | El número provisional confunde al inspector | Media | **Aceptado**: se muestra «Pendiente de sincronización» |
+| 4.1 | Un 409 por inmutabilidad bloquearía la cola de sincronización | Alta | **Aceptado con corrección**: verificado en `syncEngine.ts` que la cola no se bloquea (un cambio fallido sale del ciclo tras 3 intentos), pero el registro quedaba en conflicto sin resolverse. Nueva R13 |
+| 4.2 | El límite de intentos por IP no sirve en funciones sin estado; propone Redis | Alta | **Rechazada la solución, aceptado el riesgo**: verificado que `server/vercel/security.ts` ya limita con la tabla `cmms_rate_limits` en Neon. No hace falta Redis; R7 exige usar ese limitador |
+| 4.3 | El endpoint público podría exponer la ITO completa | Media | **Ya estaba en el plan** (sección 10: respuesta mínima) |
+| 5.1 | La Fase 1 es demasiado grande | Media | **Aceptado**: dividida en 1A y 1B |
+| 5.2 | Las pruebas de seguridad llegaban al final | Media | **Aceptado**: pasan a las fases 1B y 3 |
+
+Recomendaciones de Gemini para los puntos abiertos 1 a 5, que **siguen siendo decisión del propietario**:
+
+1. Observación crítica no planificada: se cierra solo por re-inspección, con foto.
+2. Obra: entidad nueva ligada al cliente, con sucursal opcional.
+3. Código corto del cliente: campo nuevo editable por el administrador, con las primeras letras del nombre por defecto.
+4. Firmas al reabrir: se invalidan y se piden las tres de nuevo.
+5. Aviso al vencer: tarea programada diaria en Vercel. Hoy `vercel.json` no define ninguna.
+
+Condiciones de Gemini para iniciar la Fase 1 y su estado: resolver los puntos abiertos 1 a 5
+(**pendiente**), separar observaciones y marcas del JSON (**hecho en el plan**) y definir el
+manejo del 409 (**hecho en el plan**, R13).
