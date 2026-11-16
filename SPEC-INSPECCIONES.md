@@ -147,7 +147,7 @@ Cada fase = una rama/PR independiente, con `npm test` y `npm run build` en verde
 - Ruta pública `/liberar/:token` evaluada antes del guard de auth en `App.tsx`; layout propio móvil.
 - Firma en canvas reutilizando `FullscreenSignatureModal`; nombre, RUT/DNI (validación RUT chileno), cargo; opción Rechazar/Observar.
 - Bloqueo de botón si hay `NO_CUMPLE` (R3, también en servidor); invalidación tras uso; transición a `APROBADA` (R4).
-- Entrega del enlace: copiar/WhatsApp/`mailto:` (no hay proveedor de correo transaccional en el repo).
+- Entrega del enlace: correo con el servicio existente (`/api/export`, Resend; requiere `RESEND_API_KEY` y `RESEND_FROM_EMAIL`) y copia manual del enlace como respaldo.
 
 ### Fase 4 — PDF, trazabilidad y avance
 - PDF con `jspdf`: encabezado, miniatura de plano con pines, tabla de ítems, anexo fotográfico, firmas con timestamp, código `CO-AAAA-XXXXXXXXXXXX`.
@@ -174,5 +174,5 @@ Cada fase = una rama/PR independiente, con `npm test` y `npm run build` en verde
 1. **Almacenamiento de fotos**: ¿Neon (simple) o Vercel Blob/S3 (escalable) desde el inicio?
 2. **Formato de planos**: ¿solo imagen en MVP o PDF desde Fase 2?
 3. **Entidad que recibe el avance**: ¿Orden de Servicio, mantenimiento preventivo o ambas?
-4. **Firmante externo**: ¿se necesita envío por correo (implica proveedor SMTP/API) o basta enlace copiable/WhatsApp?
+4. **Firmante externo**: el envío por correo ya existe (Resend); ¿se reutiliza para el enlace de firma o basta copiar el enlace?
 5. **Alcance de roles** para `cliente` (¿ver inspecciones aprobadas dentro de la app?).

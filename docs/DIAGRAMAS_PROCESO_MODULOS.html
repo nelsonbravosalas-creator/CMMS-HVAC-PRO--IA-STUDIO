@@ -1,0 +1,568 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0">
+<title>Mapa de Procesos CMMS</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Concepto: plano de control de procesos. Tres tipos de actor (persona, dispositivo, servidor) con color fijo en todo el documento. */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#13202b; --mute:#566673; --line:#cdd7de; --soft:#e4eaee;
+  --human:#a85a00; --human-bg:#fdf0d5;
+  --sys:#1b4fb8;   --sys-bg:#e1ebfb;
+  --srv:#6a2fc2;   --srv-bg:#eee6fb;
+  --out:#06795a;   --out-bg:#d8f3e8;
+  --gap:#c0262d;   --gap-bg:#fde6e7;
+  --accent:#0b6e86;
+  --font:'IBM Plex Sans',system-ui,sans-serif; --font-d:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+a{color:var(--accent)}
+.wrap{max-width:1240px;margin:0 auto}
+header.top{padding:22px 0 14px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+h1{font-family:var(--font-d);font-size:30px;line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--mute);margin:6px 0 0;max-width:62ch}
+.meta{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+nav.tabs a,nav.tabs button{font:500 13px var(--font);color:var(--ink);text-decoration:none;padding:7px 13px;border:1px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+nav.tabs .sp{flex:1}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-family:var(--font-d);font-size:21px;margin:30px 0 8px}
+h3{font-family:var(--font-d);font-size:15px;margin:0 0 6px;letter-spacing:.02em;text-transform:uppercase;color:var(--mute)}
+p{margin:0 0 10px;max-width:78ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0;font-size:12.5px;color:var(--mute)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:18px;height:12px;border-radius:3px;border:1.5px solid}
+.sw.h{background:var(--human-bg);border-color:var(--human)} .sw.s{background:var(--sys-bg);border-color:var(--sys)}
+.sw.x{background:var(--srv-bg);border-color:var(--srv)} .sw.o{background:var(--out-bg);border-color:var(--out);border-radius:8px}
+.sw.d{background:var(--panel);border-color:var(--ink);transform:rotate(45deg) scale(.8)} .sw.g{background:var(--gap-bg);border-color:var(--gap);border-style:dashed}
+figure{margin:12px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+figure .scroll{overflow-x:auto}
+figcaption{font-size:12.5px;color:var(--mute);padding:8px 4px 2px;max-width:90ch}
+svg.dg{display:block;width:100%;height:auto;min-width:760px}
+svg text{font-family:var(--font);fill:var(--ink)}
+.band{fill:var(--soft);opacity:.55} .band.alt{opacity:.25}
+.band-l{font:600 10px var(--font);letter-spacing:.12em;fill:var(--mute)!important}
+.node rect,.node polygon{stroke-width:1.6;transition:filter .2s,opacity .2s}
+.node text{font-size:11px;text-anchor:middle;pointer-events:none}
+.node .t2{font-size:10px;fill:var(--mute)}
+.n-h rect{fill:var(--human-bg);stroke:var(--human)} .n-h text{fill:var(--ink)}
+.n-s rect{fill:var(--sys-bg);stroke:var(--sys)}
+.n-x rect{fill:var(--srv-bg);stroke:var(--srv)}
+.n-o rect{fill:var(--out-bg);stroke:var(--out)}
+.n-d polygon{fill:var(--panel);stroke:var(--ink)} .n-d text{font-size:10.5px}
+.n-g rect{fill:var(--gap-bg);stroke:var(--gap);stroke-dasharray:5 3}
+.node.link{cursor:pointer} .node.link:hover rect{filter:brightness(1.07);stroke-width:2.4}
+.node.link:focus-visible rect{stroke-width:3}
+.pic{fill:none;stroke:var(--human);stroke-width:1.4}
+.edge{fill:none;stroke:var(--mute);stroke-width:1.5;stroke-dasharray:6 5;animation:flow 1.1s linear infinite}
+.edge.gap{stroke:var(--gap);stroke-width:1.8;animation:none;stroke-dasharray:3 5}
+.edge.hot{stroke:var(--accent);stroke-width:2.6;stroke-dasharray:none;animation:none}
+.elab{font-size:10px;paint-order:stroke;stroke:var(--panel);stroke-width:4px;fill:var(--mute)!important}
+.elab.gap{fill:var(--gap)!important;font-weight:600}
+.dot{fill:var(--accent)} .dot.gap{display:none}
+.arrow path{fill:var(--mute)}
+.dim .node{opacity:.3} .dim .node.seen{opacity:.8} .dim .node.on{opacity:1}
+.node.on rect,.node.on polygon{filter:drop-shadow(0 0 5px var(--accent));stroke:var(--accent);stroke-width:2.8}
+.paused .edge{animation-play-state:paused}
+@keyframes flow{to{stroke-dashoffset:-22}}
+@media (prefers-reduced-motion:reduce){.edge{animation:none}}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 4px 2px}
+.btn{font:500 12.5px var(--font);padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.stepcap{font-size:13px;flex:1;min-width:220px;color:var(--ink)} .stepcap b{font-family:var(--mono);font-weight:500;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-top:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink)}
+.card:hover{border-color:var(--accent)}
+.card h4{margin:0;font:700 16px var(--font-d)}
+.route{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid}
+.chip.i{background:var(--sys-bg);border-color:var(--sys);color:var(--ink)}
+.chip.o{background:var(--out-bg);border-color:var(--out);color:var(--ink)}
+.chip.h{background:var(--human-bg);border-color:var(--human);color:var(--ink)}
+.lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-top:2px}
+.st{font-size:11px;font-weight:600;padding:1px 8px;border-radius:4px;display:inline-block;align-self:flex-start}
+.st.ok{background:var(--out-bg);color:var(--out)} .st.partial{background:var(--human-bg);color:var(--human)}
+.st.stub,.st.orphan{background:var(--gap-bg);color:var(--gap)} .st.apoyo{background:var(--srv-bg);color:var(--srv)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.panel ul{margin:0;padding-left:18px} .panel li{margin:3px 0}
+.panel.gapbox{border-color:var(--gap)} .panel.gapbox h3{color:var(--gap)}
+.back{display:inline-block;margin:16px 0 0;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi b{font:700 24px var(--font-d);display:block}
+.kpi span{font-size:12px;color:var(--mute)}
+code{font-family:var(--mono);font-size:12px;background:var(--soft);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.tw{overflow-x:auto}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Mapa de procesos · CMMS HVAC PRO</h1>
+    <p class="sub">Cómo funciona hoy cada módulo, qué entra, qué sale, dónde interviene una persona y cómo se conectan entre sí. Relevado desde el código del repositorio, no desde la documentación de diseño.</p>
+  </div>
+  <div class="meta">Revisión del código · 16-nov-2026<br>20 módulos + 3 procesos de apoyo</div>
+</header>
+<nav class="tabs" id="tabs" aria-label="Vistas">
+  <a href="#global" data-v="global">Flujo global</a>
+  <a href="#modulos" data-v="modulos">Módulos</a>
+  <a href="#interrelaciones" data-v="interrelaciones">Interrelaciones y brechas</a>
+  <span class="sp"></span>
+  <button type="button" id="pauseBtn" aria-pressed="false">Animación: activa</button>
+</nav>
+<main id="app"></main>
+</div>
+
+<script>
+(function(){
+'use strict';
+var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var NS='http://www.w3.org/2000/svg';
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ---------- DATOS: módulos ---------- */
+var LANES=['Persona','App en el dispositivo','Servidor y servicios'];
+var LANEB=['PERSONA','APP EN EL|DISPOSITIVO','SERVIDOR Y|SERVICIOS'];
+// nodo: [id, carril, columna, tipo, texto]  tipo: h persona · s app · x servidor/externo · d decisión · o salida
+var M=[
+{id:'acceso',n:'Acceso y sesión',kind:'Acceso',route:'/login',st:'ok',roles:'Todos los perfiles',
+ sum:'Entrada a la aplicación con correo y PIN de 6 dígitos o huella. Abre la sesión y dispara la primera sincronización.',
+ ins:['Correo','PIN de 6 dígitos','Huella (WebAuthn)','QR pendiente'],outs:['Token de sesión','Perfil y clientes asignados','Primera sincronización'],hum:['Escribe credenciales','Toca el sensor de huella'],
+ nodes:[['a1',0,0,'h','Abre la app|o escanea un QR'],['a2',0,1,'h','Correo + PIN|o huella digital'],['a3',2,2,'x','POST /api/auth|20 intentos / 15 min'],['a4',2,3,'d','¿Credenciales|válidas?'],['a5',1,4,'s','Guarda sesión|token + perfil'],['a6',1,5,'d','¿Debe cambiar|el PIN?'],['a7',0,6,'h','Cambia el PIN|en /biometria'],['a8',1,7,'o','Sincroniza y entra|al destino']],
+ edges:[['a1','a2'],['a2','a3'],['a3','a4'],['a4','a2','No: error','back'],['a4','a5','Sí'],['a5','a6'],['a6','a7','Sí'],['a7','a8'],['a6','a8','No']],
+ path:['a1','a2','a3','a4','a5','a6','a7','a8'],
+ today:['El token vive en sessionStorage; el perfil en localStorage. Al cerrar la pestaña se pide el acceso de nuevo.','Si la sesión se invalida, la app borra IndexedDB completa y vuelve a /login.','Tras 30 min sin actividad llama a /api/logout y expulsa.','Un QR escaneado sin sesión guarda el destino y lo retoma después del login.'],gaps:[]},
+
+{id:'tenant',n:'Selector de cliente',kind:'Acceso',route:'/client-selector',st:'ok',roles:'Administrador, supervisor, técnico',
+ sum:'Define con qué cliente se trabaja. Todo lo que se ve después está filtrado por ese cliente activo.',
+ ins:['Lista de clientes','Perfil de la sesión'],outs:['active_client','Datos del cliente en pantalla'],hum:['Elige un cliente','Admin: crea cliente o usa vista global'],
+ nodes:[['t1',0,0,'h','Elige cliente|o vista global (admin)'],['t2',1,1,'s','Limpia la caché|del cliente anterior'],['t3',1,2,'s','Guarda active_client|(localStorage)'],['t4',2,3,'x','Sincronización trae|datos del cliente'],['t5',1,4,'s','Hidrata el store|(Dexie → zustand)'],['t6',1,5,'o','Dashboard o ficha|de equipo pendiente']],
+ edges:[['t1','t2'],['t2','t3'],['t3','t4'],['t4','t5'],['t5','t6']],path:['t1','t2','t3','t4','t5','t6'],
+ today:['Los demás perfiles (contratista, cliente, visita) usan su cliente asignado sin elegir.','Un perfil sin cliente asignado ve "Acceso denegado".','Un QR de otro cliente obliga a pasar por este selector y luego abre la ficha.'],gaps:[]},
+
+{id:'dashboard',n:'Dashboard',kind:'Operación',route:'/',st:'ok',roles:'Todos con sesión',
+ sum:'Resumen del cliente activo: disponibilidad, tickets, fallas y mantenimientos pendientes, calculado en el navegador.',
+ ins:['Equipos','Tickets','Mantenimientos','Sucursales'],outs:['KPIs','Gráfico de estados','Potencia por sucursal'],hum:['Filtra por sucursal y estado','Navega al módulo'],
+ nodes:[['d1',0,0,'h','Abre el Dashboard|y filtra'],['d2',1,1,'s','Lee el store|equipos, tickets, mant.'],['d3',1,2,'s','Filtra por cliente|sucursal y estado'],['d4',1,3,'s','Calcula KPIs|disponibilidad, MTBF, MTTR'],['d5',1,4,'o','Gráficos de estado|y potencia V×A'],['d6',0,5,'h','Interpreta y salta|al módulo']],
+ edges:[['d1','d2'],['d2','d3'],['d3','d4'],['d4','d5'],['d5','d6']],path:['d1','d2','d3','d4','d5','d6'],
+ today:['No llama al servidor: lee lo que ya está en Dexie.','Disponibilidad = equipos operativos / total. MTBF = horas de operación / tickets de prioridad alta o crítica.','MTTR sale del campo duracion_horas de los tickets; si ninguno lo tiene muestra "—".','El bloque de firmas pendientes se calcula contando tickets por estado, no firmas de órdenes de servicio.'],gaps:['MTBF y MTTR dependen de campos que los formularios actuales no siempre llenan (duracion_horas).']},
+
+{id:'equipos',n:'Equipos',kind:'Operación',route:'/equipos',st:'ok',roles:'Ver: todos · Crear y editar: supervisor, administrador',
+ sum:'Catálogo de activos HVAC. Es el centro del sistema: casi todo lo demás referencia un equipo por su TAG.',
+ ins:['Sucursal','Tipo de equipo','Datos de placa','Archivo CSV'],outs:['TAG SUC.TIPO.NNN','Registro en Dexie','Etiqueta QR (PNG)'],hum:['Crea o carga equipos','Imprime la etiqueta','Guarda filtros'],
+ nodes:[['e1',0,0,'h','Nuevo equipo|o carga masiva CSV'],['e2',0,1,'h','Sucursal, tipo|y datos de placa'],['e3',1,2,'s','Genera el TAG|SUC.TIPO.correlativo'],['e4',1,3,'s','Guarda en Dexie|pending_insert'],['e5',2,4,'x','Motor de sync|POST /api/sync'],['e6',1,5,'o','Etiqueta QR|/equipos/{uuid}']],
+ edges:[['e1','e2'],['e2','e3'],['e3','e4'],['e4','e5'],['e4','e6','imprime']],path:['e1','e2','e3','e4','e5','e6'],
+ today:['El correlativo se calcula buscando el máximo existente para esa sucursal y tipo, mirando solo lo que hay en el dispositivo.','Los tipos salen del catálogo (catalog_asset_types).','La carga masiva trae una plantilla CSV descargable.'],gaps:['Dos dispositivos sin conexión pueden generar el mismo correlativo; el servidor debería arbitrar.','No hay campo para capturar latitud/longitud en el alta (el Mapa lo necesita).']},
+
+{id:'ficha',n:'Ficha de equipo',kind:'Operación',route:'/equipos/:id',st:'ok',roles:'Ver: todos · Editar: supervisor, administrador',
+ sum:'Datos técnicos, historial de mantenimientos y accesos directos para abrir un ticket o registrar un mantenimiento.',
+ ins:['uuid o TAG','Historial de mantenimientos'],outs:['Ticket nuevo','Mantenimiento nuevo','Etiqueta QR','Parámetros editados'],hum:['Revisa pestañas','Elige una acción','Edita parámetros'],
+ nodes:[['f1',0,0,'h','Abre la ficha|(lista, QR o búsqueda)'],['f2',1,1,'s','Carga el equipo|desde Dexie'],['f3',1,2,'d','¿Equipo dado|de baja?'],['f4',1,3,'s','Aviso de baja|sin acciones nuevas'],['f5',0,3,'h','Revisa info, historial|y documentos'],['f6',0,4,'h','Elige acción|ticket, mant. o QR'],['f7',1,5,'s','Abre el modal|correspondiente'],['f8',1,6,'o','Registro nuevo en Dexie|y cola de sync']],
+ edges:[['f1','f2'],['f2','f3'],['f3','f4','Sí'],['f3','f5','No'],['f5','f6'],['f6','f7'],['f7','f8']],path:['f1','f2','f3','f5','f6','f7','f8'],
+ today:['Los formularios de ticket y de mantenimiento rechazan equipos en estado "baja".','Pestañas: información, historial, histórico y documentos.'],gaps:['Un equipo en estado "falla" se marca a mano; ningún ticket o mantenimiento lo cambia solo.']},
+
+{id:'scanner',n:'Escáner QR',kind:'Operación',route:'/scanner',st:'partial',roles:'Todos con sesión',
+ sum:'Lee la etiqueta pegada en el equipo y abre su ficha. También genera e imprime etiquetas.',
+ ins:['Imagen de la cámara','URL /equipos/{uuid}','Etiqueta antigua ?tag='],outs:['Ficha del equipo','Etiqueta imprimible'],hum:['Apunta la cámara','Inicia sesión si hace falta','Elige cliente si no coincide'],
+ nodes:[['q1',0,0,'h','Apunta la cámara|al QR del equipo'],['q2',1,1,'s','Decodifica la URL|uuid o ?tag='],['q3',1,2,'d','¿Hay sesión|activa?'],['q4',0,3,'h','Inicia sesión|el destino se conserva'],['q5',1,4,'s','Busca el equipo|por uuid o TAG'],['q6',1,5,'d','¿Cliente|correcto?'],['q7',0,6,'h','Elige el cliente|del equipo'],['q8',1,7,'o','Abre la ficha|del equipo']],
+ edges:[['q1','q2'],['q2','q3'],['q3','q4','No'],['q3','q5','Sí'],['q4','q5'],['q5','q6'],['q6','q7','No'],['q7','q8'],['q6','q8','Sí']],path:['q1','q2','q3','q5','q6','q8'],
+ today:['La búsqueda ocurre en Dexie, por eso funciona sin red si el equipo ya se sincronizó.','Hay un respaldo con datos de ejemplo embebidos (EQUIPOS_DATA) cuando no encuentra el TAG.'],gaps:['El respaldo con datos de ejemplo puede mostrar un equipo que no existe en el cliente.']},
+
+{id:'mapa',n:'Mapa',kind:'Operación',route:'/mapa',st:'partial',roles:'Todos con sesión',
+ sum:'Ubica en un mapa los equipos que tienen coordenadas.',
+ ins:['Equipos con latitud y longitud','Mosaicos CartoDB','Librería Leaflet'],outs:['Marcadores por estado'],hum:['Navega el mapa','Toca un marcador'],
+ nodes:[['m1',0,0,'h','Abre el Mapa'],['m2',1,1,'s','Lee equipos|del cliente'],['m3',1,2,'d','¿Tiene latitud|y longitud?'],['m4',2,3,'x','Carga Leaflet|y mosaicos (CDN)'],['m5',1,4,'s','Dibuja marcadores|y ajusta el zoom'],['m6',0,5,'h','Toca un marcador|y revisa el equipo']],
+ edges:[['m1','m2'],['m2','m3'],['m3','m4','Sí'],['m4','m5'],['m5','m6']],path:['m1','m2','m3','m4','m5','m6'],
+ today:['Los equipos sin coordenadas se descartan sin avisar.','Leaflet se descarga de un CDN al abrir la pantalla; sin red no hay mapa.'],gaps:['Ninguna pantalla permite escribir latitud y longitud; solo aparecen si llegan desde el servidor.']},
+
+{id:'mantenimientos',n:'Mantenimientos',kind:'Operación',route:'/mantenimientos',st:'ok',roles:'Ver: todos menos cliente · Crear: contratista, técnico, supervisor, administrador',
+ sum:'Registra mantenimientos preventivos y correctivos y calcula la próxima fecha según la frecuencia.',
+ ins:['Equipo (TAG)','Tipo y frecuencia','Estado final','Ubicación GPS'],outs:['Registro de mantenimiento','Próxima fecha','PDF por correo'],hum:['Completa el formulario','Autoriza el GPS'],
+ nodes:[['k1',0,0,'h','Nuevo mantenimiento|(lista o ficha)'],['k2',0,1,'h','Equipo, tipo, frecuencia|y estado final'],['k3',1,2,'s','Valida que el equipo|exista y no esté de baja'],['k4',1,3,'s','Calcula próxima fecha|y toma el GPS'],['k5',1,4,'s','Guarda en Dexie|y cola de sync'],['k6',2,5,'x','Motor de sync|a Neon'],['k7',1,5,'d','¿Estado|Ejecutado?'],['k8',1,6,'s','Genera PDF|(jsPDF)'],['k9',2,7,'x','POST /api/export|correo (Resend)']],
+ edges:[['k1','k2'],['k2','k3'],['k3','k4'],['k4','k5'],['k5','k6'],['k5','k7'],['k7','k8','Sí'],['k8','k9']],path:['k1','k2','k3','k4','k5','k7','k8','k9'],
+ today:['El borrador del formulario se guarda en localStorage mientras se escribe.','Hay un calendario propio dentro de esta pantalla (MaintenanceCalendar).','El PDF es un registro básico: folio, técnico y equipo.','Si el correo no está configurado en el servidor, la respuesta es 503 y el usuario recibe el aviso.'],gaps:['El calendario de esta pantalla no se conecta con el módulo Calendario.','No se descuentan repuestos del inventario; "repuestos" es texto libre.']},
+
+{id:'tickets',n:'Tickets',kind:'Operación',route:'/tickets',st:'ok',roles:'Crear: cliente, contratista, técnico, supervisor, administrador',
+ sum:'Reporte de fallas e incidencias sobre un equipo, con prioridad, fotos y asignación.',
+ ins:['Equipo','Título y descripción','Prioridad','Fotos','Asignado a'],outs:['work_order abierto','Tarea en Google Tasks (opcional)'],hum:['Reporta la falla','Cambia el estado','Sincroniza con Google Tasks'],
+ nodes:[['i1',0,0,'h','Nuevo ticket|(lista o ficha)'],['i2',0,1,'h','Equipo, título, prioridad|fotos y asignado'],['i3',1,2,'s','Valida equipo|y toma GPS'],['i4',1,3,'s','Crea work_order|estado abierto'],['i5',0,4,'h','Mueve el estado|en proceso → resuelto'],['i6',1,5,'s','Actualiza Dexie|y encola sync'],['i7',2,6,'x','Neon (sync) y|Google Tasks opcional']],
+ edges:[['i1','i2'],['i2','i3'],['i3','i4'],['i4','i5'],['i5','i6'],['i6','i7']],path:['i1','i2','i3','i4','i5','i6','i7'],
+ today:['Estados: abierto → en_proceso → resuelto → cerrado.','Google Tasks se alimenta con un botón manual y requiere iniciar sesión con Google.','El borrador del formulario se conserva en localStorage.'],gaps:['El campo "Asignado a" viene con un nombre fijo escrito en el código ("Nelson Bravo (Tech Lead)").','El ticket no se enlaza con ninguna orden de servicio.']},
+
+{id:'ordenes',n:'Órdenes de servicio',kind:'Operación',route:'/ordenes-servicio',st:'ok',roles:'Crear: contratista, técnico, supervisor, administrador',
+ sum:'Documento de la visita al cliente. Agrupa informes técnicos, recoge las firmas y se cierra en solo lectura.',
+ ins:['Datos generales','Checklist','Hallazgos','Galería','Informes hijos'],outs:['OS cerrada','PDF resumen','Firma técnico y cliente'],hum:['Completa secciones','Firma técnico y cliente'],
+ nodes:[['o1',0,0,'h','Crea la OS|estado abierto'],['o2',0,1,'h','Completa general,|checklist y hallazgos'],['o3',1,2,'s','Autoguarda|en localStorage'],['o4',0,3,'h','Abre o crea|informes hijos'],['o5',1,4,'d','¿Todos los informes|finalizados?'],['o6',0,5,'h','Firma técnico|y firma cliente'],['o7',1,6,'s','Cierra la OS|solo lectura + PDF'],['o8',2,7,'x','Sync a Neon|y correo opcional']],
+ edges:[['o1','o2'],['o2','o3'],['o3','o4'],['o4','o5'],['o5','o4','No: hay borradores','back'],['o5','o6','Sí'],['o6','o7'],['o7','o8']],path:['o1','o2','o3','o4','o5','o6','o7','o8'],
+ today:['Secciones: general, informes, checklist, hallazgos, galería y firmas.','Estados: abierto, en progreso, completado, firmado, cerrado.','Sin informes borrador y con ambas firmas, la OS se cierra.','Una OS creada sin red llega al servidor antes que sus informes hijos.'],gaps:['No se vincula con tickets ni con mantenimientos que le dieron origen.']},
+
+{id:'informes',n:'Informes técnicos',kind:'Operación',route:'/ordenes-servicio/:os/informes/:id',st:'ok',roles:'Crear: contratista, técnico, supervisor, administrador',
+ sum:'Informe de cada equipo atendido dentro de una orden de servicio. Se finaliza con folio y PDF.',
+ ins:['Orden de servicio padre','Equipo (TAG)','Mediciones','Checklist','Fotos'],outs:['Folio final','PDF','Correo con el informe'],hum:['Completa mediciones y checklist','Firma como técnico'],
+ nodes:[['r1',0,0,'h','Nuevo informe|desde una OS'],['r2',0,1,'h','Cliente, TAG, mediciones|checklist y fotos'],['r3',1,2,'s','Autoguarda|(reportsRepo)'],['r4',0,3,'h','Firma del técnico|(canvas)'],['r5',1,4,'d','¿Pasa las|validaciones?'],['r6',1,5,'s','Folio final y|estado finalizado'],['r7',1,6,'s','Genera PDF|(jsPDF)'],['r8',2,7,'x','Sync y correo|(Resend)']],
+ edges:[['r1','r2'],['r2','r3'],['r3','r4'],['r4','r5'],['r5','r2','No: avisa qué falta','back'],['r5','r6','Sí'],['r6','r7'],['r7','r8']],path:['r1','r2','r3','r4','r5','r6','r7','r8'],
+ today:['Para finalizar exige: firma del técnico, cliente, TAG de equipo, técnico responsable y checklist u observaciones.','El folio nace como borrador y se reemplaza por el final al finalizar.','Con el informe finalizado o la OS cerrada, la pantalla queda en solo lectura.','La conformidad del cliente se firma en la OS, no en el informe.'],gaps:[]},
+
+{id:'calendario',n:'Calendario',kind:'Operación',route:'/planificacion',st:'partial',roles:'Todos con sesión',
+ sum:'Agenda de actividades propias y, si se vincula, los eventos de Google Calendar.',
+ ins:['Actividades creadas a mano','Eventos de Google Calendar'],outs:['Calendario combinado','Evento en Google Calendar'],hum:['Crea actividades','Vincula su cuenta de Google'],
+ nodes:[['c1',0,0,'h','Abre el Calendario'],['c2',0,1,'h','Crea una actividad|o vincula Google'],['c3',1,2,'s','Guarda el evento|(eventRepo, Dexie)'],['c4',2,3,'x','Login Google (Firebase)|permiso calendar'],['c5',1,4,'s','Lee eventos|de Calendar API'],['c6',1,5,'o','Vista mensual o lista|propios + Google'],['c7',0,6,'h','Abre el detalle|del evento']],
+ edges:[['c1','c2'],['c2','c3'],['c2','c4'],['c4','c5'],['c3','c6'],['c5','c6'],['c6','c7']],path:['c1','c2','c3','c6','c7'],
+ today:['Los eventos propios van a la tabla events y se sincronizan como el resto.','Los eventos de Google se leen en vivo y no se guardan.'],gaps:['No muestra los mantenimientos programados ni sus próximas fechas.','Existe un segundo calendario dentro de Mantenimientos.']},
+
+{id:'inventario',n:'Inventario interno',kind:'Operación',route:'/inventario',st:'ok',roles:'Todos con sesión (el servidor limita la escritura)',
+ sum:'Stock de máquinas, instrumentos, vehículos, insumos y repuestos propios.',
+ ins:['Código','Nombre','Stock y unidad','Categoría'],outs:['Ítem de inventario','Métricas de stock'],hum:['Crea, edita o da de baja ítems'],
+ nodes:[['v1',0,0,'h','Abre Inventario|y filtra categoría'],['v2',0,1,'h','Crea o edita|código, stock, unidad'],['v3',1,2,'s','Escribe en Dexie|(inventory)'],['v4',1,3,'s','Reemplaza la operación|en cola y pide sync'],['v5',2,4,'x','POST /api/sync|a Neon'],['v6',1,5,'o','Métricas de stock|actualizadas']],
+ edges:[['v1','v2'],['v2','v3'],['v3','v4'],['v4','v5'],['v5','v6']],path:['v1','v2','v3','v4','v5','v6'],
+ today:['La baja es lógica: el ítem queda marcado y se sincroniza.','Escribe directo en Dexie y en la cola, sin pasar por un repositorio.'],gaps:['Ningún mantenimiento, informe u orden de servicio descuenta stock.']},
+
+{id:'reportes',n:'Reportes',kind:'Operación',route:'/reportes',st:'stub',roles:'Permiso ver_reportes: cliente, supervisor, administrador',
+ sum:'Pantalla de reportes con filtros y pestañas de KPIs, costos y actividad. Todavía no calcula desde datos reales.',
+ ins:['Filtros de pantalla'],outs:['Vista de ejemplo'],hum:['Elige filtros y formato'],
+ nodes:[['p1',0,0,'h','Abre Reportes|y elige filtros'],['p2',1,1,'d','¿Hay dataset|analítico?'],['p3',1,2,'g','Muestra cifras|de ejemplo fijas']],
+ edges:[['p1','p2'],['p2','p3','No (hoy siempre)']],path:['p1','p2','p3'],
+ today:['El código declara hasAnalyticsDataset = false.','Las tarjetas traen valores escritos a mano (por ejemplo MTBF 482 hrs) y fechas fijas 01/04 al 30/04/2026.','El botón de exportar no genera archivos.'],gaps:['Todo el módulo es una maqueta: no consulta equipos, tickets ni mantenimientos.']},
+
+{id:'energia',n:'Eficiencia energética',kind:'Operación',route:'/eficiencia',st:'stub',roles:'Todos con sesión',
+ sum:'Calcularía consumo, EER y ahorro. Hoy muestra un aviso porque no hay medidores conectados.',
+ ins:['Medidores o API de telemetría (no existe)'],outs:['Aviso "Sin telemetría energética"'],hum:['Abre la pantalla'],
+ nodes:[['y1',0,0,'h','Abre Eficiencia|energética'],['y2',1,1,'d','¿Hay telemetría|energética?'],['y3',1,2,'g','Pantalla "Sin telemetría"|con n.º de activos']],
+ edges:[['y1','y2'],['y2','y3','No (hoy siempre)']],path:['y1','y2','y3'],
+ today:['hasEnergyTelemetry está fijo en false.','El resto del archivo contiene la lógica de cálculo, sin uso.'],gaps:['Requiere una fuente de medición para dejar de ser un aviso.']},
+
+{id:'clientes',n:'Clientes y sucursales',kind:'Administración',route:'/clientes',st:'ok',roles:'Administrador',
+ sum:'Alta de clientes, sus sucursales, datos de contacto y logo.',
+ ins:['Datos del cliente','Logo ≤ 2 MB','Sucursales con código y región'],outs:['Cliente','Sucursales','Código de sucursal para TAG'],hum:['Crea y edita','Elimina con confirmación'],
+ nodes:[['l1',0,0,'h','Crea o edita cliente|y sube el logo'],['l2',1,1,'s','Guarda con ClientRepository|Dexie + cola'],['l3',0,2,'h','Agrega sucursales|código y región'],['l4',1,3,'s','Guarda con BranchRepository'],['l5',2,4,'x','Sync a Neon|clientes y sucursales'],['l6',1,5,'o','Disponible en el selector|y en los TAG']],
+ edges:[['l1','l2'],['l2','l3'],['l3','l4'],['l4','l5'],['l5','l6']],path:['l1','l2','l3','l4','l5','l6'],
+ today:['Eliminar un cliente da de baja primero sus sucursales y luego el cliente (baja lógica).','El logo se guarda como base64 dentro del registro.'],gaps:[]},
+
+{id:'usuarios',n:'Usuarios',kind:'Administración',route:'/administracion',st:'ok',roles:'Administrador',
+ sum:'Alta de usuarios, perfil, clientes asignados y PIN inicial.',
+ ins:['Nombre y correo','Perfil','Clientes asignados','PIN inicial de 6 dígitos'],outs:['Usuario con PIN protegido','Usuario local para la app'],hum:['Crea y edita usuarios'],
+ nodes:[['u1',0,0,'h','Abre Usuarios'],['u2',2,1,'x','GET /api/users|solo administrador'],['u3',1,2,'s','Copia a la tabla|local users'],['u4',0,3,'h','Crea o edita|perfil y clientes'],['u5',2,4,'x','POST /api/users|valida PIN de 6 dígitos'],['u6',2,5,'o','PIN guardado con hash|cambio obligatorio']],
+ edges:[['u1','u2'],['u2','u3'],['u3','u4'],['u4','u5'],['u5','u6']],path:['u1','u2','u3','u4','u5','u6'],
+ today:['El servidor exige un PIN inicial de 6 dígitos al crear una cuenta nueva.','El PIN se guarda como hash; la columna del PIN en claro queda en NULL.'],gaps:[]},
+
+{id:'biometria',n:'PIN y huella',kind:'Acceso',route:'/biometria',st:'ok',roles:'Todos los perfiles',
+ sum:'Cambio de PIN y registro de la huella del dispositivo.',
+ ins:['PIN actual y nuevo','Sensor biométrico'],outs:['PIN nuevo','Credencial local de huella'],hum:['Escribe el PIN nuevo','Registra la huella'],
+ nodes:[['b1',0,0,'h','Abre Acceso|biométrico'],['b2',0,1,'h','Cambia el PIN|(pestaña PIN)'],['b3',2,2,'x','POST /api/change-pin|requiere red'],['b4',0,3,'h','Registra la huella|(pestaña Biometría)'],['b5',1,4,'s','WebAuthn create()|navegador'],['b6',1,5,'s','Guarda el id|en localStorage'],['b7',1,6,'o','Login con huella|en este dispositivo']],
+ edges:[['b1','b2'],['b2','b3'],['b3','b4'],['b4','b5'],['b5','b6'],['b6','b7']],path:['b1','b2','b3','b4','b5','b6','b7'],
+ today:['El cambio de PIN obligatorio del primer ingreso termina en esta pantalla.','La huella queda ligada al dispositivo y al navegador, no a la cuenta.'],gaps:['Borrar los datos del navegador elimina el acceso por huella sin avisar al servidor.']},
+
+{id:'config',n:'Configuración',kind:'Administración',route:'/configuracion',st:'ok',roles:'Administrador',
+ sum:'Respaldos XML, clonado de la base de producción y reinicio total de la app.',
+ ins:['Archivo XML','Modo merge u overwrite','Frase de confirmación'],outs:['Respaldo XML','Base clonada','App restablecida'],hum:['Elige la acción','Confirma la acción destructiva'],
+ nodes:[['g1',0,0,'h','Abre Configuración'],['g2',0,1,'h','Elige respaldo,|clonado o reinicio'],['g3',1,2,'s','Exporta o importa XML|Dexie ↔ archivo'],['g4',2,2,'x','POST clone-production-db|merge u overwrite'],['g5',0,3,'h','Confirma en el|diálogo'],['g6',1,4,'s','Borra IndexedDB|y localStorage'],['g7',1,5,'o','Recarga en /login']],
+ edges:[['g1','g2'],['g2','g3','respaldo'],['g2','g4','clonado'],['g2','g5','reinicio'],['g5','g6'],['g6','g7']],path:['g1','g2','g5','g6','g7'],
+ today:['El reemplazo total exige escribir la frase CLONE_PRODUCTION_OVERWRITE.','El respaldo XML cubre assets, users, mantenimientos, tickets, informes, eventos, clientes y sucursales; no incluye órdenes de servicio ni inventario.'],gaps:['El respaldo XML no incluye órdenes de servicio ni inventario.']},
+
+{id:'consola',n:'Consola',kind:'Administración',route:'/consola',st:'ok',roles:'Administrador',
+ sum:'Registro de eventos de la sesión actual y estado de la sincronización.',
+ ins:['Logs en memoria','Cola de sync'],outs:['Lista filtrada','Respaldo XML'],hum:['Filtra y limpia logs','Exporta'],
+ nodes:[['n1',0,0,'h','Abre la Consola'],['n2',1,1,'s','Lee el logger|INFO / WARN / ERROR'],['n3',1,2,'s','Cuenta operaciones|pendientes de sync'],['n4',0,3,'h','Filtra o|limpia los logs'],['n5',1,4,'o','Exporta respaldo XML']],
+ edges:[['n1','n2'],['n2','n3'],['n3','n4'],['n4','n5']],path:['n1','n2','n3','n4','n5'],
+ today:['El logger vive en memoria: al recargar la página se pierde.','La tabla audit_logs existe en la base local, pero esta pantalla no la lee.'],gaps:['No hay trazabilidad persistente de quién cambió qué.']},
+
+{id:'sync',n:'Sincronización offline',kind:'Apoyo',route:'motor interno',st:'apoyo',roles:'Automático',
+ sum:'Replica lo que ocurre en el dispositivo hacia Neon y trae los cambios de otros. Es lo que permite trabajar sin red.',
+ ins:['Cambios locales en cola','Reloj de 15 s','Evento de reconexión','Inicio de sesión'],outs:['Datos en Neon','Dexie actualizado','Contador de pendientes'],hum:['Trabaja sin conexión'],
+ nodes:[['s1',0,0,'h','Trabaja en terreno|sin conexión'],['s2',1,1,'s','Guarda en Dexie y|encola en sync_queue'],['s3',1,2,'d','¿Hay red|y sesión?'],['s4',1,3,'s','Toma hasta 100 ops|padre antes que hijo'],['s5',2,4,'x','POST /api/sync|valida rol, tenant y tabla'],['s6',2,5,'x','Upsert JSONB|por cliente_id'],['s7',1,6,'s','Trae cambios nuevos|GET ?since= y fusiona'],['s8',1,7,'o','Dexie al día|sync_status = synced']],
+ edges:[['s1','s2'],['s2','s3'],['s3','s2','No: espera','back'],['s3','s4','Sí'],['s4','s5'],['s5','s6'],['s6','s7'],['s7','s8']],path:['s1','s2','s3','s4','s5','s6','s7','s8'],
+ today:['Se dispara cada 15 s, al recuperar la red y al iniciar sesión.','Una operación que falla 3 veces sale del ciclo automático.','Al fusionar, gana el registro con updated_at más reciente.','Un token inválido borra IndexedDB y fuerza el login.'],gaps:['Con dos técnicos editando el mismo registro sin red, gana el último en llegar y el otro cambio se pierde sin aviso.']},
+
+{id:'exportacion',n:'Envío de documentos',kind:'Apoyo',route:'/api/export',st:'apoyo',roles:'Automático',
+ sum:'Genera el PDF en el navegador y lo manda por correo desde el servidor.',
+ ins:['PDF en base64','Tipo y folio del documento','Clave de idempotencia'],outs:['Correo con adjunto','Aviso al usuario'],hum:['Finaliza el documento'],
+ nodes:[['z1',0,0,'h','Finaliza informe,|OS o mantenimiento'],['z2',1,1,'s','Genera el PDF|jsPDF en el navegador'],['z3',1,2,'s','POST /api/export|con clave única'],['z4',2,3,'x','Valida %PDF- y|límite de 3 MB'],['z5',2,4,'d','¿Resend|configurado?'],['z6',2,5,'x','Resend envía|el correo'],['z7',1,6,'o','Aviso: enviado|o no disponible']],
+ edges:[['z1','z2'],['z2','z3'],['z3','z4'],['z4','z5'],['z5','z6','Sí'],['z5','z7','No: 503','back'],['z6','z7']],path:['z1','z2','z3','z4','z5','z6','z7'],
+ today:['Sin RESEND_API_KEY y RESEND_FROM_EMAIL el servidor responde 503 EMAIL_NOT_CONFIGURED.','El tipo de dato admite email, WhatsApp y compartir; el canal que verifiqué en el servidor es el correo.','Un fallo del envío genera una alerta operativa.'],gaps:[]},
+
+{id:'seguridad',n:'Seguridad y tenant',kind:'Apoyo',route:'middleware del servidor',st:'apoyo',roles:'Automático',
+ sum:'Cada llamada al servidor pasa por sesión, cliente asignado y rol antes de tocar datos.',
+ ins:['Token de sesión','Cliente solicitado','Perfil'],outs:['Respuesta 200','Rechazo 401 / 403 / 429'],hum:['Inactividad de 30 min'],
+ nodes:[['x1',1,0,'s','Cada petición|lleva el token'],['x2',2,1,'x','requireAuth|sesión vigente'],['x3',2,2,'x','requireCliente|cliente asignado'],['x4',2,3,'x','Rol y tabla|permitidos'],['x5',2,4,'d','¿Todo|válido?'],['x6',2,5,'o','Procesa y|responde 200'],['x7',1,5,'s','401 / 403: evento|auth-session-invalid'],['x8',0,6,'h','Vuelve a /login|IndexedDB se purga']],
+ edges:[['x1','x2'],['x2','x3'],['x3','x4'],['x4','x5'],['x5','x6','Sí'],['x5','x7','No'],['x7','x8']],path:['x1','x2','x3','x4','x5','x6'],
+ today:['Las sesiones se registran en la tabla cmms_sessions.','El acceso, la sincronización y la lectura tienen límites de frecuencia.','Un perfil que no es administrador solo ve los clientes de su lista.'],gaps:[]}
+];
+var BY={};M.forEach(function(m){BY[m.id]=m;});
+var STATUS={ok:'Operativo',partial:'Parcial',stub:'Sin datos reales',apoyo:'Proceso de apoyo',orphan:'Sin ruta'};
+
+/* ---------- MOTOR DE DIAGRAMAS ---------- */
+function lines(t){return String(t).split('|');}
+function toNodes(flow){ // lane/col -> coordenadas
+  var LW=118,CW=172,LH=108,T=14;
+  var ncol=0;flow.nodes.forEach(function(n){ncol=Math.max(ncol,n[2]+1);});
+  var out=flow.nodes.map(function(n){
+    var t=n[3];
+    return {id:n[0],t:t,lab:n[4],cx:LW+n[2]*CW+CW/2,cy:T+n[1]*LH+LH/2,w:156,h:t==='d'?66:54,lane:n[1]};
+  });
+  return {nodes:out,W:LW+ncol*CW+8,H:T*2+3*LH,bands:LANEB.map(function(l,i){return {y:T+i*LH,h:LH,label:l};}),bandX:0,LW:LW};
+}
+function rectOf(n){return {x1:n.cx-n.w/2-3,x2:n.cx+n.w/2+3,y1:n.cy-n.h/2-3,y2:n.cy+n.h/2+3};}
+function segHit(p,q,r){ // segmento ortogonal vs rect
+  var x1=Math.min(p[0],q[0]),x2=Math.max(p[0],q[0]),y1=Math.min(p[1],q[1]),y2=Math.max(p[1],q[1]);
+  return !(x2<r.x1||x1>r.x2||y2<r.y1||y1>r.y2);
+}
+function clear(pts,all,a,b){
+  for(var i=0;i<pts.length-1;i++){
+    for(var k=0;k<all.length;k++){var n=all[k];if(n===a||n===b)continue;if(segHit(pts[i],pts[i+1],rectOf(n)))return false;}
+  }
+  return true;
+}
+function route(a,b,all,hint){
+  var s=Math.sign(b.cx-a.cx), dy=Math.sign(b.cy-a.cy), c=[];
+  var sameRow=Math.abs(a.cy-b.cy)<4, sameCol=Math.abs(a.cx-b.cx)<4;
+  if(sameCol){var sy=a.cy+dy*a.h/2,ey=b.cy-dy*b.h/2;c.push([[a.cx,sy],[b.cx,ey]]);}
+  if(sameRow){var sx0=a.cx+s*a.w/2,ex0=b.cx-s*b.w/2;c.push([[sx0,a.cy],[ex0,b.cy]]);
+    var gy=a.cy-a.h/2-20; c.push([[a.cx,a.cy-a.h/2],[a.cx,gy],[b.cx,gy],[b.cx,b.cy-b.h/2]]);
+    var gy2=a.cy+a.h/2+20; c.push([[a.cx,a.cy+a.h/2],[a.cx,gy2],[b.cx,gy2],[b.cx,b.cy+b.h/2]]);}
+  if(!sameRow&&!sameCol){
+    var sx=a.cx+s*a.w/2, ex=b.cx-s*b.w/2;
+    if(hint!=='back'){
+      c.push([[sx,a.cy],[ex-s*12,a.cy],[ex-s*12,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[sx+s*12,a.cy],[sx+s*12,b.cy],[ex,b.cy]]);
+      c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[b.cx,a.cy],[b.cx,b.cy-dy*b.h/2]]);
+    }
+    var g1=a.cy+dy*(a.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);
+    var g2=b.cy-dy*(b.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g2],[b.cx,g2],[b.cx,b.cy-dy*b.h/2]]);
+    if(hint==='back'){c.unshift([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);}
+  }
+  for(var i=0;i<c.length;i++){if(clear(c[i],all,a,b))return c[i];}
+  return c[c.length-1];
+}
+function plen(p){var L=0;for(var i=0;i<p.length-1;i++)L+=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);return L;}
+function dstr(p){return p.map(function(q,i){return (i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1);}).join(' ');}
+function labelPos(p){ // punto medio del segmento más largo
+  var best=0,bi=0;for(var i=0;i<p.length-1;i++){var l=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);if(l>best){best=l;bi=i;}}
+  var a=p[bi],b=p[bi+1];return [(a[0]+b[0])/2,(a[1]+b[1])/2,Math.abs(b[1]-a[1])>Math.abs(b[0]-a[0]),best];
+}
+function nodeSVG(n,link){
+  var L=lines(n.lab),cls='node n-'+n.t+(link?' link':'');
+  var x=n.cx-n.w/2,y=n.cy-n.h/2,g='<g class="'+cls+'" data-id="'+n.id+'"'+(link?' tabindex="0" role="link" aria-label="'+esc(L.join(' '))+'" data-go="'+link+'"':'')+'>';
+  if(n.t==='d'){g+='<polygon points="'+n.cx+','+y+' '+(n.cx+n.w/2)+','+n.cy+' '+n.cx+','+(y+n.h)+' '+(n.cx-n.w/2)+','+n.cy+'"/>';}
+  else if(n.t==='o'){g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.h/2)+'"/>';}
+  else{g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.t==='h'?10:4)+'"/>';}
+  if(n.t==='h'){g+='<circle class="pic" cx="'+(x+11)+'" cy="'+(y+11)+'" r="3"/><path class="pic" d="M'+(x+5.5)+' '+(y+20)+' q5.5 -8 11 0"/>';}
+  var lh=13.5,y0=n.cy-(L.length-1)*lh/2+4;
+  L.forEach(function(t,i){g+='<text x="'+n.cx+'" y="'+(y0+i*lh)+'" class="'+(i>0?'t2':'')+'">'+esc(t)+'</text>';});
+  return g+'</g>';
+}
+// flow: {nodes:[..coords..], edges, W,H, bands}
+function drawDiagram(D,edges,opts){
+  opts=opts||{};
+  var byId={};D.nodes.forEach(function(n){byId[n.id]=n;});
+  var s='<svg class="dg" viewBox="0 0 '+D.W+' '+D.H+'" role="img" aria-label="'+esc(opts.aria||'Diagrama de proceso')+'" xmlns="'+NS+'">';
+  s+='<defs><marker id="ar'+opts.uid+'" class="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs>';
+  (D.bands||[]).forEach(function(b,i){
+    s+='<rect class="band'+(i%2?' alt':'')+'" x="0" y="'+b.y+'" width="'+D.W+'" height="'+b.h+'" rx="6"/>';
+    var bl=lines(b.label);bl.forEach(function(t,k){s+='<text class="band-l" x="10" y="'+(b.y+b.h/2-(bl.length-1)*7+k*14+4)+'">'+esc(t.toUpperCase())+'</text>';});
+  });
+  var eh='',dots='',labs='';
+  edges.forEach(function(e,i){
+    var a=byId[e[0]],b=byId[e[1]];if(!a||!b)return;
+    var gap=e[3]==='gap';
+    var p=route(a,b,D.nodes,e[3]);
+    var d=dstr(p);
+    eh+='<path class="edge'+(gap?' gap':'')+'" data-f="'+e[0]+'" data-t="'+e[1]+'" d="'+d+'" marker-end="url(#ar'+opts.uid+')"/>';
+    if(!REDUCED&&!gap){var dur=Math.max(1.6,plen(p)/70);dots+='<circle class="dot" r="3"><animateMotion dur="'+dur.toFixed(2)+'s" begin="-'+((i*0.53)%dur).toFixed(2)+'s" repeatCount="indefinite" path="'+d+'"/></circle>';}
+    if(e[2]){var lp=labelPos(p);var segL=lp[3];if(segL>=e[2].length*5.3+6){labs+='<text class="elab'+(gap?' gap':'')+'" text-anchor="middle" x="'+lp[0]+'" y="'+(lp[1]+(lp[2]?3:-5))+'"'+(lp[2]?' dx="'+(e[2].length*2.9+6)+'"':'')+'>'+esc(e[2])+'</text>';}}
+  });
+  s+=eh+dots+labs;
+  D.nodes.forEach(function(n){s+=nodeSVG(n,n.link);});
+  return s+'</svg>';
+}
+var UID=0;
+
+/* ---------- Diagrama global ---------- */
+function globalDiagram(){
+  var CX=[200,372,544,716,888,1060,1232],W=1320;
+  var R={p:44,a:136,o1:246,o2:354,s:462,s1:588,s2:684};
+  function N(id,t,col,row,lab,link,w){return {id:id,t:t,lab:lab,cx:(col==null?0:CX[col]),cy:R[row],w:w||150,h:50,link:link||null};}
+  var nodes=[
+    (function(){var n=N('per','h',3,'p','6 perfiles · administrador, supervisor|técnico, contratista, cliente, visita');n.cx=716;n.w=470;return n;})(),
+    N('login','s',0,'a','Login|PIN o huella','acceso'),N('pin','s',1,'a','Cambio de PIN|obligatorio','biometria'),N('ten','s',2,'a','Selector de cliente|(tenant activo)','tenant'),
+    N('scan','s',5,'a','Escáner QR|deep link','scanner'),N('qr','h',6,'a','Etiqueta QR|pegada en el equipo'),
+    N('eq','s',0,'o1','Equipos|(hub de activos)','equipos'),N('fic','s',1,'o1','Ficha de equipo','ficha'),N('map','s',2,'o1','Mapa','mapa'),N('inv','s',3,'o1','Inventario interno','inventario'),
+    N('das','s',4,'o1','Dashboard','dashboard'),N('rep','g',5,'o1','Reportes (maqueta)','reportes'),N('cal','s',6,'o1','Calendario','calendario'),
+    N('tic','s',1,'o2','Tickets','tickets'),N('man','s',2,'o2','Mantenimientos','mantenimientos'),N('os','s',3,'o2','Órdenes de servicio','ordenes'),N('inf','s',4,'o2','Informes técnicos','informes'),N('efi','g',5,'o2','Energía (sin datos)','energia'),
+    N('etq','o',0,'s','Etiqueta QR (PNG)'),N('gt','o',1,'s','Google Tasks'),N('bak','o',2,'s','Respaldo XML'),N('pdf','o',3,'s','PDF (jsPDF)'),N('mail','o',4,'s','Correo (Resend)'),N('gc','o',6,'s','Google Calendar'),
+    N('pwa','s',0,'s1','PWA + Service Worker|abre sin red'),N('dex','s',1,'s1','IndexedDB (Dexie)|datos locales + cola'),N('syn','s',2,'s1','Motor de sync|15 s · reconexión','sync'),
+    N('api','x',3,'s1','API /api/sync|Express o Vercel'),N('neo','x',4,'s1','Neon PostgreSQL|JSONB por cliente'),N('seg','x',5,'s1','Seguridad|sesión · rol · tenant','seguridad'),
+    N('adm','s',1,'s2','Usuarios y clientes','usuarios'),N('cfg','s',2,'s2','Configuración|XML · clon · reinicio','config'),N('con','s',3,'s2','Consola y logs','consola')
+  ];
+  var edges=[
+    ['per','login'],['login','pin','PIN inicial'],['login','ten'],['pin','ten'],['ten','das'],['ten','eq'],['qr','scan','escanea'],['scan','fic','abre ficha'],
+    ['eq','fic'],['eq','map','lat/lng'],['eq','etq','imprime'],['fic','tic','crea'],['fic','man','crea'],['os','inf','1:N'],['inf','pdf'],['os','pdf'],['man','pdf'],['pdf','mail','adjunto'],['tic','gt','manual'],['cal','gc','vincula'],
+    ['dex','syn','cola'],['syn','api','push / pull'],['api','neo','upsert'],['seg','api','valida'],['pwa','dex'],['adm','dex'],['cfg','api','clonar BD'],['cfg','bak'],['syn','con','estado']
+  ];
+  var bands=[{y:14,h:60,label:'PERSONAS'},{y:100,h:72,label:'ACCESO|Y CONTEXTO'},{y:196,h:212,label:'OPERACIÓN'},{y:432,h:60,label:'SALIDAS'},{y:520,h:196,label:'PROCESOS|DE APOYO'}];
+  // Evitar solape de la etiqueta de banda con la primera columna: desplazar columnas
+  return drawDiagram({nodes:nodes,W:W,H:736,bands:bands},edges,{uid:'g'+(++UID),aria:'Flujo global del CMMS: personas, acceso, módulos de operación, salidas y procesos de apoyo'});
+}
+
+/* ---------- Interrelaciones ---------- */
+function relDiagram(){
+  var CX=[90,250,410,570,730,890,1050],W=1140;
+  var RY=[48,150,252,354,456];
+  function N(id,t,col,row,lab,link){return {id:id,t:t,lab:lab,cx:CX[col],cy:RY[row],w:136,h:46,link:link||null};}
+  var nodes=[
+    N('cli','s',0,0,'Clientes y|sucursales','clientes'),N('map','s',2,0,'Mapa','mapa'),N('ten','s',4,0,'Selector de|cliente','tenant'),N('usr','s',6,0,'Usuarios','usuarios'),
+    N('qr','s',0,1,'Escáner QR','scanner'),N('eq','s',2,1,'Equipos','equipos'),N('das','s',4,1,'Dashboard','dashboard'),N('efi','g',6,1,'Energía|(sin datos)','energia'),
+    N('fic','s',1,2,'Ficha de equipo','ficha'),N('tic','s',3,2,'Tickets','tickets'),N('man','s',5,2,'Mantenimientos','mantenimientos'),
+    N('rep','g',0,3,'Reportes|(maqueta)','reportes'),N('os','s',2,3,'Órdenes de|servicio','ordenes'),N('inf','s',3,3,'Informes|técnicos','informes'),N('cal','s',5,3,'Calendario','calendario'),N('inv','s',6,3,'Inventario','inventario'),
+    N('gt','o',1,4,'Google Tasks'),N('exp','o',3,4,'PDF + correo'),N('gc','o',5,4,'Google Calendar')
+  ];
+  var E=[
+    ['cli','eq','sucursal y TAG'],['cli','ten','alta'],['usr','ten','clientes del usuario'],['qr','fic','deep link'],['eq','fic'],['eq','map','lat/lng'],['eq','efi','conteo'],
+    ['fic','tic','abre modal'],['fic','man'],['tic','das'],['man','das'],['eq','das','estado'],['inf','eq','elige TAG'],['os','inf','1:N'],['inf','exp','PDF'],['man','exp'],['tic','gt'],['cal','gc'],
+    ['tic','eq','no cambia estado','gap'],['man','eq','','gap'],['cal','man','no enlazados','gap'],['tic','os','sin enlace','gap'],['man','os','sin enlace','gap'],['inv','man','sin descuento','gap']
+  ];
+  var D={nodes:nodes,W:W,H:RY[4]+46,bands:null};
+  return drawDiagram(D,E,{uid:'r'+(++UID),aria:'Interrelaciones entre módulos. Línea continua con flecha animada: relación que existe. Línea roja punteada: relación esperada que no existe.'});
+}
+
+/* ---------- Vistas ---------- */
+var app=document.getElementById('app');
+var timers=[];
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+function chips(a,c){return '<div class="chips">'+a.map(function(x){return '<span class="chip '+c+'">'+esc(x)+'</span>';}).join('')+'</div>';}
+function legend(){return '<div class="legend" aria-label="Leyenda"><span><i class="sw h"></i>Persona interviene</span><span><i class="sw s"></i>Pantalla o dispositivo</span><span><i class="sw x"></i>Servidor o servicio externo</span><span><i class="sw d"></i>Decisión</span><span><i class="sw o"></i>Salida</span><span><i class="sw g"></i>Maqueta o sin datos</span></div>';}
+function bindLinks(root){
+  root.querySelectorAll('[data-go]').forEach(function(g){
+    function go(){location.hash='#mod-'+g.getAttribute('data-go');}
+    g.addEventListener('click',go);g.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+  });
+}
+function viewGlobal(){
+  var cnt={ok:0,partial:0,stub:0,apoyo:0};M.forEach(function(m){cnt[m.st]=(cnt[m.st]||0)+1;});
+  app.innerHTML='<h2>Flujo global</h2>'+
+  '<p>Una persona entra con su perfil, elige el cliente con el que trabaja y opera sobre los equipos. Todo se escribe primero en el dispositivo y un motor de sincronización lo replica en el servidor. Haz clic en un módulo para ver su flujo en detalle.</p>'+
+  '<div class="kpis"><div class="kpi"><b>'+cnt.ok+'</b><span>módulos operativos</span></div><div class="kpi"><b>'+cnt.partial+'</b><span>parciales</span></div><div class="kpi"><b>'+cnt.stub+'</b><span>maquetas sin datos reales</span></div><div class="kpi"><b>'+cnt.apoyo+'</b><span>procesos de apoyo</span></div></div>'+
+  legend()+'<figure><div class="scroll">'+globalDiagram()+'</div><figcaption>Cada flecha animada es un dato que viaja entre módulos. La fila de apoyo muestra el camino de un dato guardado: Dexie, cola, motor de sync, API y Neon. Todos los módulos de operación leen y escriben en Dexie, por eso no se dibuja una flecha desde cada uno.</figcaption></figure>'+
+  '<div class="two"><div class="panel"><h3>Cómo leerlo</h3><ul><li>De arriba abajo: personas, acceso, operación, salidas y apoyo.</li><li>Los módulos con borde rojo punteado son maquetas: la pantalla existe pero no calcula con datos reales.</li><li>Los tres procesos de apoyo tienen su propio flujo detallado.</li></ul></div>'+
+  '<div class="panel"><h3>Procesos de apoyo</h3><ul><li><a href="#mod-sync">Sincronización offline</a></li><li><a href="#mod-exportacion">Envío de documentos</a></li><li><a href="#mod-seguridad">Seguridad y tenant</a></li></ul></div></div>';
+  bindLinks(app);
+}
+function viewModulos(filter){
+  filter=filter||'Todos';
+  var kinds=['Todos','Acceso','Operación','Administración','Apoyo'];
+  var list=M.filter(function(m){return filter==='Todos'||m.kind===filter;});
+  app.innerHTML='<h2>Módulos</h2><p>Cada tarjeta resume lo que entra, lo que sale y dónde interviene una persona. Entra para ver el flujo animado.</p>'+
+  '<div class="filters" role="group" aria-label="Filtrar por tipo">'+kinds.map(function(k){return '<button type="button" class="btn" data-k="'+k+'" aria-pressed="'+(k===filter)+'">'+k+'</button>';}).join('')+'</div>'+
+  '<div class="grid">'+list.map(function(m){
+    return '<a class="card" href="#mod-'+m.id+'"><div><h4>'+esc(m.n)+'</h4><div class="route">'+esc(m.route)+'</div></div><span class="st '+m.st+'">'+STATUS[m.st]+'</span><p style="margin:0;font-size:13px">'+esc(m.sum)+'</p>'+
+    '<div class="lbl">Entra</div>'+chips(m.ins,'i')+'<div class="lbl">Sale</div>'+chips(m.outs,'o')+'<div class="lbl">Interviene la persona</div>'+chips(m.hum,'h')+'</a>';}).join('')+'</div>';
+  app.querySelectorAll('[data-k]').forEach(function(b){b.addEventListener('click',function(){viewModulos(b.getAttribute('data-k'));});});
+}
+function viewModulo(id){
+  var m=BY[id];if(!m){location.hash='#modulos';return;}
+  var D=toNodes(m);
+  var uid='m'+(++UID);
+  app.innerHTML='<a class="back" href="#modulos">← Todos los módulos</a>'+
+  '<h2 style="margin-top:8px">'+esc(m.n)+'</h2><div class="route">'+esc(m.route)+' · '+esc(m.roles)+'</div><p style="margin-top:8px"><span class="st '+m.st+'">'+STATUS[m.st]+'</span> '+esc(m.sum)+'</p>'+
+  '<div class="two"><div class="panel"><h3>Entra</h3>'+chips(m.ins,'i')+'</div><div class="panel"><h3>Sale</h3>'+chips(m.outs,'o')+'</div><div class="panel"><h3>Interviene la persona</h3>'+chips(m.hum,'h')+'</div></div>'+
+  legend()+'<figure><div class="scroll">'+drawDiagram(D,m.edges,{uid:uid,aria:'Flujo de '+m.n+': '+m.path.length+' pasos principales'})+'</div>'+
+  '<div class="ctl"><button class="btn pri" id="play" type="button">▶ Reproducir recorrido</button><button class="btn" id="step" type="button">Paso ›</button><button class="btn" id="reset" type="button">Reiniciar</button><div class="stepcap" id="cap" aria-live="polite">Pulsa reproducir para seguir el camino principal paso a paso.</div></div>'+
+  '<figcaption>Camino principal resaltado en '+m.path.length+' pasos. Los carriles separan lo que hace la persona, lo que ocurre en el dispositivo y lo que ocurre en el servidor o en servicios externos.</figcaption></figure>'+
+  '<div class="two"><div class="panel"><h3>Cómo funciona hoy</h3><ul>'+m.today.map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></div>'+
+  (m.gaps.length?'<div class="panel gapbox"><h3>Brechas detectadas</h3><ul>'+m.gaps.map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></div>':'<div class="panel"><h3>Brechas detectadas</h3><p>Ninguna en este flujo.</p></div>')+'</div>';
+  var svg=app.querySelector('svg.dg'),cap=document.getElementById('cap'),i=-1,running=false;
+  var byId={};D.nodes.forEach(function(n){byId[n.id]=n;});
+  function show(k){
+    i=k;svg.classList.add('dim');
+    svg.querySelectorAll('.node.on,.node.seen').forEach(function(n){n.classList.remove('on','seen');});
+    svg.querySelectorAll('.edge.hot').forEach(function(n){n.classList.remove('hot');});
+    for(var j=0;j<=k;j++){var nd=svg.querySelector('.node[data-id="'+m.path[j]+'"]');if(nd)nd.classList.add(j===k?'on':'seen');
+      if(j>0){var ed=svg.querySelector('.edge[data-f="'+m.path[j-1]+'"][data-t="'+m.path[j]+'"]');if(ed)ed.classList.add('hot');}}
+    var n=byId[m.path[k]];cap.innerHTML='<b>Paso '+(k+1)+' de '+m.path.length+'</b> · '+esc(LANES[n.lane])+': '+esc(lines(n.lab).join(' '));
+  }
+  function stop(){running=false;clearTimers();document.getElementById('play').textContent='▶ Reproducir recorrido';}
+  function tick(){if(!running)return;if(i+1>=m.path.length){stop();return;}show(i+1);timers.push(setTimeout(tick,1300));}
+  document.getElementById('play').addEventListener('click',function(){if(running){stop();return;}if(i+1>=m.path.length)i=-1;running=true;this.textContent='⏸ Pausar';tick();});
+  document.getElementById('step').addEventListener('click',function(){stop();show(Math.min(i+1,m.path.length-1));});
+  document.getElementById('reset').addEventListener('click',function(){stop();i=-1;svg.classList.remove('dim');svg.querySelectorAll('.on,.hot,.seen').forEach(function(n){n.classList.remove('on','hot','seen');});cap.textContent='Pulsa reproducir para seguir el camino principal paso a paso.';});
+  if(!REDUCED){running=true;document.getElementById('play').textContent='⏸ Pausar';timers.push(setTimeout(tick,700));}
+}
+function viewRel(){
+  var gaps=[
+   ['Calendario ↔ Mantenimientos','Dos calendarios independientes: el módulo Calendario (tabla events) y el de la pantalla Mantenimientos. Las próximas fechas calculadas no aparecen en la agenda.'],
+   ['Tickets y mantenimientos ↔ estado del equipo','Ningún hook ni modal de ticket o mantenimiento actualiza el estado del equipo ni su último y próximo mantenimiento. El estado "falla" se cambia a mano.'],
+   ['Tickets / mantenimientos ↔ órdenes de servicio','La orden de servicio nace sola; no referencia el ticket ni el mantenimiento que la motivó.'],
+   ['Inventario ↔ trabajo realizado','Los repuestos se escriben como texto libre; nada descuenta stock.'],
+   ['Equipos ↔ Mapa','El Mapa necesita latitud y longitud, pero ninguna pantalla las captura.'],
+   ['Reportes y Eficiencia energética','Pantallas sin datos reales: el código declara hasAnalyticsDataset = false y hasEnergyTelemetry = false.'],
+   ['Mi Empresa','Existe la pantalla (MiEmpresa.tsx), pero no tiene ruta ni entrada de menú: no se puede abrir.'],
+   ['Asignación de tickets','El responsable por defecto es un nombre escrito en el código, no un usuario del cliente.'],
+   ['Auditoría','La tabla audit_logs existe, pero la Consola solo muestra logs en memoria que se pierden al recargar.']];
+  app.innerHTML='<h2>Interrelaciones y brechas</h2><p>Línea con flecha animada: relación que existe en el código. Línea roja punteada: relación que cabría esperar y no existe. Equipos es el centro; Órdenes de servicio e Informes forman un bloque casi aislado.</p>'+legend()+
+  '<figure><div class="scroll">'+relDiagram()+'</div><figcaption>Los módulos se comunican a través del equipo (TAG) y del cliente activo. Entre tickets, mantenimientos y órdenes de servicio no hay ninguna conexión hoy.</figcaption></figure>'+
+  '<h2>Brechas verificadas en el código</h2><div class="panel gapbox"><div class="tw"><table><thead><tr><th>Dónde</th><th>Qué pasa hoy</th></tr></thead><tbody>'+gaps.map(function(g){return '<tr><td><b>'+esc(g[0])+'</b></td><td>'+esc(g[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>Dependencias por módulo</h2><div class="panel"><div class="tw"><table><thead><tr><th>Módulo</th><th>Depende de</th><th>Alimenta a</th></tr></thead><tbody>'+
+  [['Equipos','Clientes y sucursales, catálogo de tipos','Ficha, Mapa, Tickets, Mantenimientos, Informes, Dashboard'],
+   ['Ficha de equipo','Equipos, Escáner QR','Tickets, Mantenimientos, etiqueta QR'],
+   ['Tickets','Equipos','Dashboard, Google Tasks'],
+   ['Mantenimientos','Equipos','Dashboard, PDF y correo'],
+   ['Órdenes de servicio','Informes técnicos (cierre)','PDF resumen y correo'],
+   ['Informes técnicos','Orden de servicio, Equipos','PDF y correo'],
+   ['Dashboard','Equipos, Tickets, Mantenimientos, Sucursales','Solo lectura'],
+   ['Selector de cliente','Clientes, Usuarios','Todos los módulos (cliente activo)'],
+   ['Sincronización','Todas las tablas locales','Neon y todos los dispositivos']].map(function(r){return '<tr><td><b>'+r[0]+'</b></td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+  bindLinks(app);
+}
+
+/* ---------- Ruteo ---------- */
+function route_(){
+  clearTimers();
+  var h=(location.hash||'#global').slice(1);
+  var v=h.indexOf('mod-')===0?'modulos':h;
+  document.querySelectorAll('#tabs a').forEach(function(a){if(a.getAttribute('data-v')===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  if(h.indexOf('mod-')===0)viewModulo(h.slice(4));
+  else if(h==='modulos')viewModulos();
+  else if(h==='interrelaciones')viewRel();
+  else viewGlobal();
+  window.scrollTo(0,0);
+  applyPause();
+}
+var paused=REDUCED;
+function applyPause(){
+  document.body.classList.toggle('paused',paused);
+  document.querySelectorAll('svg.dg').forEach(function(s){try{if(paused)s.pauseAnimations();else s.unpauseAnimations();}catch(e){}});
+  var b=document.getElementById('pauseBtn');b.textContent='Animación: '+(paused?'pausada':'activa');b.setAttribute('aria-pressed',String(paused));
+}
+document.getElementById('pauseBtn').addEventListener('click',function(){paused=!paused;applyPause();});
+window.addEventListener('hashchange',route_);
+route_();
+})();
+</script>
+
+</body></html>
