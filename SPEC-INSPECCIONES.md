@@ -15,6 +15,31 @@ controlobrax.cl (video no verificado por el autor del plan) + revisión del repo
 
 Supuestos derivados, por confirmar: el Calendario lee las inspecciones programadas desde su tabla sin duplicar eventos; el perfil cliente ve las inspecciones de su empresa enviadas a firma, aprobadas u observadas (no borradores); cada inspección y plano pertenece al cliente activo y a una sucursal.
 
+### 0.1 Entrevista de funcionamiento (2026-11-16)
+
+El módulo es de **ITO: Inspección Técnica de Obra** (montajes, instalaciones y reparaciones).
+
+| # | Tema | Decisión |
+|---|------|----------|
+| 1 | Quién crea | Supervisor o administrador crea y asigna; el técnico ejecuta; **el cliente puede solicitar** una ITO y el supervisor la acepta y asigna (estado `solicitada`) |
+| 2 | Qué se inspecciona | Obras de montaje, instalación o reparación, no un equipo único. Código **`Correlativo.Obra.Cliente.Mes.AA`** (correlativo 0000–9999, obra 00–99), p. ej. `0042.07.NORTEC.11.26`. Se muestra en el Calendario |
+| 3 | Correlativo | Se reinicia **por cliente y por año**; lo asigna el servidor al sincronizar (provisional sin red) |
+| 4 | Respuesta por ítem | Cumple / No cumple / N/A, más **medición opcional** con unidad y rango esperado |
+| 5 | Re-inspección | **Se reabre la misma ITO**; solo se re-evalúan los No cumple y el historial queda en el ítem |
+| 6 | Firmas | **Inspector → contratista → cliente**. El contratista acusa recibo (puede haber hallazgos abiertos y la ITO queda observada); la aprobación del cliente exige 0 No cumple |
+| 7 | Hallazgos | Responsable y fecha límite, **aviso por correo (Resend)** al asignar y al vencer; la fecha límite aparece en el Calendario |
+| 8 | Evidencia | **Fotos y archivos adjuntos (PDF)** por ítem |
+| 9 | Plantillas | Administrador global y supervisor, **con versiones**: una ITO conserva la versión con que nació |
+| 10 | Informe | PDF automático por correo al aprobarse, con el logo del cliente, al cliente, al contratista y al inspector |
+
+Puntos que esta entrevista deja por confirmar:
+
+- Los adjuntos PDF aumentan mucho el almacenamiento en Neon, lo que tensiona la decisión de guardar las fotos allí; conviene fijar un tamaño máximo por archivo y revisar Vercel Blob si el volumen crece.
+- Las fotos conservan fecha y hora; no se decidió exigir GPS.
+- El correlativo por cliente y año supone un contador por cliente en el servidor (tabla de secuencias) con control de concurrencia.
+- El flujo de firma por tres partes reemplaza al de dos partes descrito en secciones posteriores y en `docs/PLAN_INSPECCION_DE_OBRA.html`; ese diagrama aún muestra la versión anterior.
+- Prototipo de las pantallas: `docs/PROTOTIPO_FRONT_ITO.html`.
+
 > Donde el resto de este documento mencione avance de OS o mantenimiento, `onInspectionApproved` o PDF de planos en la Fase 2, **esta sección prevalece**. El diagrama animado en `docs/PLAN_INSPECCION_DE_OBRA.html` ya refleja estas decisiones.
 
 ## 1. Resumen ejecutivo

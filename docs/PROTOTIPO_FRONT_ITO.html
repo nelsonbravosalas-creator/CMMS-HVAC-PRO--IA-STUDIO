@@ -1,0 +1,354 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><title>Prototipo Inspecciones ITO</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Concepto: réplica del estilo actual de la app (slate, azul, etiquetas en mayúscula, tarjetas redondeadas) con el módulo ITO resaltado en índigo. */
+:root{
+  --bg:#f1f5f9; --panel:#ffffff; --ink:#0f172a; --mute:#64748b; --line:#e2e8f0; --soft:#f8fafc;
+  --blue:#2563eb; --blue-bg:#dbeafe;
+  --ok:#059669; --ok-bg:#d1fae5; --no:#dc2626; --no-bg:#fee2e2; --na:#475569; --na-bg:#e2e8f0; --warn:#b45309; --warn-bg:#fef3c7;
+  --ito:#4f46e5; --ito-bg:#e0e7ff; --shadow:0 1px 2px rgba(15,23,42,.06);
+  --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#020617; --panel:#0f172a; --ink:#e2e8f0; --mute:#94a3b8; --line:#1e293b; --soft:#0b1222;
+  --blue:#60a5fa; --blue-bg:#172554; --ok:#34d399; --ok-bg:#064e3b; --no:#f87171; --no-bg:#450a0a; --na:#cbd5e1; --na-bg:#1e293b; --warn:#fbbf24; --warn-bg:#451a03;
+  --ito:#a5b4fc; --ito-bg:#1e1b4b; --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#020617; --panel:#0f172a; --ink:#e2e8f0; --mute:#94a3b8; --line:#1e293b; --soft:#0b1222;
+  --blue:#60a5fa; --blue-bg:#172554; --ok:#34d399; --ok-bg:#064e3b; --no:#f87171; --no-bg:#450a0a; --na:#cbd5e1; --na-bg:#1e293b; --warn:#fbbf24; --warn-bg:#451a03;
+  --ito:#a5b4fc; --ito-bg:#1e1b4b; --shadow:none; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto}
+.intro{padding:20px 0 12px}
+.intro h1{font-size:24px;margin:0;font-weight:800;letter-spacing:-.02em}
+.intro p{margin:4px 0 0;color:var(--mute);max-width:80ch}
+.screens{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.screens a{padding:7px 13px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);text-decoration:none;font-weight:600;font-size:12.5px}
+.screens a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;min-height:640px}
+.side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.logo{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.logo i{width:24px;height:24px;border-radius:6px;background:var(--blue);color:#fff;font:700 10px var(--font);display:grid;place-items:center;font-style:normal}
+.nav{padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow:auto}
+.nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:10px;color:var(--mute);text-decoration:none;font-weight:600;font-size:13px}
+.nav a.on{background:var(--ito-bg);color:var(--ito)}
+.nav .new{font-size:9px;font-weight:800;background:var(--ito);color:var(--bg);border-radius:99px;padding:1px 6px;letter-spacing:.05em}
+.nav .sec{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--mute);padding:12px 12px 4px;text-transform:uppercase}
+.sync{margin-top:auto;padding:12px 16px;border-top:1px solid var(--line);font-size:11px;font-weight:700;color:var(--mute);display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.06em}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 22px;border-bottom:1px solid var(--line)}
+.crumb{font-size:11px;font-weight:700;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.chipc{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-weight:600;font-size:12.5px;background:var(--soft)}
+.body{padding:22px;min-width:0}
+h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:2px 0 14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 14px;font-weight:700;font-size:12.5px;cursor:pointer}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.itob{background:var(--ito);border-color:var(--ito);color:var(--bg)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.kpi{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--soft)}
+.kpi b{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em}
+.kpi span{font-size:10.5px;font-weight:700;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.kpi.bad b{color:var(--no)} .kpi.good b{color:var(--ok)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.f{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer}
+.f[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search{flex:1;min-width:200px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--soft)}
+.list{display:grid;gap:10px}
+.ito{border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;background:var(--panel);box-shadow:var(--shadow);cursor:pointer;text-align:left;width:100%}
+.ito:hover{border-color:var(--ito)}
+.code{font:600 12px var(--mono);color:var(--ito)}
+.ito h3{margin:2px 0 4px;font-size:15px;font-weight:700}
+.meta{font-size:12px;color:var(--mute);display:flex;flex-wrap:wrap;gap:4px 14px}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.b-solicitada{background:var(--warn-bg);color:var(--warn)} .b-progreso{background:var(--blue-bg);color:var(--blue)}
+.b-porfirmar{background:var(--ito-bg);color:var(--ito)} .b-observada{background:var(--no-bg);color:var(--no)} .b-aprobada{background:var(--ok-bg);color:var(--ok)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--ito)}
+.side-r{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:110px}
+.card{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--panel);min-width:0}
+.card h3{margin:0 0 10px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:800}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+label.fl{display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:10px 0 4px}
+.in{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:9px 11px}
+textarea.in{min-height:58px;resize:vertical}
+.anat{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-top:8px}
+.seg{border:1px solid var(--ito);border-radius:10px;padding:6px 9px;text-align:center;background:var(--ito-bg)}
+.seg b{display:block;font:600 15px var(--mono);color:var(--ito)} .seg span{font-size:10px;color:var(--mute);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.sepd{align-self:center;font:700 18px var(--mono);color:var(--mute)}
+.note{font-size:12px;color:var(--mute);margin-top:8px}
+.callout{border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:600;margin:10px 0}
+.c-warn{background:var(--warn-bg);color:var(--warn)} .c-bad{background:var(--no-bg);color:var(--no)} .c-ok{background:var(--ok-bg);color:var(--ok)} .c-info{background:var(--blue-bg);color:var(--blue)}
+.phoneWrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,390px) minmax(0,1fr);gap:18px;align-items:start}
+.phone{border:10px solid var(--ink);border-radius:36px;background:var(--panel);overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.2)}
+.ph-h{padding:12px 14px;background:var(--ito);color:var(--bg)}
+.ph-h .code{color:inherit;opacity:.9} .ph-h b{display:block;font-size:14px}
+.ph-b{padding:12px;display:grid;gap:10px;max-height:640px;overflow:auto}
+.grp{font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--mute);text-transform:uppercase;margin-top:4px}
+.it{border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--panel)}
+.it p{margin:0 0 8px;font-weight:600;font-size:13px}
+.segb{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.segb button{border:1.5px solid var(--line);background:var(--soft);border-radius:10px;padding:8px 4px;font-weight:800;font-size:12px;cursor:pointer}
+.segb button.ok.on{background:var(--ok);border-color:var(--ok);color:#fff} .segb button.no.on{background:var(--no);border-color:var(--no);color:#fff} .segb button.na.on{background:var(--na);border-color:var(--na);color:var(--bg)}
+.ex{margin-top:8px;display:grid;gap:6px}
+.pill{display:inline-flex;gap:6px;align-items:center;border:1px dashed var(--line);border-radius:8px;padding:5px 8px;font-size:11.5px;font-weight:700;cursor:pointer;background:var(--soft)}
+.range{font-size:11.5px;font-weight:700;border-radius:8px;padding:4px 8px;display:inline-block}
+.side-note{font-size:12.5px;color:var(--mute)} .side-note b{color:var(--ink)}
+.plano{border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:8px}
+.planoWrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:14px}
+svg.pl{width:100%;height:auto;display:block}
+.pin{cursor:pointer}
+.sigs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.step{border:1.5px solid var(--line);border-radius:14px;padding:12px}
+.step.cur{border-color:var(--ito)} .step.done{border-color:var(--ok);background:var(--ok-bg)}
+.step b{display:block;font-size:13px} .step span{font-size:12px;color:var(--mute)}
+canvas.sig{width:100%;height:150px;border:1.5px dashed var(--mute);border-radius:12px;background:#fff;touch-action:none;cursor:crosshair}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal .h{font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--mute);text-transform:uppercase;text-align:center;padding:4px 0}
+.day{min-height:84px;border:1px solid var(--line);border-radius:10px;padding:4px;background:var(--soft);min-width:0}
+.day small{font-weight:700;color:var(--mute);font-size:11px}
+.ev{display:block;width:100%;text-align:left;border:0;border-radius:6px;padding:2px 5px;margin-top:3px;font-size:10.5px;font-weight:700;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e-ito{background:var(--ito-bg);color:var(--ito)} .e-due{background:var(--no-bg);color:var(--no)} .e-sol{background:var(--warn-bg);color:var(--warn)}
+.paper{background:#fff;color:#111827;border:1px solid #cbd5e1;border-radius:6px;padding:26px;max-width:760px;margin:0 auto;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.paper h4{margin:0;font-size:16px;letter-spacing:.04em}
+.paper table{width:100%;border-collapse:collapse;margin:10px 0} .paper th,.paper td{border:1px solid #d1d5db;padding:5px 7px;text-align:left;vertical-align:top}
+.paper th{background:#f3f4f6;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.st-ok{color:#047857;font-weight:800} .st-no{color:#b91c1c;font-weight:800} .st-na{color:#475569;font-weight:800} .st-nul{color:#b45309;font-weight:800}
+.logoCli{width:90px;height:44px;border:2px solid #4f46e5;border-radius:6px;display:grid;place-items:center;font-weight:900;color:#4f46e5;letter-spacing:.1em}
+.sigrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.sigbox{border-top:1.5px solid #111827;padding-top:4px;min-height:70px;font-size:11px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;font-size:13px;z-index:9;max-width:90vw}
+@media (max-width:980px){.app{grid-template-columns:1fr}.side{display:none}.phoneWrap{grid-template-columns:1fr}.planoWrap{grid-template-columns:1fr}.ito{grid-template-columns:1fr}.side-r{align-items:flex-start;text-align:left}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Prototipo del front · Inspecciones ITO</h1>
+    <p>Pantallas del módulo dentro de la app actual, con datos de ejemplo. Es un prototipo: marca ítems, re-inspecciona hallazgos y firma para ver cómo se conectan las pantallas.</p>
+  </div>
+  <nav class="screens" id="screens" aria-label="Pantallas del prototipo"></nav>
+  <div class="app">
+    <aside class="side">
+      <div class="logo"><i>HV</i>Control HVAC</div>
+      <div class="nav" id="nav"></div>
+      <div class="sync"><span class="dot"></span>En línea · 0 pendientes</div>
+    </aside>
+    <section class="main">
+      <div class="top"><span class="crumb" id="crumb"></span><span class="chipc">Cliente activo · <b>NORTEC</b></span></div>
+      <div class="body" id="body"></div>
+    </section>
+  </div>
+</div>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script>
+(function(){
+'use strict';
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var $=function(id){return document.getElementById(id);};
+var NAV=['Dashboard','Scanner QR','Equipos','Mapa','Clientes','Inventario Interno','Mantenimientos','Calendario','Órdenes de Servicio','Tickets','Reportes','Eficiencia Energética'];
+var SCR=[['panel','Panel ITO'],['nueva','Nueva ITO'],['ejecucion','Ejecución en terreno'],['plano','Plano y hallazgos'],['firmas','Firmas'],['calendario','Calendario'],['informe','Informe PDF']];
+var EST={solicitada:'Solicitada',progreso:'En progreso',porfirmar:'Por firmar',observada:'Observada',aprobada:'Aprobada'};
+var ITOS=[
+ {c:'0042.07.NORTEC.11.26',t:'Montaje de unidades fan-coil, piso 3',obra:'07 · Torre Los Aromos',insp:'M. Rojas',est:'progreso',av:71,h:1,f:'18 nov',cur:true},
+ {c:'0041.07.NORTEC.11.26',t:'Tendido de cañerías de cobre refrigerante',obra:'07 · Torre Los Aromos',insp:'M. Rojas',est:'porfirmar',av:100,h:0,f:'12 nov'},
+ {c:'0040.03.NORTEC.10.26',t:'Puesta en marcha chiller CH-01',obra:'03 · Planta Quilicura',insp:'C. Soto',est:'aprobada',av:100,h:0,f:'29 oct'},
+ {c:'0039.03.NORTEC.10.26',t:'Reparación de tablero eléctrico UMA-02',obra:'03 · Planta Quilicura',insp:'C. Soto',est:'observada',av:100,h:2,f:'22 oct'},
+ {c:'0038.12.NORTEC.10.26',t:'Instalación de ductos en sala de máquinas',obra:'12 · Centro Logístico',insp:'Sin asignar',est:'solicitada',av:0,h:0,f:'Solicitada por el cliente'}
+];
+var ITEMS=[
+ {g:'Cañerías y aislación',t:'Soldadura de cañerías de cobre sin porosidad',st:'ok'},
+ {g:'Cañerías y aislación',t:'Prueba de estanqueidad con nitrógeno',st:'ok',med:{l:'Presión de prueba',u:'psi',min:400,max:450,v:410}},
+ {g:'Cañerías y aislación',t:'Aislación continua con protección UV',st:'no',obs:'Tramo de 3 m sin aislación sobre cielo falso.',acc:'Reinstalar aislación de 19 mm y sellar uniones.',resp:'J. Pérez (contratista)',fl:'2026-11-22',fotos:2,adj:1,pin:{x:.27,y:.42},had:true,hist:[]},
+ {g:'Unidades fan-coil',t:'Fijación y nivelación de la unidad FC-03',st:null},
+ {g:'Unidades fan-coil',t:'Conexión eléctrica y puesta a tierra',st:null,med:{l:'Resistencia de tierra',u:'Ω',min:0,max:25,v:28},pin:{x:.7,y:.6},obs:'',acc:'',resp:'J. Pérez (contratista)',fl:'',fotos:0,adj:0,hist:[]},
+ {g:'Unidades fan-coil',t:'Pendiente de la bandeja de condensado',st:'ok'},
+ {g:'Unidades fan-coil',t:'Rotulado con TAG del equipo',st:'na'}
+];
+var SIG=[{n:'Inspector',nm:'Marcela Rojas',rut:'12.345.678-5',cg:'Inspector ITO',ok:null},{n:'Contratista',nm:'Juan Pérez',rut:'15.222.333-4',cg:'Jefe de obra',ok:null},{n:'Cliente',nm:'Paula Vidal',rut:'9.876.543-2',cg:'Administradora NORTEC',ok:null}];
+var NEW={plantilla:'Montaje de unidades fan-coil · v3',obra:'07',cli:'NORTEC',fecha:'2026-11-25',origen:false};
+var CUR=ITOS[0];
+var screen='panel',filter='todas',query='',calSel=null,planoSel=2,corr=43;
+
+function counts(){var ev=ITEMS.filter(function(i){return i.st;}).length,no=ITEMS.filter(function(i){return i.st==='no';}).length,ok=ITEMS.filter(function(i){return i.st==='ok';}).length;
+  return {ev:ev,tot:ITEMS.length,no:no,ok:ok,pct:Math.round(ev/ITEMS.length*100),cum:(ok+no)?Math.round(ok/(ok+no)*100):0};}
+function noEvid(i){return i.st==='no'&&(!i.obs||!i.acc||!(i.fotos>0)||!i.fl);}
+function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.k);toast.k=setTimeout(function(){t.hidden=true;},2600);}
+function code(){var d=NEW.fecha.split('-');return String(corr).padStart(4,'0')+'.'+NEW.obra+'.'+NEW.cli+'.'+d[1]+'.'+d[0].slice(2);}
+function syncCur(){var c=counts(),it=CUR;it.av=c.pct;it.h=c.no;
+  var allSig=SIG.every(function(s){return s.ok;});
+  it.est=allSig?'aprobada':(SIG[1].ok&&c.no>0?'observada':(c.pct===100&&SIG[0].ok?'porfirmar':'progreso'));}
+
+/* ---------- pantallas ---------- */
+function vPanel(){
+  syncCur();
+  var tot=ITOS.length,prog=ITOS.filter(function(i){return i.est==='progreso';}).length,pf=ITOS.filter(function(i){return i.est==='porfirmar';}).length,ap=ITOS.filter(function(i){return i.est==='aprobada';}).length;
+  var hall=ITOS.reduce(function(a,i){return a+i.h;},0);
+  var L=ITOS.filter(function(i){return (filter==='todas'||i.est===filter)&&(!query||(i.c+i.t+i.insp).toLowerCase().indexOf(query.toLowerCase())>=0);});
+  return '<div class="row" style="justify-content:space-between"><div><h2>Inspecciones técnicas de obra</h2><p class="sub">Montajes, instalaciones y reparaciones del cliente activo.</p></div><button class="btn itob" data-go="nueva">+ Nueva ITO</button></div>'+
+  '<div class="kpis"><div class="kpi"><b>'+tot+'</b><span>Total ITO</span></div><div class="kpi"><b>'+prog+'</b><span>En progreso</span></div><div class="kpi"><b>'+pf+'</b><span>Por firmar</span></div><div class="kpi good"><b>'+ap+'</b><span>Aprobadas</span></div><div class="kpi"><b>'+counts().cum+'%</b><span>Cumplimiento ITO 0042</span></div><div class="kpi bad"><b>'+hall+'</b><span>Hallazgos abiertos</span></div></div>'+
+  '<div class="row"><input class="search" id="q" placeholder="Buscar por N.º de ITO, título o inspector" value="'+esc(query)+'" aria-label="Buscar"></div><div class="filters" style="margin-top:10px">'+
+  [['todas','Todas'],['solicitada','Solicitadas'],['progreso','En progreso'],['porfirmar','Por firmar'],['observada','Con observaciones'],['aprobada','Aprobadas']].map(function(f){return '<button class="f" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>';}).join('')+'</div>'+
+  '<div class="list">'+(L.length?L.map(function(i){return '<button class="ito" data-open="'+esc(i.c)+'"><div><span class="code">ITO '+esc(i.c)+'</span><h3>'+esc(i.t)+'</h3><div class="meta"><span>Obra '+esc(i.obra)+'</span><span>Inspector: '+esc(i.insp)+'</span><span>'+esc(i.f)+'</span></div><div class="bar"><i style="width:'+i.av+'%"></i></div></div><div class="side-r"><span class="badge b-'+i.est+'">'+EST[i.est]+'</span><span class="meta">'+i.av+'% evaluado</span>'+(i.h?'<span class="badge b-observada">'+i.h+' hallazgo'+(i.h>1?'s':'')+'</span>':'')+'</div></button>';}).join(''):'<div class="card">Ninguna ITO coincide con el filtro.</div>')+'</div>';
+}
+function vNueva(){
+  var d=NEW.fecha.split('-'),MES=['','ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return '<h2>Nueva ITO</h2><p class="sub">'+(NEW.origen?'Solicitud del cliente: el supervisor la acepta y asigna inspector.':'Creada por el supervisor y asignada a un inspector.')+'</p>'+
+  '<div class="grid2"><div class="card"><h3>Datos de la ITO</h3>'+
+  '<label class="fl" for="n-pl">Plantilla (por especialidad)</label><select class="in" id="n-pl"><option>Montaje de unidades fan-coil · v3</option><option>Instalación eléctrica de climatización · v2</option><option>Puesta en marcha de chiller · v4</option><option>Reparación de equipos · v1</option></select>'+
+  '<label class="fl" for="n-cli">Cliente</label><select class="in" id="n-cli"><option value="NORTEC">NORTEC</option></select>'+
+  '<label class="fl" for="n-ob">Obra</label><select class="in" id="n-ob"><option value="07">07 · Torre Los Aromos</option><option value="03">03 · Planta Quilicura</option><option value="12">12 · Centro Logístico</option></select>'+
+  '<label class="fl" for="n-zo">Zona o sector</label><input class="in" id="n-zo" value="Piso 3 · Sala técnica">'+
+  '<label class="fl" for="n-pn">Plano</label><div class="pill" id="n-pn">⬆ plano-piso3.png · 1,2 MB</div>'+
+  '<label class="fl" for="n-in">Inspector</label><select class="in" id="n-in"><option>Marcela Rojas</option><option>Carlos Soto</option></select>'+
+  '<label class="fl" for="n-co">Contratista responsable</label><select class="in" id="n-co"><option>Juan Pérez · Montajes Sur</option></select>'+
+  '<label class="fl" for="n-fe">Fecha programada</label><input class="in" type="date" id="n-fe" value="'+esc(NEW.fecha)+'">'+
+  '<label class="fl" style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" id="n-or" '+(NEW.origen?'checked':'')+'> Origen: solicitud del cliente</label></div>'+
+  '<div style="display:grid;gap:14px;align-content:start"><div class="card"><h3>Número de ITO</h3><div class="code" style="font-size:20px">ITO '+code()+'</div>'+
+  '<div class="anat"><div class="seg"><b>'+String(corr).padStart(4,'0')+'</b><span>Correlativo</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.obra+'</b><span>Obra</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.cli+'</b><span>Cliente</span></div><span class="sepd">.</span><div class="seg"><b>'+d[1]+'</b><span>Mes</span></div><span class="sepd">.</span><div class="seg"><b>'+d[0].slice(2)+'</b><span>Año</span></div></div>'+
+  '<p class="note">El correlativo (0001–9999) se reinicia cada año por cliente. Sin conexión queda provisional y el servidor asigna el definitivo al sincronizar.</p></div>'+
+  '<div class="card"><h3>Se verá en el Calendario</h3><div class="ev e-ito" style="white-space:normal">ITO '+code()+' · '+esc(NEW.plantilla.split(' · ')[0])+'</div><p class="note">Fecha: '+parseInt(d[2],10)+' '+MES[parseInt(d[1],10)]+' '+d[0]+'. Las fechas límite de hallazgos se agregan solas.</p></div>'+
+  '<button class="btn itob" id="n-cr">Crear ITO</button></div></div>';
+}
+function itemCard(i,ix){
+  var m=i.med,out=m&&(m.v<m.min||m.v>m.max);
+  var h='<div class="it"><p>'+(ix+1)+'. '+esc(i.t)+'</p><div class="segb" role="group" aria-label="Resultado del ítem '+(ix+1)+'">'+
+   [['ok','Cumple'],['no','No cumple'],['na','N/A']].map(function(b){return '<button class="'+b[0]+(i.st===b[0]?' on':'')+'" data-it="'+ix+'" data-v="'+b[0]+'">'+b[1]+'</button>';}).join('')+'</div>';
+  if(m){h+='<div class="ex"><label class="fl" style="margin:4px 0 0" for="m'+ix+'">'+esc(m.l)+' ('+esc(m.u)+') · esperado '+(m.min?m.min+'–':'≤ ')+m.max+'</label><div class="row"><input class="in" style="width:110px" type="number" id="m'+ix+'" data-med="'+ix+'" value="'+m.v+'"><span class="range" style="background:var(--'+(out?'no':'ok')+'-bg);color:var(--'+(out?'no':'ok')+')">'+(out?'Fuera de rango':'En rango')+'</span></div>'+(out&&i.st!=='no'?'<button class="pill" data-it="'+ix+'" data-v="no">Sugerencia: marcar No cumple</button>':'')+'</div>';}
+  if(i.st==='no'){h+='<div class="ex"><label class="fl" style="margin:4px 0 0" for="o'+ix+'">Observación (obligatoria)</label><textarea class="in" id="o'+ix+'" data-obs="'+ix+'">'+esc(i.obs)+'</textarea>'+
+   '<label class="fl" style="margin:4px 0 0" for="a'+ix+'">Acción correctiva (obligatoria)</label><textarea class="in" id="a'+ix+'" data-acc="'+ix+'">'+esc(i.acc)+'</textarea>'+
+   '<div class="row"><div style="flex:1;min-width:130px"><label class="fl" style="margin:4px 0 0" for="r'+ix+'">Responsable</label><select class="in" id="r'+ix+'"><option>J. Pérez (contratista)</option><option>Montajes Sur · bodega</option></select></div><div style="flex:1;min-width:130px"><label class="fl" style="margin:4px 0 0" for="f'+ix+'">Fecha límite</label><input class="in" type="date" id="f'+ix+'" data-fl="'+ix+'" value="'+esc(i.fl||'')+'"></div></div>'+
+   '<div class="row"><button class="pill" data-foto="'+ix+'">📷 Foto ('+(i.fotos||0)+')</button><button class="pill" data-adj="'+ix+'">📎 Adjunto PDF ('+(i.adj||0)+')</button></div>'+
+   (noEvid(i)?'<div class="callout c-bad" style="margin:4px 0 0">Falta evidencia: observación, acción correctiva, fecha límite y al menos una foto.</div>':'<div class="callout c-ok" style="margin:4px 0 0">Se avisará por correo al responsable al guardar y al vencer la fecha.</div>')+'</div>';}
+  return h+'</div>';
+}
+function vEjec(){
+  var c=counts(),last='';
+  var items=ITEMS.map(function(i,ix){var s='';if(i.g!==last){s='<div class="grp">'+esc(i.g)+'</div>';last=i.g;}return s+itemCard(i,ix);}).join('');
+  return '<h2>Ejecución en terreno</h2><p class="sub">Vista del inspector en el celular. Funciona sin conexión.</p><div class="phoneWrap"><div class="side-note"><b>Qué ve el inspector</b><p>Cada ítem tiene tres estados. Algunos piden una medición con su rango esperado. Un No cumple exige observación, acción correctiva, responsable, fecha límite y foto.</p><p>El avance y los hallazgos se actualizan al marcar.</p></div>'+
+  '<div class="phone"><div class="ph-h"><span class="code">ITO '+esc(CUR.c)+'</span><b>Montaje de unidades fan-coil, piso 3</b><div class="bar" style="background:rgba(255,255,255,.3)"><i style="width:'+c.pct+'%;background:#fff"></i></div><small>'+c.ev+' de '+c.tot+' ítems · '+c.pct+'% · '+c.no+' hallazgo'+(c.no===1?'':'s')+'</small></div><div class="ph-b">'+items+'</div></div>'+
+  '<div class="side-note"><b>Reglas visibles</b><p>• No se puede firmar con ítems sin evaluar.</p><p>• Si se corrige un hallazgo, la misma ITO se reabre y solo se re-evalúan los No cumple.</p><p>• Fotos y adjuntos PDF se guardan en la ITO.</p></div></div>';
+}
+function planoSVG(){
+  var W=640,H=380,s='<svg class="pl" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Plano del piso 3 con pines de hallazgos"><rect x="10" y="10" width="620" height="360" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-width="3"/>'+
+  '<rect x="10" y="10" width="250" height="170" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="260" y="10" width="370" height="170" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="10" y="180" width="330" height="190" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="340" y="180" width="290" height="190" fill="none" stroke="currentColor" stroke-opacity=".4"/>'+
+  '<text x="30" y="40" font-size="13" fill="currentColor" opacity=".6">Sala técnica</text><text x="280" y="40" font-size="13" fill="currentColor" opacity=".6">Oficinas</text><text x="30" y="210" font-size="13" fill="currentColor" opacity=".6">Pasillo de cañerías</text><text x="360" y="210" font-size="13" fill="currentColor" opacity=".6">Bodega FC-03</text>';
+  ITEMS.forEach(function(i,ix){if(!i.pin)return;var col=i.st==='no'?'var(--no)':(i.st==='ok'?'var(--ok)':'var(--warn)');
+    s+='<g class="pin" data-pin="'+ix+'" tabindex="0" role="button" aria-label="Pin ítem '+(ix+1)+'"><circle cx="'+i.pin.x*W+'" cy="'+i.pin.y*H+'" r="'+(planoSel===ix?17:13)+'" fill="'+col+'" stroke="#fff" stroke-width="3"/><text x="'+i.pin.x*W+'" y="'+(i.pin.y*H+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">'+(ix+1)+'</text></g>';});
+  return s+'</svg>';
+}
+function vPlano(){
+  var it=ITEMS[planoSel]||ITEMS[2];
+  var det='<div class="card"><h3>Ítem '+(planoSel+1)+'</h3><b>'+esc(it.t)+'</b><p class="note">Estado: '+(it.st==='no'?'No cumple (pin rojo)':it.st==='ok'?(it.had?'Resuelto (pin verde)':'Cumple (pin verde)'):'Pendiente (pin ámbar)')+'</p>'+
+   (it.obs?'<p class="note"><b>Hallazgo:</b> '+esc(it.obs)+'</p>':'')+(it.fl?'<p class="note"><b>Fecha límite:</b> '+esc(it.fl)+' · '+esc(it.resp||'')+'</p>':'')+
+   (it.hist&&it.hist.length?'<p class="note"><b>Historial:</b><br>'+it.hist.map(esc).join('<br>')+'</p>':'')+
+   (it.st==='no'?'<button class="btn itob" data-resolve="'+planoSel+'">Re-inspeccionar: marcar Cumple</button><p class="note">La misma ITO se reabre y el historial se conserva.</p>':'')+'</div>';
+  return '<h2>Plano y hallazgos</h2><p class="sub">Pines normalizados sobre el plano de la zona. Toca un pin para ver el hallazgo.</p><div class="planoWrap"><div class="plano">'+planoSVG()+'</div><div style="display:grid;gap:12px;align-content:start">'+det+
+   '<div class="card"><h3>Leyenda</h3><div class="row"><span class="badge b-observada">Rojo · No cumple</span><span class="badge b-aprobada">Verde · Resuelto</span><span class="badge b-solicitada">Ámbar · Pendiente</span></div></div></div></div>';
+}
+var drawn=false;
+function sigState(k){
+  var c=counts(),pend=c.tot-c.ev;
+  if(SIG[k].ok)return {done:true};
+  if(k>0&&!SIG[k-1].ok)return {lock:'Primero firma '+SIG[k-1].n.toLowerCase()+'.'};
+  if(k===0){if(pend>0)return {lock:'Faltan '+pend+' ítem'+(pend>1?'s':'')+' por evaluar.'};if(ITEMS.some(noEvid))return {lock:'Hay hallazgos sin evidencia completa.'};}
+  if(k===2&&c.no>0)return {lock:'No se puede aprobar: hay '+c.no+' hallazgo'+(c.no>1?'s':'')+' abierto'+(c.no>1?'s':'')+'. Se debe re-inspeccionar.'};
+  return {};
+}
+function vFirmas(){
+  var cur=SIG.findIndex(function(s){return !s.ok;}),all=cur<0;
+  var st=SIG.map(function(s,k){var x=sigState(k);return '<div class="step '+(x.done?'done':(k===cur?'cur':''))+'"><b>'+(k+1)+'. '+s.n+'</b><span>'+(x.done?'Firmada · '+esc(s.ok):(x.lock?esc(x.lock):'Lista para firmar'))+'</span></div>';}).join('');
+  var body='';
+  if(all){body='<div class="callout c-ok">ITO aprobada. Se generó el informe con el logo del cliente y se envió por correo al cliente, al contratista y al inspector.</div><button class="btn itob" data-go="informe">Ver informe PDF</button>';}
+  else{var x=sigState(cur),s=SIG[cur];
+    body='<div class="card"><h3>Firma del '+s.n.toLowerCase()+'</h3>'+(x.lock?'<div class="callout c-bad">'+esc(x.lock)+'</div>':'')+(cur===1&&counts().no>0?'<div class="callout c-warn">El contratista recibe el resultado con '+counts().no+' hallazgo(s) abierto(s). La ITO quedará Observada.</div>':'')+
+     '<div class="grid2"><div><label class="fl" for="s-n">Nombre completo</label><input class="in" id="s-n" value="'+esc(s.nm)+'"><label class="fl" for="s-r">RUT</label><input class="in" id="s-r" value="'+esc(s.rut)+'"><label class="fl" for="s-c">Cargo</label><input class="in" id="s-c" value="'+esc(s.cg)+'"></div><div><label class="fl" for="cv">Firma manuscrita</label><canvas class="sig" id="cv" width="600" height="300" aria-label="Zona de firma"></canvas><div class="row" style="margin-top:8px"><button class="btn" id="s-cl">Limpiar</button><button class="btn itob" id="s-ok" '+(x.lock?'disabled':'')+'>Firmar como '+s.n.toLowerCase()+'</button></div></div></div></div>';}
+  return '<h2>Firmas de la ITO 0042</h2><p class="sub">Orden: inspector, contratista y cliente. Se firma dentro de la app o con un enlace temporal para quien no tiene cuenta.</p><div class="sigs">'+st+'</div><div style="margin-top:14px">'+body+'</div>';
+}
+function vCal(){
+  var evs={};function add(d,k,t,ref){(evs[d]=evs[d]||[]).push({k:k,t:t,ref:ref});}
+  
+  add(18,'ito','ITO 0042.07 · Fan-coil','0042.07.NORTEC.11.26');add(20,'ito','ITO 0041.07 · Firma pend.','0041.07.NORTEC.11.26');add(22,'due','Vence hallazgo 0042 · ítem 3','0042.07.NORTEC.11.26');add(parseInt(NEW.fecha.split('-')[2],10),'ito','ITO '+String(corr).padStart(4,'0')+'.'+NEW.obra+' · programada','NEW');add(27,'sol','Solicitud cliente 0038.12','0038.12.NORTEC.10.26');add(12,'ito','ITO 0041.07 · Realizada','0041.07.NORTEC.11.26');
+  var cells='',pad=6;['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(function(d){cells+='<div class="h">'+d+'</div>';});
+  for(var p=0;p<pad;p++)cells+='<div></div>';
+  for(var d=1;d<=30;d++){cells+='<div class="day"><small>'+d+'</small>'+(evs[d]||[]).map(function(e){return '<button class="ev e-'+e.k+'" data-ev="'+d+'|'+e.ref+'|'+e.k+'" title="'+esc(e.t)+'">'+esc(e.t)+'</button>';}).join('')+'</div>';}
+  var det='<div class="card"><h3>Detalle</h3><p class="note">Selecciona una ITO del calendario.</p></div>';
+  if(calSel){var a=calSel.split('|'),it=a[1]==='NEW'?{c:code(),t:NEW.plantilla.split(' · ')[0],obra:$('n-ob')?'':'Obra '+NEW.obra,insp:'Por asignar',est:'progreso'}:(ITOS.filter(function(x){return x.c===a[1];})[0]||CUR),p=it.c.split('.');
+    det='<div class="card"><h3>'+(a[2]==='due'?'Vencimiento de hallazgo':a[2]==='sol'?'Solicitud del cliente':'Inspección técnica de obra')+'</h3><div class="code" style="font-size:15px">ITO '+esc(it.c)+'</div><p><b>'+esc(it.t)+'</b></p>'+
+    '<div class="anat"><div class="seg"><b>'+p[0]+'</b><span>Correlativo</span></div><div class="seg"><b>'+p[1]+'</b><span>Obra</span></div><div class="seg"><b>'+p[2]+'</b><span>Cliente</span></div><div class="seg"><b>'+p[3]+'</b><span>Mes</span></div><div class="seg"><b>'+p[4]+'</b><span>Año</span></div></div>'+
+    '<p class="note">'+esc(it.obra)+' · Inspector: '+esc(it.insp)+'</p><span class="badge b-'+it.est+'">'+EST[it.est]+'</span></div>';}
+  return '<h2>Calendario · noviembre 2026</h2><p class="sub">Las ITO programadas, las fechas límite de hallazgos y las solicitudes de clientes aparecen junto al resto de las actividades.</p><div class="grid2" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr)"><div class="cal">'+cells+'</div>'+det+'</div>'+
+   '<div class="row" style="margin-top:10px"><span class="ev e-ito" style="width:auto">ITO</span><span class="ev e-due" style="width:auto">Vencimiento de hallazgo</span><span class="ev e-sol" style="width:auto">Solicitud del cliente</span></div>';
+}
+function vInf(){
+  var c=counts(),all=SIG.every(function(s){return s.ok;});
+  var rows=ITEMS.map(function(i,ix){var m=i.med?' ('+i.med.v+' '+i.med.u+')':'';var s=i.st==='ok'?'<span class="st-ok">Cumple</span>':i.st==='no'?'<span class="st-no">No cumple</span>':i.st==='na'?'<span class="st-na">N/A</span>':'<span class="st-nul">Sin evaluar</span>';
+    return '<tr><td>'+(ix+1)+'</td><td>'+esc(i.t)+m+'</td><td>'+s+'</td><td>'+esc(i.st==='no'?i.obs+' → '+i.acc:'')+(i.fotos?' [fotos: '+i.fotos+']':'')+(i.adj?' [adj.: '+i.adj+']':'')+'</td></tr>';}).join('');
+  var sg=SIG.map(function(s){return '<div class="sigbox"><b>'+s.n+'</b><br>'+(s.ok?esc(s.nm)+'<br>RUT '+esc(s.rut)+'<br>'+esc(s.ok):'<i>Pendiente</i>')+'</div>';}).join('');
+  return '<h2>Informe PDF</h2><p class="sub">Vista previa del documento que se genera al aprobar la ITO.</p><div class="callout '+(all?'c-ok':'c-info')+'">'+(all?'Enviado por correo (Resend) al cliente, al contratista y al inspector.':'Se enviará automáticamente por correo al cliente, al contratista y al inspector cuando se apruebe.')+'</div>'+
+  '<div class="paper"><div class="row" style="justify-content:space-between"><div class="logoCli">NORTEC</div><div style="text-align:right"><h4>INFORME DE INSPECCIÓN TÉCNICA DE OBRA</h4><div style="font-family:monospace">ITO '+esc(CUR.c)+'</div></div></div>'+
+  '<table><tr><th>Obra</th><td>07 · Torre Los Aromos</td><th>Zona</th><td>Piso 3 · Sala técnica</td></tr><tr><th>Inspector</th><td>Marcela Rojas</td><th>Contratista</th><td>Montajes Sur</td></tr><tr><th>Cumplimiento</th><td>'+c.cum+'%</td><th>Ítems evaluados</th><td>'+c.ev+' de '+c.tot+'</td></tr></table>'+
+  '<table><tr><th>N.º</th><th>Ítem</th><th>Resultado</th><th>Hallazgo y evidencia</th></tr>'+rows+'</table><div style="border:1px dashed #9ca3af;padding:8px;color:#6b7280">Plano de la zona con pines y anexo fotográfico en cuadrícula (referencias al N.º de ítem).</div>'+
+  '<div class="sigrow">'+sg+'</div><p style="margin-top:12px;font-family:monospace;color:#374151">Código de verificación: '+(all?'CO-2026-7F3A9C21B84E':'se asigna al aprobar')+'</p></div>';
+}
+
+/* ---------- ruteo y eventos ---------- */
+function render(){
+  $('screens').innerHTML=SCR.map(function(s){return '<a href="#'+s[0]+'" '+(s[0]===screen?'aria-current="page"':'')+'>'+s[1]+'</a>';}).join('');
+  $('nav').innerHTML=NAV.map(function(n,i){var out='';if(i===8)out+='<a class="on" href="#panel">Inspecciones ITO <span class="new">NUEVO</span></a>';return out+'<a href="#'+(n==='Calendario'?'calendario':screen)+'" tabindex="-1">'+n+'</a>';}).join('');
+  var map={panel:vPanel,nueva:vNueva,ejecucion:vEjec,plano:vPlano,firmas:vFirmas,calendario:vCal,informe:vInf};
+  $('crumb').textContent='Inspecciones ITO › '+(SCR.filter(function(s){return s[0]===screen;})[0]||[0,''])[1];
+  $('body').innerHTML=map[screen]();
+  bind();
+}
+function go(s){if(location.hash==='#'+s)render();else location.hash='#'+s;}
+function bind(){
+  var b=$('body');
+  b.querySelectorAll('[data-go]').forEach(function(e){e.onclick=function(){go(e.getAttribute('data-go'));};});
+  b.querySelectorAll('[data-f]').forEach(function(e){e.onclick=function(){filter=e.getAttribute('data-f');render();};});
+  var q=$('q');if(q)q.oninput=function(){query=q.value;var p=q.selectionStart;render();var n=$('q');n.focus();n.setSelectionRange(p,p);};
+  b.querySelectorAll('[data-open]').forEach(function(e){e.onclick=function(){go(e.getAttribute('data-open')===CUR.c?'ejecucion':'informe');};});
+  b.querySelectorAll('[data-it]').forEach(function(e){e.onclick=function(){var i=ITEMS[+e.getAttribute('data-it')],v=e.getAttribute('data-v');if(i.st==='no'&&v!=='no'&&i.pin)i.had=true;i.st=(i.st===v?null:v);if(i.st==='no'&&i.pin)i.had=true;render();};});
+  b.querySelectorAll('[data-med]').forEach(function(e){e.onchange=function(){ITEMS[+e.getAttribute('data-med')].med.v=parseFloat(e.value)||0;render();};});
+  b.querySelectorAll('[data-obs]').forEach(function(e){e.oninput=function(){ITEMS[+e.getAttribute('data-obs')].obs=e.value;};e.onchange=render;});
+  b.querySelectorAll('[data-acc]').forEach(function(e){e.oninput=function(){ITEMS[+e.getAttribute('data-acc')].acc=e.value;};e.onchange=render;});
+  b.querySelectorAll('[data-fl]').forEach(function(e){e.onchange=function(){ITEMS[+e.getAttribute('data-fl')].fl=e.value;render();};});
+  b.querySelectorAll('[data-foto]').forEach(function(e){e.onclick=function(){ITEMS[+e.getAttribute('data-foto')].fotos++;render();};});
+  b.querySelectorAll('[data-adj]').forEach(function(e){e.onclick=function(){ITEMS[+e.getAttribute('data-adj')].adj++;render();};});
+  b.querySelectorAll('[data-pin]').forEach(function(e){function sel(){planoSel=+e.getAttribute('data-pin');render();}e.onclick=sel;e.onkeydown=function(k){if(k.key==='Enter')sel();};});
+  b.querySelectorAll('[data-resolve]').forEach(function(e){e.onclick=function(){var i=ITEMS[+e.getAttribute('data-resolve')];i.st='ok';i.had=true;i.hist=(i.hist||[]).concat(['Re-inspección: Cumple · '+new Date().toLocaleDateString('es-CL')]);toast('Hallazgo resuelto: la ITO se reabrió y el pin pasó a verde');render();};});
+  b.querySelectorAll('[data-ev]').forEach(function(e){e.onclick=function(){calSel=e.getAttribute('data-ev');render();};});
+  if(screen==='nueva'){
+    var cr=$('n-cr');
+    $('n-ob').value=NEW.obra;$('n-pl').value=NEW.plantilla;
+    $('n-ob').onchange=function(){NEW.obra=this.value;render();};$('n-fe').onchange=function(){if(this.value){NEW.fecha=this.value;render();}};$('n-pl').onchange=function(){NEW.plantilla=this.value;render();};
+    $('n-or').onchange=function(){NEW.origen=this.checked;render();};
+    cr.onclick=function(){var c=code();var d=NEW.fecha.split('-');ITOS.unshift({c:c,t:NEW.plantilla.split(' · ')[0]+' · '+($('n-zo').value||'Zona'),obra:$('n-ob').options[$('n-ob').selectedIndex].text,insp:NEW.origen?'Sin asignar':$('n-in').value,est:NEW.origen?'solicitada':'progreso',av:0,h:0,f:parseInt(d[2],10)+'/'+d[1]});corr++;toast('ITO '+c+' creada · aparece en el Calendario');go('panel');};
+  }
+  if(screen==='firmas'){
+    var cv=$('cv');
+    if(cv){var cx=cv.getContext('2d'),dr=false;drawn=false;cx.lineWidth=3;cx.lineCap='round';cx.strokeStyle='#111827';
+      function pos(e){var r=cv.getBoundingClientRect();return [(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height];}
+      cv.onpointerdown=function(e){dr=true;drawn=true;var p=pos(e);cx.beginPath();cx.moveTo(p[0],p[1]);cv.setPointerCapture(e.pointerId);};
+      cv.onpointermove=function(e){if(!dr)return;var p=pos(e);cx.lineTo(p[0],p[1]);cx.stroke();};
+      cv.onpointerup=function(){dr=false;};
+      $('s-cl').onclick=function(){cx.clearRect(0,0,cv.width,cv.height);drawn=false;};
+      $('s-ok').onclick=function(){var cur=SIG.findIndex(function(s){return !s.ok;});if(!drawn||!$('s-n').value||!$('s-r').value||!$('s-c').value){toast('Falta firmar en el recuadro y completar nombre, RUT y cargo');return;}
+        SIG[cur].nm=$('s-n').value;SIG[cur].rut=$('s-r').value;SIG[cur].cg=$('s-c').value;SIG[cur].ok=new Date().toLocaleString('es-CL');
+        toast(cur===2?'ITO aprobada. Informe enviado por correo':'Firma registrada');render();};}
+  }
+}
+function route(){var h=(location.hash||'#panel').slice(1);screen=SCR.some(function(s){return s[0]===h;})?h:'panel';render();window.scrollTo(0,0);}
+window.addEventListener('hashchange',route);route();
+})();
+</script>
+</body></html>
