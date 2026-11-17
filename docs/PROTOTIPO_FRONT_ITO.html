@@ -214,11 +214,11 @@ var NAV=['Dashboard','Scanner QR','Equipos','Mapa','Clientes','Inventario Intern
 var SCR=[['panel','Panel ITO'],['nueva','Nueva ITO'],['ejecucion','Ejecución en terreno'],['plano','Planos y marcas'],['firmas','Firmas'],['calendario','Calendario'],['informe','Informe PDF']];
 var EST={solicitada:'Solicitada',progreso:'En progreso',porfirmar:'Por firmar',observada:'Observada',aprobada:'Aprobada'};
 var ITOS=[
- {c:'0042.07.NORTEC.11.26',t:'Montaje de unidades fan-coil, piso 3',obra:'07 · Torre Los Aromos',insp:'M. Rojas',est:'progreso',av:71,h:1,f:'18 nov',cur:true},
- {c:'0041.07.NORTEC.11.26',t:'Tendido de cañerías de cobre refrigerante',obra:'07 · Torre Los Aromos',insp:'M. Rojas',est:'porfirmar',av:100,h:0,f:'12 nov'},
- {c:'0040.03.NORTEC.10.26',t:'Puesta en marcha chiller CH-01',obra:'03 · Planta Quilicura',insp:'C. Soto',est:'aprobada',av:100,h:0,f:'29 oct'},
- {c:'0039.03.NORTEC.10.26',t:'Reparación de tablero eléctrico UMA-02',obra:'03 · Planta Quilicura',insp:'C. Soto',est:'observada',av:100,h:2,f:'22 oct'},
- {c:'0038.12.NORTEC.10.26',t:'Instalación de ductos en sala de máquinas',obra:'12 · Centro Logístico',insp:'Sin asignar',est:'solicitada',av:0,h:0,f:'Solicitada por el cliente'}
+ {c:'0042.007.NORTEC.11.26',t:'Montaje de unidades fan-coil, piso 3',obra:'007 · Torre Los Aromos',insp:'M. Rojas',est:'progreso',av:71,h:1,f:'18 nov',cur:true},
+ {c:'0041.007.NORTEC.11.26',t:'Tendido de cañerías de cobre refrigerante',obra:'007 · Torre Los Aromos',insp:'M. Rojas',est:'porfirmar',av:100,h:0,f:'12 nov'},
+ {c:'0040.003.NORTEC.10.26',t:'Puesta en marcha chiller CH-01',obra:'003 · Planta Quilicura',insp:'C. Soto',est:'aprobada',av:100,h:0,f:'29 oct'},
+ {c:'0039.003.NORTEC.10.26',t:'Reparación de tablero eléctrico UMA-02',obra:'003 · Planta Quilicura',insp:'C. Soto',est:'observada',av:100,h:2,f:'22 oct'},
+ {c:'0038.012.NORTEC.10.26',t:'Instalación de ductos en sala de máquinas',obra:'012 · Centro Logístico',insp:'Sin asignar',est:'solicitada',av:0,h:0,f:'Solicitada por el cliente'}
 ];
 var ITEMS=[
  {g:'Cañerías y aislación',t:'Soldadura de cañerías de cobre sin porosidad',st:'ok'},
@@ -230,7 +230,7 @@ var ITEMS=[
  {g:'Unidades fan-coil',t:'Rotulado con TAG del equipo',st:'na'}
 ];
 var SIG=[{n:'Inspector',nm:'Marcela Rojas',rut:'12.345.678-5',cg:'Inspector ITO',ok:null},{n:'Contratista',nm:'Juan Pérez',rut:'15.222.333-4',cg:'Jefe de obra',ok:null},{n:'Cliente',nm:'Paula Vidal',rut:'9.876.543-2',cg:'Administradora NORTEC',ok:null}];
-var NEW={plantilla:'Montaje de unidades fan-coil · v3',obra:'07',cli:'NORTEC',fecha:'2026-11-25',origen:false,zona:'Piso 3 · Sala técnica',partidas:['Tendido de cañería de cobre, piso 3','Instalación de unidades fan-coil'],planos:[0],informar:false};
+var NEW={plantilla:'Montaje de unidades fan-coil · v3',obra:'007',cli:'NORTEC',fecha:'2026-11-25',origen:false,zona:'Piso 3 · Sala técnica',partidas:['Tendido de cañería de cobre, piso 3','Instalación de unidades fan-coil'],planos:[0],informar:false};
 var PART=[{c:'1.1',t:'Tendido de cañería de cobre, piso 3',av:80,prev:60},{c:'1.2',t:'Instalación de unidades fan-coil',av:40,prev:20},{c:'1.3',t:'Aislación y soportes',av:90,prev:90}];
 var NP=[{d:'Perforación adicional en losa por interferencia con ducto',resp:'J. Pérez (contratista)',fotos:1,adj:0,crit:true,open:true},{d:'Soporte provisorio de cañería hasta que llegue el definitivo',resp:'Montajes Sur · bodega',fotos:1,adj:0,crit:false,open:true}];
 var PLANOS=[{n:'Plano piso 3 · Climatización',revs:['A','B'],rev:'B'},{n:'Plano sala de máquinas',revs:['A'],rev:'A'}];
@@ -265,7 +265,7 @@ function vNueva(){
   return '<h2>Nueva ITO</h2><p class="sub">'+(NEW.origen?'Solicitud del cliente: el supervisor la acepta y asigna inspector.':'Creada por el supervisor y asignada a un inspector.')+' Los campos con * son obligatorios.</p>'+
   '<div class="grid2"><div class="card"><h3>Cabecera</h3>'+
   '<label class="fl" for="n-cli">Cliente</label><select class="in" id="n-cli"><option value="NORTEC">NORTEC</option></select>'+
-  '<label class="fl" for="n-ob">Obra *</label><select class="in" id="n-ob"><option value="07">07 · Torre Los Aromos</option><option value="03">03 · Planta Quilicura</option><option value="12">12 · Centro Logístico</option></select>'+
+  '<label class="fl" for="n-ob">Obra *</label><select class="in" id="n-ob"><option value="007">007 · Torre Los Aromos</option><option value="003">003 · Planta Quilicura</option><option value="012">012 · Centro Logístico</option></select>'+
   '<label class="fl" for="n-zo">Zona o sector *</label><input class="in" id="n-zo" value="'+esc(NEW.zona)+'">'+
   '<label class="fl" for="n-in">Inspector *</label><select class="in" id="n-in"><option>Marcela Rojas</option><option>Carlos Soto</option></select>'+
   '<label class="fl" for="n-co">Contratista *</label><select class="in" id="n-co"><option>Juan Pérez · Montajes Sur</option></select>'+
@@ -278,7 +278,7 @@ function vNueva(){
   '<label class="row" style="margin-top:10px;font-size:12.5px;font-weight:700;gap:8px"><input type="checkbox" id="n-inf" '+(NEW.informar?'checked':'')+'> Informar el plan de inspección al contratista (opcional)</label></div>'+
   '<div style="display:grid;gap:14px;align-content:start"><div class="card"><h3>Número de ITO</h3><div class="code" style="font-size:20px">ITO '+code()+'</div>'+
   '<div class="anat"><div class="seg"><b>'+String(corr).padStart(4,'0')+'</b><span>Correlativo</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.obra+'</b><span>Obra</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.cli+'</b><span>Cliente</span></div><span class="sepd">.</span><div class="seg"><b>'+d[1]+'</b><span>Mes</span></div><span class="sepd">.</span><div class="seg"><b>'+d[0].slice(2)+'</b><span>Año</span></div></div>'+
-  '<p class="note">El correlativo (0001–9999) se reinicia cada año por cliente. Sin conexión queda provisional y el servidor asigna el definitivo al sincronizar.</p></div>'+
+  '<p class="note">El correlativo (0001–9999) se reinicia cada año por cliente; la obra va de 000 a 999. Sin conexión queda provisional y el servidor asigna el definitivo al sincronizar.</p></div>'+
   '<div class="card"><h3>Se verá en el Calendario</h3><div class="ev e-ito" style="white-space:normal">ITO '+code()+' · '+esc(NEW.plantilla.split(' · ')[0])+'</div><p class="note">Fecha: '+parseInt(d[2],10)+' '+MES[parseInt(d[1],10)]+' '+d[0]+'. Las fechas límite de observaciones se agregan solas.</p></div>'+
   '<div class="card"><h3>Al crear la ITO</h3><p class="note">Los planos elegidos quedan cargados para marcar en terreno, sin modificar el original. '+(NEW.informar?'Se avisará por correo al contratista con el plan de inspección.':'El contratista no recibirá aviso del plan.')+'</p></div>'+
   '<button class="btn itob" id="n-cr">Crear ITO</button></div></div>';
@@ -363,7 +363,7 @@ function vFirmas(){
 function vCal(){
   var evs={};function add(d,k,t,ref){(evs[d]=evs[d]||[]).push({k:k,t:t,ref:ref});}
   
-  add(18,'ito','ITO 0042.07 · Fan-coil','0042.07.NORTEC.11.26');add(20,'ito','ITO 0041.07 · Firma pend.','0041.07.NORTEC.11.26');add(22,'due','Vence hallazgo 0042 · ítem 3','0042.07.NORTEC.11.26');add(parseInt(NEW.fecha.split('-')[2],10),'ito','ITO '+String(corr).padStart(4,'0')+'.'+NEW.obra+' · programada','NEW');add(27,'sol','Solicitud cliente 0038.12','0038.12.NORTEC.10.26');add(12,'ito','ITO 0041.07 · Realizada','0041.07.NORTEC.11.26');
+  add(18,'ito','ITO 0042.007 · Fan-coil','0042.007.NORTEC.11.26');add(20,'ito','ITO 0041.007 · Firma pend.','0041.007.NORTEC.11.26');add(22,'due','Vence hallazgo 0042 · ítem 3','0042.007.NORTEC.11.26');add(parseInt(NEW.fecha.split('-')[2],10),'ito','ITO '+String(corr).padStart(4,'0')+'.'+NEW.obra+' · programada','NEW');add(27,'sol','Solicitud cliente 0038.12','0038.012.NORTEC.10.26');add(12,'ito','ITO 0041.007 · Realizada','0041.007.NORTEC.11.26');
   var cells='',pad=6;['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(function(d){cells+='<div class="h">'+d+'</div>';});
   for(var p=0;p<pad;p++)cells+='<div></div>';
   for(var d=1;d<=30;d++){cells+='<div class="day"><small>'+d+'</small>'+(evs[d]||[]).map(function(e){return '<button class="ev e-'+e.k+'" data-ev="'+d+'|'+e.ref+'|'+e.k+'" title="'+esc(e.t)+'">'+esc(e.t)+'</button>';}).join('')+'</div>';}
@@ -404,7 +404,7 @@ function vInf(){
   return '<h2>Informe PDF</h2><p class="sub">Vista previa del documento que se genera al aprobar la ITO.</p><div class="callout '+(all?'c-ok':'c-info')+'">'+(all?'Enviado por correo (Resend) al cliente, al contratista y al inspector.':'Se enviará automáticamente por correo al cliente, al contratista y al inspector cuando se apruebe.')+'</div>'+
   '<div class="paper" id="paper"><div class="pp-top"><div class="pp-logo">NORTEC</div><div class="pp-title"><small>Inspección técnica de obra</small><b>Informe de inspección</b></div><div class="pp-code"><div class="c">'+esc(CUR.c)+'</div><div class="sgl"><span>Correl.</span><span>Obra</span><span>Cliente</span><span>Mes</span><span>Año</span></div></div></div><div class="pp-rule"></div>'+
   '<div class="pp-status"><span>Emitido · '+new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})+'</span><span class="pp-badge '+(all?'ok':'')+'">'+(all?'Aprobada':'Borrador · pendiente de firmas')+'</span></div>'+sum+
-  '<div class="pp-sec"><div class="pp-h"><b>Ficha</b></div><dl class="pp-dl"><div><dt>Obra</dt><dd>07 · Torre Los Aromos</dd></div><div><dt>Zona</dt><dd>Piso 3 · Sala técnica</dd></div><div><dt>Fecha</dt><dd>18 de noviembre de 2026</dd></div><div><dt>Inspector</dt><dd>Marcela Rojas</dd></div><div><dt>Contratista</dt><dd>Montajes Sur</dd></div><div><dt>Plantilla</dt><dd>Fan-coil · v3</dd></div></dl></div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Ficha</b></div><dl class="pp-dl"><div><dt>Obra</dt><dd>007 · Torre Los Aromos</dd></div><div><dt>Zona</dt><dd>Piso 3 · Sala técnica</dd></div><div><dt>Fecha</dt><dd>18 de noviembre de 2026</dd></div><div><dt>Inspector</dt><dd>Marcela Rojas</dd></div><div><dt>Contratista</dt><dd>Montajes Sur</dd></div><div><dt>Plantilla</dt><dd>Fan-coil · v3</dd></div></dl></div>'+
   '<div class="pp-sec"><div class="pp-h"><b>Avance por partida</b><span>marca negra = ITO anterior</span></div>'+part+'</div>'+
   '<div class="pp-sec"><div class="pp-h"><b>Checklist técnico</b><span>'+c.ev+' de '+c.tot+' evaluados</span></div>'+chk+'</div>'+
   '<div class="pp-sec"><div class="pp-h"><b>Observaciones</b><span>planificadas y no planificadas · '+obs.length+'</span></div>'+(ob||'<p style="color:#64748b">Sin observaciones.</p>')+'</div>'+

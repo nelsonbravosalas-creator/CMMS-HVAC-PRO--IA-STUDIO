@@ -1,6 +1,6 @@
 # Plan Maestro — Módulo ITO (Inspección Técnica de Obra)
 
-Estado: **plan consolidado, sin código, revisado por Gemini; los cinco puntos que bloqueaban el inicio están resueltos; pendiente solo la aprobación para lanzar la Fase 1** · 2026-11-17
+Estado: **plan consolidado, sin código, revisado por Gemini; sin puntos abiertos que bloqueen; pendiente la validación de pantallas contra el video y la aprobación para lanzar la Fase 1A** · 2026-11-17
 
 Este documento compila y reemplaza a `SPEC-INSPECCIONES.md`. Donde ambos difieran, vale este.
 Fuentes: transcripción del flujo de controlobrax.cl (el video no fue visto por quien redactó),
@@ -21,7 +21,7 @@ Servicio y Mantenimientos: no los lee ni los modifica. Se conecta con **Clientes
 
 | Área | Decisión |
 |------|----------|
-| Número de ITO | `Correlativo.Obra.Cliente.Mes.AA`, p. ej. `0042.07.NORTEC.11.26`. Correlativo 0001–9999, obra 00–99 |
+| Número de ITO | `Correlativo.Obra.Cliente.Mes.AA`, p. ej. `0042.007.NORTEC.11.26`. Correlativo 0001–9999, **obra 000–999 (3 dígitos)**. Si un cliente llega a 9.999 ITO en un año, el sistema avisa y bloquea en vez de repetir un número |
 | Correlativo | Se reinicia **por cliente y por año**. Lo asigna el servidor; sin red queda provisional |
 | Quién crea | Supervisor o administrador crea y asigna. El **cliente puede solicitar** una ITO; el supervisor la acepta y asigna |
 | Cabecera obligatoria | Obra, zona, inspector, contratista y fecha. Plantilla, planos y partidas pueden agregarse después |
@@ -33,7 +33,7 @@ Servicio y Mantenimientos: no los lee ni los modifica. Se conecta con **Clientes
 | No planificada | Descripción, foto y responsable. **Bloquea la aprobación solo si el inspector la marca crítica** |
 | Hallazgos | Responsable y fecha límite, con **aviso por correo al asignar**. La fecha aparece en el Calendario. **Sin correo al vencer por ahora**: los vencidos se ven en rojo en el panel y en el Calendario |
 | Cierre de una observación crítica no planificada | **Re-inspección o aceptación del inspector.** La aceptación exige una justificación escrita, que queda en el historial y en el informe |
-| Obra | **Entidad nueva** por cliente (número 00–99, nombre), con **sucursal opcional**. Una sucursal puede tener varias obras |
+| Obra | **Entidad nueva** por cliente (número 000–999, nombre), con **sucursal opcional**. Una sucursal puede tener varias obras |
 | Código corto del cliente | **Campo nuevo** en la ficha del cliente, de hasta 6 letras y único. El sistema sugiere las primeras letras del nombre y el administrador lo ajusta |
 | Firmas al reabrir | **Se conservan** las del inspector y del contratista; solo falta el cliente (ver R10) |
 | Rechazo de firma | Estado **`rechazada`** con motivo obligatorio; el supervisor decide si reabre o archiva |
@@ -49,6 +49,9 @@ Servicio y Mantenimientos: no los lee ni los modifica. Se conecta con **Clientes
 | Informe | PDF automático al aprobarse, con logo del cliente, a cliente, contratista e inspector. **Una sola lista** de observaciones con etiqueta |
 | Plantillas | Administrador global y supervisor, **con versiones**. Una ITO conserva la versión con que nació |
 | Almacenamiento | Fotos en Neon, comprimidas en el celular. Migrar si el volumen crece |
+| Archivos | Fotos de unos **300 KB**; adjuntos PDF de hasta **3 MB**; fecha y hora en cada foto; **GPS opcional** (se guarda si el inspector lo autoriza) |
+| Perfil cliente (visibilidad) | Ve las ITO de su empresa **enviadas a firma, observadas, rechazadas y aprobadas**; no ve borradores ni ITO en ejecución |
+| Vercel | Plan **Hobby**: los endpoints nuevos van agrupados en funciones existentes |
 | Otros módulos | No actualiza avances de OS ni de mantenimientos |
 
 ## 3. Ciclo de vida
@@ -80,7 +83,7 @@ espejo en Dexie y cola de sincronización.
 
 | Tabla | Sync | Contenido |
 |-------|------|-----------|
-| `obras` | sí | número 00–99 por cliente, nombre, `sucursal_id` opcional, estado |
+| `obras` | sí | número 000–999 por cliente, nombre, `sucursal_id` opcional, estado |
 | `clientes` (existente) | sí | **se agrega** `codigo_corto` (hasta 6 letras, único, sugerido por el sistema, editable por el administrador) |
 | `obra_partidas` | sí | obra, código, descripción, origen (`planificada` o `terreno`) |
 | `ito_plantillas` | sí | nombre, especialidad, **versión**, ítems (con medición y regla de foto) |
@@ -149,8 +152,12 @@ servidor es la autoridad.
 /verificar/:codigo            PÚBLICA: autenticidad del informe
 ```
 
-El Calendario (`Planificacion.tsx`) suma una fuente de lectura: ITO programadas, fechas límite
-de hallazgos y solicitudes de clientes, con el número de ITO. No se crean eventos duplicados.
+El Calendario (`Planificacion.tsx`) muestra las ITO programadas, las fechas límite de hallazgos
+y las solicitudes de clientes, con el número de ITO. **Decisión del propietario: se crea un
+evento por cada ITO** en la tabla de eventos existente (en vez de leer las ITO directamente,
+que era la recomendación). Reglas: el evento lleva el UUID de la ITO y su origen; solo lo
+escribe el código de ITO (en el Calendario es de solo lectura); cambia de fecha o de estado
+cuando cambia la ITO, en la misma operación; y se elimina o archiva si la ITO se archiva.
 
 Prototipo navegable: `docs/PROTOTIPO_FRONT_ITO.html`. Diseño del informe: `docs/INFORME_ITO_EJEMPLO.pdf`.
 
@@ -166,7 +173,7 @@ Prototipo navegable: `docs/PROTOTIPO_FRONT_ITO.html`. Diseño del informe: `docs
 | `api/communications.ts` | avisos de hallazgos, enlace de firma, envío del informe |
 | `src/App.tsx` | rutas del módulo; rutas públicas atendidas **antes** del control de sesión |
 | `src/components/Layout.tsx`, `src/types.ts` | menú y permisos |
-| `src/pages/Planificacion.tsx` | nueva fuente de lectura |
+| `src/pages/Planificacion.tsx` | mostrar los eventos de origen ITO como solo lectura |
 
 ## 9. Fases
 
@@ -197,6 +204,8 @@ relativos entre sí, no estimaciones de tiempo.
 | La aceptación de una crítica por el inspector, sin volver a terreno, reduce la evidencia | Justificación escrita obligatoria, visible en el informe que recibe el cliente |
 | El PDF real se arma con jsPDF, que no replica el HTML del prototipo | Reproducir el diseño con sus primitivas; validar contra el PDF de ejemplo |
 | Migración Dexie destructiva (precedente en v14 y v16) | v17 solo agrega tablas; revisión explícita en el PR |
+| Un evento por ITO puede quedar desalineado de la ITO (fecha o estado) | Se escribe en la misma operación que la ITO; el evento no se edita desde el Calendario; test que compruebe ambos |
+| Plan Hobby de Vercel: cuerpo de petición de hasta 4,5 MB (un PDF de 3 MB en base64 pesa ~4 MB), pocas funciones y una sola ejecución diaria en tareas programadas | Subir adjuntos como binario y no en base64; agrupar endpoints; si llega el correo al vencer, una ejecución al día alcanza |
 
 ## 11. Puntos abiertos antes de lanzar
 
@@ -204,14 +213,22 @@ relativos entre sí, no estimaciones de tiempo.
 planificada, entidad obra, código corto del cliente, firmas al reabrir y aviso al vencer.
 Las decisiones están en la sección 2.
 
-**Siguen abiertos** (no cambian el modelo de datos):
+**Resueltos también el 2026-11-17** (los demás puntos):
 
-1. **Tamaño máximo** de fotos y adjuntos, y si las fotos exigen GPS.
-2. **Límites del número**: 100 obras por cliente y 9.999 ITO por cliente al año. ¿Alcanzan?
-3. **Supuestos por confirmar**: el Calendario lee las ITO sin duplicar eventos; el cliente ve solo ITO enviadas a firma, aprobadas u observadas; cada ITO y plano pertenece al cliente activo.
-4. **Límite de funciones en Vercel**: hoy hay 6 en `api/`; por eso los endpoints nuevos entran en `api/operations.ts`. Verificar el plan contratado.
-5. **Validar las pantallas contra el video**, que no fue visto al redactar.
-6. **Aviso por correo al vencer un hallazgo**: aplazado. Para agregarlo después se necesita una tarea programada en el servidor, que hoy no existe.
+| Punto | Decisión |
+|-------|----------|
+| Tamaño de archivos y GPS | Fotos de unos 300 KB, PDF de hasta 3 MB, GPS opcional |
+| Límites del número | **Obra pasa a 3 dígitos (000–999)**; correlativo se mantiene en 0001–9999 |
+| Visibilidad del perfil cliente | Enviadas a firma, observadas, rechazadas y aprobadas |
+| Cómo aparece en el Calendario | **Un evento por cada ITO** (distinto de la recomendación; ver sección 7 y riesgos) |
+| Plan de Vercel | **Hobby**; se verificó que el plan no es visible desde la herramienta de Vercel, así que es dato del propietario |
+| Aviso al vencer un hallazgo | Aplazado; en Hobby alcanzaría una ejecución diaria cuando se haga |
+
+**Sigue abierto:**
+
+1. **Validar las pantallas contra el video**, que no fue visto al redactar. El propietario lo revisará y reportará las diferencias; el prototipo se ajusta antes de la Fase 1B.
+
+Supuesto vigente: cada ITO y plano pertenece al cliente activo y a una de sus obras o sucursales.
 
 ## 12. Documentos del proyecto
 
@@ -228,7 +245,8 @@ Las decisiones están en la sección 2.
 
 - [x] Revisión externa del plan (Gemini, sección 14)
 - [x] Los cinco puntos que cambiaban el modelo o el flujo, resueltos (2026-11-17)
-- [ ] Puntos abiertos 1 a 5 de la sección 11 resueltos o aceptados como riesgo
+- [x] Puntos abiertos de la sección 11 resueltos, salvo la validación contra el video
+- [ ] Validación de las pantallas contra el video, con diferencias reportadas y corregidas en el prototipo
 - [ ] Diagrama del plan actualizado o retirado
 - [ ] Aprobación del propietario para iniciar la Fase 1
 
