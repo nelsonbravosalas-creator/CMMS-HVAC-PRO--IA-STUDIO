@@ -431,8 +431,8 @@ Si el alcance completo resulta demasiado, la **Fase 1 sola** ya es un libro de o
 
 ## 20. Ejecución de la Fase 1: Libro base (2026-11-17)
 
-Primera entrega, en la rama `claude/nice-babbage-9fzse9` (sin tocar `main`). Cubre datos, sincronización,
-reglas y permisos. **Las pantallas son la segunda entrega.**
+Entrega en la rama `claude/nice-babbage-9fzse9` (sin tocar `main`). Cubre datos, sincronización, reglas,
+permisos y una primera pantalla del libro.
 
 ### Qué incluye
 
@@ -443,7 +443,9 @@ reglas y permisos. **Las pantallas son la segunda entrega.**
 | Tablas `obras`, `participantes_obra`, `anotaciones`, `anotacion_acuses`, `libro_obra_secuencias`; trigger que impide editar o borrar anotaciones y acuses; `UNIQUE (obra_id, folio)` | `scripts/db/bootstrap.ts` | R16, R21 |
 | Dexie v17 (solo agrega tablas; no limpia nada) y repositorios | `src/db/database.ts`, `src/repositories/ObraRepository.ts`, `AnotacionRepository.ts` | R16, R26 |
 | Sincronización en Vercel y Express, y permisos por rol | `server/vercel/handlers/sync.ts`, `server.ts`, `server/vercel/auth.ts` | R16, R25 |
-| Pruebas | `tests/libro-obra-rules.test.ts` (14), `tests/security-regression.test.mjs` (1 nueva) | |
+| Orden de envío: la obra llega antes que sus participantes y anotaciones; una anotación por obra por ciclo, la más antigua | `src/sync/libroOrden.ts`, `src/sync/syncEngine.ts` | R21 |
+| Pantalla: lista de obras, participantes con rol, anotaciones con folio, acuse, hilos vencidos, verificación de la cadena; ruta `/libro-obra` y entrada en el menú | `src/pages/LibroObra.tsx`, `src/App.tsx`, `src/components/Layout.tsx` | R16, R22, R25, R26 |
+| Pruebas | `tests/libro-obra-rules.test.ts` (18), `tests/security-regression.test.mjs` (1 nueva) | |
 
 ### Cómo funciona el folio
 
@@ -454,7 +456,9 @@ JavaScript para verificar la cadena.
 
 ### Verificación hecha
 
-- `tsc --noEmit` sin errores y `npm test` completo en verde (59 pruebas).
+- `tsc --noEmit` sin errores, `vite build` correcto y `npm test` completo en verde (63 pruebas).
+- Recorrido en navegador (Chromium, API sin conexión): crear obra, agregar participante, error por falta de destinatario,
+  anotación como borrador firmado sin folio, sin desborde en móvil. **No se probó con servidor ni base reales.**
 - 14 comprobaciones contra Postgres real en memoria (PGlite), con el DDL del bootstrap: 8 escrituras simultáneas dan
   los folios 1 a 10 sin saltos; la cadena calculada en SQL coincide con la de JavaScript; el trigger bloquea
   `UPDATE` y `DELETE` directos; un no participante no puede anotar; una obra de otro cliente no es accesible; un
@@ -476,5 +480,6 @@ JavaScript para verificar la cadena.
 
 ### Pendiente de la Fase 1
 
-Pantallas (obras, participantes, libro con anotaciones, acuses), entrada en el menú, invitaciones por correo,
-evento del libro en el Calendario y PDF del libro. Los tipos de anotación siguen **por confirmar** (S1).
+Invitaciones por correo, evento del libro en el Calendario, cierre del libro con acta y PDF foliado, cierre
+explícito de hilos, adjuntos y referencia a planos, y pruebas con Neon real en un entorno de vista previa. Los tipos
+de anotación siguen **por confirmar** (S1). Un participante debe existir antes como usuario de la aplicación.

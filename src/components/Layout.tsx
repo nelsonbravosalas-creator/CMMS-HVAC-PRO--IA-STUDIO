@@ -35,6 +35,7 @@ import {
   Building2,
   Fingerprint,
   Package,
+  BookOpen,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -63,6 +64,7 @@ const NAV_ITEMS = [
   { href: "/mapa", icon: MapPin, label: "Mapa" },
   { href: "/clientes", icon: Building2, label: "Clientes", adminOnly: true },
   { href: "/inventario", icon: Package, label: "Inventario Interno" },
+  { href: "/libro-obra", icon: BookOpen, label: "Libro de Obra" },
   { href: "/mantenimientos", icon: Wrench, label: "Mantenimientos", badgeKey: 'preventive_maintenancePendientes', badgeColor: "bg-amber-500" },
   { href: "/planificacion", icon: CalendarIcon, label: "Calendario" },
   { href: "/ordenes-servicio", icon: FileText, label: "Órdenes de Servicio", badgeKey: 'ordenesServicioTotal', badgeColor: "bg-indigo-500" },
@@ -77,7 +79,7 @@ const NAV_ITEMS = [
 
 const getMobileSection = (href: string) => {
   if (["/", "/scanner", "/equipos", "/mapa"].includes(href)) return "Operación";
-  if (["/clientes", "/inventario", "/mantenimientos", "/planificacion", "/ordenes-servicio", "/tickets"].includes(href)) return "Gestión";
+  if (["/clientes", "/inventario", "/libro-obra", "/mantenimientos", "/planificacion", "/ordenes-servicio", "/tickets"].includes(href)) return "Gestión";
   if (["/reportes", "/eficiencia"].includes(href)) return "Análisis";
   return "Administración";
 };

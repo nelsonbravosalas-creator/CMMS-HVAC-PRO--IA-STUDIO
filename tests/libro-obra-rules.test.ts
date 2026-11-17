@@ -134,3 +134,41 @@ test('un hilo abierto con plazo pasado está vencido; uno respondido no', () => 
   assert.equal(estaVencida(a, 'abierta', 500), false);
   assert.equal(estaVencida({ plazo: null, pide_respuesta: true }, 'abierta', 2000), false);
 });
+
+import { diferirHijosDelLibro } from '../src/sync/libroOrden';
+
+test('sync: una obra pendiente retiene a sus participantes y anotaciones', () => {
+  const cola = [
+    { table: 'obras', uuid_sync: 'o1', operation: 'insert' as const, data: {} },
+    { table: 'participantes_obra', uuid_sync: 'p1', operation: 'insert' as const, data: { obra_id: 'o1' } },
+    { table: 'anotaciones', uuid_sync: 'a1', operation: 'insert' as const, data: { obra_id: 'o1', escrito_en: 1 } }
+  ];
+  assert.deepEqual(diferirHijosDelLibro(cola).map((i) => i.uuid_sync), ['o1']);
+});
+
+test('sync: participantes pendientes retienen las anotaciones de su obra', () => {
+  const cola = [
+    { table: 'participantes_obra', uuid_sync: 'p1', operation: 'insert' as const, data: { obra_id: 'o1' } },
+    { table: 'anotaciones', uuid_sync: 'a1', operation: 'insert' as const, data: { obra_id: 'o1', escrito_en: 1 } }
+  ];
+  assert.deepEqual(diferirHijosDelLibro(cola).map((i) => i.uuid_sync), ['p1']);
+});
+
+test('sync: sale una sola anotación por obra por ciclo, la más antigua', () => {
+  const cola = [
+    { table: 'anotaciones', uuid_sync: 'a3', operation: 'insert' as const, data: { obra_id: 'o1', escrito_en: 30 } },
+    { table: 'anotaciones', uuid_sync: 'a1', operation: 'insert' as const, data: { obra_id: 'o1', escrito_en: 10 } },
+    { table: 'anotaciones', uuid_sync: 'b1', operation: 'insert' as const, data: { obra_id: 'o2', escrito_en: 20 } }
+  ];
+  assert.deepEqual(diferirHijosDelLibro(cola).map((i) => i.uuid_sync).sort(), ['a1', 'b1']);
+});
+
+test('sync: el acuse espera a su anotación; lo demás pasa sin cambios', () => {
+  const cola = [
+    { table: 'anotaciones', uuid_sync: 'a1', operation: 'insert' as const, data: { obra_id: 'o1', escrito_en: 1 } },
+    { table: 'anotacion_acuses', uuid_sync: 'k1', operation: 'insert' as const, data: { obra_id: 'o1', anotacion_uuid: 'a1' } },
+    { table: 'events', uuid_sync: 'e1', operation: 'insert' as const, data: {} },
+    { table: 'obras', uuid_sync: 'o9', operation: 'update' as const, data: {} }
+  ];
+  assert.deepEqual(diferirHijosDelLibro(cola).map((i) => i.uuid_sync), ['a1', 'e1', 'o9']);
+});
