@@ -8,6 +8,8 @@ import { createMockSql } from "./src/db/mockDb";
 import { seedParametricData } from "./scripts/db/parametric-seed";
 import { hashPin, needsArgon2Upgrade, verifyPin } from "./server/passwords";
 import communicationsHandler from "./api/communications";
+import { LIBRO_TABLES, isLibroTable } from "./server/libroObra";
+import { LibroError, applyLibroDelete, applyLibroInsert, applyLibroUpdate, pullLibro } from "./server/libroObraDb";
 
 const isProduction = process.env.NODE_ENV === "production" || process.env.npm_lifecycle_event === "start";
 let mockSqlInstance: any = null;
@@ -51,7 +53,8 @@ const SYNC_WRITABLE_TABLES = new Set([
   "catalog_asset_types",
   "ordenes_servicio",
   "inventory",
-  "calendar"
+  "calendar",
+  ...LIBRO_TABLES
 ]);
 
 const getTenantFromAuth = (req: any, res: any) => {
@@ -69,7 +72,15 @@ const getTenantFromAuth = (req: any, res: any) => {
   return tenantId || "__GLOBAL__";
 };
 
-const isSyncWritableTable = (table: string, authUser: any) => {
+const isSyncWritableTable = (table: string, authUser: any, operation: 'insert' | 'update' | 'delete' = 'update') => {
+  if (isLibroTable(table)) {
+    // Libro de Obra: la obra y sus participantes los administra el supervisor; las anotaciones
+    // y acuses los emite un participante y nunca se editan ni se borran.
+    const role = canonicalRole(authUser?.perfil);
+    if (role === "administrador") return true;
+    if (table === "obras" || table === "participantes_obra") return role === "supervisor";
+    return operation === "insert" && ["supervisor", "tecnico", "contratista", "cliente"].includes(role);
+  }
   if (SYNC_WRITABLE_TABLES.has(table)) return true;
   if (isAdminAuthUser(authUser) && (table === "clientes" || table === "sucursales")) return true;
   return false;
@@ -1122,7 +1133,8 @@ async function startServer() {
   const ALLOWED_TABLES = [
     'assets', 'users', 'preventive_maintenance', 'work_orders', 
     'reports', 'events', 
-    'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'calendar', 'clientes', 'sucursales'
+    'catalog_asset_types', 'settings', 'ordenes_servicio', 'inventory', 'calendar', 'clientes', 'sucursales',
+    ...LIBRO_TABLES
   ];
 
 const TABLE_ALIAS_MAP: Record<string, string> = {
@@ -2222,7 +2234,7 @@ function resolveTable(name: string): string | null {
         const rawTable = ins.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
-        if (!isSyncWritableTable(table, (req as any).authUser)) {
+        if (!isSyncWritableTable(table, (req as any).authUser, 'insert')) {
           return { uuid_sync: ins.uuid_sync || ins.id, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
         }
 
@@ -2244,7 +2256,9 @@ function resolveTable(name: string): string | null {
           if (table === 'work_orders') {
             validateWorkOrderPayload(data);
           }
-          if (table === 'assets') {
+          if (isLibroTable(table)) {
+            await applyLibroInsert({ sql, table, uuid_sync, data, updated_at, clienteId: recordClienteId, user: (req as any).authUser });
+          } else if (table === 'assets') {
             const d = data;
             let final_cliente_id = recordClienteId;
             let final_sucursal_id = d.sucursal_id || 'default-sucursal';
@@ -2312,8 +2326,8 @@ function resolveTable(name: string): string | null {
             }
           }
         } catch (err: any) {
-          status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
-          errorMsg = publicError(err, "No fue posible sincronizar el registro");
+          status = err instanceof LibroError ? (err.code === 'immutable' ? 'conflict' : 'error') : (err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error');
+          errorMsg = err instanceof LibroError ? err.message : publicError(err, "No fue posible sincronizar el registro");
         }
         return { uuid_sync, table, result: status, error: errorMsg, folio_oficial: data.tag || data.id };
       });
@@ -2326,7 +2340,7 @@ function resolveTable(name: string): string | null {
         const rawTable = upd.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
-        if (!isSyncWritableTable(table, (req as any).authUser)) {
+        if (!isSyncWritableTable(table, (req as any).authUser, 'update')) {
           return { uuid_sync: upd.uuid_sync, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
         }
 
@@ -2348,7 +2362,9 @@ function resolveTable(name: string): string | null {
           if (table === 'work_orders') {
             validateWorkOrderPayload(data);
           }
-          if (table === 'assets') {
+          if (isLibroTable(table)) {
+            await applyLibroUpdate({ sql, table, uuid_sync, data, updated_at, clienteId: recordClienteId, user: (req as any).authUser });
+          } else if (table === 'assets') {
              const d = data;
              let final_cliente_id = recordClienteId;
              let final_sucursal_id = d.sucursal_id || 'default-sucursal';
@@ -2398,8 +2414,8 @@ function resolveTable(name: string): string | null {
             }
           }
         } catch (err: any) {
-          status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
-          errorMsg = publicError(err, "No fue posible sincronizar el registro");
+          status = err instanceof LibroError ? (err.code === 'immutable' ? 'conflict' : 'error') : (err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error');
+          errorMsg = err instanceof LibroError ? err.message : publicError(err, "No fue posible sincronizar el registro");
         }
         return { uuid_sync, table, result: status, error: errorMsg };
       });
@@ -2413,7 +2429,7 @@ function resolveTable(name: string): string | null {
         const rawTable = del.table;
         const table = resolveTable(rawTable);
         if (!table) return null;
-        if (!isSyncWritableTable(table, (req as any).authUser)) {
+        if (!isSyncWritableTable(table, (req as any).authUser, 'delete')) {
           return { uuid_sync: del.uuid_sync, table, result: 'forbidden', error: `Tabla no permitida para sincronización: ${table}` };
         }
 
@@ -2421,7 +2437,9 @@ function resolveTable(name: string): string | null {
         let status = 'applied';
         let errorMsg = '';
         try {
-          switch (table) {
+          if (isLibroTable(table)) {
+            await applyLibroDelete({ sql, table, uuid_sync: del.uuid_sync, clienteId: clienteIdSync, ts });
+          } else switch (table) {
             case 'assets': await sql`UPDATE assets SET deleted_at = ${ts}, estado = 'baja', updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'preventive_maintenance': await sql`UPDATE preventive_maintenance SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
             case 'work_orders': await sql`UPDATE work_orders SET deleted_at = ${ts}, updated_at = ${ts} WHERE uuid_sync = ${del.uuid_sync} AND cliente_id = ${clienteIdSync}`; break;
@@ -2456,7 +2474,9 @@ function resolveTable(name: string): string | null {
       const pullPromises = ALLOWED_TABLES.map(async (table) => {
          try {
             let rows: any[] = [];
-            switch (table) {
+            if (isLibroTable(table)) {
+              rows = await pullLibro(sql, table, { clienteId: clienteIdSync, since: lastSync, globalScope: globalSyncScope, user: (req as any).authUser });
+            } else switch (table) {
               case 'assets': rows = globalSyncScope ? await sql`SELECT * FROM assets WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200` : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
               case 'users': rows = globalSyncScope ? await sql`SELECT * FROM users WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200` : await sql`SELECT DISTINCT u.* FROM users u JOIN user_clientes uc ON uc.user_id = u.uuid_sync WHERE uc.cliente_id = ${clienteIdSync} AND (u.updated_at > ${lastSync} OR u.updated_at IS NULL) LIMIT 200`; break;
               case 'preventive_maintenance': rows = globalSyncScope ? await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200` : await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
@@ -2504,6 +2524,9 @@ function resolveTable(name: string): string | null {
     
     if (!table) return res.status(400).json({ error: "Invalid table", received: rawTable });
     if (!Array.isArray(records)) return res.status(400).json({ error: "Records must be an array" });
+    if (isLibroTable(table)) {
+      return res.status(405).json({ success: false, error: "Las tablas del Libro de Obra se sincronizan solo por POST /api/sync" });
+    }
     if (!isSyncWritableTable(table, (req as any).authUser)) {
       return res.status(403).json({ success: false, error: `Tabla no permitida para sincronización: ${table}` });
     }

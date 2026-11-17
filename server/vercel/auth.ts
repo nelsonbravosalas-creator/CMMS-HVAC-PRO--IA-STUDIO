@@ -49,6 +49,12 @@ const OPERATIONAL_WRITE_TABLES = new Set([
   'calendar'
 ]);
 
+// Libro de Obra: la obra y sus participantes los administra el supervisor; las anotaciones y
+// los acuses los emite cualquier participante con sesión (la pertenencia a la obra se valida
+// en server/libroObraDb.ts). Una anotación emitida no se edita ni se borra.
+const LIBRO_MANAGED_TABLES = new Set(['obras', 'participantes_obra']);
+const LIBRO_PARTICIPANT_TABLES = new Set(['anotaciones', 'anotacion_acuses']);
+
 export function canWriteResource(
   user: any,
   resource: string,
@@ -56,6 +62,10 @@ export function canWriteResource(
 ) {
   const role = canonicalRole(user?.perfil);
   if (role === 'administrador') return true;
+  if (LIBRO_MANAGED_TABLES.has(resource)) return role === 'supervisor';
+  if (LIBRO_PARTICIPANT_TABLES.has(resource)) {
+    return operation === 'insert' && ['supervisor', 'tecnico', 'contratista', 'cliente'].includes(role);
+  }
   if (role === 'supervisor') {
     return resource === 'assets' || OPERATIONAL_WRITE_TABLES.has(resource);
   }

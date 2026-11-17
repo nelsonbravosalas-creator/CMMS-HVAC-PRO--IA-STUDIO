@@ -162,6 +162,28 @@ export async function ensureDbSchema(sql: SqlClient) {
   await sql`ALTER TABLE ordenes_servicio ADD COLUMN IF NOT EXISTS sucursal_id TEXT`;
   await sql`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT`;
 
+  // Libro de Obra (PLAN_MAESTRO_ITO.md, sección 19). El folio y el hash los asigna el servidor
+  // sobre libro_obra_secuencias; la restricción única (obra_id, folio) impide folios repetidos.
+  await sql`CREATE TABLE IF NOT EXISTS obras (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT, cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT)`;
+  await sql`CREATE TABLE IF NOT EXISTS participantes_obra (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT, cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT, obra_id TEXT)`;
+  await sql`CREATE TABLE IF NOT EXISTS anotaciones (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT, cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT, obra_id TEXT NOT NULL, folio INTEGER NOT NULL, UNIQUE (obra_id, folio))`;
+  await sql`CREATE TABLE IF NOT EXISTS anotacion_acuses (uuid_sync TEXT PRIMARY KEY, id TEXT, data JSONB NOT NULL, updated_at BIGINT, created_at BIGINT, deleted_at BIGINT, cliente_id TEXT REFERENCES clientes(id) ON DELETE RESTRICT, obra_id TEXT, anotacion_uuid TEXT)`;
+  await sql`CREATE TABLE IF NOT EXISTS libro_obra_secuencias (obra_id TEXT PRIMARY KEY, cliente_id TEXT NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT, ultimo_folio INTEGER NOT NULL DEFAULT 0, ultimo_hash TEXT NOT NULL, hash_anterior TEXT NOT NULL)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_obras_tenant ON obras (cliente_id, uuid_sync)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_participantes_obra_obra ON participantes_obra (cliente_id, obra_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_anotaciones_obra ON anotaciones (cliente_id, obra_id, folio)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_anotacion_acuses_anotacion ON anotacion_acuses (cliente_id, anotacion_uuid)`;
+  // R16: ni la aplicación ni una consulta manual pueden editar o borrar una anotación emitida.
+  await sql`CREATE OR REPLACE FUNCTION libro_obra_inmutable() RETURNS trigger AS $$
+    BEGIN
+      RAISE EXCEPTION 'Una anotación del libro de obra no se edita ni se borra; emita una corrección';
+    END;
+  $$ LANGUAGE plpgsql`;
+  await sql`DROP TRIGGER IF EXISTS anotaciones_inmutables ON anotaciones`;
+  await sql`CREATE TRIGGER anotaciones_inmutables BEFORE UPDATE OR DELETE ON anotaciones FOR EACH ROW EXECUTE FUNCTION libro_obra_inmutable()`;
+  await sql`DROP TRIGGER IF EXISTS anotacion_acuses_inmutables ON anotacion_acuses`;
+  await sql`CREATE TRIGGER anotacion_acuses_inmutables BEFORE UPDATE OR DELETE ON anotacion_acuses FOR EACH ROW EXECUTE FUNCTION libro_obra_inmutable()`;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_sucursales_tenant ON sucursales (cliente_id, id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_assets_tenant_search ON assets (cliente_id, sucursal_id, uuid_sync)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_work_orders_tenant_search ON work_orders (cliente_id, uuid_sync)`;

@@ -1,0 +1,11 @@
+# Plano Maestro
+
+**Plano Maestro** es una filosofía visual donde la autoridad nace de la medición. Cada página se compone como una hoja de ingeniería de precisión: una retícula invisible gobierna todos los márgenes, las columnas respiran con una proporción constante, y nada existe sin un lugar calculado. El orden no se anuncia, se siente: el lector percibe que alguien midió cada milímetro antes de trazar la primera línea. Es la calma de un plano cuyo autor sabe exactamente dónde termina cada cota.
+
+El color es un instrumento, no un adorno. Una tinta casi negra sostiene el texto, un único índigo profundo marca la identidad y la jerarquía, y los estados se expresan con tonos apagados y bien calibrados que se leen a un metro de distancia sin gritar. Los fondos son papel cálido o blanco puro, nunca grises sucios. La información numérica se dibuja antes de escribirse: barras finas con su marca previa, anillos de proporción, puntos de estado. Donde otros usarían una tabla de bordes gruesos, aquí una línea de un pelo y el espacio vacío hacen todo el trabajo.
+
+La tipografía es de dos voces. Una sans de precisión, sobria y luminosa, lleva el discurso; una monoespaciada técnica lleva los códigos, las cotas y los números que deben alinearse. Las etiquetas son pequeñas, en versalitas con respiración, casi susurradas; los datos importantes crecen con escala deliberada, no con peso. El contraste entre lo grande y lo diminuto crea el ritmo, y cada tamaño existe porque cumple una función que ningún otro cumpliría.
+
+La composición se apoya en módulos repetidos: una banda de cabecera, una fila de indicadores, secciones con encabezados idénticos, tarjetas con el mismo pulso. La repetición es el mensaje: dice que el sistema es riguroso. Los pequeños gestos de oficio, como una regla fina que cierra cada sección, una marca de registro en la esquina, un sello circular que certifica, son la prueba de horas de afinación. Cada alineación es fruto de incontables refinamientos; la obra es el producto de un maestro que revisó cada detalle hasta que no quedó nada por quitar.
+
+El resultado debe parecer una pieza hecha por alguien en lo más alto de su oficio: impecable, serena, densa de información pero nunca cargada. Todo cabe dentro de sus márgenes, nada se superpone, y todo respira. Es un documento que inspira confianza antes de ser leído.

@@ -1,0 +1,600 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><title>Mapa de Proceso ITO</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Concepto: plano de control de procesos. Tres tipos de actor (persona, dispositivo, servidor) con color fijo en todo el documento. */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#13202b; --mute:#566673; --line:#cdd7de; --soft:#e4eaee;
+  --human:#a85a00; --human-bg:#fdf0d5;
+  --sys:#1b4fb8;   --sys-bg:#e1ebfb;
+  --srv:#6a2fc2;   --srv-bg:#eee6fb;
+  --out:#06795a;   --out-bg:#d8f3e8;
+  --gap:#c0262d;   --gap-bg:#fde6e7;
+  --accent:#0b6e86;
+  --font:'IBM Plex Sans',system-ui,sans-serif; --font-d:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+a{color:var(--accent)}
+.wrap{max-width:1240px;margin:0 auto}
+header.top{padding:22px 0 14px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+h1{font-family:var(--font-d);font-size:30px;line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--mute);margin:6px 0 0;max-width:62ch}
+.meta{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+nav.tabs a,nav.tabs button{font:500 13px var(--font);color:var(--ink);text-decoration:none;padding:7px 13px;border:1px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+nav.tabs .sp{flex:1}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-family:var(--font-d);font-size:21px;margin:30px 0 8px}
+h3{font-family:var(--font-d);font-size:15px;margin:0 0 6px;letter-spacing:.02em;text-transform:uppercase;color:var(--mute)}
+p{margin:0 0 10px;max-width:78ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0;font-size:12.5px;color:var(--mute)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:18px;height:12px;border-radius:3px;border:1.5px solid}
+.sw.h{background:var(--human-bg);border-color:var(--human)} .sw.s{background:var(--sys-bg);border-color:var(--sys)}
+.sw.x{background:var(--srv-bg);border-color:var(--srv)} .sw.o{background:var(--out-bg);border-color:var(--out);border-radius:8px}
+.sw.d{background:var(--panel);border-color:var(--ink);transform:rotate(45deg) scale(.8)} .sw.g{background:var(--gap-bg);border-color:var(--gap);border-style:dashed}
+figure{margin:12px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+figure .scroll{overflow-x:auto}
+figcaption{font-size:12.5px;color:var(--mute);padding:8px 4px 2px;max-width:90ch}
+svg.dg{display:block;width:100%;height:auto;min-width:760px}
+svg text{font-family:var(--font);fill:var(--ink)}
+.band{fill:var(--soft);opacity:.55} .band.alt{opacity:.25}
+.band-l{font:600 10px var(--font);letter-spacing:.12em;fill:var(--mute)!important}
+.node rect,.node polygon{stroke-width:1.6;transition:filter .2s,opacity .2s}
+.node text{font-size:11px;text-anchor:middle;pointer-events:none}
+.node .t2{font-size:10px;fill:var(--mute)}
+.n-h rect{fill:var(--human-bg);stroke:var(--human)} .n-h text{fill:var(--ink)}
+.n-s rect{fill:var(--sys-bg);stroke:var(--sys)}
+.n-x rect{fill:var(--srv-bg);stroke:var(--srv)}
+.n-o rect{fill:var(--out-bg);stroke:var(--out)}
+.n-d polygon{fill:var(--panel);stroke:var(--ink)} .n-d text{font-size:10.5px}
+.n-g rect{fill:var(--gap-bg);stroke:var(--gap);stroke-dasharray:5 3}
+.node.link{cursor:pointer} .node.link:hover rect{filter:brightness(1.07);stroke-width:2.4}
+.node.link:focus-visible rect{stroke-width:3}
+.pic{fill:none;stroke:var(--human);stroke-width:1.4}
+.edge{fill:none;stroke:var(--mute);stroke-width:1.5;stroke-dasharray:6 5;animation:flow 1.1s linear infinite}
+.edge.gap{stroke:var(--gap);stroke-width:1.8;animation:none;stroke-dasharray:3 5}
+.edge.hot{stroke:var(--accent);stroke-width:2.6;stroke-dasharray:none;animation:none}
+.elab{font-size:10px;paint-order:stroke;stroke:var(--panel);stroke-width:4px;fill:var(--mute)!important}
+.elab.gap{fill:var(--gap)!important;font-weight:600}
+.dot{fill:var(--accent)} .dot.gap{display:none}
+.arrow path{fill:var(--mute)}
+.dim .node{opacity:.3} .dim .node.seen{opacity:.8} .dim .node.on{opacity:1}
+.node.on rect,.node.on polygon{filter:drop-shadow(0 0 5px var(--accent));stroke:var(--accent);stroke-width:2.8}
+.paused .edge{animation-play-state:paused}
+@keyframes flow{to{stroke-dashoffset:-22}}
+@media (prefers-reduced-motion:reduce){.edge{animation:none}}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 4px 2px}
+.btn{font:500 12.5px var(--font);padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.stepcap{font-size:13px;flex:1;min-width:220px;color:var(--ink)} .stepcap b{font-family:var(--mono);font-weight:500;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-top:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink)}
+.card:hover{border-color:var(--accent)}
+.card h4{margin:0;font:700 16px var(--font-d)}
+.route{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid}
+.chip.i{background:var(--sys-bg);border-color:var(--sys);color:var(--ink)}
+.chip.o{background:var(--out-bg);border-color:var(--out);color:var(--ink)}
+.chip.h{background:var(--human-bg);border-color:var(--human);color:var(--ink)}
+.lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-top:2px}
+.st{font-size:11px;font-weight:600;padding:1px 8px;border-radius:4px;display:inline-block;align-self:flex-start}
+.st.ok{background:var(--out-bg);color:var(--out)} .st.partial{background:var(--human-bg);color:var(--human)}
+.st.stub,.st.orphan{background:var(--gap-bg);color:var(--gap)} .st.apoyo{background:var(--srv-bg);color:var(--srv)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.panel ul{margin:0;padding-left:18px} .panel li{margin:3px 0}
+.panel.gapbox{border-color:var(--gap)} .panel.gapbox h3{color:var(--gap)}
+.back{display:inline-block;margin:16px 0 0;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;margin-top:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi b{font:700 24px var(--font-d);display:block}
+.kpi span{font-size:12px;color:var(--mute)}
+code{font-family:var(--mono);font-size:12px;background:var(--soft);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.tw{overflow-x:auto}
+
+.kpi.good b{color:var(--out)} .kpi.bad b{color:var(--gap)}
+a.btn{text-decoration:none;display:inline-block;color:var(--ink)}
+label.fl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:10px 0 4px}
+.in{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;font:inherit;color:var(--ink)} textarea.in{min-height:64px;resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn.okb{background:var(--out);border-color:var(--out);color:var(--bg)} .btn.nob{background:var(--gap);border-color:var(--gap);color:var(--bg)}
+.rv{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel);margin-bottom:8px}
+.ipo-scroll{overflow-x:auto;padding-bottom:6px}
+.ipo{display:grid;gap:26px 20px;min-width:1180px;padding:6px 2px 10px;align-items:stretch}
+.ipo-lab{display:flex;align-items:center;justify-content:center}
+.ipo-lab span{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px var(--font);letter-spacing:.24em;text-transform:uppercase;color:var(--mute)}
+.ipo-in,.ipo-pr,.ipo-out{border-radius:10px;padding:10px 9px;min-width:0;transition:opacity .25s,box-shadow .25s}
+.ipo-in{background:var(--sys-bg);border:1px solid var(--sys)}
+.ipo-out{background:var(--out-bg);border:1px solid var(--out)}
+.ipo-pr{background:var(--panel);border:1.5px solid var(--ink)}
+.ipo ul,.ipo ol{margin:0;padding-left:16px;font-size:11.5px} .ipo li{margin:2px 0;overflow-wrap:anywhere}
+.ipo-in ul,.ipo-out ul{padding-left:15px}
+.ipo-h{display:flex;gap:9px;align-items:center;margin-bottom:6px}
+.ipo-h b{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--bg);display:grid;place-items:center;font:700 13px var(--font-d);flex:none}
+.ipo-h strong{display:block;font:700 14px var(--font-d);line-height:1.15} .who{display:block;font-size:10.5px;color:var(--mute);letter-spacing:.04em}
+.bdg{display:inline-block;margin-bottom:6px;font-size:10.5px;font-weight:700;color:var(--gap);background:var(--gap-bg);border-radius:99px;padding:1px 8px;text-decoration:none}
+.sev{font-size:10.5px;font-weight:800;border-radius:99px;padding:2px 9px;white-space:nowrap}.sev-A{background:var(--gap-bg);color:var(--gap)}.sev-M{background:var(--human-bg);color:var(--human)}.sev-B{background:var(--soft);color:var(--mute)}
+.est{font-size:10.5px;font-weight:800;border-radius:99px;padding:2px 9px;white-space:nowrap}.est-C{background:var(--out-bg);color:var(--out)}.est-P{background:var(--human-bg);color:var(--human)}.est-F{background:var(--gap-bg);color:var(--gap)}
+.more{display:inline-block;margin-top:7px;font-size:11.5px;font-weight:600}
+.ipo-arr,.ipo-v1,.ipo-v2{pointer-events:none;position:relative;z-index:1}
+.ipo-arr{justify-self:end;align-self:center;width:22px;height:2px;transform:translateX(22px);background:repeating-linear-gradient(90deg,var(--accent) 0 6px,transparent 6px 11px);background-size:11px 2px;animation:fx 1s linear infinite}
+.ipo-arr::after{content:"";position:absolute;right:-2px;top:-4px;border-left:7px solid var(--accent);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.ipo-v1,.ipo-v2{justify-self:center;align-self:end;width:2px;height:26px;transform:translateY(26px);background:repeating-linear-gradient(180deg,var(--mute) 0 5px,transparent 5px 9px);background-size:2px 9px;animation:fy 1s linear infinite}
+.ipo-v2{align-self:end}
+@keyframes fx{to{background-position:11px 0}} @keyframes fy{to{background-position:0 9px}}
+.ipo.dim .ipo-in,.ipo.dim .ipo-pr,.ipo.dim .ipo-out{opacity:.32}
+.ipo.dim .seen{opacity:.8} .ipo.dim .on{opacity:1;box-shadow:0 0 0 3px var(--accent)}
+.paused .ipo-arr,.paused .ipo-v1,.paused .ipo-v2{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.ipo-arr,.ipo-v1,.ipo-v2{animation:none}}
+</style>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Mapa de proceso · Libro de Obra e ITO</h1>
+    <p class="sub">El Libro de Obra como entidad principal y la ITO como su hija: entradas, proceso y salidas de cada etapa, revisiones, estados, reglas y fases. Para tu revisión y aprobación.</p>
+  </div>
+  <div class="meta">Plan maestro · 17-nov-2026<br>Libro completo por fases · sin código</div>
+</header>
+<nav class="tabs" id="tabs" aria-label="Vistas">
+  <a href="#mapa" data-v="mapa">Mapa de proceso</a>
+  <a href="#flujos" data-v="flujos">Flujos por etapa</a>
+  <a href="#estados" data-v="estados">Estados</a>
+  <a href="#reglas" data-v="reglas">Reglas y datos</a>
+  <a href="#fases" data-v="fases">Fases</a>
+  <a href="#critica" data-v="critica">Revisión crítica</a>
+  <a href="#aprobacion" data-v="aprobacion">Revisión y aprobación</a>
+  <span class="sp"></span>
+  <button type="button" id="pauseBtn" aria-pressed="false">Animación: activa</button>
+</nav>
+<main id="app"></main>
+</div>
+<script>
+(function(){
+'use strict';
+var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var NS='http://www.w3.org/2000/svg';
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* ---------- MOTOR DE DIAGRAMAS ---------- */
+function lines(t){return String(t).split('|');}
+function toNodes(flow){ // lane/col -> coordenadas
+  var LW=122,CW=172,LH=108,T=14;
+  var ncol=0;flow.nodes.forEach(function(n){ncol=Math.max(ncol,n[2]+1);});
+  var out=flow.nodes.map(function(n){
+    var t=n[3];
+    return {id:n[0],t:t,lab:n[4],cx:LW+n[2]*CW+CW/2,cy:T+n[1]*LH+LH/2,w:156,h:t==='d'?66:54,lane:n[1]};
+  });
+  return {nodes:out,W:LW+ncol*CW+8,H:T*2+LANEB.length*LH,bands:LANEB.map(function(l,i){return {y:T+i*LH,h:LH,label:l};}),bandX:0,LW:LW};
+}
+function rectOf(n){return {x1:n.cx-n.w/2-3,x2:n.cx+n.w/2+3,y1:n.cy-n.h/2-3,y2:n.cy+n.h/2+3};}
+function segHit(p,q,r){ // segmento ortogonal vs rect
+  var x1=Math.min(p[0],q[0]),x2=Math.max(p[0],q[0]),y1=Math.min(p[1],q[1]),y2=Math.max(p[1],q[1]);
+  return !(x2<r.x1||x1>r.x2||y2<r.y1||y1>r.y2);
+}
+function clear(pts,all,a,b){
+  for(var i=0;i<pts.length-1;i++){
+    for(var k=0;k<all.length;k++){var n=all[k];if(n===a||n===b)continue;if(segHit(pts[i],pts[i+1],rectOf(n)))return false;}
+  }
+  return true;
+}
+function route(a,b,all,hint){
+  var s=Math.sign(b.cx-a.cx), dy=Math.sign(b.cy-a.cy), c=[];
+  var sameRow=Math.abs(a.cy-b.cy)<4, sameCol=Math.abs(a.cx-b.cx)<4;
+  if(sameCol){var sy=a.cy+dy*a.h/2,ey=b.cy-dy*b.h/2;c.push([[a.cx,sy],[b.cx,ey]]);}
+  if(sameRow){var sx0=a.cx+s*a.w/2,ex0=b.cx-s*b.w/2;c.push([[sx0,a.cy],[ex0,b.cy]]);
+    var gy=a.cy-a.h/2-20; c.push([[a.cx,a.cy-a.h/2],[a.cx,gy],[b.cx,gy],[b.cx,b.cy-b.h/2]]);
+    var gy2=a.cy+a.h/2+20; c.push([[a.cx,a.cy+a.h/2],[a.cx,gy2],[b.cx,gy2],[b.cx,b.cy+b.h/2]]);}
+  if(!sameRow&&!sameCol){
+    var sx=a.cx+s*a.w/2, ex=b.cx-s*b.w/2;
+    if(hint!=='back'){
+      c.push([[sx,a.cy],[ex-s*12,a.cy],[ex-s*12,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[sx+s*12,a.cy],[sx+s*12,b.cy],[ex,b.cy]]);
+      c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[b.cx,a.cy],[b.cx,b.cy-dy*b.h/2]]);
+    }
+    var g1=a.cy+dy*(a.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);
+    var g2=b.cy-dy*(b.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g2],[b.cx,g2],[b.cx,b.cy-dy*b.h/2]]);
+    if(hint==='back'){c.unshift([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);}
+  }
+  for(var i=0;i<c.length;i++){if(clear(c[i],all,a,b))return c[i];}
+  return c[c.length-1];
+}
+function plen(p){var L=0;for(var i=0;i<p.length-1;i++)L+=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);return L;}
+function dstr(p){return p.map(function(q,i){return (i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1);}).join(' ');}
+function labelPos(p){ // punto medio del segmento más largo
+  var best=0,bi=0;for(var i=0;i<p.length-1;i++){var l=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);if(l>best){best=l;bi=i;}}
+  var a=p[bi],b=p[bi+1];return [(a[0]+b[0])/2,(a[1]+b[1])/2,Math.abs(b[1]-a[1])>Math.abs(b[0]-a[0]),best];
+}
+function nodeSVG(n,link){
+  var L=lines(n.lab),cls='node n-'+n.t+(link?' link':'');
+  var x=n.cx-n.w/2,y=n.cy-n.h/2,g='<g class="'+cls+'" data-id="'+n.id+'"'+(link?' tabindex="0" role="link" aria-label="'+esc(L.join(' '))+'" data-go="'+link+'"':'')+'>';
+  if(n.t==='d'){g+='<polygon points="'+n.cx+','+y+' '+(n.cx+n.w/2)+','+n.cy+' '+n.cx+','+(y+n.h)+' '+(n.cx-n.w/2)+','+n.cy+'"/>';}
+  else if(n.t==='o'){g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.h/2)+'"/>';}
+  else{g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.t==='h'?10:4)+'"/>';}
+  if(n.t==='h'){g+='<circle class="pic" cx="'+(x+11)+'" cy="'+(y+11)+'" r="3"/><path class="pic" d="M'+(x+5.5)+' '+(y+20)+' q5.5 -8 11 0"/>';}
+  var lh=13.5,y0=n.cy-(L.length-1)*lh/2+4;
+  L.forEach(function(t,i){g+='<text x="'+n.cx+'" y="'+(y0+i*lh)+'" class="'+(i>0?'t2':'')+'">'+esc(t)+'</text>';});
+  return g+'</g>';
+}
+// flow: {nodes:[..coords..], edges, W,H, bands}
+function drawDiagram(D,edges,opts){
+  opts=opts||{};
+  var byId={};D.nodes.forEach(function(n){byId[n.id]=n;});
+  var s='<svg class="dg" viewBox="0 0 '+D.W+' '+D.H+'" role="img" aria-label="'+esc(opts.aria||'Diagrama de proceso')+'" xmlns="'+NS+'">';
+  s+='<defs><marker id="ar'+opts.uid+'" class="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs>';
+  (D.bands||[]).forEach(function(b,i){
+    s+='<rect class="band'+(i%2?' alt':'')+'" x="0" y="'+b.y+'" width="'+D.W+'" height="'+b.h+'" rx="6"/>';
+    var bl=lines(b.label);bl.forEach(function(t,k){s+='<text class="band-l" x="10" y="'+(b.y+b.h/2-(bl.length-1)*7+k*14+4)+'">'+esc(t.toUpperCase())+'</text>';});
+  });
+  var eh='',dots='',labs='';
+  edges.forEach(function(e,i){
+    var a=byId[e[0]],b=byId[e[1]];if(!a||!b)return;
+    var gap=e[3]==='gap';
+    var p=route(a,b,D.nodes,e[3]);
+    var d=dstr(p);
+    eh+='<path class="edge'+(gap?' gap':'')+'" data-f="'+e[0]+'" data-t="'+e[1]+'" d="'+d+'" marker-end="url(#ar'+opts.uid+')"/>';
+    if(!REDUCED&&!gap){var dur=Math.max(1.6,plen(p)/70);dots+='<circle class="dot" r="3"><animateMotion dur="'+dur.toFixed(2)+'s" begin="-'+((i*0.53)%dur).toFixed(2)+'s" repeatCount="indefinite" path="'+d+'"/></circle>';}
+    if(e[2]){var lp=labelPos(p);var segL=lp[3];if(segL>=e[2].length*5.3+6){labs+='<text class="elab'+(gap?' gap':'')+'" text-anchor="middle" x="'+lp[0]+'" y="'+(lp[1]+(lp[2]?3:-5))+'"'+(lp[2]?' dx="'+(e[2].length*2.9+6)+'"':'')+'>'+esc(e[2])+'</text>';}}
+  });
+  s+=eh+dots+labs;
+  D.nodes.forEach(function(n){s+=nodeSVG(n,n.link);});
+  return s+'</svg>';
+}
+var UID=0;
+
+/* ---------- DATOS ---------- */
+var LANES=['Cliente','Supervisor','Inspector','Contratista','Sistema (app y servidor)'];
+var LANEB=['CLIENTE','SUPERVISOR','INSPECTOR','CONTRATISTA','SISTEMA|APP Y SERVIDOR'];
+// Grupo A: el Libro de Obra (entidad principal, una por obra)
+var LB=[
+{id:'l0',n:'Apertura de obra y libro',who:'Supervisor',
+ ins:['Número y nombre de la obra','Cliente y sucursal (opcional)','Participantes con rol y especialidad','Partidas, una a una','Planos de la biblioteca'],
+ steps:['Se abre desde el asistente de la primera ITO','Se crean la obra y su libro','Se invita por correo a los participantes','El libro nace sin folios: la primera anotación recibe el folio 1'],
+ outs:['Obra y libro creados','Participantes invitados','Partidas y planos cargados'],
+ nodes:[['a0',1,0,'h','Crea la primera ITO|de una obra nueva'],['a1',1,1,'h','Obra, participantes|con rol y partidas'],['a2',4,2,'s','Crea la obra y su libro|el folio parte en 1'],['a3',4,3,'x','Invita por correo|a los participantes'],['a4',0,4,'h','Cliente acepta|la invitación'],['a5',2,4,'h','Inspector acepta|la invitación'],['a6',3,4,'h','Contratista acepta|la invitación'],['a7',4,5,'o','Libro de obra abierto|participantes activos']],
+ edges:[['a0','a1'],['a1','a2'],['a2','a3'],['a3','a4'],['a3','a5'],['a3','a6'],['a4','a7'],['a5','a7'],['a6','a7']],path:['a0','a1','a2','a3','a4','a7'],
+ reglas:['La obra se crea al programar su primera ITO, con un asistente de un solo paso.','Roles de participante: cliente, inspector, contratista (por especialidad) y supervisor.','R21: el folio es consecutivo y único por obra, asignado por el servidor.']},
+{id:'l1',n:'Anotación',who:'Autor (cualquier participante)',
+ ins:['Tipo (instrucción, consulta, respuesta, hecho relevante, recepción, corrección, ITO)','Texto','Destinatarios','Plazo, si pide respuesta','Adjuntos y referencia (opcionales)'],
+ steps:['El autor redacta y firma la anotación','Sin red: queda como borrador firmado, sin folio','Al sincronizar el servidor asigna el folio consecutivo','Calcula el hash encadenado con la anotación anterior','Avisa a los destinatarios'],
+ outs:['Anotación con folio y hash','Aviso a los destinatarios','Hora de escritura y hora de recepción'],
+ nodes:[['b0',2,0,'h','Redacta la anotación|tipo, texto, destinatarios'],['b1',2,1,'h','Firma como autor'],['b2',4,2,'s','Guarda en el dispositivo'],['b3',4,3,'d','¿Hay conexión?'],['b4',4,4,'s','Borrador firmado|sin folio'],['b5',4,5,'x','Folio consecutivo y|hash encadenado'],['b6',4,6,'x','Aviso a los|destinatarios'],['b7',3,7,'h','Recibe y da acuse']],
+ edges:[['b0','b1'],['b1','b2'],['b2','b3'],['b3','b5','Sí'],['b3','b4','No'],['b4','b5','al sincronizar'],['b5','b6'],['b6','b7']],path:['b0','b1','b2','b3','b5','b6','b7'],
+ reglas:['R22: la firma la pone su autor; cada destinatario registra un acuse de lectura.','R24: cada anotación guarda el hash de la anterior de la obra; romper la cadena se detecta.','R25: todas las anotaciones emitidas son visibles para todos los participantes de la obra.','R26: sin conexión, borrador firmado sin folio; el folio sigue el orden de llegada al servidor.']},
+{id:'l2',n:'Respuesta e hilos',who:'Destinatario',
+ ins:['Anotación que pide respuesta','Plazo por obra'],
+ steps:['El destinatario recibe y registra su acuse','Responde con una anotación enlazada','El hilo pasa a «respondida»','El autor revisa y cierra el hilo','Un hilo vencido se destaca en rojo en los paneles'],
+ outs:['Acuse de lectura','Respuesta enlazada con folio','Hilo cerrado'],
+ nodes:[['c0',3,0,'h','Recibe la anotación|que pide respuesta'],['c1',4,1,'s','Registra el acuse|de lectura'],['c2',4,2,'d','¿Responde dentro|del plazo?'],['c3',3,3,'h','Responde con una|anotación enlazada'],['c5',1,3,'h','Ve el vencido en rojo|en su panel'],['c4',4,4,'x','Hilo respondida|folio y hash'],['c6',2,5,'h','El autor revisa|y cierra el hilo'],['c7',4,6,'o','Hilo cerrado']],
+ edges:[['c0','c1'],['c1','c2'],['c2','c3','Sí'],['c2','c5','No'],['c5','c3','insiste'],['c3','c4'],['c4','c6'],['c6','c7']],path:['c0','c1','c2','c3','c4','c6','c7'],
+ reglas:['R23: estados abierta, respondida y cerrada; el plazo es por obra.','Una respuesta es una anotación nueva, enlazada a la original.','Lo vencido se destaca en rojo; no hay correo al vencer.']},
+{id:'l3',n:'Corrección',who:'Autor o supervisor',
+ ins:['Anotación o ITO con un error','Motivo de la corrección'],
+ steps:['Nunca se edita ni se borra la anotación original','Se emite una anotación de corrección que la referencia','La corrección se firma y recibe su folio','La original queda marcada como corregida'],
+ outs:['Anotación de corrección con folio','Original marcada como corregida','Libro con ambas a la vista'],
+ nodes:[['d0',1,0,'h','Detecta un error|en una anotación'],['d1',1,1,'h','Redacta la corrección|motivo y referencia'],['d2',1,2,'h','Firma la corrección'],['d3',4,3,'x','Folio y hash|referencia a la original'],['d4',4,4,'s','Marca la original|como corregida'],['d5',0,5,'h','El cliente ve ambas|anotaciones'],['d6',4,5,'o','Libro con original|y corrección']],
+ edges:[['d0','d1'],['d1','d2'],['d2','d3'],['d3','d4'],['d4','d6'],['d4','d5']],path:['d0','d1','d2','d3','d4','d6'],
+ reglas:['R16: una ITO cerrada ni ninguna anotación se edita ni se borra; un error se corrige con una anotación nueva.','La corrección también se firma y entra en la cadena de hash.']},
+{id:'l4',n:'Cierre del libro',who:'Supervisor',
+ ins:['Obra terminada','Propuesta de cierre','Firmas del acta'],
+ steps:['El supervisor propone el cierre','Se genera el acta con el estado del libro','Cliente, inspector y contratista firman el acta','El libro pasa a solo lectura','Se genera el PDF completo, foliado, con código y hash final'],
+ outs:['Acta firmada','Libro sellado','PDF del libro foliado'],
+ nodes:[['f0',1,0,'h','Propone el cierre|de la obra'],['f1',4,1,'s','Genera el acta|con el estado del libro'],['f2',0,2,'h','Cliente firma|el acta'],['f3',2,2,'h','Inspector firma|el acta'],['f4',3,2,'h','Contratista firma|el acta'],['f5',4,3,'d','¿Firmaron las|tres partes?'],['f6',4,4,'x','Sella el libro:|solo lectura'],['f7',4,5,'x','PDF completo foliado|código y hash final'],['f8',4,6,'o','Libro cerrado|y entregado']],
+ edges:[['f0','f1'],['f1','f2'],['f1','f3'],['f1','f4'],['f2','f5'],['f3','f5'],['f4','f5'],['f5','f6','Sí'],['f5','f1','No: falta firma','back'],['f6','f7'],['f7','f8']],path:['f0','f1','f2','f5','f6','f7','f8'],
+ reglas:['R27: el cierre exige el acta firmada por cliente, inspector y contratista.','Después del cierre el libro es de solo lectura.','El PDF del libro lleva el hash final y el código de verificación.']}
+];
+// Grupo B: la ITO, hija del libro
+var ET=[
+{id:'e1',n:'Solicitud',who:'Cliente',opt:true,
+ ins:['Necesidad de inspección','Obra y zona','Descripción breve'],
+ steps:['El cliente solicita la ITO desde la app','Nace en estado «solicitada», sin inspector','Se avisa al supervisor'],
+ outs:['ITO solicitada','Aviso al supervisor'],
+ nodes:[['g0',0,0,'h','Solicita una ITO|obra, zona, descripción'],['g1',4,1,'s','Crea la ITO|estado solicitada'],['g2',4,2,'x','Aviso por correo|al supervisor'],['g3',1,3,'h','Acepta y asigna|desde su panel'],['g4',4,4,'o','ITO programada|pasa a Programación']],
+ edges:[['g0','g1'],['g1','g2'],['g2','g3'],['g3','g4']],path:['g0','g1','g2','g3','g4'],
+ reglas:['El perfil cliente puede solicitar; no crea ni asigna.','Es opcional: el supervisor también puede crear una ITO sin solicitud.']},
+{id:'e2',n:'Programación',who:'Supervisor',
+ ins:['Solicitud o necesidad propia','Obra y libro','Inspector y contratista (participantes)','Plantilla (versión)','Planos y partidas'],
+ steps:['Crea o acepta y asigna la ITO','Se abre R00 con su fecha de apertura','La plantilla queda con esa versión (R12)','El servidor asigna número de ITO y folio del libro','Se crea el evento del Calendario (apertura a cierre)'],
+ outs:['ITO programada','Número de ITO y folio','Revisión R00 abierta','Evento en el Calendario','Plan al contratista (opcional)'],
+ nodes:[['h0',1,0,'h','Crea o acepta|la ITO en el libro'],['h1',1,1,'h','Inspector, contratista,|plantilla y planos'],['h2',1,2,'h','Partidas a revisar|(una a una)'],['h3',4,3,'s','Abre R00 con su|fecha de apertura'],['h4',4,4,'x','Número de ITO y folio|por obra (servidor)'],['h5',4,5,'x','Evento del Calendario|de apertura a cierre'],['h6',3,6,'h','Recibe el plan|(si se informó)'],['h7',4,7,'o','ITO programada|R00 abierta']],
+ edges:[['h0','h1'],['h1','h2'],['h2','h3'],['h3','h4'],['h4','h5'],['h5','h7'],['h5','h6','opcional']],path:['h0','h1','h2','h3','h4','h5','h7'],
+ reglas:['Cabecera obligatoria: obra, zona, inspector, contratista y fecha. Plantilla, planos y partidas pueden agregarse después.','R9 y R21: el número de ITO es por cliente y año; el folio, por obra. Ambos los asigna el servidor.','R18: cada revisión tiene fecha de apertura y de cierre propias.','R15: desde que empieza la ejecución, la cabecera solo se cambia con conexión.']},
+{id:'e3',n:'Ejecución',who:'Inspector',
+ ins:['Revisión abierta','Planos con revisión','Checklist y mediciones','Partidas del contrato','Cámara y archivos'],
+ steps:['Marca cada ítem: Cumple, No cumple o N/A','Registra mediciones con su rango esperado','Anota el % de avance de cada partida','Observaciones en una sola tabla; trabajo no planificado con partida opcional','Fotos (~300 KB) y PDF (hasta 3 MB), con topes','Marca pines, líneas, círculos y texto sobre el plano'],
+ outs:['Checklist evaluado','Avance de partidas','Observaciones con evidencia','Marcas en capa transparente','Aviso al responsable de cada hallazgo'],
+ nodes:[['i0',2,0,'h','Abre la ITO|en el celular'],['i1',2,1,'h','Evalúa checklist|y mediciones'],['i2',2,2,'h','Avance de partidas y|observaciones (una tabla)'],['i3',2,3,'h','Evidencia y marcas|sobre el plano'],['i4',4,4,'s','Guarda en el dispositivo|(funciona sin red)'],['i5',4,5,'d','¿Completo y con|evidencia? (R1)'],['i6',4,6,'x','Sincroniza y avisa|a los responsables'],['i7',4,7,'o','Listo para cerrar|la revisión']],
+ edges:[['i0','i1'],['i1','i2'],['i2','i3'],['i3','i4'],['i4','i5'],['i5','i1','No: falta algo','back'],['i5','i6','Sí'],['i6','i7']],path:['i0','i1','i2','i3','i4','i5','i6','i7'],
+ reglas:['R1: no se cierra la revisión con ítems sin evaluar ni con una observación incompleta (observación, acción, responsable, fecha límite y foto).','Topes: 5 fotos y 2 PDF por observación y 150 MB por ITO; subida por partes de hasta 4,5 MB. Verificar la cuota de Neon antes de la Fase 1.','R11: el plano original no se modifica; las marcas van en una capa aparte.','El aviso por correo al responsable sale al sincronizar.']},
+{id:'e4',n:'Cierre de la revisión',who:'Inspector',
+ ins:['Ejecución completa (R1)','Conexión, o cola hasta sincronizar'],
+ steps:['El inspector firma su cierre de la revisión','Se guarda con la hora del dispositivo','Sin red: queda en cola hasta sincronizar','El servidor agrega su hora, el hash de la versión y la fecha de cierre','La ITO pasa a «por firmar», con plazo de firma y aviso'],
+ outs:['Revisión Rn cerrada con hash','Firma 1 del inspector','Fecha de cierre','Plazo de firma y aviso a contratista y cliente'],
+ nodes:[['j0',2,0,'h','Firma su cierre|de la revisión'],['j1',4,1,'s','Guarda la firma con|la hora del dispositivo'],['j2',4,2,'d','¿Hay conexión?'],['j3',4,3,'s','Queda en cola|pendiente de sincronizar'],['j4',4,4,'x','Hora del servidor, hash|y fecha de cierre'],['j5',4,5,'x','ITO por firmar,|plazo y aviso'],['j6',3,6,'h','Recibe el aviso'],['j7',0,6,'h','Recibe el aviso']],
+ edges:[['j0','j1'],['j1','j2'],['j2','j3','No'],['j3','j4','al volver la red'],['j2','j4','Sí'],['j4','j5'],['j5','j6'],['j5','j7']],path:['j0','j1','j2','j4','j5','j6'],
+ reglas:['R17: cada firma lleva el hash de la versión que firmó, la hora del dispositivo y la hora del servidor.','R18: al cerrar se fija la fecha de cierre; la revisión queda como R00, R01…','R20: cada firma tiene su estado y su plazo; al vencer se avisa al supervisor con una tarea diaria.','R10: el orden es inspector, contratista, cliente.']},
+{id:'e5',n:'Respuesta del contratista',who:'Contratista',
+ ins:['Revisión cerrada','Observaciones abiertas','Plazo de firma'],
+ steps:['Revisa la revisión cerrada y sus observaciones','Responde cada observación: texto, fotos, adjuntos, acción tomada y fecha','Cada observación pasa a «respondida»','Firma el acuse de recibo, o rechaza con motivo','Con bloqueantes abiertos la ITO queda «observada»'],
+ outs:['Respuesta por observación','Firma 2 (acuse)','ITO observada, si quedan bloqueantes','O ITO rechazada con motivo'],
+ nodes:[['k0',3,0,'h','Revisa la revisión|cerrada y sus observaciones'],['k1',3,1,'h','Responde cada observación|texto, fotos, acción, fecha'],['k2',4,2,'s','La observación pasa|a «respondida»'],['k3',3,3,'d','¿Firma el acuse|o rechaza?'],['k4',3,4,'h','Firma el acuse|de recibo'],['k5',3,5,'h','Rechaza con|motivo obligatorio'],['k6',4,5,'d','¿Quedan bloqueantes|abiertos?'],['k7',4,6,'o','ITO observada|se abre R siguiente'],['k8',4,7,'o','Pasa al cliente|firma pendiente'],['k9',1,6,'h','Supervisor decide:|reabrir o archivar'],['k10',4,4,'x','Estado rechazada|y aviso al supervisor']],
+ edges:[['k0','k1'],['k1','k2'],['k2','k3'],['k3','k4','Firma'],['k3','k5','Rechaza'],['k4','k6'],['k6','k7','Sí'],['k6','k8','No'],['k5','k10'],['k10','k9']],path:['k0','k1','k2','k3','k4','k6','k8'],
+ reglas:['R19: la respuesta es por observación; el inspector la verifica o la devuelve en la re-inspección.','R29: respuestas, aceptaciones y objeciones quedan en el historial de cada observación.','Rechazar exige motivo; el supervisor decide si reabre a «en progreso» o archiva.']},
+{id:'e6',n:'Re-inspección y nueva revisión',who:'Inspector',loop:true,
+ ins:['ITO observada o reabierta','Respuestas del contratista'],
+ steps:['Se abre la revisión siguiente (R01, R02…) con nueva fecha de apertura','El inspector verifica cada respuesta','Cierra con evidencia, devuelve al contratista o, en una crítica, acepta con justificación','La aceptación se destaca en el informe (R28)','Firma el cierre en conformidad: fecha de cierre y hash'],
+ outs:['Observaciones cerradas o devueltas','Historial de la revisión','Revisión Rn+1 cerrada con hash'],
+ nodes:[['m0',2,0,'h','Abre la revisión|siguiente (R01…)'],['m1',2,1,'h','Verifica cada respuesta|del contratista'],['m2',2,2,'d','¿Resuelta?'],['m3',2,3,'h','Re-inspección|con foto'],['m5',2,4,'h','Acepta con justificación|(se destaca)'],['m4',4,3,'s','Devuelta al contratista|vuelve a responder'],['m6',4,5,'s','Historial: fechas,|inspector y resultado'],['m7',2,6,'h','Firma el cierre|en conformidad'],['m8',4,7,'o','Revisión cerrada|fecha de cierre y hash']],
+ edges:[['m0','m1'],['m1','m2'],['m2','m3','Re-inspección'],['m2','m5','Acepta'],['m2','m4','No resuelta'],['m3','m6'],['m5','m6'],['m6','m7'],['m7','m8']],path:['m0','m1','m2','m3','m6','m7','m8'],
+ reglas:['R14: el inspector cierra una observación por re-inspección o por aceptación con justificación; no requiere segunda persona.','R28: toda aceptación se destaca en el informe y el cliente puede objetarla.','Las firmas anteriores se conservan, cada una ligada a su revisión (R17).']},
+{id:'e7',n:'Aprobación del cliente',who:'Cliente',
+ ins:['Última revisión cerrada en conformidad','Cambios entre revisiones','Aceptaciones del inspector','Sesión del cliente (o enlace temporal)'],
+ steps:['Abre la ITO dentro de la app (o por enlace sin cuenta)','Revisa los cambios entre revisiones, los planos y las fotos','Revisa las aceptaciones destacadas y puede objetarlas','R3: solo firma con 0 No cumple y 0 críticas abiertas','Firma con nombre, RUT y cargo, o rechaza con motivo'],
+ outs:['Firma 3 del cliente','ITO aprobada','O ITO rechazada con motivo','Observación reabierta, si objeta una aceptación'],
+ nodes:[['n0',0,0,'h','Abre la ITO|en la app o por enlace'],['n1',4,1,'d','¿Sesión de cliente|o enlace vigente?'],['n2',0,2,'h','Revisa cambios entre|revisiones y planos'],['n3',0,3,'h','Revisa las aceptaciones|del inspector (destacadas)'],['n4',4,4,'d','¿0 No cumple y|0 críticas? (R3)'],['n5',0,5,'h','Firma con nombre,|RUT y cargo'],['n6',4,6,'x','Registra la firma|(hash de la versión final)'],['n7',4,7,'o','ITO aprobada'],['n8',0,6,'h','Rechaza u objeta|con motivo'],['n9',4,5,'s','Reabre la observación|objetada']],
+ edges:[['n0','n1'],['n1','n2','Sí'],['n2','n3'],['n3','n4'],['n4','n5','Sí'],['n4','n8','No'],['n5','n6'],['n6','n7'],['n8','n9','objeta']],path:['n0','n1','n2','n3','n4','n5','n6','n7'],
+ reglas:['El perfil cliente firma dentro de la app; el enlace temporal es solo para quien no tiene cuenta.','R7: token de 256 bits (solo su hash en la base), vence en 7 días, un uso; se regenera desde la pantalla de firmas.','R30: el informe muestra la fecha de apertura y el cierre de la última revisión en conformidad.']},
+{id:'e8',n:'Cierre y entrega',who:'Sistema',
+ ins:['ITO aprobada','Firmas y evidencia','Logo del cliente'],
+ steps:['Hash de la versión final y código de verificación','Sella la ITO: inmutable (R4)','Arma el PDF con el logo del cliente','Lo envía por correo (Resend)','Registra auditoría, el folio en el libro y el evento del Calendario'],
+ outs:['Informe PDF verificable','Correo a cliente, contratista e inspector','ITO inmutable con folio en el libro','Evento realizado en el Calendario','Registro de auditoría'],
+ nodes:[['p0',4,0,'x','Hash de la versión final|y código de verificación'],['p1',4,1,'x','Sella la ITO|(inmutable, R4)'],['p2',4,2,'s','Arma el PDF|apertura y último cierre'],['p3',4,3,'x','Envía por correo|(Resend)'],['p4',4,4,'x','Auditoría, folio y|evento del Calendario'],['p5',0,5,'h','Recibe el informe'],['p6',3,5,'h','Recibe el informe'],['p7',2,5,'h','Recibe el informe'],['p8',4,6,'o','ITO cerrada con|folio en el libro']],
+ edges:[['p0','p1'],['p1','p2'],['p2','p3'],['p3','p4'],['p3','p5'],['p3','p6'],['p3','p7'],['p4','p8']],path:['p0','p1','p2','p3','p4','p8'],
+ reglas:['R4: aprobada es inmutable; el servidor rechaza con 409 toda escritura posterior.','R13: si un dispositivo envía un cambio rechazado por 409, descarta el cambio y toma la versión del servidor.','R30: el PDF muestra la fecha de apertura y el cierre de la última revisión en conformidad.','Un error posterior se corrige con una anotación del libro (R16).']}
+];
+var ALL=LB.concat(ET);
+var EBY={};ALL.forEach(function(e){EBY[e.id]=e;});
+function etLabel(e){var i=LB.indexOf(e);return i>=0?'L'+i:String(ET.indexOf(e)+1);}
+var REGLAS=[['R1','No se cierra la revisión con ítems sin evaluar, ni con una observación incompleta','Ejecución'],['R2','No cumple → Cumple en re-inspección: el pin pasa a resuelto y el historial se conserva','Re-inspección'],['R3','El cliente aprueba solo con 0 No cumple abiertos y 0 críticas no planificadas abiertas, y al menos un ítem aplicable en Cumple','Aprobación'],['R4','Aprobada es inmutable: el servidor rechaza toda escritura posterior con 409','Cierre'],['R5','La ITO no escribe en órdenes de servicio ni en mantenimientos','Todas'],['R6','Cumplimiento % = Cumple ÷ (Cumple + No cumple); N/A no cuenta','Panel e informe'],['R7','Token de 256 bits, solo su hash en la base, vence en 7 días, un uso','Aprobación'],['R8','Foto en Cumple solo si la plantilla lo exige','Ejecución'],['R9','Número de ITO por cliente y año, atómico, asignado por el servidor','Programación'],['R10','Firmas en orden: inspector, contratista, cliente; cada una ligada a la revisión que firmó','Firmas'],['R11','El plano original no se modifica; una revisión nueva no borra las marcas anteriores','Ejecución'],['R12','Una ITO conserva la versión de plantilla con que nació','Programación'],['R13','Ante un 409 por inmutabilidad, el dispositivo descarta su cambio y toma la versión del servidor','Cierre'],['R14','El inspector cierra una observación por re-inspección o por aceptación con justificación','Re-inspección'],['R15','La cabecera solo se modifica con conexión','Programación'],['R16','Nada se edita ni se borra: un error se corrige con una anotación del libro','Libro'],['R17','Cada firma lleva el hash de la versión, la hora del dispositivo y la del servidor','Firmas'],['R18','Cada revisión (R00, R01…) tiene fecha de apertura y de cierre; el cierre es la firma del inspector','Revisiones'],['R19','La respuesta del contratista es por observación; el inspector la verifica o la devuelve','Respuesta'],['R20','Cada firma tiene estado y plazo; al vencer se avisa al supervisor (tarea diaria)','Firmas'],['R21','Folio consecutivo único por obra, asignado por el servidor','Libro'],['R22','La anotación la firma su autor; los destinatarios dan acuse','Libro'],['R23','Hilos con estados y plazo por obra; lo vencido se destaca en rojo','Libro'],['R24','Cada anotación guarda el hash de la anterior de la obra','Libro'],['R25','Todas las anotaciones emitidas son visibles para todos los participantes','Libro'],['R26','Sin conexión, borrador firmado sin folio hasta sincronizar','Libro'],['R27','El cierre del libro exige el acta firmada por cliente, inspector y contratista','Libro'],['R28','Una aceptación del inspector se destaca en el informe; el cliente puede objetarla','Re-inspección'],['R29','Respuestas, aceptaciones y objeciones quedan en el historial de la observación','Respuesta'],['R30','El informe muestra la fecha de apertura y el cierre de la última revisión en conformidad','Informe']];
+var DATOS=[['obras','número 000–999 por cliente, nombre, sucursal opcional, estado'],['participantes_obra','usuario, empresa, rol (cliente, inspector, contratista, supervisor), especialidad'],['libros_obra','un libro por obra: estado, hash final, acta de cierre'],['anotaciones','folio, tipo, autor y rol, texto, destinatarios, plazo, referencia, hash y hash anterior, hora de escritura y de recepción'],['anotacion_acuses','acuse de lectura de cada destinatario'],['obra_partidas','código, descripción, origen (planificada o de terreno)'],['ito_plantillas','plantilla con versión, ítems y mediciones'],['planos','biblioteca; cada plano con sus revisiones (Rev A, B, C)'],['itos','cabecera, estado, número de ITO, folio del libro, plantilla, checklist, firmas'],['ito_revisiones','R00, R01…: fecha de apertura y de cierre, hash de la versión'],['ito_observaciones','una sola tabla: tipo, crítica, responsable, fecha límite, estado, respuesta del contratista, verificación'],['ito_marcas','pines, líneas, círculos y texto sobre una revisión de plano'],['ito_media','fotos y adjuntos PDF (topes por observación y por ITO)'],['ito_secuencias','solo servidor: contadores por cliente y año, y por obra'],['ito_tokens_firma','solo servidor: hash del token, vencimiento, uso'],['clientes','se agrega un código corto único de hasta 6 letras']];
+/* ---------- Revisión crítica (resuelta) ---------- */
+var INC=[
+ {id:'I1',sev:'A',e:['l3','e8'],t:'Una ITO aprobada no se puede corregir',d:'Aprobada es inmutable, pero no existía camino para un error descubierto después.',r:'Anotación de corrección en el libro; la ITO no se edita (R16).'},
+ {id:'I2',sev:'A',e:['e4','e5','e6'],t:'Las firmas conservadas no respaldan el resultado final',d:'Al reabrir se conservaban firmas de un estado anterior.',r:'Cada firma queda ligada a la revisión que firmó (R00, R01…) con hash; el cliente aprueba la versión final (R17, R18).'},
+ {id:'I3',sev:'A',e:['e3','e6'],t:'Dos fuentes de verdad para las observaciones',d:'Ítems No cumple dentro de la ITO y una tabla de observaciones.',r:'Una sola tabla de observaciones, con la respuesta del contratista y la verificación del inspector.'},
+ {id:'I4',sev:'A',e:['e6'],t:'El inspector cierra sus propias críticas',d:'Conflicto de interés y trato desigual entre tipos de observación.',r:'Se mantiene que el inspector acepta con justificación. Contrapeso: la aceptación se destaca en el informe y el cliente puede objetarla (R14, R28).'},
+ {id:'I5',sev:'A',e:['l1','e2'],t:'El número de ITO no sirve como folio de obra',d:'Correlativo por cliente y año, con saltos dentro de una obra.',r:'Folio consecutivo único por obra en el libro, además del número de ITO (R21).'},
+ {id:'I6',sev:'A',e:['l0','e2'],t:'Dueño de la cuenta y acceso del contratista',d:'No estaba definido cómo entra un contratista de otra empresa.',r:'Participantes por obra: usuario, empresa y rol, invitados por correo.'},
+ {id:'I7',sev:'M',e:['e2','e3','e6'],t:'Una fecha para varias visitas',d:'La primera inspección y cada re-inspección eran visitas sin fecha propia.',r:'Dos fechas por revisión, apertura y cierre. Sin entidad Visita (R18).'},
+ {id:'I8',sev:'M',e:['e2'],t:'Un evento por ITO puede desalinearse',d:'No estaba claro cuántos eventos se creaban ni cuándo se actualizaban.',r:'Un evento por revisión (de apertura a cierre) más uno por cada fecha límite; se escriben en la misma operación que la ITO.'},
+ {id:'I9',sev:'M',e:['e2','e3'],t:'Dos conceptos para trabajo fuera de contrato',d:'Partida de terreno y observación no planificada cubrían lo mismo.',r:'Una sola figura: trabajo no planificado, con partida opcional.'},
+ {id:'I10',sev:'M',e:['e4'],t:'La hora de la firma sin red la da el teléfono',d:'Fácil de alterar; la firma perdía valor probatorio.',r:'Se guardan la hora del dispositivo y la del servidor (R17).'},
+ {id:'I11',sev:'M',e:['e4','e5','e7'],t:'«Por firmar» sin plazo ni escalamiento',d:'Una ITO podía quedar detenida sin que nadie lo supiera.',r:'Estado por firma, plazo por obra y aviso al supervisor con una tarea diaria solo para plazos de firma (R20).'},
+ {id:'I12',sev:'M',e:['l0','e2'],t:'Faltaba el flujo previo de apertura de obra',d:'La obra y el libro debían existir antes de la primera ITO.',r:'Asistente de un solo paso al crear la primera ITO: obra, participantes y partidas.'},
+ {id:'I13',sev:'M',e:['e3'],t:'Avisos tardíos y fecha límite sin consecuencia',d:'El correo sale al sincronizar y no hay aviso al vencer.',r:'Se declara que sale al sincronizar; los vencidos se destacan en rojo, sin correo.'},
+ {id:'I14',sev:'B',e:['e3'],t:'Sin tope de cantidad de evidencia',d:'Había tamaño por archivo, pero no cantidad.',r:'5 fotos y 2 PDF por observación y 150 MB por ITO; subida por partes. Verificar la cuota de Neon antes de la Fase 1.'}
+];
+var OPT=[{t:'Cadena de firmas configurable',d:'Por cliente u obra: una, dos o tres firmas.'},{t:'Bloqueo suave por ITO',d:'Un inspector activo; los demás ven solo lectura.'},{t:'Evidencia en una cola aparte',d:'Datos primero, fotos después, con subida reanudable y miniaturas.'},{t:'Avisos agrupados',d:'Un resumen por ITO en vez de un correo por hallazgo.'},{t:'Repetir una ITO anterior',d:'Copiar planos, partidas y plantilla de la ITO previa.'},{t:'Informe de una página',d:'Resumen ejecutivo y, tras una re-inspección, solo lo que cambió.'},{t:'Panel por obra',d:'Vencidos, bloqueantes y firmas pendientes por obra.'}];
+// est: C en el diseño, P parcial, F falta
+var LIBC=[
+ {c:'Libro por obra con folio consecutivo e inmutable',est:'C',pr:'A',n:'Un libro por obra, folio único (R21).'},
+ {c:'Anotaciones tipificadas',est:'P',pr:'A',n:'ITO, corrección, instrucción, consulta, respuesta, hecho relevante y recepción. Sin accidente ni paralización por ahora.'},
+ {c:'Anotaciones sin red con folio asignado por el servidor',est:'C',pr:'A',n:'Borrador firmado sin folio hasta sincronizar (R26).'},
+ {c:'Autoría y firma por rol en cada anotación',est:'C',pr:'A',n:'Firma del autor y acuse de los destinatarios (R22).'},
+ {c:'Corrección sin borrar',est:'C',pr:'A',n:'Anotación de corrección (R16).'},
+ {c:'Participantes por obra con empresa y rol',est:'C',pr:'A',n:'Cliente, inspector, contratista por especialidad y supervisor.'},
+ {c:'Integridad verificable',est:'C',pr:'A',n:'Hash encadenado y dos horas por firma (R17, R24).'},
+ {c:'Libro completo en PDF foliado',est:'C',pr:'A',n:'Se genera al cerrar el libro con acta (R27).'},
+ {c:'Retención, respaldo y exportación a terceros',est:'P',pr:'A',n:'El PDF del libro cubre la entrega; falta definir plazos de conservación.'},
+ {c:'Validez legal ante la autoridad',est:'C',pr:'A',n:'Decidido: registro entre las partes, sin validez legal. Revisar si el alcance cambia.'},
+ {c:'Hilos de respuesta con plazo y estado',est:'C',pr:'M',n:'Estados y plazo por obra (R23).'},
+ {c:'Notificaciones y copias a las partes',est:'P',pr:'M',n:'Solo correo; sin push ni acuse de lectura más allá del acuse de anotación.'},
+ {c:'Cronograma, hitos y curva S',est:'F',pr:'A',n:'Primer módulo de gestión tras el libro (Fase 3).'},
+ {c:'Partidas con cantidad, unidad y ponderación',est:'F',pr:'A',n:'Necesarias para la curva S (Fase 3).'},
+ {c:'Órdenes de cambio y trabajos adicionales',est:'F',pr:'A',n:'Segundo módulo de gestión (Fase 4), apoyado en el trabajo no planificado.'},
+ {c:'Registro diario de obra',est:'F',pr:'M',n:'Posterior a las fases 3 y 4.'},
+ {c:'Consultas técnicas (RFI)',est:'P',pr:'M',n:'La consulta y su respuesta ya existen como anotaciones; falta el seguimiento formal.'},
+ {c:'No conformidades y acciones correctivas',est:'P',pr:'M',n:'Las observaciones con respuesta y verificación cubren una parte.'},
+ {c:'Búsqueda, filtros y línea de tiempo de la obra',est:'F',pr:'M',n:'No definido todavía.'},
+ {c:'Seguridad y prevención',est:'F',pr:'B',n:'Posterior, según prioridad.'}
+];
+var FASES=[
+ {n:'0',t:'Cierre del diseño',tam:'Pequeño',c:['Aprobar este mapa de proceso','Confirmar los tipos de anotación','Verificar la cuota de Neon','Validar las pantallas contra el video']},
+ {n:'1',t:'Libro base',tam:'Grande',c:['Obras, participantes con rol e invitaciones por correo','Libro con folio, anotaciones y corrección','Firma del autor y acuse; hilos con plazo','Hash encadenado; trabajo sin conexión','Tests de inmutabilidad y de aislamiento entre obras']},
+ {n:'2',t:'ITO dentro del libro',tam:'Grande',c:['Revisiones R00, R01… con dos fechas','Observaciones en una tabla y respuesta del contratista','Firmas ligadas a la revisión; plazo de firma','Planos con capa de marcas; partidas y avance','Informe y envío por correo']},
+ {n:'3',t:'Cronograma y curva S',tam:'Grande',c:['Partidas con cantidad y ponderación','Programado contra real e hitos','Avance acumulado de la obra']},
+ {n:'4',t:'Órdenes de cambio',tam:'Mediano',c:['Trabajos adicionales con aprobación, costo y plazo','Apoyadas en el trabajo no planificado']},
+ {n:'5',t:'Cierre del libro y resto',tam:'Mediano a grande',c:['Acta de cierre y PDF completo','Luego: registro diario, consultas técnicas y seguridad']}
+];
+var PEND=[
+ ['Tipos de anotación','La respuesta marcó «Solo ITO y corrección» junto a otros dos tipos; se asumió la lista de siete tipos. Confirmar.'],
+ ['Fecha de apertura del informe','Se asumió la apertura de R00 (la primera revisión) y el cierre de la última revisión en conformidad. Confirmar.'],
+ ['Cuota de Neon','Verificar el almacenamiento incluido antes de la Fase 1; puede obligar a bajar los 150 MB por ITO.'],
+ ['Retención de registros','Definir cuánto tiempo se conservan libros y ITO, y cómo se exportan al terminar.'],
+ ['Contratista por especialidad','Definir si cada contratista ve y responde solo sus observaciones, o todas las de la obra.'],
+ ['Video de referencia','Validar las pantallas del prototipo; sigue pendiente.']
+];
+
+/* ---------- Estados ---------- */
+function stateDiagram(){
+  function N(id,t,cx,cy,lab){return {id:id,t:t,lab:lab,cx:cx,cy:cy,w:150,h:50};}
+  var nodes=[N('sol','s',100,60,'solicitada|la pidió el cliente'),N('pro','s',350,60,'programada|R00 con apertura'),N('prg','s',600,60,'en progreso|revisión abierta'),N('xf','x',850,60,'por firmar|revisión cerrada'),N('apr','o',1100,60,'aprobada|inmutable'),
+    N('obs','g',850,200,'observada|bloqueantes abiertos'),N('rec','g',600,200,'rechazada|con motivo'),N('arc','s',350,200,'archivada|decide el supervisor')];
+  var edges=[['sol','pro','acepta y asigna'],['pro','prg','primer registro'],['prg','xf','inspector firma cierre'],['xf','apr','firma cliente (R3)'],['xf','obs','acuse con bloqueantes'],['xf','rec','alguien rechaza'],['obs','prg','abre R01…','back'],['rec','prg','supervisor reabre','back'],['rec','arc','supervisor archiva']];
+  return drawDiagram({nodes:nodes,W:1200,H:290,bands:null},edges,{uid:'s'+(++UID),aria:'Estados de una ITO'});
+}
+function stateLibro(){
+  function N(id,t,cx,cy,lab){return {id:id,t:t,lab:lab,cx:cx,cy:cy,w:150,h:50};}
+  var nodes=[N('bor','s',100,60,'borrador firmado|sin folio, sin red'),N('emi','s',350,60,'emitida|con folio y hash'),N('res','x',600,60,'respondida|hilo enlazado'),N('cer','o',850,60,'cerrada|hilo resuelto'),N('cor','g',350,200,'corregida|con anotación nueva')];
+  var edges=[['bor','emi','al sincronizar'],['emi','res','destinatario responde'],['res','cer','autor cierra'],['emi','cor','se emite una corrección']];
+  return drawDiagram({nodes:nodes,W:1000,H:270,bands:null},edges,{uid:'l'+(++UID),aria:'Estados de una anotación del libro'});
+}
+
+/* ---------- Mapa IPO ---------- */
+function ipoGrid(list,base,id){
+  var cols=list.length,h='<div class="ipo-scroll"><div class="ipo" id="'+id+'" style="grid-template-columns:90px repeat('+cols+',minmax(112px,1fr))">';
+  h+='<div class="ipo-lab" style="grid-row:1"><span>Entradas</span></div><div class="ipo-lab" style="grid-row:2"><span>Proceso</span></div><div class="ipo-lab" style="grid-row:3"><span>Salidas</span></div>';
+  list.forEach(function(e,i){
+    var c=i+2,k=base+i;
+    var nb=INC.filter(function(x){return x.e.indexOf(e.id)>=0;}).length;
+    h+='<div class="ipo-in" data-k="'+k+'" style="grid-column:'+c+';grid-row:1"><ul>'+e.ins.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+    h+='<div class="ipo-pr" data-k="'+k+'" style="grid-column:'+c+';grid-row:2"><div class="ipo-h"><b>'+etLabel(e)+'</b><div><strong>'+esc(e.n)+'</strong><span class="who">'+esc(e.who)+(e.opt?' · opcional':'')+(e.loop?' · ciclo':'')+'</span></div></div>'+(nb?'<a class="bdg" href="#critica" title="Decisiones de la revisión crítica que se aplicaron aquí">'+nb+' ajuste'+(nb>1?'s':'')+'</a>':'')+'<ol>'+e.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol><a class="more" href="#et-'+e.id+'">Ver flujo →</a></div>';
+    h+='<div class="ipo-out" data-k="'+k+'" style="grid-column:'+c+';grid-row:3"><ul>'+e.outs.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+    if(i<cols-1)h+='<i class="ipo-arr" style="grid-column:'+c+';grid-row:2"></i>';
+    h+='<i class="ipo-v1" style="grid-column:'+c+';grid-row:1"></i><i class="ipo-v2" style="grid-column:'+c+';grid-row:2"></i>';
+  });
+  return h+'</div></div>';
+}
+
+/* ---------- Revisión ---------- */
+var REVKEY='ito-mapa-revision-v2';
+function loadRev(){try{return JSON.parse(localStorage.getItem(REVKEY)||'{}');}catch(e){return {};}}
+function saveRev(r){try{localStorage.setItem(REVKEY,JSON.stringify(r));}catch(e){}}
+var REV=loadRev();
+
+/* ---------- Vistas ---------- */
+var app=document.getElementById('app'),timers=[];
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+function chips(a,c){return '<div class="chips">'+a.map(function(x){return '<span class="chip '+c+'">'+esc(x)+'</span>';}).join('')+'</div>';}
+function legend(){return '<div class="legend" aria-label="Leyenda"><span><i class="sw h"></i>Persona interviene</span><span><i class="sw s"></i>App en el dispositivo</span><span><i class="sw x"></i>Servidor o servicio externo</span><span><i class="sw d"></i>Decisión</span><span><i class="sw o"></i>Resultado</span><span><i class="sw g"></i>Estado de excepción</span></div>';}
+function ctl(){return '<div class="ctl"><button class="btn pri" id="play" type="button">▶ Reproducir recorrido</button><button class="btn" id="step" type="button">Paso ›</button><button class="btn" id="reset" type="button">Reiniciar</button><div class="stepcap" id="cap" aria-live="polite">Pulsa reproducir para seguir el camino principal paso a paso.</div></div>';}
+function mount(D,path){
+  var svg=app.querySelector('svg.dg'),cap=document.getElementById('cap'),i=-1,running=false,byId={};
+  D.nodes.forEach(function(n){byId[n.id]=n;});
+  function show(k){
+    i=k;svg.classList.add('dim');
+    svg.querySelectorAll('.node.on,.node.seen').forEach(function(n){n.classList.remove('on','seen');});
+    svg.querySelectorAll('.edge.hot').forEach(function(n){n.classList.remove('hot');});
+    for(var j=0;j<=k;j++){var nd=svg.querySelector('.node[data-id="'+path[j]+'"]');if(nd)nd.classList.add(j===k?'on':'seen');
+      if(j>0){var ed=svg.querySelector('.edge[data-f="'+path[j-1]+'"][data-t="'+path[j]+'"]');if(ed)ed.classList.add('hot');}}
+    var n=byId[path[k]];cap.innerHTML='<b>Paso '+(k+1)+' de '+path.length+'</b> · '+esc(LANES[n.lane])+': '+esc(lines(n.lab).join(' '));
+  }
+  function stop(){running=false;clearTimers();document.getElementById('play').textContent='▶ Reproducir recorrido';}
+  function tick(){if(!running)return;if(i+1>=path.length){stop();return;}show(i+1);timers.push(setTimeout(tick,1300));}
+  document.getElementById('play').addEventListener('click',function(){if(running){stop();return;}if(i+1>=path.length)i=-1;running=true;this.textContent='⏸ Pausar';tick();});
+  document.getElementById('step').addEventListener('click',function(){stop();show(Math.min(i+1,path.length-1));});
+  document.getElementById('reset').addEventListener('click',function(){stop();i=-1;svg.classList.remove('dim');svg.querySelectorAll('.on,.hot,.seen').forEach(function(n){n.classList.remove('on','hot','seen');});cap.textContent='Pulsa reproducir para seguir el camino principal paso a paso.';});
+  if(!REDUCED){running=true;document.getElementById('play').textContent='⏸ Pausar';timers.push(setTimeout(tick,700));}
+}
+function viewMapa(){
+  app.innerHTML='<h2>Mapa de proceso · Libro de Obra e ITO</h2><p>El <b>Libro de Obra</b> es la entidad principal: uno por obra, con folio consecutivo, anotaciones firmadas y hash encadenado. La <b>ITO</b> es una de sus anotaciones y se desarrolla en revisiones (R00, R01…), cada una con fecha de apertura y de cierre. Cada columna muestra lo que <b>entra</b>, lo que <b>ocurre</b> y lo que <b>sale</b>.</p>'+
+  '<div class="kpis"><div class="kpi"><b>'+LB.length+' + '+ET.length+'</b><span>etapas: libro e ITO</span></div><div class="kpi"><b>4</b><span>roles: cliente, inspector, contratista, supervisor</span></div><div class="kpi"><b>'+REGLAS.length+'</b><span>reglas de negocio</span></div><div class="kpi"><b>'+INC.length+'</b><span>inconsistencias resueltas</span></div></div>'+
+  '<div class="ctl" style="padding:0 0 8px"><button class="btn pri" id="iplay" type="button">▶ Recorrer las etapas</button><button class="btn" id="ireset" type="button">Reiniciar</button><div class="stepcap" id="icap" aria-live="polite">Pulsa para iluminar cada etapa en orden.</div></div>'+
+  '<h3 style="margin:14px 0 6px">A · Libro de Obra</h3>'+ipoGrid(LB,0,'ipoA')+
+  '<h3 style="margin:22px 0 6px">B · ITO, hija del libro (cada revisión R00, R01… abre y cierra con sus fechas)</h3>'+ipoGrid(ET,LB.length,'ipoB')+
+  '<p class="note" style="margin-top:10px">Azul = entradas, neutro = proceso, verde = salidas. Una etiqueta roja indica cuántos ajustes de la revisión crítica se aplicaron en esa etapa. «Ver flujo» abre el detalle por rol.</p>';
+  var i=-1,run=false,P=app.querySelectorAll('.ipo-pr'),I=app.querySelectorAll('.ipo-in'),O=app.querySelectorAll('.ipo-out'),G=app.querySelectorAll('.ipo');
+  function show(k){i=k;G.forEach(function(g){g.classList.add('dim');});
+    [P,I,O].forEach(function(L){L.forEach(function(n){var j=+n.getAttribute('data-k');n.classList.toggle('on',j===k);n.classList.toggle('seen',j<k);});});
+    var e=ALL[k];document.getElementById('icap').innerHTML='<b>Etapa '+(k+1)+' de '+ALL.length+'</b> · '+(k<LB.length?'Libro':'ITO')+' · '+esc(e.n)+' · '+esc(e.who);
+    var n=P[k];if(n&&n.scrollIntoView)n.scrollIntoView({block:'nearest',inline:'center'});}
+  function stop(){run=false;clearTimers();document.getElementById('iplay').textContent='▶ Recorrer las etapas';}
+  function tick(){if(!run)return;if(i+1>=ALL.length){stop();return;}show(i+1);timers.push(setTimeout(tick,1500));}
+  document.getElementById('iplay').onclick=function(){if(run){stop();return;}if(i+1>=ALL.length)i=-1;run=true;this.textContent='⏸ Pausar';tick();};
+  document.getElementById('ireset').onclick=function(){stop();i=-1;G.forEach(function(g){g.classList.remove('dim');});[P,I,O].forEach(function(L){L.forEach(function(n){n.classList.remove('on','seen');});});document.getElementById('icap').textContent='Pulsa para iluminar cada etapa en orden.';};
+}
+function viewFlujos(){
+  function card(e){return '<a class="card" href="#et-'+e.id+'"><div><h4>'+etLabel(e)+' · '+esc(e.n)+'</h4><div class="route">'+esc(e.who)+(e.opt?' · opcional':'')+'</div></div><div class="lbl">Entra</div>'+chips(e.ins.slice(0,3),'i')+'<div class="lbl">Sale</div>'+chips(e.outs.slice(0,3),'o')+'</a>';}
+  app.innerHTML='<h2>Flujos por etapa</h2><p>Cada flujo separa quién hace qué: cliente, supervisor, inspector, contratista y sistema.</p><h3 style="margin:14px 0 4px">A · Libro de Obra</h3><div class="grid">'+LB.map(card).join('')+'</div><h3 style="margin:22px 0 4px">B · ITO dentro del libro</h3><div class="grid">'+ET.map(card).join('')+'</div>';
+}
+function viewEtapa(id){
+  var e=EBY[id];if(!e){location.hash='#flujos';return;}
+  var D=toNodes(e),k=ALL.indexOf(e);
+  app.innerHTML='<a class="back" href="#flujos">← Todas las etapas</a><h2 style="margin-top:8px">'+etLabel(e)+' · '+esc(e.n)+'</h2><div class="route">'+(k<LB.length?'Libro de Obra':'ITO')+' · '+esc(e.who)+(e.opt?' · opcional':'')+(e.loop?' · ciclo':'')+'</div>'+
+  '<div class="two"><div class="panel"><h3>Entra</h3>'+chips(e.ins,'i')+'</div><div class="panel"><h3>Proceso</h3><ol style="margin:0;padding-left:18px">'+e.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol></div><div class="panel"><h3>Sale</h3>'+chips(e.outs,'o')+'</div></div>'+
+  legend()+'<figure><div class="scroll">'+drawDiagram(D,e.edges,{uid:'e'+(++UID),aria:'Flujo de la etapa '+e.n})+'</div>'+ctl()+'<figcaption>Camino principal en '+e.path.length+' pasos.</figcaption></figure>'+
+  '<div class="panel" style="margin-top:14px"><h3>Reglas de esta etapa</h3><ul>'+e.reglas.map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></div>'+
+  '<div class="row" style="margin-top:12px">'+(k>0?'<a class="btn" href="#et-'+ALL[k-1].id+'">← '+esc(ALL[k-1].n)+'</a>':'')+(k<ALL.length-1?'<a class="btn" href="#et-'+ALL[k+1].id+'">'+esc(ALL[k+1].n)+' →</a>':'')+'</div>';
+  mount(D,e.path);
+}
+function viewEstados(){
+  app.innerHTML='<h2>Estados</h2><p>Dos máquinas de estado: la de la ITO, que avanza por revisiones hacia la aprobación, y la de cada anotación del libro.</p>'+legend()+
+  '<h3 style="margin:14px 0 4px">ITO</h3><figure><div class="scroll">'+stateDiagram()+'</div><figcaption>Una ITO observada o rechazada vuelve a «en progreso» con una revisión nueva (R01, R02…), cada una con su apertura y su cierre. Aprobada queda sellada; un error posterior se corrige con una anotación del libro.</figcaption></figure>'+
+  '<h3 style="margin:22px 0 4px">Anotación del libro</h3><figure><div class="scroll">'+stateLibro()+'</div><figcaption>Una anotación nunca se edita ni se borra: se corrige con otra. Sin red nace como borrador firmado y recibe su folio al sincronizar.</figcaption></figure>';
+}
+function viewReglas(){
+  app.innerHTML='<h2>Reglas y datos</h2><p>Las reglas viven en un módulo compartido entre la app y el servidor; el servidor es la autoridad.</p><div class="panel"><div class="tw"><table><thead><tr><th>Regla</th><th>Qué exige</th><th>Etapa</th></tr></thead><tbody>'+REGLAS.map(function(r){return '<tr><td><b>'+r[0]+'</b></td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>Datos que guarda el módulo</h2><div class="panel"><div class="tw"><table><thead><tr><th>Tabla</th><th>Contenido</th></tr></thead><tbody>'+DATOS.map(function(r){return '<tr><td><code>'+r[0]+'</code></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>Conexión con la app existente</h2><div class="two"><div class="panel"><h3>Se conecta con</h3><ul><li>Clientes (cliente, código corto, logo)</li><li>Calendario (un evento por revisión y por fecha límite)</li><li>Usuarios y perfiles (participantes por obra, invitados por correo)</li><li>Sincronización offline</li><li>Envío por correo (Resend)</li></ul></div><div class="panel"><h3>No toca</h3><ul><li>Órdenes de servicio</li><li>Mantenimientos</li><li>Tickets</li><li>Inventario</li></ul></div></div>';
+}
+function viewFases(){
+  app.innerHTML='<h2>Fases</h2><p>El alcance elegido es el libro completo con gestión de obra, construido por fases. Los tamaños son relativos entre fases, no una estimación de tiempo. La <b>Fase 1 sola</b> ya es un libro de obra mínimo utilizable.</p><div class="phases">'+FASES.map(function(f,i){return '<section class="phase" style="--d:'+(i*0.15)+'s"><div class="ph-h"><span class="ph-n">'+f.n+'</span><div><h3 style="margin:0;color:var(--ink)">'+esc(f.t)+'</h3><span class="route">Tamaño relativo: '+f.tam+'</span></div></div><div class="bar"><i></i></div><ul>'+f.c.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></section>';}).join('')+'</div>';
+}
+function sevLb(x){return {A:'Alta',M:'Media',B:'Baja'}[x];}
+function viewCritica(){
+  var c=LIBC.filter(function(x){return x.est==='C';}).length,p=LIBC.filter(function(x){return x.est==='P';}).length,f=LIBC.filter(function(x){return x.est==='F';}).length;
+  app.innerHTML='<h2>Revisión crítica: estado actual</h2><p>Las 14 inconsistencias que se encontraron ya tienen una decisión. Abajo, la decisión de cada una, lo que todavía falta para ser un libro de obra completo y lo que sigue pendiente. Las referencias a la normativa son orientativas.</p>'+
+  '<div class="kpis"><div class="kpi good"><b>'+INC.length+'</b><span>inconsistencias con decisión</span></div><div class="kpi good"><b>'+c+'</b><span>capacidades de libro en el diseño</span></div><div class="kpi"><b>'+p+'</b><span>parciales</span></div><div class="kpi bad"><b>'+f+'</b><span>por construir en fases posteriores</span></div></div>'+
+  '<h2>1. Inconsistencias y su decisión</h2><div class="panel"><div class="tw"><table><thead><tr><th>#</th><th>Gravedad</th><th>Qué pasaba</th><th>Decisión</th></tr></thead><tbody>'+INC.map(function(i){return '<tr><td><b>'+i.id+'</b></td><td><span class="sev sev-'+i.sev+'">'+sevLb(i.sev)+'</span></td><td><b>'+esc(i.t)+'</b><br>'+esc(i.d)+'</td><td>'+esc(i.r)+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>2. Capacidades de un libro de obra</h2><p>En el diseño: '+c+' · Parciales: '+p+' · Por construir: '+f+'.</p><div class="panel"><div class="tw"><table><thead><tr><th>Capacidad</th><th>Estado</th><th>Prioridad</th><th>Comentario</th></tr></thead><tbody>'+
+  ['A','M','B'].map(function(pr){return LIBC.filter(function(x){return x.pr===pr;}).map(function(x){return '<tr><td>'+esc(x.c)+'</td><td><span class="est est-'+x.est+'">'+({C:'En el diseño',P:'Parcial',F:'Por construir'}[x.est])+'</span></td><td><span class="sev sev-'+x.pr+'">'+sevLb(x.pr)+'</span></td><td>'+esc(x.n)+'</td></tr>';}).join('');}).join('')+'</tbody></table></div></div>'+
+  '<h2>3. Optimizaciones que siguen disponibles</h2><div class="grid">'+OPT.map(function(o){return '<div class="card"><h4 style="font-size:15px">'+esc(o.t)+'</h4><p style="margin:0;font-size:13px">'+esc(o.d)+'</p></div>';}).join('')+'</div>'+
+  '<h2>4. Pendientes antes de lanzar</h2><div class="panel gapbox"><div class="tw"><table><thead><tr><th>Tema</th><th>Qué falta</th></tr></thead><tbody>'+PEND.map(function(r){return '<tr><td><b>'+esc(r[0])+'</b></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+}
+function summaryText(){
+  var ap=[],ob=[];
+  ALL.forEach(function(e){var r=REV[e.id];if(!r)return;var t=etLabel(e)+' · '+e.n;if(r.s==='ok')ap.push(t);else if(r.s==='obs')ob.push(t+(r.c?': '+r.c:''));});
+  var pend=ALL.filter(function(e){return !REV[e.id];}).map(function(e){return etLabel(e)+' · '+e.n;});
+  var g=REV.__general||'';
+  return 'REVISIÓN DEL MAPA DE PROCESO · LIBRO DE OBRA E ITO\nAprobadas ('+ap.length+'): '+(ap.join('; ')||'ninguna')+'\nCon observaciones ('+ob.length+'):\n'+(ob.map(function(x){return '- '+x;}).join('\n')||'- ninguna')+'\nSin revisar ('+pend.length+'): '+(pend.join('; ')||'ninguna')+(g?'\nComentario general: '+g:'')+'\n'+(ap.length===ALL.length?'DECISIÓN: APRUEBO EL MAPA':'DECISIÓN: pendiente');
+}
+function viewAprob(){
+  var done=ALL.filter(function(e){return REV[e.id];}).length,ok=ALL.filter(function(e){return REV[e.id]&&REV[e.id].s==='ok';}).length;
+  function rv(e){var r=REV[e.id]||{};return '<div class="rv"><div class="row" style="justify-content:space-between"><div><b>'+etLabel(e)+' · '+esc(e.n)+'</b><div class="route">'+esc(e.who)+' · <a href="#et-'+e.id+'">ver flujo</a></div></div><div class="row"><button class="btn'+(r.s==='ok'?' okb':'')+'" data-rv="'+e.id+'" data-v="ok" aria-pressed="'+(r.s==='ok')+'">Aprobar</button><button class="btn'+(r.s==='obs'?' nob':'')+'" data-rv="'+e.id+'" data-v="obs" aria-pressed="'+(r.s==='obs')+'">Observar</button></div></div>'+(r.s==='obs'?'<label class="fl" for="c-'+e.id+'">¿Qué cambiarías?</label><textarea class="in" id="c-'+e.id+'" data-c="'+e.id+'">'+esc(r.c||'')+'</textarea>':'')+'</div>';}
+  app.innerHTML='<h2>Revisión y aprobación</h2><p>Marca cada etapa como aprobada u observada. Tu avance se guarda en este navegador. Al terminar, copia el resumen y pégalo en la conversación.</p>'+
+  '<div class="kpis"><div class="kpi good"><b>'+ok+'</b><span>aprobadas</span></div><div class="kpi bad"><b>'+(done-ok)+'</b><span>con observaciones</span></div><div class="kpi"><b>'+(ALL.length-done)+'</b><span>sin revisar</span></div></div>'+
+  '<h3 style="margin:14px 0 6px">A · Libro de Obra</h3><div class="rev">'+LB.map(rv).join('')+'</div><h3 style="margin:14px 0 6px">B · ITO</h3><div class="rev">'+ET.map(rv).join('')+'</div>'+
+  '<label class="fl" for="gen">Comentario general (opcional)</label><textarea class="in" id="gen">'+esc(REV.__general||'')+'</textarea>'+
+  '<div class="row" style="margin-top:12px"><button class="btn pri" id="allok" type="button">Aprobar todas las etapas</button><button class="btn" id="copy" type="button">Copiar resumen</button><button class="btn" id="clear" type="button">Limpiar revisión</button></div><div id="sumbox" class="panel" style="margin-top:12px"><h3>Resumen</h3><pre id="sum" style="white-space:pre-wrap;margin:0;font:12px var(--mono)">'+esc(summaryText())+'</pre></div>';
+  app.querySelectorAll('[data-rv]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-rv'),v=b.getAttribute('data-v');if(REV[id]&&REV[id].s===v)delete REV[id];else REV[id]={s:v,c:(REV[id]&&REV[id].c)||''};saveRev(REV);viewAprob();};});
+  app.querySelectorAll('[data-c]').forEach(function(t){t.oninput=function(){REV[t.getAttribute('data-c')].c=t.value;saveRev(REV);document.getElementById('sum').textContent=summaryText();};});
+  document.getElementById('gen').oninput=function(){REV.__general=this.value;saveRev(REV);document.getElementById('sum').textContent=summaryText();};
+  document.getElementById('allok').onclick=function(){ALL.forEach(function(e){REV[e.id]={s:'ok',c:''};});saveRev(REV);viewAprob();};
+  document.getElementById('clear').onclick=function(){REV={};saveRev(REV);viewAprob();};
+  document.getElementById('copy').onclick=function(){var t=summaryText(),b=this;function fb(){var r=document.createRange();r.selectNodeContents(document.getElementById('sum'));var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selecciona y copia (Ctrl+C)';}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){b.textContent='Copiado ✓';},fb);}else fb();};
+}
+function route_(){
+  clearTimers();
+  var h=(location.hash||'#mapa').slice(1);
+  var v=h.indexOf('et-')===0?'flujos':h;
+  document.querySelectorAll('#tabs a').forEach(function(a){if(a.getAttribute('data-v')===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  if(h.indexOf('et-')===0)viewEtapa(h.slice(3));
+  else if(h==='flujos')viewFlujos();
+  else if(h==='estados')viewEstados();
+  else if(h==='reglas')viewReglas();
+  else if(h==='fases')viewFases();
+  else if(h==='critica')viewCritica();
+  else if(h==='aprobacion')viewAprob();
+  else viewMapa();
+  window.scrollTo(0,0);applyPause();
+}
+var paused=REDUCED;
+function applyPause(){
+  document.body.classList.toggle('paused',paused);
+  document.querySelectorAll('svg.dg').forEach(function(s){try{if(paused)s.pauseAnimations();else s.unpauseAnimations();}catch(e){}});
+  var b=document.getElementById('pauseBtn');b.textContent='Animación: '+(paused?'pausada':'activa');b.setAttribute('aria-pressed',String(paused));
+}
+document.getElementById('pauseBtn').addEventListener('click',function(){paused=!paused;applyPause();});
+window.addEventListener('hashchange',route_);
+route_();
+
+})();
+</script>
+</body></html>

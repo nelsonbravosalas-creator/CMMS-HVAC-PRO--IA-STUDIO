@@ -1,0 +1,489 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><title>Prototipo Inspecciones ITO</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Concepto: réplica del estilo actual de la app (slate, azul, etiquetas en mayúscula, tarjetas redondeadas) con el módulo ITO resaltado en índigo. */
+:root{
+  --bg:#f1f5f9; --panel:#ffffff; --ink:#0f172a; --mute:#64748b; --line:#e2e8f0; --soft:#f8fafc;
+  --blue:#2563eb; --blue-bg:#dbeafe;
+  --ok:#059669; --ok-bg:#d1fae5; --no:#dc2626; --no-bg:#fee2e2; --na:#475569; --na-bg:#e2e8f0; --warn:#b45309; --warn-bg:#fef3c7;
+  --ito:#4f46e5; --ito-bg:#e0e7ff; --shadow:0 1px 2px rgba(15,23,42,.06);
+  --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#020617; --panel:#0f172a; --ink:#e2e8f0; --mute:#94a3b8; --line:#1e293b; --soft:#0b1222;
+  --blue:#60a5fa; --blue-bg:#172554; --ok:#34d399; --ok-bg:#064e3b; --no:#f87171; --no-bg:#450a0a; --na:#cbd5e1; --na-bg:#1e293b; --warn:#fbbf24; --warn-bg:#451a03;
+  --ito:#a5b4fc; --ito-bg:#1e1b4b; --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#020617; --panel:#0f172a; --ink:#e2e8f0; --mute:#94a3b8; --line:#1e293b; --soft:#0b1222;
+  --blue:#60a5fa; --blue-bg:#172554; --ok:#34d399; --ok-bg:#064e3b; --no:#f87171; --no-bg:#450a0a; --na:#cbd5e1; --na-bg:#1e293b; --warn:#fbbf24; --warn-bg:#451a03;
+  --ito:#a5b4fc; --ito-bg:#1e1b4b; --shadow:none; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto}
+.intro{padding:20px 0 12px}
+.intro h1{font-size:24px;margin:0;font-weight:800;letter-spacing:-.02em}
+.intro p{margin:4px 0 0;color:var(--mute);max-width:80ch}
+.screens{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.screens a{padding:7px 13px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);text-decoration:none;font-weight:600;font-size:12.5px}
+.screens a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;min-height:640px}
+.side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.logo{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.logo i{width:24px;height:24px;border-radius:6px;background:var(--blue);color:#fff;font:700 10px var(--font);display:grid;place-items:center;font-style:normal}
+.nav{padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow:auto}
+.nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:10px;color:var(--mute);text-decoration:none;font-weight:600;font-size:13px}
+.nav a.on{background:var(--ito-bg);color:var(--ito)}
+.nav .new{font-size:9px;font-weight:800;background:var(--ito);color:var(--bg);border-radius:99px;padding:1px 6px;letter-spacing:.05em}
+.nav .sec{font-size:10px;font-weight:700;letter-spacing:.14em;color:var(--mute);padding:12px 12px 4px;text-transform:uppercase}
+.sync{margin-top:auto;padding:12px 16px;border-top:1px solid var(--line);font-size:11px;font-weight:700;color:var(--mute);display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:.06em}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 22px;border-bottom:1px solid var(--line)}
+.crumb{font-size:11px;font-weight:700;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.chipc{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-weight:600;font-size:12.5px;background:var(--soft)}
+.body{padding:22px;min-width:0}
+h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:2px 0 14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 14px;font-weight:700;font-size:12.5px;cursor:pointer}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.itob{background:var(--ito);border-color:var(--ito);color:var(--bg)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.kpi{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--soft)}
+.kpi b{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em}
+.kpi span{font-size:10.5px;font-weight:700;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.kpi.bad b{color:var(--no)} .kpi.good b{color:var(--ok)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}
+.f{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer}
+.f[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search{flex:1;min-width:200px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--soft)}
+.list{display:grid;gap:10px}
+.ito{border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;background:var(--panel);box-shadow:var(--shadow);cursor:pointer;text-align:left;width:100%}
+.ito:hover{border-color:var(--ito)}
+.code{font:600 12px var(--mono);color:var(--ito)}
+.ito h3{margin:2px 0 4px;font-size:15px;font-weight:700}
+.meta{font-size:12px;color:var(--mute);display:flex;flex-wrap:wrap;gap:4px 14px}
+.badge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.b-solicitada{background:var(--warn-bg);color:var(--warn)} .b-progreso{background:var(--blue-bg);color:var(--blue)}
+.b-porfirmar{background:var(--ito-bg);color:var(--ito)} .b-observada{background:var(--no-bg);color:var(--no)} .b-aprobada{background:var(--ok-bg);color:var(--ok)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--ito)}
+.side-r{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:110px}
+.card{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--panel);min-width:0}
+.card h3{margin:0 0 10px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:800}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+label.fl{display:block;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:10px 0 4px}
+.in{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:9px 11px}
+textarea.in{min-height:58px;resize:vertical}
+.anat{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-top:8px}
+.seg{border:1px solid var(--ito);border-radius:10px;padding:6px 9px;text-align:center;background:var(--ito-bg)}
+.seg b{display:block;font:600 15px var(--mono);color:var(--ito)} .seg span{font-size:10px;color:var(--mute);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.sepd{align-self:center;font:700 18px var(--mono);color:var(--mute)}
+.note{font-size:12px;color:var(--mute);margin-top:8px}
+.callout{border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:600;margin:10px 0}
+.c-warn{background:var(--warn-bg);color:var(--warn)} .c-bad{background:var(--no-bg);color:var(--no)} .c-ok{background:var(--ok-bg);color:var(--ok)} .c-info{background:var(--blue-bg);color:var(--blue)}
+.phoneWrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,390px) minmax(0,1fr);gap:18px;align-items:start}
+.phone{border:10px solid var(--ink);border-radius:36px;background:var(--panel);overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,.2)}
+.ph-h{padding:12px 14px;background:var(--ito);color:var(--bg)}
+.ph-h .code{color:inherit;opacity:.9} .ph-h b{display:block;font-size:14px}
+.ph-b{padding:12px;display:grid;gap:10px;max-height:640px;overflow:auto}
+.grp{font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--mute);text-transform:uppercase;margin-top:4px}
+.it{border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--panel)}
+.it p{margin:0 0 8px;font-weight:600;font-size:13px}
+.segb{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.segb button{border:1.5px solid var(--line);background:var(--soft);border-radius:10px;padding:8px 4px;font-weight:800;font-size:12px;cursor:pointer}
+.segb button.ok.on{background:var(--ok);border-color:var(--ok);color:#fff} .segb button.no.on{background:var(--no);border-color:var(--no);color:#fff} .segb button.na.on{background:var(--na);border-color:var(--na);color:var(--bg)}
+.ex{margin-top:8px;display:grid;gap:6px}
+.pill{display:inline-flex;gap:6px;align-items:center;border:1px dashed var(--line);border-radius:8px;padding:5px 8px;font-size:11.5px;font-weight:700;cursor:pointer;background:var(--soft)}
+.range{font-size:11.5px;font-weight:700;border-radius:8px;padding:4px 8px;display:inline-block}
+.side-note{font-size:12.5px;color:var(--mute)} .side-note b{color:var(--ink)}
+.plano{border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:8px}
+.planoWrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:14px}
+svg.pl{width:100%;height:auto;display:block}
+.pin{cursor:pointer}
+.sigs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.step{border:1.5px solid var(--line);border-radius:14px;padding:12px}
+.step.cur{border-color:var(--ito)} .step.done{border-color:var(--ok);background:var(--ok-bg)}
+.step b{display:block;font-size:13px} .step span{font-size:12px;color:var(--mute)}
+canvas.sig{width:100%;height:150px;border:1.5px dashed var(--mute);border-radius:12px;background:#fff;touch-action:none;cursor:crosshair}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal .h{font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--mute);text-transform:uppercase;text-align:center;padding:4px 0}
+.day{min-height:84px;border:1px solid var(--line);border-radius:10px;padding:4px;background:var(--soft);min-width:0}
+.day small{font-weight:700;color:var(--mute);font-size:11px}
+.ev{display:block;width:100%;text-align:left;border:0;border-radius:6px;padding:2px 5px;margin-top:3px;font-size:10.5px;font-weight:700;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e-ito{background:var(--ito-bg);color:var(--ito)} .e-due{background:var(--no-bg);color:var(--no)} .e-sol{background:var(--warn-bg);color:var(--warn)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;font-size:13px;z-index:9;max-width:90vw}
+@media (max-width:980px){.app{grid-template-columns:1fr}.side{display:none}.phoneWrap{grid-template-columns:1fr}.planoWrap{grid-template-columns:1fr}.ito{grid-template-columns:1fr}.side-r{align-items:flex-start;text-align:left}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- Informe: Plano Maestro ---------- */
+.paper{--pi:#0f172a;--pa:#4338ca;--pm:#64748b;--pl:#e2e8f0;--ps:#f8fafc;background:#fff;color:var(--pi);border:1px solid #cbd5e1;border-radius:4px;max-width:794px;margin:0 auto;font-size:11.5px;line-height:1.45;box-shadow:0 10px 30px rgba(15,23,42,.14);overflow:hidden;font-family:'Inter',system-ui,sans-serif}
+.paper *{box-sizing:border-box}
+.pp-top{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;padding:26px 34px 18px}
+.pp-logo{width:76px;height:54px;background:var(--pa);color:#fff;display:grid;place-items:center;font-weight:800;font-size:11px;letter-spacing:.1em;border-radius:3px}
+.pp-title small{display:block;font-size:8.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--pm);font-weight:700}
+.pp-title b{display:block;font-size:19px;letter-spacing:-.01em;font-weight:800;margin-top:2px}
+.pp-code{text-align:right}
+.pp-code .c{font:600 17px 'JetBrains Mono',monospace;letter-spacing:.02em;color:var(--pa)}
+.pp-code .sgl{display:flex;justify-content:flex-end;gap:10px;margin-top:3px;font-size:7.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--pm);font-weight:700}
+.pp-rule{height:3px;background:linear-gradient(90deg,var(--pa) 0 22%,var(--pi) 22% 100%);margin:0 34px}
+.pp-status{display:flex;justify-content:space-between;align-items:center;padding:10px 34px;font-size:9.5px;color:var(--pm);letter-spacing:.06em}
+.pp-badge{font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:9px;padding:3px 10px;border-radius:99px;background:#eef2ff;color:var(--pa)}
+.pp-badge.ok{background:#dcfce7;color:#166534}
+.pp-sum{display:grid;grid-template-columns:repeat(4,1fr);margin:6px 34px 0;border-top:1px solid var(--pl);border-bottom:1px solid var(--pl)}
+.pp-sum>div{padding:14px 12px;border-right:1px solid var(--pl);display:flex;align-items:center;gap:12px;min-width:0}
+.pp-sum>div:last-child{border-right:0}
+.pp-sum b{display:block;font-size:22px;letter-spacing:-.02em;font-weight:800;line-height:1}
+.pp-sum span{display:block;font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--pm);font-weight:700;margin-top:4px}
+.pp-sec{padding:20px 34px 0}
+.pp-h{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--pi);padding-bottom:5px;margin-bottom:10px}
+.pp-h b{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;font-weight:800}
+.pp-h span{font:500 9px 'JetBrains Mono',monospace;color:var(--pm)}
+.pp-dl{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 22px}
+.pp-dl dt{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--pm);font-weight:700}
+.pp-dl dd{margin:1px 0 0;font-weight:600;font-size:12px}
+.pp-part{display:grid;grid-template-columns:34px 1fr 190px 74px;gap:12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--pl)}
+.pp-part:last-child{border-bottom:0}
+.pp-part .k{font:600 10px 'JetBrains Mono',monospace;color:var(--pm)}
+.pp-track{position:relative;height:7px;background:var(--pl);border-radius:4px}
+.pp-track i{position:absolute;left:0;top:0;bottom:0;background:var(--pa);border-radius:4px}
+.pp-track u{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--pi);text-decoration:none}
+.pp-delta{font:600 10px 'JetBrains Mono',monospace;text-align:right;color:#166534}
+.pp-row{display:grid;grid-template-columns:22px 1fr auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--pl)}
+.pp-row:last-child{border-bottom:0}
+.pp-row .n{font:600 10px 'JetBrains Mono',monospace;color:var(--pm)}
+.pp-pill{font-size:8.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pp-ok{background:#dcfce7;color:#166534}.pp-no{background:#fee2e2;color:#991b1b}.pp-na{background:#e2e8f0;color:#475569}.pp-nul{background:#fef3c7;color:#92400e}
+.pp-med{font:500 9.5px 'JetBrains Mono',monospace;color:var(--pm);white-space:nowrap}
+.pp-obs{display:grid;grid-template-columns:26px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--pl);break-inside:avoid}
+.pp-obs:last-child{border-bottom:0}
+.pp-num{width:24px;height:24px;border-radius:50%;background:var(--pi);color:#fff;display:grid;place-items:center;font:700 10px 'JetBrains Mono',monospace}
+.pp-tag{font-size:8px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-right:6px}
+.pp-t-p{background:#e0e7ff;color:#3730a3}.pp-t-n{background:#fef3c7;color:#92400e}.pp-t-c{background:#991b1b;color:#fff}
+.pp-obs p{margin:4px 0 5px;font-size:11.5px}
+.pp-obs .m{font-size:9.5px;color:var(--pm);display:flex;flex-wrap:wrap;gap:3px 16px}
+.pp-photos{display:flex;gap:6px;margin-top:7px}
+.pp-ph{width:62px;height:44px;border-radius:2px;background:repeating-linear-gradient(135deg,#e2e8f0 0 4px,#f1f5f9 4px 8px);display:grid;place-items:end start;padding:3px;font:600 7px 'JetBrains Mono',monospace;color:#64748b}
+.pp-plano{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:center}
+.pp-plano svg{width:100%;height:auto;display:block;border:1px solid var(--pl);background:var(--ps)}
+.pp-plano small{display:block;color:var(--pm);font-size:9.5px;margin-top:4px}
+.pp-sigs{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pp-sig{border-top:1.5px solid var(--pi);padding-top:6px;min-height:112px;position:relative}
+.pp-sig .r{font-size:8px;letter-spacing:.18em;text-transform:uppercase;font-weight:800}
+.pp-sig .nm{font-weight:700;font-size:11.5px;margin-top:38px}
+.pp-sig .d{font-size:9px;color:var(--pm);line-height:1.4}
+.pp-sig svg{position:absolute;left:0;top:22px;width:96px;height:34px}
+.pp-sig.pend .nm{color:#94a3b8;font-style:italic;font-weight:500}
+.pp-foot{margin:22px 34px 0;padding:14px 0 20px;border-top:1px solid var(--pi);display:flex;justify-content:space-between;align-items:center;gap:16px}
+.pp-foot .v{font:600 12px 'JetBrains Mono',monospace;letter-spacing:.04em}
+.pp-foot small{display:block;font-size:8.5px;color:var(--pm);letter-spacing:.06em;margin-top:2px}
+.pp-reg{position:absolute}
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Prototipo del front · Inspecciones ITO</h1>
+    <p>Pantallas del módulo dentro de la app actual, con datos de ejemplo. Es un prototipo: marca ítems, re-inspecciona hallazgos y firma para ver cómo se conectan las pantallas.</p>
+  </div>
+  <nav class="screens" id="screens" aria-label="Pantallas del prototipo"></nav>
+  <div class="app">
+    <aside class="side">
+      <div class="logo"><i>HV</i>Control HVAC</div>
+      <div class="nav" id="nav"></div>
+      <div class="sync"><span class="dot"></span>En línea · 0 pendientes</div>
+    </aside>
+    <section class="main">
+      <div class="top"><span class="crumb" id="crumb"></span><span class="chipc">Cliente activo · <b>NORTEC</b></span></div>
+      <div class="body" id="body"></div>
+    </section>
+  </div>
+</div>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script>
+(function(){
+'use strict';
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+var $=function(id){return document.getElementById(id);};
+var NAV=['Dashboard','Scanner QR','Equipos','Mapa','Clientes','Inventario Interno','Mantenimientos','Calendario','Órdenes de Servicio','Tickets','Reportes','Eficiencia Energética'];
+var SCR=[['panel','Panel ITO'],['nueva','Nueva ITO'],['ejecucion','Ejecución en terreno'],['plano','Planos y marcas'],['firmas','Firmas'],['calendario','Calendario'],['informe','Informe PDF']];
+var EST={solicitada:'Solicitada',progreso:'En progreso',porfirmar:'Por firmar',observada:'Observada',aprobada:'Aprobada'};
+var ITOS=[
+ {c:'0042.007.NORTEC.11.26',t:'Montaje de unidades fan-coil, piso 3',obra:'007 · Torre Los Aromos',insp:'M. Rojas',est:'progreso',av:71,h:1,f:'18 nov',cur:true},
+ {c:'0041.007.NORTEC.11.26',t:'Tendido de cañerías de cobre refrigerante',obra:'007 · Torre Los Aromos',insp:'M. Rojas',est:'porfirmar',av:100,h:0,f:'12 nov'},
+ {c:'0040.003.NORTEC.10.26',t:'Puesta en marcha chiller CH-01',obra:'003 · Planta Quilicura',insp:'C. Soto',est:'aprobada',av:100,h:0,f:'29 oct'},
+ {c:'0039.003.NORTEC.10.26',t:'Reparación de tablero eléctrico UMA-02',obra:'003 · Planta Quilicura',insp:'C. Soto',est:'observada',av:100,h:2,f:'22 oct'},
+ {c:'0038.012.NORTEC.10.26',t:'Instalación de ductos en sala de máquinas',obra:'012 · Centro Logístico',insp:'Sin asignar',est:'solicitada',av:0,h:0,f:'Solicitada por el cliente'}
+];
+var ITEMS=[
+ {g:'Cañerías y aislación',t:'Soldadura de cañerías de cobre sin porosidad',st:'ok'},
+ {g:'Cañerías y aislación',t:'Prueba de estanqueidad con nitrógeno',st:'ok',med:{l:'Presión de prueba',u:'psi',min:400,max:450,v:410}},
+ {g:'Cañerías y aislación',t:'Aislación continua con protección UV',st:'no',obs:'Tramo de 3 m sin aislación sobre cielo falso.',acc:'Reinstalar aislación de 19 mm y sellar uniones.',resp:'J. Pérez (contratista)',fl:'2026-11-22',fotos:2,adj:1,pin:{x:.27,y:.42},had:true,hist:[]},
+ {g:'Unidades fan-coil',t:'Fijación y nivelación de la unidad FC-03',st:null},
+ {g:'Unidades fan-coil',t:'Conexión eléctrica y puesta a tierra',st:null,med:{l:'Resistencia de tierra',u:'Ω',min:0,max:25,v:28},pin:{x:.7,y:.6},obs:'',acc:'',resp:'J. Pérez (contratista)',fl:'',fotos:0,adj:0,hist:[]},
+ {g:'Unidades fan-coil',t:'Pendiente de la bandeja de condensado',st:'ok'},
+ {g:'Unidades fan-coil',t:'Rotulado con TAG del equipo',st:'na'}
+];
+var SIG=[{n:'Inspector',nm:'Marcela Rojas',rut:'12.345.678-5',cg:'Inspector ITO',ok:null},{n:'Contratista',nm:'Juan Pérez',rut:'15.222.333-4',cg:'Jefe de obra',ok:null},{n:'Cliente',nm:'Paula Vidal',rut:'9.876.543-2',cg:'Administradora NORTEC',ok:null}];
+var NEW={plantilla:'Montaje de unidades fan-coil · v3',obra:'007',cli:'NORTEC',fecha:'2026-11-25',origen:false,zona:'Piso 3 · Sala técnica',partidas:['Tendido de cañería de cobre, piso 3','Instalación de unidades fan-coil'],planos:[0],informar:false};
+var PART=[{c:'1.1',t:'Tendido de cañería de cobre, piso 3',av:80,prev:60},{c:'1.2',t:'Instalación de unidades fan-coil',av:40,prev:20},{c:'1.3',t:'Aislación y soportes',av:90,prev:90}];
+var NP=[{d:'Perforación adicional en losa por interferencia con ducto',resp:'J. Pérez (contratista)',fotos:1,adj:0,crit:true,open:true},{d:'Soporte provisorio de cañería hasta que llegue el definitivo',resp:'Montajes Sur · bodega',fotos:1,adj:0,crit:false,open:true}];
+var PLANOS=[{n:'Plano piso 3 · Climatización',revs:['A','B'],rev:'B'},{n:'Plano sala de máquinas',revs:['A'],rev:'A'}];
+var MARKS=[{t:'circle',x:.27,y:.42,rev:'B',pl:0},{t:'text',x:.5,y:.3,txt:'Interferencia con ducto',rev:'B',pl:0},{t:'line',x:.15,y:.82,x2:.6,y2:.82,rev:'B',pl:0},{t:'circle',x:.4,y:.5,rev:'A',pl:0}];
+var mode='plan',tool='pin',plSel=0,showOv=true,lineStart=null,planoSel=2;
+var CUR=ITOS[0];
+var screen='panel',filter='todas',query='',calSel=null,planoSel=2,corr=43,_x=0;
+
+function counts(){var ev=ITEMS.filter(function(i){return i.st;}).length,no=ITEMS.filter(function(i){return i.st==='no';}).length,ok=ITEMS.filter(function(i){return i.st==='ok';}).length;
+  return {npc:NP.filter(function(o){return o.open&&o.crit;}).length,npo:NP.filter(function(o){return o.open;}).length,ev:ev,tot:ITEMS.length,no:no,ok:ok,pct:Math.round(ev/ITEMS.length*100),cum:(ok+no)?Math.round(ok/(ok+no)*100):0};}
+function noEvid(i){return i.st==='no'&&(!i.obs||!i.acc||!(i.fotos>0)||!i.fl);}
+function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.k);toast.k=setTimeout(function(){t.hidden=true;},2600);}
+function code(){var d=NEW.fecha.split('-');return String(corr).padStart(4,'0')+'.'+NEW.obra+'.'+NEW.cli+'.'+d[1]+'.'+d[0].slice(2);}
+function syncCur(){var c=counts(),it=CUR;it.av=c.pct;it.h=c.no+c.npc;
+  var allSig=SIG.every(function(s){return s.ok;});
+  it.est=allSig?'aprobada':(SIG[1].ok&&(c.no+c.npc)>0?'observada':(c.pct===100&&SIG[0].ok?'porfirmar':'progreso'));}
+
+/* ---------- pantallas ---------- */
+function vPanel(){
+  syncCur();
+  var tot=ITOS.length,prog=ITOS.filter(function(i){return i.est==='progreso';}).length,pf=ITOS.filter(function(i){return i.est==='porfirmar';}).length,ap=ITOS.filter(function(i){return i.est==='aprobada';}).length;
+  var hall=ITOS.reduce(function(a,i){return a+i.h;},0);
+  var L=ITOS.filter(function(i){return (filter==='todas'||i.est===filter)&&(!query||(i.c+i.t+i.insp).toLowerCase().indexOf(query.toLowerCase())>=0);});
+  return '<div class="row" style="justify-content:space-between"><div><h2>Inspecciones técnicas de obra</h2><p class="sub">Montajes, instalaciones y reparaciones del cliente activo.</p></div><button class="btn itob" data-go="nueva">+ Nueva ITO</button></div>'+
+  '<div class="kpis"><div class="kpi"><b>'+tot+'</b><span>Total ITO</span></div><div class="kpi"><b>'+prog+'</b><span>En progreso</span></div><div class="kpi"><b>'+pf+'</b><span>Por firmar</span></div><div class="kpi good"><b>'+ap+'</b><span>Aprobadas</span></div><div class="kpi"><b>'+counts().cum+'%</b><span>Cumplimiento ITO 0042</span></div><div class="kpi bad"><b>'+hall+'</b><span>Hallazgos abiertos</span></div></div>'+
+  '<div class="row"><input class="search" id="q" placeholder="Buscar por N.º de ITO, título o inspector" value="'+esc(query)+'" aria-label="Buscar"></div><div class="filters" style="margin-top:10px">'+
+  [['todas','Todas'],['solicitada','Solicitadas'],['progreso','En progreso'],['porfirmar','Por firmar'],['observada','Con observaciones'],['aprobada','Aprobadas']].map(function(f){return '<button class="f" data-f="'+f[0]+'" aria-pressed="'+(filter===f[0])+'">'+f[1]+'</button>';}).join('')+'</div>'+
+  '<div class="list">'+(L.length?L.map(function(i){return '<button class="ito" data-open="'+esc(i.c)+'"><div><span class="code">ITO '+esc(i.c)+'</span><h3>'+esc(i.t)+'</h3><div class="meta"><span>Obra '+esc(i.obra)+'</span><span>Inspector: '+esc(i.insp)+'</span><span>'+esc(i.f)+'</span></div><div class="bar"><i style="width:'+i.av+'%"></i></div></div><div class="side-r"><span class="badge b-'+i.est+'">'+EST[i.est]+'</span><span class="meta">'+i.av+'% evaluado</span>'+(i.h?'<span class="badge b-observada">'+i.h+' hallazgo'+(i.h>1?'s':'')+'</span>':'')+'</div></button>';}).join(''):'<div class="card">Ninguna ITO coincide con el filtro.</div>')+'</div>';
+}
+function vNueva(){
+  var d=NEW.fecha.split('-'),MES=['','ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return '<h2>Nueva ITO</h2><p class="sub">'+(NEW.origen?'Solicitud del cliente: el supervisor la acepta y asigna inspector.':'Creada por el supervisor y asignada a un inspector.')+' Los campos con * son obligatorios.</p>'+
+  '<div class="grid2"><div class="card"><h3>Cabecera</h3>'+
+  '<label class="fl" for="n-cli">Cliente</label><select class="in" id="n-cli"><option value="NORTEC">NORTEC</option></select>'+
+  '<label class="fl" for="n-ob">Obra *</label><select class="in" id="n-ob"><option value="007">007 · Torre Los Aromos</option><option value="003">003 · Planta Quilicura</option><option value="012">012 · Centro Logístico</option></select>'+
+  '<label class="fl" for="n-zo">Zona o sector *</label><input class="in" id="n-zo" value="'+esc(NEW.zona)+'">'+
+  '<label class="fl" for="n-in">Inspector *</label><select class="in" id="n-in"><option>Marcela Rojas</option><option>Carlos Soto</option></select>'+
+  '<label class="fl" for="n-co">Contratista *</label><select class="in" id="n-co"><option>Juan Pérez · Montajes Sur</option></select>'+
+  '<label class="fl" for="n-fe">Fecha programada *</label><input class="in" type="date" id="n-fe" value="'+esc(NEW.fecha)+'">'+
+  '<label class="fl" style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" id="n-or" '+(NEW.origen?'checked':'')+'> Origen: solicitud del cliente</label></div>'+
+  '<div class="card"><h3>Plan de inspección (opcional ahora)</h3>'+
+  '<label class="fl" for="n-pl">Plantilla de checklist</label><select class="in" id="n-pl"><option>Montaje de unidades fan-coil · v3</option><option>Instalación eléctrica de climatización · v2</option><option>Puesta en marcha de chiller · v4</option><option>Reparación de equipos · v1</option></select>'+
+  '<label class="fl">Planos de la biblioteca</label>'+PLANOS.map(function(p,k){return '<label class="row" style="font-size:12.5px;gap:8px;margin-bottom:4px"><input type="checkbox" data-npl="'+k+'" '+(NEW.planos.indexOf(k)>=0?'checked':'')+'> '+esc(p.n)+' · Rev '+p.rev+'</label>';}).join('')+'<div class="pill" style="margin-top:4px">⬆ Subir plano nuevo a la biblioteca</div>'+
+  '<label class="fl">Partidas a revisar</label><div class="chips" style="display:flex;flex-wrap:wrap;gap:6px">'+NEW.partidas.map(function(t,k){return '<span class="pill" data-rmp="'+k+'">'+esc(t)+' ✕</span>';}).join('')+'</div><div class="row" style="margin-top:6px"><input class="in" id="n-pa" style="flex:1" placeholder="Escribir una partida"><button class="btn" id="n-pa-add">Agregar</button></div>'+
+  '<label class="row" style="margin-top:10px;font-size:12.5px;font-weight:700;gap:8px"><input type="checkbox" id="n-inf" '+(NEW.informar?'checked':'')+'> Informar el plan de inspección al contratista (opcional)</label></div>'+
+  '<div style="display:grid;gap:14px;align-content:start"><div class="card"><h3>Número de ITO</h3><div class="code" style="font-size:20px">ITO '+code()+'</div>'+
+  '<div class="anat"><div class="seg"><b>'+String(corr).padStart(4,'0')+'</b><span>Correlativo</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.obra+'</b><span>Obra</span></div><span class="sepd">.</span><div class="seg"><b>'+NEW.cli+'</b><span>Cliente</span></div><span class="sepd">.</span><div class="seg"><b>'+d[1]+'</b><span>Mes</span></div><span class="sepd">.</span><div class="seg"><b>'+d[0].slice(2)+'</b><span>Año</span></div></div>'+
+  '<p class="note">El correlativo (0001–9999) se reinicia cada año por cliente; la obra va de 000 a 999. Sin conexión queda provisional y el servidor asigna el definitivo al sincronizar.</p></div>'+
+  '<div class="card"><h3>Se verá en el Calendario</h3><div class="ev e-ito" style="white-space:normal">ITO '+code()+' · '+esc(NEW.plantilla.split(' · ')[0])+'</div><p class="note">Fecha: '+parseInt(d[2],10)+' '+MES[parseInt(d[1],10)]+' '+d[0]+'. Las fechas límite de observaciones se agregan solas.</p></div>'+
+  '<div class="card"><h3>Al crear la ITO</h3><p class="note">Los planos elegidos quedan cargados para marcar en terreno, sin modificar el original. '+(NEW.informar?'Se avisará por correo al contratista con el plan de inspección.':'El contratista no recibirá aviso del plan.')+'</p></div>'+
+  '<button class="btn itob" id="n-cr">Crear ITO</button></div></div>';
+}
+function itemCard(i,ix){
+  var m=i.med,out=m&&(m.v<m.min||m.v>m.max);
+  var h='<div class="it"><p>'+(ix+1)+'. '+esc(i.t)+'</p><div class="segb" role="group" aria-label="Resultado del ítem '+(ix+1)+'">'+
+   [['ok','Cumple'],['no','No cumple'],['na','N/A']].map(function(b){return '<button class="'+b[0]+(i.st===b[0]?' on':'')+'" data-it="'+ix+'" data-v="'+b[0]+'">'+b[1]+'</button>';}).join('')+'</div>';
+  if(m){h+='<div class="ex"><label class="fl" style="margin:4px 0 0" for="m'+ix+'">'+esc(m.l)+' ('+esc(m.u)+') · esperado '+(m.min?m.min+'–':'≤ ')+m.max+'</label><div class="row"><input class="in" style="width:110px" type="number" id="m'+ix+'" data-med="'+ix+'" value="'+m.v+'"><span class="range" style="background:var(--'+(out?'no':'ok')+'-bg);color:var(--'+(out?'no':'ok')+')">'+(out?'Fuera de rango':'En rango')+'</span></div>'+(out&&i.st!=='no'?'<button class="pill" data-it="'+ix+'" data-v="no">Sugerencia: marcar No cumple</button>':'')+'</div>';}
+  if(i.st==='no'){h+='<div class="ex"><label class="fl" style="margin:4px 0 0" for="o'+ix+'">Observación (obligatoria)</label><textarea class="in" id="o'+ix+'" data-obs="'+ix+'">'+esc(i.obs)+'</textarea>'+
+   '<label class="fl" style="margin:4px 0 0" for="a'+ix+'">Acción correctiva (obligatoria)</label><textarea class="in" id="a'+ix+'" data-acc="'+ix+'">'+esc(i.acc)+'</textarea>'+
+   '<div class="row"><div style="flex:1;min-width:130px"><label class="fl" style="margin:4px 0 0" for="r'+ix+'">Responsable</label><select class="in" id="r'+ix+'"><option>J. Pérez (contratista)</option><option>Montajes Sur · bodega</option></select></div><div style="flex:1;min-width:130px"><label class="fl" style="margin:4px 0 0" for="f'+ix+'">Fecha límite</label><input class="in" type="date" id="f'+ix+'" data-fl="'+ix+'" value="'+esc(i.fl||'')+'"></div></div>'+
+   '<div class="row"><button class="pill" data-foto="'+ix+'">📷 Foto ('+(i.fotos||0)+')</button><button class="pill" data-adj="'+ix+'">📎 Adjunto PDF ('+(i.adj||0)+')</button></div>'+
+   (noEvid(i)?'<div class="callout c-bad" style="margin:4px 0 0">Falta evidencia: observación, acción correctiva, fecha límite y al menos una foto.</div>':'<div class="callout c-ok" style="margin:4px 0 0">Se avisará por correo al responsable al guardar y al vencer la fecha.</div>')+'</div>';}
+  return h+'</div>';
+}
+function partCard(p,ix){return '<div class="it"><p>'+esc(p.c)+' · '+esc(p.t)+(p.added?' <span class="badge b-solicitada">Agregada en terreno</span>':'')+'</p><div class="row"><input type="range" min="0" max="100" step="5" value="'+p.av+'" data-part="'+ix+'" aria-label="Avance de la partida '+esc(p.c)+'" style="flex:1;min-width:120px"><b style="min-width:44px;text-align:right">'+p.av+'%</b></div><div class="note" style="margin:2px 0 0">ITO anterior: '+p.prev+'% · variación '+(p.av-p.prev>=0?'+':'')+(p.av-p.prev)+' pts</div></div>';}
+function npCard(o,ix){return '<div class="it" style="'+(o.open?'':'opacity:.6')+'"><label class="fl" style="margin:0 0 4px" for="np'+ix+'">Descripción del trabajo no planificado</label><textarea class="in" id="np'+ix+'" data-npd="'+ix+'">'+esc(o.d)+'</textarea>'+
+ '<label class="fl" style="margin:6px 0 4px" for="npr'+ix+'">Responsable</label><select class="in" id="npr'+ix+'"><option>J. Pérez (contratista)</option><option>Montajes Sur · bodega</option></select>'+
+ '<div class="row" style="margin-top:6px"><button class="pill" data-npf="'+ix+'">📷 Foto ('+o.fotos+')</button><button class="pill" data-npa="'+ix+'">📎 Adjunto ('+o.adj+')</button></div>'+
+ '<label class="row" style="margin-top:8px;font-size:12.5px;font-weight:700;gap:8px"><input type="checkbox" data-npc="'+ix+'" '+(o.crit?'checked':'')+'> Crítica: bloquea la aprobación</label>'+
+ '<div class="row" style="margin-top:6px"><span class="badge '+(o.open?(o.crit?'b-observada':'b-solicitada'):'b-aprobada')+'">'+(o.open?(o.crit?'Abierta · crítica':'Abierta'):'Cerrada')+'</span><button class="pill" data-npx="'+ix+'">'+(o.open?'Cerrar observación':'Reabrir')+'</button></div></div>';}
+function vEjec(){
+  var c=counts(),last='';
+  var items=ITEMS.map(function(i,ix){var s='';if(i.g!==last){s='<div class="grp">'+esc(i.g)+'</div>';last=i.g;}return s+itemCard(i,ix);}).join('');
+  var inner=mode==='plan'?
+   '<div class="grp">Avance de partidas del contrato</div>'+PART.map(partCard).join('')+'<button class="pill" id="addpart">+ Agregar partida en terreno</button><div class="grp">Checklist técnico</div>'+items
+   :'<div class="callout c-info" style="margin:0">Trabajos que no estaban en el plan. Solo bloquean la aprobación si el inspector los marca como críticos.</div>'+NP.map(npCard).join('')+'<button class="pill" id="addnp">+ Agregar observación no planificada</button>';
+  return '<h2>Ejecución en terreno</h2><p class="sub">Vista del inspector en el celular. Funciona sin conexión.</p><div class="phoneWrap"><div class="side-note"><b>Qué ve el inspector</b><p>El interruptor del encabezado alterna entre observaciones de <b>trabajo planificado</b> (partidas y checklist) y de <b>trabajo no planificado</b>.</p><p>En lo planificado registra el % de avance de cada partida y evalúa el checklist. Puede agregar partidas nuevas en terreno para levantar una observación.</p></div>'+
+  '<div class="phone"><div class="ph-h"><span class="code">ITO '+esc(CUR.c)+'</span><b>Montaje de unidades fan-coil, piso 3</b><div class="bar" style="background:rgba(255,255,255,.3)"><i style="width:'+c.pct+'%;background:#fff"></i></div><small>'+c.ev+' de '+c.tot+' ítems · '+c.no+' No cumple · '+c.npo+' no planificadas abiertas</small>'+
+  '<div class="segb" style="margin-top:8px" role="group" aria-label="Tipo de observaciones"><button class="'+(mode==='plan'?'ok on':'')+'" data-mode="plan" style="'+(mode==='plan'?'':'color:#111')+'">Planificado</button><button class="'+(mode==='np'?'ok on':'')+'" data-mode="np" style="grid-column:span 2;'+(mode==='np'?'':'color:#111')+'">No planificado ('+NP.length+')</button></div></div><div class="ph-b">'+inner+'</div></div>'+
+  '<div class="side-note"><b>Reglas visibles</b><p>• No se puede firmar con ítems sin evaluar.</p><p>• Un No cumple o una observación crítica abierta impide la aprobación del cliente.</p><p>• Si se corrige, la misma ITO se reabre.</p></div></div>';
+}
+function planoSVG(){
+  var W=640,H=380,pl=PLANOS[plSel],rev=pl.rev;
+  var s='<svg class="pl" id="plsvg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Plano con capa de marcas"><g id="base"><rect x="10" y="10" width="620" height="360" rx="8" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-width="3"/>'+
+  '<rect x="10" y="10" width="250" height="170" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="260" y="10" width="370" height="170" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="10" y="180" width="330" height="190" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="340" y="180" width="290" height="190" fill="none" stroke="currentColor" stroke-opacity=".4"/>'+
+  (rev==='B'?'<line x1="450" y1="180" x2="450" y2="370" stroke="currentColor" stroke-opacity=".4"/>':'')+
+  '<text x="30" y="40" font-size="13" fill="currentColor" opacity=".6">Sala técnica</text><text x="280" y="40" font-size="13" fill="currentColor" opacity=".6">Oficinas</text><text x="30" y="210" font-size="13" fill="currentColor" opacity=".6">Pasillo de cañerías</text><text x="360" y="210" font-size="13" fill="currentColor" opacity=".6">Bodega FC-03</text><text x="560" y="362" font-size="11" fill="currentColor" opacity=".6">Rev '+rev+'</text></g>';
+  if(showOv){s+='<g id="ov">';
+    MARKS.filter(function(m){return m.pl===plSel&&m.rev===rev;}).forEach(function(m){
+      if(m.t==='circle')s+='<circle cx="'+m.x*W+'" cy="'+m.y*H+'" r="34" fill="none" stroke="var(--no)" stroke-width="3" stroke-dasharray="6 4"/>';
+      if(m.t==='line')s+='<line x1="'+m.x*W+'" y1="'+m.y*H+'" x2="'+m.x2*W+'" y2="'+m.y2*H+'" stroke="var(--ito)" stroke-width="4" stroke-linecap="round"/>';
+      if(m.t==='text')s+='<text x="'+m.x*W+'" y="'+m.y*H+'" font-size="14" font-weight="800" fill="var(--ito)" stroke="var(--panel)" stroke-width="4" paint-order="stroke">'+esc(m.txt)+'</text>';
+      if(m.t==='pin')s+='<circle cx="'+m.x*W+'" cy="'+m.y*H+'" r="9" fill="var(--warn)" stroke="#fff" stroke-width="2"/>';});
+    if(plSel===0)ITEMS.forEach(function(i,ix){if(!i.pin)return;var col=i.st==='no'?'var(--no)':(i.st==='ok'?'var(--ok)':'var(--warn)');
+      s+='<g class="pin" data-pin="'+ix+'" tabindex="0" role="button" aria-label="Pin ítem '+(ix+1)+'"><circle cx="'+i.pin.x*W+'" cy="'+i.pin.y*H+'" r="'+(planoSel===ix?17:13)+'" fill="'+col+'" stroke="#fff" stroke-width="3"/><text x="'+i.pin.x*W+'" y="'+(i.pin.y*H+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">'+(ix+1)+'</text></g>';});
+    s+='</g>';}
+  return s+'</svg>';
+}
+function vPlano(){
+  var it=ITEMS[planoSel]||ITEMS[2],pl=PLANOS[plSel];
+  var det='<div class="card"><h3>Ítem '+(planoSel+1)+'</h3><b>'+esc(it.t)+'</b><p class="note">Estado: '+(it.st==='no'?'No cumple (pin rojo)':it.st==='ok'?(it.had?'Resuelto (pin verde)':'Cumple (pin verde)'):'Pendiente (pin ámbar)')+'</p>'+
+   (it.obs?'<p class="note"><b>Observación:</b> '+esc(it.obs)+'</p>':'')+(it.fl?'<p class="note"><b>Fecha límite:</b> '+esc(it.fl)+' · '+esc(it.resp||'')+'</p>':'')+
+   (it.hist&&it.hist.length?'<p class="note"><b>Historial:</b><br>'+it.hist.map(esc).join('<br>')+'</p>':'')+
+   (it.st==='no'?'<button class="btn itob" data-resolve="'+planoSel+'">Re-inspeccionar: marcar Cumple</button><p class="note">La misma ITO se reabre y el historial se conserva.</p>':'')+'</div>';
+  var lib='<div class="card"><h3>Biblioteca de planos</h3>'+PLANOS.map(function(p,k){return '<div class="row" style="margin-bottom:6px"><button class="f" data-pls="'+k+'" aria-pressed="'+(k===plSel)+'" style="flex:1;text-align:left">'+esc(p.n)+'</button><label class="sr" style="font-size:11px;font-weight:700">Rev <select data-rev="'+k+'" style="border:1px solid var(--line);border-radius:6px;background:var(--soft)">'+p.revs.map(function(r){return '<option '+(r===p.rev?'selected':'')+'>'+r+'</option>';}).join('')+'</select></label></div>';}).join('')+'<button class="pill" id="addrev">+ Subir revisión nueva</button><p class="note">El documento base no se modifica: las marcas viven en una capa transparente aparte y se conservan por revisión.</p></div>';
+  var tools='<div class="row" style="margin:0 0 8px" role="group" aria-label="Herramientas de marcado">'+[['pin','Pin'],['line','Línea'],['circle','Círculo'],['text','Texto']].map(function(t){return '<button class="f" data-tool="'+t[0]+'" aria-pressed="'+(tool===t[0])+'">'+t[1]+'</button>';}).join('')+
+   (tool==='text'?'<input class="in" id="txtv" style="width:170px" placeholder="Nota corta" value="Revisar aquí">':'')+'<label style="font-size:12px;font-weight:700;display:flex;gap:6px;align-items:center"><input type="checkbox" id="showov" '+(showOv?'checked':'')+'> Mostrar capa de marcas</label><button class="pill" id="clrov">Borrar marcas</button></div>';
+  return '<h2>Planos y marcas</h2><p class="sub">Los planos se adjuntan a una biblioteca. En terreno el inspector marca sobre una capa transparente. '+(tool==='line'?(lineStart?'Toca el punto final de la línea.':'Toca el punto inicial de la línea.'):'Toca el plano para agregar un '+({pin:'pin',circle:'círculo',text:'texto',line:'inicio de línea'}[tool])+'.')+'</p><div class="planoWrap"><div><div class="plano">'+tools+planoSVG()+'</div></div><div style="display:grid;gap:12px;align-content:start">'+lib+(plSel===0?det:'')+
+   '<div class="card"><h3>Leyenda</h3><div class="row"><span class="badge b-observada">Rojo · No cumple</span><span class="badge b-aprobada">Verde · Cumple</span><span class="badge b-solicitada">Ámbar · Pendiente</span></div></div></div></div>';
+}
+var drawn=false;
+function sigState(k){
+  var c=counts(),pend=c.tot-c.ev;
+  if(SIG[k].ok)return {done:true};
+  if(k>0&&!SIG[k-1].ok)return {lock:'Primero firma '+SIG[k-1].n.toLowerCase()+'.'};
+  if(k===0){if(pend>0)return {lock:'Faltan '+pend+' ítem'+(pend>1?'s':'')+' por evaluar.'};if(ITEMS.some(noEvid))return {lock:'Hay hallazgos sin evidencia completa.'};}
+  if(k===2&&(c.no+c.npc)>0){var op=c.no+c.npc;return {lock:'No se puede aprobar: hay '+op+' observación'+(op>1?'es':'')+' abierta'+(op>1?'s':'')+' ('+c.no+' No cumple y '+c.npc+' no planificada'+(c.npc===1?'':'s')+' crítica'+(c.npc===1?'':'s')+'). Se debe re-inspeccionar o cerrar.'};}
+  return {};
+}
+function vFirmas(){
+  var cur=SIG.findIndex(function(s){return !s.ok;}),all=cur<0;
+  var st=SIG.map(function(s,k){var x=sigState(k);return '<div class="step '+(x.done?'done':(k===cur?'cur':''))+'"><b>'+(k+1)+'. '+s.n+'</b><span>'+(x.done?'Firmada · '+esc(s.ok):(x.lock?esc(x.lock):'Lista para firmar'))+'</span></div>';}).join('');
+  var body='';
+  if(all){body='<div class="callout c-ok">ITO aprobada. Se generó el informe con el logo del cliente y se envió por correo al cliente, al contratista y al inspector.</div><button class="btn itob" data-go="informe">Ver informe PDF</button>';}
+  else{var x=sigState(cur),s=SIG[cur];
+    body='<div class="card"><h3>Firma del '+s.n.toLowerCase()+'</h3>'+(x.lock?'<div class="callout c-bad">'+esc(x.lock)+'</div>':'')+(cur===1&&(counts().no+counts().npc)>0?'<div class="callout c-warn">El contratista recibe el resultado con '+(counts().no+counts().npc)+' observación(es) abierta(s). La ITO quedará Observada.</div>':'')+
+     '<div class="grid2"><div><label class="fl" for="s-n">Nombre completo</label><input class="in" id="s-n" value="'+esc(s.nm)+'"><label class="fl" for="s-r">RUT</label><input class="in" id="s-r" value="'+esc(s.rut)+'"><label class="fl" for="s-c">Cargo</label><input class="in" id="s-c" value="'+esc(s.cg)+'"></div><div><label class="fl" for="cv">Firma manuscrita</label><canvas class="sig" id="cv" width="600" height="300" aria-label="Zona de firma"></canvas><div class="row" style="margin-top:8px"><button class="btn" id="s-cl">Limpiar</button><button class="btn itob" id="s-ok" '+(x.lock?'disabled':'')+'>Firmar como '+s.n.toLowerCase()+'</button></div></div></div></div>';}
+  return '<h2>Firmas de la ITO 0042</h2><p class="sub">Orden: inspector, contratista y cliente. Se firma dentro de la app o con un enlace temporal para quien no tiene cuenta.</p><div class="sigs">'+st+'</div><div style="margin-top:14px">'+body+'</div>';
+}
+function vCal(){
+  var evs={};function add(d,k,t,ref){(evs[d]=evs[d]||[]).push({k:k,t:t,ref:ref});}
+  
+  add(18,'ito','ITO 0042.007 · Fan-coil','0042.007.NORTEC.11.26');add(20,'ito','ITO 0041.007 · Firma pend.','0041.007.NORTEC.11.26');add(22,'due','Vence hallazgo 0042 · ítem 3','0042.007.NORTEC.11.26');add(parseInt(NEW.fecha.split('-')[2],10),'ito','ITO '+String(corr).padStart(4,'0')+'.'+NEW.obra+' · programada','NEW');add(27,'sol','Solicitud cliente 0038.12','0038.012.NORTEC.10.26');add(12,'ito','ITO 0041.007 · Realizada','0041.007.NORTEC.11.26');
+  var cells='',pad=6;['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(function(d){cells+='<div class="h">'+d+'</div>';});
+  for(var p=0;p<pad;p++)cells+='<div></div>';
+  for(var d=1;d<=30;d++){cells+='<div class="day"><small>'+d+'</small>'+(evs[d]||[]).map(function(e){return '<button class="ev e-'+e.k+'" data-ev="'+d+'|'+e.ref+'|'+e.k+'" title="'+esc(e.t)+'">'+esc(e.t)+'</button>';}).join('')+'</div>';}
+  var det='<div class="card"><h3>Detalle</h3><p class="note">Selecciona una ITO del calendario.</p></div>';
+  if(calSel){var a=calSel.split('|'),it=a[1]==='NEW'?{c:code(),t:NEW.plantilla.split(' · ')[0],obra:$('n-ob')?'':'Obra '+NEW.obra,insp:'Por asignar',est:'progreso'}:(ITOS.filter(function(x){return x.c===a[1];})[0]||CUR),p=it.c.split('.');
+    det='<div class="card"><h3>'+(a[2]==='due'?'Vencimiento de hallazgo':a[2]==='sol'?'Solicitud del cliente':'Inspección técnica de obra')+'</h3><div class="code" style="font-size:15px">ITO '+esc(it.c)+'</div><p><b>'+esc(it.t)+'</b></p>'+
+    '<div class="anat"><div class="seg"><b>'+p[0]+'</b><span>Correlativo</span></div><div class="seg"><b>'+p[1]+'</b><span>Obra</span></div><div class="seg"><b>'+p[2]+'</b><span>Cliente</span></div><div class="seg"><b>'+p[3]+'</b><span>Mes</span></div><div class="seg"><b>'+p[4]+'</b><span>Año</span></div></div>'+
+    '<p class="note">'+esc(it.obra)+' · Inspector: '+esc(it.insp)+'</p><span class="badge b-'+it.est+'">'+EST[it.est]+'</span></div>';}
+  return '<h2>Calendario · noviembre 2026</h2><p class="sub">Las ITO programadas, las fechas límite de hallazgos y las solicitudes de clientes aparecen junto al resto de las actividades.</p><div class="grid2" style="grid-template-columns:minmax(0,2fr) minmax(260px,1fr)"><div class="cal">'+cells+'</div>'+det+'</div>'+
+   '<div class="row" style="margin-top:10px"><span class="ev e-ito" style="width:auto">ITO</span><span class="ev e-due" style="width:auto">Vencimiento de hallazgo</span><span class="ev e-sol" style="width:auto">Solicitud del cliente</span></div>';
+}
+function donut(pct,col){var r=24,C=2*Math.PI*r,d=C*pct/100;return '<svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true"><circle cx="29" cy="29" r="'+r+'" fill="none" stroke="#e2e8f0" stroke-width="6"/><circle cx="29" cy="29" r="'+r+'" fill="none" stroke="'+col+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+d.toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 29 29)"/></svg>';}
+function planThumb(){
+  var W=640,H=380,s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Plano con capa de marcas"><g fill="none" stroke="#94a3b8" stroke-width="2"><rect x="10" y="10" width="620" height="360"/><rect x="10" y="10" width="250" height="170"/><rect x="260" y="10" width="370" height="170"/><rect x="10" y="180" width="330" height="190"/><rect x="340" y="180" width="290" height="190"/><line x1="450" y1="180" x2="450" y2="370"/></g><g font-size="12" fill="#94a3b8" font-family="Inter,sans-serif"><text x="26" y="34">Sala técnica</text><text x="276" y="34">Oficinas</text><text x="26" y="204">Pasillo de cañerías</text><text x="356" y="204">Bodega FC-03</text></g>';
+  MARKS.filter(function(m){return m.pl===0&&m.rev==='B';}).forEach(function(m){
+    if(m.t==='circle')s+='<circle cx="'+m.x*W+'" cy="'+m.y*H+'" r="34" fill="none" stroke="#b91c1c" stroke-width="3" stroke-dasharray="6 4"/>';
+    if(m.t==='line')s+='<line x1="'+m.x*W+'" y1="'+m.y*H+'" x2="'+m.x2*W+'" y2="'+m.y2*H+'" stroke="#4338ca" stroke-width="4" stroke-linecap="round"/>';
+    if(m.t==='text')s+='<text x="'+m.x*W+'" y="'+m.y*H+'" font-size="14" font-weight="800" fill="#4338ca" font-family="Inter,sans-serif">'+esc(m.txt)+'</text>';});
+  ITEMS.forEach(function(i,ix){if(!i.pin)return;var col=i.st==='no'?'#b91c1c':(i.st==='ok'?'#15803d':'#b45309');s+='<circle cx="'+i.pin.x*W+'" cy="'+i.pin.y*H+'" r="13" fill="'+col+'" stroke="#fff" stroke-width="3"/><text x="'+i.pin.x*W+'" y="'+(i.pin.y*H+4)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="Inter,sans-serif">'+(ix+1)+'</text>';});
+  return s+'</svg>';
+}
+function vInf(){
+  var c=counts(),all=SIG.every(function(s){return s.ok;});
+  var code=CUR.c.split('.'),avg=Math.round(PART.reduce(function(a,p){return a+p.av;},0)/PART.length);
+  var open=c.no+c.npo;
+  var sum='<div class="pp-sum"><div>'+donut(c.cum,'#4338ca')+'<div><b>'+c.cum+'%</b><span>Cumplimiento</span></div></div><div><div><b>'+c.ev+'<small style="font-size:12px;color:#64748b;font-weight:600"> / '+c.tot+'</small></b><span>Ítems evaluados</span></div></div><div><div><b style="color:'+(open?'#b91c1c':'#166534')+'">'+open+'</b><span>Observaciones abiertas</span></div></div><div><div><b>'+avg+'%</b><span>Avance de partidas</span></div></div></div>';
+  var part=PART.map(function(p){var d=p.av-p.prev;return '<div class="pp-part"><span class="k">'+esc(p.c)+'</span><span>'+esc(p.t)+(p.added?' <em style="color:#92400e;font-size:9px">· agregada en terreno</em>':'')+'</span><div class="pp-track" role="img" aria-label="Avance '+p.av+'%, ITO anterior '+p.prev+'%"><i style="width:'+p.av+'%"></i><u style="left:'+p.prev+'%"></u></div><span class="pp-delta">'+p.av+'% · '+(d>=0?'+':'')+d+'</span></div>';}).join('');
+  var chk=ITEMS.map(function(i,ix){var pc=i.st==='ok'?'pp-ok':i.st==='no'?'pp-no':i.st==='na'?'pp-na':'pp-nul',lb=i.st==='ok'?'Cumple':i.st==='no'?'No cumple':i.st==='na'?'N/A':'Sin evaluar';
+    var m=i.med?'<span class="pp-med">'+i.med.v+' '+i.med.u+' · '+(i.med.min?i.med.min+'–':'≤ ')+i.med.max+'</span>':'<span></span>';
+    return '<div class="pp-row"><span class="n">'+String(ix+1).padStart(2,'0')+'</span><span>'+esc(i.t)+'</span>'+m+'<span class="pp-pill '+pc+'">'+lb+'</span></div>';}).join('');
+  var obs=[];
+  ITEMS.forEach(function(i,ix){if(i.st==='no')obs.push({tp:'p',d:'Ítem '+(ix+1)+' · '+i.obs+' → '+i.acc,r:i.resp||'',cr:false,op:true,f:i.fotos||0,fl:i.fl});else if(i.had&&i.hist&&i.hist.length)obs.push({tp:'p',d:'Ítem '+(ix+1)+' · '+i.obs,r:i.resp||'',cr:false,op:false,f:i.fotos||0,fl:i.fl});});
+  NP.forEach(function(o){obs.push({tp:'n',d:o.d,r:o.resp,cr:o.crit,op:o.open,f:o.fotos,fl:''});});
+  var ob=obs.map(function(o,k){var ph='';for(var q=0;q<Math.min(o.f,3);q++)ph+='<div class="pp-ph">OBS '+(k+1)+' · F'+(q+1)+'</div>';
+    return '<div class="pp-obs"><span class="pp-num">'+(k+1)+'</span><div><div><span class="pp-tag '+(o.tp==='p'?'pp-t-p':'pp-t-n')+'">'+(o.tp==='p'?'Planificado':'No planificado')+'</span>'+(o.cr?'<span class="pp-tag pp-t-c">Crítica</span>':'')+'<span class="pp-pill '+(o.op?'pp-nul':'pp-ok')+'">'+(o.op?'Abierta':'Cerrada')+'</span></div><p>'+esc(o.d)+'</p><div class="m"><span>Responsable · <b>'+esc(o.r)+'</b></span>'+(o.fl?'<span>Fecha límite · <b>'+esc(o.fl)+'</b></span>':'')+'</div>'+(ph?'<div class="pp-photos">'+ph+'</div>':'')+'</div></div>';}).join('');
+  var sg=SIG.map(function(g){return '<div class="pp-sig '+(g.ok?'':'pend')+'"><span class="r">'+g.n+'</span>'+(g.ok?'<svg viewBox="0 0 96 34" aria-hidden="true"><path d="M4 24 C14 2 22 34 32 14 S52 4 60 20 S80 28 92 8" fill="none" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/></svg>':'')+'<div class="nm">'+(g.ok?esc(g.nm):'Pendiente de firma')+'</div><div class="d">'+(g.ok?esc(g.cg)+'<br>RUT '+esc(g.rut)+'<br>'+esc(g.ok):'&nbsp;')+'</div></div>';}).join('');
+  var seal='<svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="none" stroke="'+(all?'#166534':'#94a3b8')+'" stroke-width="1.5"/><circle cx="32" cy="32" r="24" fill="none" stroke="'+(all?'#166534':'#94a3b8')+'" stroke-width=".8" stroke-dasharray="2 3"/>'+(all?'<path d="M20 33 l8 8 16-18" fill="none" stroke="#166534" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>':'<text x="32" y="36" text-anchor="middle" font-size="9" font-weight="700" fill="#94a3b8" font-family="Inter,sans-serif">PENDIENTE</text>')+'</svg>';
+  return '<h2>Informe PDF</h2><p class="sub">Vista previa del documento que se genera al aprobar la ITO.</p><div class="callout '+(all?'c-ok':'c-info')+'">'+(all?'Enviado por correo (Resend) al cliente, al contratista y al inspector.':'Se enviará automáticamente por correo al cliente, al contratista y al inspector cuando se apruebe.')+'</div>'+
+  '<div class="paper" id="paper"><div class="pp-top"><div class="pp-logo">NORTEC</div><div class="pp-title"><small>Inspección técnica de obra</small><b>Informe de inspección</b></div><div class="pp-code"><div class="c">'+esc(CUR.c)+'</div><div class="sgl"><span>Correl.</span><span>Obra</span><span>Cliente</span><span>Mes</span><span>Año</span></div></div></div><div class="pp-rule"></div>'+
+  '<div class="pp-status"><span>Emitido · '+new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'})+'</span><span class="pp-badge '+(all?'ok':'')+'">'+(all?'Aprobada':'Borrador · pendiente de firmas')+'</span></div>'+sum+
+  '<div class="pp-sec"><div class="pp-h"><b>Ficha</b></div><dl class="pp-dl"><div><dt>Obra</dt><dd>007 · Torre Los Aromos</dd></div><div><dt>Zona</dt><dd>Piso 3 · Sala técnica</dd></div><div><dt>Fecha</dt><dd>18 de noviembre de 2026</dd></div><div><dt>Inspector</dt><dd>Marcela Rojas</dd></div><div><dt>Contratista</dt><dd>Montajes Sur</dd></div><div><dt>Plantilla</dt><dd>Fan-coil · v3</dd></div></dl></div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Avance por partida</b><span>marca negra = ITO anterior</span></div>'+part+'</div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Checklist técnico</b><span>'+c.ev+' de '+c.tot+' evaluados</span></div>'+chk+'</div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Observaciones</b><span>planificadas y no planificadas · '+obs.length+'</span></div>'+(ob||'<p style="color:#64748b">Sin observaciones.</p>')+'</div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Plano</b><span>Plano piso 3 · Rev B</span></div><div class="pp-plano">'+planThumb()+'<div><b>Capa de marcas</b><small>Los pines numerados corresponden a los ítems del checklist. Las marcas viven sobre una capa transparente: el documento base no se altera.</small></div></div></div>'+
+  '<div class="pp-sec"><div class="pp-h"><b>Firmas</b><span>inspector · contratista · cliente</span></div><div class="pp-sigs">'+sg+'</div></div>'+
+  '<div class="pp-foot"><div><div class="v">'+(all?'CO-2026-7F3A9C21B84E':'Código pendiente')+'</div><small>Código de verificación · se valida en /verificar</small></div>'+seal+'</div></div>';
+}
+
+/* ---------- ruteo y eventos ---------- */
+function render(){
+  $('screens').innerHTML=SCR.map(function(s){return '<a href="#'+s[0]+'" '+(s[0]===screen?'aria-current="page"':'')+'>'+s[1]+'</a>';}).join('');
+  $('nav').innerHTML=NAV.map(function(n,i){var out='';if(i===8)out+='<a class="on" href="#panel">Inspecciones ITO <span class="new">NUEVO</span></a>';return out+'<a href="#'+(n==='Calendario'?'calendario':screen)+'" tabindex="-1">'+n+'</a>';}).join('');
+  var map={panel:vPanel,nueva:vNueva,ejecucion:vEjec,plano:vPlano,firmas:vFirmas,calendario:vCal,informe:vInf};
+  $('crumb').textContent='Inspecciones ITO › '+(SCR.filter(function(s){return s[0]===screen;})[0]||[0,''])[1];
+  $('body').innerHTML=map[screen]();
+  bind();
+}
+function go(s){if(location.hash==='#'+s)render();else location.hash='#'+s;}
+function bind(){
+  var b=$('body');
+  b.querySelectorAll('[data-mode]').forEach(function(e){e.onclick=function(){mode=e.getAttribute('data-mode');render();};});
+  b.querySelectorAll('[data-part]').forEach(function(e){e.oninput=function(){PART[+e.getAttribute('data-part')].av=+e.value;e.parentNode.querySelector('b').textContent=e.value+'%';};e.onchange=render;});
+  var ap=$('addpart');if(ap)ap.onclick=function(){PART.push({c:'T-'+(PART.filter(function(p){return p.added;}).length+1),t:'Partida agregada en terreno',av:0,prev:0,added:true});render();};
+  var an=$('addnp');if(an)an.onclick=function(){NP.push({d:'',resp:'J. Pérez (contratista)',fotos:0,adj:0,crit:false,open:true});render();};
+  b.querySelectorAll('[data-npd]').forEach(function(e){e.oninput=function(){NP[+e.getAttribute('data-npd')].d=e.value;};});
+  b.querySelectorAll('[data-npf]').forEach(function(e){e.onclick=function(){NP[+e.getAttribute('data-npf')].fotos++;render();};});
+  b.querySelectorAll('[data-npa]').forEach(function(e){e.onclick=function(){NP[+e.getAttribute('data-npa')].adj++;render();};});
+  b.querySelectorAll('[data-npc]').forEach(function(e){e.onchange=function(){NP[+e.getAttribute('data-npc')].crit=e.checked;render();};});
+  b.querySelectorAll('[data-npx]').forEach(function(e){e.onclick=function(){var o=NP[+e.getAttribute('data-npx')];o.open=!o.open;render();};});
+  b.querySelectorAll('[data-pls]').forEach(function(e){e.onclick=function(){plSel=+e.getAttribute('data-pls');render();};});
+  b.querySelectorAll('[data-rev]').forEach(function(e){e.onchange=function(){PLANOS[+e.getAttribute('data-rev')].rev=e.value;plSel=+e.getAttribute('data-rev');render();};});
+  var ar=$('addrev');if(ar)ar.onclick=function(){var p=PLANOS[plSel],n=String.fromCharCode(65+p.revs.length);p.revs.push(n);p.rev=n;toast('Revisión '+n+' cargada: las marcas de la revisión anterior se conservan');render();};
+  b.querySelectorAll('[data-tool]').forEach(function(e){e.onclick=function(){tool=e.getAttribute('data-tool');lineStart=null;render();};});
+  var so=$('showov');if(so)so.onchange=function(){showOv=so.checked;render();};
+  var co=$('clrov');if(co)co.onclick=function(){var r=PLANOS[plSel].rev;MARKS=MARKS.filter(function(m){return !(m.pl===plSel&&m.rev===r);});toast('Capa de marcas borrada; el plano base no cambió');render();};
+  var sv=$('plsvg');if(sv)sv.onclick=function(ev){if(ev.target.closest&&ev.target.closest('[data-pin]'))return;var r=sv.getBoundingClientRect(),x=(ev.clientX-r.left)/r.width,y=(ev.clientY-r.top)/r.height,rev=PLANOS[plSel].rev;
+    if(tool==='line'){if(!lineStart){lineStart=[x,y];render();return;}MARKS.push({t:'line',x:lineStart[0],y:lineStart[1],x2:x,y2:y,rev:rev,pl:plSel});lineStart=null;}
+    else if(tool==='text'){MARKS.push({t:'text',x:x,y:y,txt:($('txtv')&&$('txtv').value)||'Nota',rev:rev,pl:plSel});}
+    else MARKS.push({t:tool,x:x,y:y,rev:rev,pl:plSel});render();};
+  b.querySelectorAll('[data-go]').forEach(function(e){e.onclick=function(){go(e.getAttribute('data-go'));};});
+  b.querySelectorAll('[data-f]').forEach(function(e){e.onclick=function(){filter=e.getAttribute('data-f');render();};});
+  var q=$('q');if(q)q.oninput=function(){query=q.value;var p=q.selectionStart;render();var n=$('q');n.focus();n.setSelectionRange(p,p);};
+  b.querySelectorAll('[data-open]').forEach(function(e){e.onclick=function(){go(e.getAttribute('data-open')===CUR.c?'ejecucion':'informe');};});
+  b.querySelectorAll('[data-it]').forEach(function(e){e.onclick=function(){var i=ITEMS[+e.getAttribute('data-it')],v=e.getAttribute('data-v');if(i.st==='no'&&v!=='no'&&i.pin)i.had=true;i.st=(i.st===v?null:v);if(i.st==='no'&&i.pin)i.had=true;render();};});
+  b.querySelectorAll('[data-med]').forEach(function(e){e.onchange=function(){ITEMS[+e.getAttribute('data-med')].med.v=parseFloat(e.value)||0;render();};});
+  b.querySelectorAll('[data-obs]').forEach(function(e){e.oninput=function(){ITEMS[+e.getAttribute('data-obs')].obs=e.value;};e.onchange=render;});
+  b.querySelectorAll('[data-acc]').forEach(function(e){e.oninput=function(){ITEMS[+e.getAttribute('data-acc')].acc=e.value;};e.onchange=render;});
+  b.querySelectorAll('[data-fl]').forEach(function(e){e.onchange=function(){ITEMS[+e.getAttribute('data-fl')].fl=e.value;render();};});
+  b.querySelectorAll('[data-foto]').forEach(function(e){e.onclick=function(){ITEMS[+e.getAttribute('data-foto')].fotos++;render();};});
+  b.querySelectorAll('[data-adj]').forEach(function(e){e.onclick=function(){ITEMS[+e.getAttribute('data-adj')].adj++;render();};});
+  b.querySelectorAll('[data-pin]').forEach(function(e){function sel(){planoSel=+e.getAttribute('data-pin');render();}e.onclick=sel;e.onkeydown=function(k){if(k.key==='Enter')sel();};});
+  b.querySelectorAll('[data-resolve]').forEach(function(e){e.onclick=function(){var i=ITEMS[+e.getAttribute('data-resolve')];i.st='ok';i.had=true;i.hist=(i.hist||[]).concat(['Re-inspección: Cumple · '+new Date().toLocaleDateString('es-CL')]);toast('Hallazgo resuelto: la ITO se reabrió y el pin pasó a verde');render();};});
+  b.querySelectorAll('[data-ev]').forEach(function(e){e.onclick=function(){calSel=e.getAttribute('data-ev');render();};});
+  if(screen==='nueva'){
+    $('n-ob').value=NEW.obra;$('n-pl').value=NEW.plantilla;
+    $('n-ob').onchange=function(){NEW.obra=this.value;render();};$('n-fe').onchange=function(){if(this.value){NEW.fecha=this.value;render();}};$('n-pl').onchange=function(){NEW.plantilla=this.value;render();};
+    $('n-zo').oninput=function(){NEW.zona=this.value;};$('n-or').onchange=function(){NEW.origen=this.checked;render();};$('n-inf').onchange=function(){NEW.informar=this.checked;render();};
+    b.querySelectorAll('[data-npl]').forEach(function(e){e.onchange=function(){var k=+e.getAttribute('data-npl'),i=NEW.planos.indexOf(k);if(e.checked&&i<0)NEW.planos.push(k);if(!e.checked&&i>=0)NEW.planos.splice(i,1);};});
+    b.querySelectorAll('[data-rmp]').forEach(function(e){e.onclick=function(){NEW.partidas.splice(+e.getAttribute('data-rmp'),1);render();};});
+    $('n-pa-add').onclick=function(){var v=$('n-pa').value.trim();if(v){NEW.partidas.push(v);render();}};
+    $('n-cr').onclick=function(){if(!NEW.zona.trim()){toast('Falta la zona o sector');return;}var c=code(),d=NEW.fecha.split('-');
+      ITOS.unshift({c:c,t:NEW.plantilla.split(' · ')[0]+' · '+NEW.zona,obra:$('n-ob').options[$('n-ob').selectedIndex].text,insp:NEW.origen?'Sin asignar':$('n-in').value,est:NEW.origen?'solicitada':'progreso',av:0,h:0,f:parseInt(d[2],10)+'/'+d[1]});corr++;
+      toast('ITO '+c+' creada con '+NEW.planos.length+' plano(s) y '+NEW.partidas.length+' partida(s)'+(NEW.informar?' · plan enviado al contratista':''));go('panel');};
+  }
+  if(screen==='firmas'){
+    var cv=$('cv');
+    if(cv){var cx=cv.getContext('2d'),dr=false;drawn=false;cx.lineWidth=3;cx.lineCap='round';cx.strokeStyle='#111827';
+      function pos(e){var r=cv.getBoundingClientRect();return [(e.clientX-r.left)*cv.width/r.width,(e.clientY-r.top)*cv.height/r.height];}
+      cv.onpointerdown=function(e){dr=true;drawn=true;var p=pos(e);cx.beginPath();cx.moveTo(p[0],p[1]);cv.setPointerCapture(e.pointerId);};
+      cv.onpointermove=function(e){if(!dr)return;var p=pos(e);cx.lineTo(p[0],p[1]);cx.stroke();};
+      cv.onpointerup=function(){dr=false;};
+      $('s-cl').onclick=function(){cx.clearRect(0,0,cv.width,cv.height);drawn=false;};
+      $('s-ok').onclick=function(){var cur=SIG.findIndex(function(s){return !s.ok;});if(!drawn||!$('s-n').value||!$('s-r').value||!$('s-c').value){toast('Falta firmar en el recuadro y completar nombre, RUT y cargo');return;}
+        SIG[cur].nm=$('s-n').value;SIG[cur].rut=$('s-r').value;SIG[cur].cg=$('s-c').value;SIG[cur].ok=new Date().toLocaleString('es-CL');
+        toast(cur===2?'ITO aprobada. Informe enviado por correo':'Firma registrada');render();};}
+  }
+}
+function route(){var h=(location.hash||'#panel').slice(1);screen=SCR.some(function(s){return s[0]===h;})?h:'panel';render();window.scrollTo(0,0);}
+window.addEventListener('hashchange',route);route();
+})();
+</script>
+</body></html>

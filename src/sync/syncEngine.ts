@@ -1,4 +1,5 @@
 import { db, SyncStatus } from '../db/database';
+import { diferirHijosDelLibro } from './libroOrden';
 import { useSyncStore } from '../store/useSyncStore';
 import { useAppStore } from '../store/useAppStore';
 import { logger } from '../lib/logger';
@@ -93,10 +94,10 @@ class SyncEngine {
           .filter(item => item.table === 'ordenes_servicio' && item.operation === 'insert')
           .map(item => item.uuid_sync)
       );
-      const pendingItems = eligibleItems.filter(item => !(
+      const pendingItems = diferirHijosDelLibro(eligibleItems.filter(item => !(
         item.table === 'reports'
         && pendingOrderParents.has(item.data?.orden_servicio_uuid)
-      )).slice(0, 100);
+      ))).slice(0, 100);
 
       store.setPendingCount(pendingItems.length);
 

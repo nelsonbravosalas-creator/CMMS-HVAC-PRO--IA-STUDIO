@@ -54,6 +54,7 @@ const Planificacion = lazy(() => import("./pages/Planificacion"));
 const ClientSelector = lazy(() => import("./pages/ClientSelector"));
 const EFIEnergia = lazy(() => import("./pages/EFIEnergia"));
 const InventarioInterno = lazy(() => import("./pages/InventarioInterno"));
+const LibroObra = lazy(() => import("./pages/LibroObra"));
 
 function LegacyReportsRedirect() {
   const [, setLocation] = useLocation();
@@ -309,6 +310,8 @@ function App() {
               <Route path="/reportes" component={Reportes} />
               <Route path="/eficiencia" component={EFIEnergia} />
               <Route path="/inventario" component={InventarioInterno} />
+              <Route path="/libro-obra" component={LibroObra} />
+              <Route path="/libro-obra/:obraId" component={LibroObra} />
               <Route path="/administracion">
                 {isAdmin ? <Administracion /> : <AccessDenied requiredPermission="Gestionar usuarios" />}
               </Route>
