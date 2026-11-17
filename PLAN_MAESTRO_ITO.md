@@ -307,3 +307,19 @@ Seis inconsistencias son de gravedad alta y se recomienda cerrarlas **antes de l
 
 Decisión previa a lanzar: ¿se construye la inspección con firmas (vía A), la inspección más un libro de obra
 mínimo (vía B, recomendada) o el libro completo con gestión de obra (vía C)? Cambia el modelo de datos desde la Fase 1A.
+
+## 16. Líneas de desarrollo anotadas por el propietario (borrador, 2026-11-17)
+
+Apuntes del propietario, incompletos. Se registran tal cual para no perderlos; **ninguno cambia todavía el plan vigente**.
+
+| # | Línea | Estado |
+|---|-------|--------|
+| 1 | Vincular los usuarios con roles y correo | Anotada |
+| 2 | «Metodología de cómo…» | **Incompleta**: el texto quedó cortado |
+| 3 | Desarrollar el módulo **Libro de Obra** con mayor detalle; **la ITO será hija del Libro de Obra** | Anotada; equivale a la vía B o C de la sección 15 |
+| 4 | (vacía) | **Incompleta** |
+
+Efecto previsto de la línea 3 sobre el plan, a confirmar al diseñarla: el Libro de Obra pasa a ser la entidad
+principal (una por obra, con folio consecutivo) y la ITO se convierte en un tipo de anotación dentro de él. Eso
+reordena las fases: el libro, los participantes por obra y las anotaciones van antes que la ITO. Aborda de
+raíz las inconsistencias I1 (corrección sin borrar), I5 (folio por obra) e I6 (participantes por obra y empresa).
