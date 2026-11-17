@@ -1,0 +1,468 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><title>Mapa de Proceso ITO</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Concepto: plano de control de procesos. Tres tipos de actor (persona, dispositivo, servidor) con color fijo en todo el documento. */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#13202b; --mute:#566673; --line:#cdd7de; --soft:#e4eaee;
+  --human:#a85a00; --human-bg:#fdf0d5;
+  --sys:#1b4fb8;   --sys-bg:#e1ebfb;
+  --srv:#6a2fc2;   --srv-bg:#eee6fb;
+  --out:#06795a;   --out-bg:#d8f3e8;
+  --gap:#c0262d;   --gap-bg:#fde6e7;
+  --accent:#0b6e86;
+  --font:'IBM Plex Sans',system-ui,sans-serif; --font-d:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1318; --panel:#131c23; --ink:#e3ebf0; --mute:#90a2af; --line:#2a3944; --soft:#1a2630;
+  --human:#f5b04c; --human-bg:#33260c;
+  --sys:#8db4f5; --sys-bg:#12233f;
+  --srv:#bda0f2; --srv-bg:#241a3d;
+  --out:#5fd9ac; --out-bg:#0c2e24;
+  --gap:#ff8b90; --gap-bg:#3a1417;
+  --accent:#4fc3dc; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+a{color:var(--accent)}
+.wrap{max-width:1240px;margin:0 auto}
+header.top{padding:22px 0 14px;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+h1{font-family:var(--font-d);font-size:30px;line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--mute);margin:6px 0 0;max-width:62ch}
+.meta{font-family:var(--mono);font-size:11px;color:var(--mute);text-align:right}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
+nav.tabs a,nav.tabs button{font:500 13px var(--font);color:var(--ink);text-decoration:none;padding:7px 13px;border:1px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+nav.tabs .sp{flex:1}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h2{font-family:var(--font-d);font-size:21px;margin:30px 0 8px}
+h3{font-family:var(--font-d);font-size:15px;margin:0 0 6px;letter-spacing:.02em;text-transform:uppercase;color:var(--mute)}
+p{margin:0 0 10px;max-width:78ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0;font-size:12.5px;color:var(--mute)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:18px;height:12px;border-radius:3px;border:1.5px solid}
+.sw.h{background:var(--human-bg);border-color:var(--human)} .sw.s{background:var(--sys-bg);border-color:var(--sys)}
+.sw.x{background:var(--srv-bg);border-color:var(--srv)} .sw.o{background:var(--out-bg);border-color:var(--out);border-radius:8px}
+.sw.d{background:var(--panel);border-color:var(--ink);transform:rotate(45deg) scale(.8)} .sw.g{background:var(--gap-bg);border-color:var(--gap);border-style:dashed}
+figure{margin:12px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+figure .scroll{overflow-x:auto}
+figcaption{font-size:12.5px;color:var(--mute);padding:8px 4px 2px;max-width:90ch}
+svg.dg{display:block;width:100%;height:auto;min-width:760px}
+svg text{font-family:var(--font);fill:var(--ink)}
+.band{fill:var(--soft);opacity:.55} .band.alt{opacity:.25}
+.band-l{font:600 10px var(--font);letter-spacing:.12em;fill:var(--mute)!important}
+.node rect,.node polygon{stroke-width:1.6;transition:filter .2s,opacity .2s}
+.node text{font-size:11px;text-anchor:middle;pointer-events:none}
+.node .t2{font-size:10px;fill:var(--mute)}
+.n-h rect{fill:var(--human-bg);stroke:var(--human)} .n-h text{fill:var(--ink)}
+.n-s rect{fill:var(--sys-bg);stroke:var(--sys)}
+.n-x rect{fill:var(--srv-bg);stroke:var(--srv)}
+.n-o rect{fill:var(--out-bg);stroke:var(--out)}
+.n-d polygon{fill:var(--panel);stroke:var(--ink)} .n-d text{font-size:10.5px}
+.n-g rect{fill:var(--gap-bg);stroke:var(--gap);stroke-dasharray:5 3}
+.node.link{cursor:pointer} .node.link:hover rect{filter:brightness(1.07);stroke-width:2.4}
+.node.link:focus-visible rect{stroke-width:3}
+.pic{fill:none;stroke:var(--human);stroke-width:1.4}
+.edge{fill:none;stroke:var(--mute);stroke-width:1.5;stroke-dasharray:6 5;animation:flow 1.1s linear infinite}
+.edge.gap{stroke:var(--gap);stroke-width:1.8;animation:none;stroke-dasharray:3 5}
+.edge.hot{stroke:var(--accent);stroke-width:2.6;stroke-dasharray:none;animation:none}
+.elab{font-size:10px;paint-order:stroke;stroke:var(--panel);stroke-width:4px;fill:var(--mute)!important}
+.elab.gap{fill:var(--gap)!important;font-weight:600}
+.dot{fill:var(--accent)} .dot.gap{display:none}
+.arrow path{fill:var(--mute)}
+.dim .node{opacity:.3} .dim .node.seen{opacity:.8} .dim .node.on{opacity:1}
+.node.on rect,.node.on polygon{filter:drop-shadow(0 0 5px var(--accent));stroke:var(--accent);stroke-width:2.8}
+.paused .edge{animation-play-state:paused}
+@keyframes flow{to{stroke-dashoffset:-22}}
+@media (prefers-reduced-motion:reduce){.edge{animation:none}}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 4px 2px}
+.btn{font:500 12.5px var(--font);padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.stepcap{font-size:13px;flex:1;min-width:220px;color:var(--ink)} .stepcap b{font-family:var(--mono);font-weight:500;color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-top:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:var(--ink)}
+.card:hover{border-color:var(--accent)}
+.card h4{margin:0;font:700 16px var(--font-d)}
+.route{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid}
+.chip.i{background:var(--sys-bg);border-color:var(--sys);color:var(--ink)}
+.chip.o{background:var(--out-bg);border-color:var(--out);color:var(--ink)}
+.chip.h{background:var(--human-bg);border-color:var(--human);color:var(--ink)}
+.lbl{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-top:2px}
+.st{font-size:11px;font-weight:600;padding:1px 8px;border-radius:4px;display:inline-block;align-self:flex-start}
+.st.ok{background:var(--out-bg);color:var(--out)} .st.partial{background:var(--human-bg);color:var(--human)}
+.st.stub,.st.orphan{background:var(--gap-bg);color:var(--gap)} .st.apoyo{background:var(--srv-bg);color:var(--srv)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.panel ul{margin:0;padding-left:18px} .panel li{margin:3px 0}
+.panel.gapbox{border-color:var(--gap)} .panel.gapbox h3{color:var(--gap)}
+.back{display:inline-block;margin:16px 0 0;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px;margin-top:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi b{font:700 24px var(--font-d);display:block}
+.kpi span{font-size:12px;color:var(--mute)}
+code{font-family:var(--mono);font-size:12px;background:var(--soft);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.tw{overflow-x:auto}
+
+.kpi.good b{color:var(--out)} .kpi.bad b{color:var(--gap)}
+a.btn{text-decoration:none;display:inline-block;color:var(--ink)}
+label.fl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:10px 0 4px}
+.in{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;font:inherit;color:var(--ink)} textarea.in{min-height:64px;resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn.okb{background:var(--out);border-color:var(--out);color:var(--bg)} .btn.nob{background:var(--gap);border-color:var(--gap);color:var(--bg)}
+.rv{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel);margin-bottom:8px}
+.ipo-scroll{overflow-x:auto;padding-bottom:6px}
+.ipo{display:grid;gap:26px 20px;min-width:1180px;padding:6px 2px 10px;align-items:stretch}
+.ipo-lab{display:flex;align-items:center;justify-content:center}
+.ipo-lab span{writing-mode:vertical-rl;transform:rotate(180deg);font:700 11px var(--font);letter-spacing:.24em;text-transform:uppercase;color:var(--mute)}
+.ipo-in,.ipo-pr,.ipo-out{border-radius:10px;padding:10px 9px;min-width:0;transition:opacity .25s,box-shadow .25s}
+.ipo-in{background:var(--sys-bg);border:1px solid var(--sys)}
+.ipo-out{background:var(--out-bg);border:1px solid var(--out)}
+.ipo-pr{background:var(--panel);border:1.5px solid var(--ink)}
+.ipo ul,.ipo ol{margin:0;padding-left:16px;font-size:11.5px} .ipo li{margin:2px 0;overflow-wrap:anywhere}
+.ipo-in ul,.ipo-out ul{padding-left:15px}
+.ipo-h{display:flex;gap:9px;align-items:center;margin-bottom:6px}
+.ipo-h b{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--bg);display:grid;place-items:center;font:700 13px var(--font-d);flex:none}
+.ipo-h strong{display:block;font:700 14px var(--font-d);line-height:1.15} .who{display:block;font-size:10.5px;color:var(--mute);letter-spacing:.04em}
+.more{display:inline-block;margin-top:7px;font-size:11.5px;font-weight:600}
+.ipo-arr,.ipo-v1,.ipo-v2{pointer-events:none;position:relative;z-index:1}
+.ipo-arr{justify-self:end;align-self:center;width:22px;height:2px;transform:translateX(22px);background:repeating-linear-gradient(90deg,var(--accent) 0 6px,transparent 6px 11px);background-size:11px 2px;animation:fx 1s linear infinite}
+.ipo-arr::after{content:"";position:absolute;right:-2px;top:-4px;border-left:7px solid var(--accent);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.ipo-v1,.ipo-v2{justify-self:center;align-self:end;width:2px;height:26px;transform:translateY(26px);background:repeating-linear-gradient(180deg,var(--mute) 0 5px,transparent 5px 9px);background-size:2px 9px;animation:fy 1s linear infinite}
+.ipo-v2{align-self:end}
+@keyframes fx{to{background-position:11px 0}} @keyframes fy{to{background-position:0 9px}}
+.ipo.dim .ipo-in,.ipo.dim .ipo-pr,.ipo.dim .ipo-out{opacity:.32}
+.ipo.dim .seen{opacity:.8} .ipo.dim .on{opacity:1;box-shadow:0 0 0 3px var(--accent)}
+.paused .ipo-arr,.paused .ipo-v1,.paused .ipo-v2{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.ipo-arr,.ipo-v1,.ipo-v2{animation:none}}
+</style>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Mapa de proceso · Módulo ITO</h1>
+    <p class="sub">Inspección técnica de obra: entradas, proceso y salidas de cada etapa, con los cambios de las revisiones. Para tu revisión y aprobación.</p>
+  </div>
+  <div class="meta">Plan maestro · 17-nov-2026<br>Sin código · pendiente de aprobación</div>
+</header>
+<nav class="tabs" id="tabs" aria-label="Vistas">
+  <a href="#mapa" data-v="mapa">Mapa de proceso</a>
+  <a href="#flujos" data-v="flujos">Flujos por etapa</a>
+  <a href="#estados" data-v="estados">Estados</a>
+  <a href="#reglas" data-v="reglas">Reglas y datos</a>
+  <a href="#aprobacion" data-v="aprobacion">Revisión y aprobación</a>
+  <span class="sp"></span>
+  <button type="button" id="pauseBtn" aria-pressed="false">Animación: activa</button>
+</nav>
+<main id="app"></main>
+</div>
+<script>
+(function(){
+'use strict';
+var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var NS='http://www.w3.org/2000/svg';
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* ---------- MOTOR DE DIAGRAMAS ---------- */
+function lines(t){return String(t).split('|');}
+function toNodes(flow){ // lane/col -> coordenadas
+  var LW=122,CW=172,LH=108,T=14;
+  var ncol=0;flow.nodes.forEach(function(n){ncol=Math.max(ncol,n[2]+1);});
+  var out=flow.nodes.map(function(n){
+    var t=n[3];
+    return {id:n[0],t:t,lab:n[4],cx:LW+n[2]*CW+CW/2,cy:T+n[1]*LH+LH/2,w:156,h:t==='d'?66:54,lane:n[1]};
+  });
+  return {nodes:out,W:LW+ncol*CW+8,H:T*2+LANEB.length*LH,bands:LANEB.map(function(l,i){return {y:T+i*LH,h:LH,label:l};}),bandX:0,LW:LW};
+}
+function rectOf(n){return {x1:n.cx-n.w/2-3,x2:n.cx+n.w/2+3,y1:n.cy-n.h/2-3,y2:n.cy+n.h/2+3};}
+function segHit(p,q,r){ // segmento ortogonal vs rect
+  var x1=Math.min(p[0],q[0]),x2=Math.max(p[0],q[0]),y1=Math.min(p[1],q[1]),y2=Math.max(p[1],q[1]);
+  return !(x2<r.x1||x1>r.x2||y2<r.y1||y1>r.y2);
+}
+function clear(pts,all,a,b){
+  for(var i=0;i<pts.length-1;i++){
+    for(var k=0;k<all.length;k++){var n=all[k];if(n===a||n===b)continue;if(segHit(pts[i],pts[i+1],rectOf(n)))return false;}
+  }
+  return true;
+}
+function route(a,b,all,hint){
+  var s=Math.sign(b.cx-a.cx), dy=Math.sign(b.cy-a.cy), c=[];
+  var sameRow=Math.abs(a.cy-b.cy)<4, sameCol=Math.abs(a.cx-b.cx)<4;
+  if(sameCol){var sy=a.cy+dy*a.h/2,ey=b.cy-dy*b.h/2;c.push([[a.cx,sy],[b.cx,ey]]);}
+  if(sameRow){var sx0=a.cx+s*a.w/2,ex0=b.cx-s*b.w/2;c.push([[sx0,a.cy],[ex0,b.cy]]);
+    var gy=a.cy-a.h/2-20; c.push([[a.cx,a.cy-a.h/2],[a.cx,gy],[b.cx,gy],[b.cx,b.cy-b.h/2]]);
+    var gy2=a.cy+a.h/2+20; c.push([[a.cx,a.cy+a.h/2],[a.cx,gy2],[b.cx,gy2],[b.cx,b.cy+b.h/2]]);}
+  if(!sameRow&&!sameCol){
+    var sx=a.cx+s*a.w/2, ex=b.cx-s*b.w/2;
+    if(hint!=='back'){
+      c.push([[sx,a.cy],[ex-s*12,a.cy],[ex-s*12,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[sx+s*12,a.cy],[sx+s*12,b.cy],[ex,b.cy]]);
+      c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,b.cy],[ex,b.cy]]);
+      c.push([[sx,a.cy],[b.cx,a.cy],[b.cx,b.cy-dy*b.h/2]]);
+    }
+    var g1=a.cy+dy*(a.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);
+    var g2=b.cy-dy*(b.h/2+22);
+    c.push([[a.cx,a.cy+dy*a.h/2],[a.cx,g2],[b.cx,g2],[b.cx,b.cy-dy*b.h/2]]);
+    if(hint==='back'){c.unshift([[a.cx,a.cy+dy*a.h/2],[a.cx,g1],[b.cx,g1],[b.cx,b.cy-dy*b.h/2]]);}
+  }
+  for(var i=0;i<c.length;i++){if(clear(c[i],all,a,b))return c[i];}
+  return c[c.length-1];
+}
+function plen(p){var L=0;for(var i=0;i<p.length-1;i++)L+=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);return L;}
+function dstr(p){return p.map(function(q,i){return (i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1);}).join(' ');}
+function labelPos(p){ // punto medio del segmento más largo
+  var best=0,bi=0;for(var i=0;i<p.length-1;i++){var l=Math.abs(p[i+1][0]-p[i][0])+Math.abs(p[i+1][1]-p[i][1]);if(l>best){best=l;bi=i;}}
+  var a=p[bi],b=p[bi+1];return [(a[0]+b[0])/2,(a[1]+b[1])/2,Math.abs(b[1]-a[1])>Math.abs(b[0]-a[0]),best];
+}
+function nodeSVG(n,link){
+  var L=lines(n.lab),cls='node n-'+n.t+(link?' link':'');
+  var x=n.cx-n.w/2,y=n.cy-n.h/2,g='<g class="'+cls+'" data-id="'+n.id+'"'+(link?' tabindex="0" role="link" aria-label="'+esc(L.join(' '))+'" data-go="'+link+'"':'')+'>';
+  if(n.t==='d'){g+='<polygon points="'+n.cx+','+y+' '+(n.cx+n.w/2)+','+n.cy+' '+n.cx+','+(y+n.h)+' '+(n.cx-n.w/2)+','+n.cy+'"/>';}
+  else if(n.t==='o'){g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.h/2)+'"/>';}
+  else{g+='<rect x="'+x+'" y="'+y+'" width="'+n.w+'" height="'+n.h+'" rx="'+(n.t==='h'?10:4)+'"/>';}
+  if(n.t==='h'){g+='<circle class="pic" cx="'+(x+11)+'" cy="'+(y+11)+'" r="3"/><path class="pic" d="M'+(x+5.5)+' '+(y+20)+' q5.5 -8 11 0"/>';}
+  var lh=13.5,y0=n.cy-(L.length-1)*lh/2+4;
+  L.forEach(function(t,i){g+='<text x="'+n.cx+'" y="'+(y0+i*lh)+'" class="'+(i>0?'t2':'')+'">'+esc(t)+'</text>';});
+  return g+'</g>';
+}
+// flow: {nodes:[..coords..], edges, W,H, bands}
+function drawDiagram(D,edges,opts){
+  opts=opts||{};
+  var byId={};D.nodes.forEach(function(n){byId[n.id]=n;});
+  var s='<svg class="dg" viewBox="0 0 '+D.W+' '+D.H+'" role="img" aria-label="'+esc(opts.aria||'Diagrama de proceso')+'" xmlns="'+NS+'">';
+  s+='<defs><marker id="ar'+opts.uid+'" class="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z"/></marker></defs>';
+  (D.bands||[]).forEach(function(b,i){
+    s+='<rect class="band'+(i%2?' alt':'')+'" x="0" y="'+b.y+'" width="'+D.W+'" height="'+b.h+'" rx="6"/>';
+    var bl=lines(b.label);bl.forEach(function(t,k){s+='<text class="band-l" x="10" y="'+(b.y+b.h/2-(bl.length-1)*7+k*14+4)+'">'+esc(t.toUpperCase())+'</text>';});
+  });
+  var eh='',dots='',labs='';
+  edges.forEach(function(e,i){
+    var a=byId[e[0]],b=byId[e[1]];if(!a||!b)return;
+    var gap=e[3]==='gap';
+    var p=route(a,b,D.nodes,e[3]);
+    var d=dstr(p);
+    eh+='<path class="edge'+(gap?' gap':'')+'" data-f="'+e[0]+'" data-t="'+e[1]+'" d="'+d+'" marker-end="url(#ar'+opts.uid+')"/>';
+    if(!REDUCED&&!gap){var dur=Math.max(1.6,plen(p)/70);dots+='<circle class="dot" r="3"><animateMotion dur="'+dur.toFixed(2)+'s" begin="-'+((i*0.53)%dur).toFixed(2)+'s" repeatCount="indefinite" path="'+d+'"/></circle>';}
+    if(e[2]){var lp=labelPos(p);var segL=lp[3];if(segL>=e[2].length*5.3+6){labs+='<text class="elab'+(gap?' gap':'')+'" text-anchor="middle" x="'+lp[0]+'" y="'+(lp[1]+(lp[2]?3:-5))+'"'+(lp[2]?' dx="'+(e[2].length*2.9+6)+'"':'')+'>'+esc(e[2])+'</text>';}}
+  });
+  s+=eh+dots+labs;
+  D.nodes.forEach(function(n){s+=nodeSVG(n,n.link);});
+  return s+'</svg>';
+}
+var UID=0;
+
+/* ---------- DATOS ---------- */
+var LANES=['Cliente','Supervisor','Inspector','Contratista','Sistema (app y servidor)'];
+var LANEB=['CLIENTE','SUPERVISOR','INSPECTOR','CONTRATISTA','SISTEMA|APP Y SERVIDOR'];
+var ET=[
+{id:'e0',n:'Solicitud',who:'Cliente',opt:true,
+ ins:['Necesidad de inspección','Obra y zona','Descripción breve'],
+ steps:['El cliente solicita la ITO desde la app','Nace en estado «solicitada», sin inspector','Se avisa al supervisor'],
+ outs:['ITO solicitada','Aviso al supervisor'],
+ nodes:[['a0',0,0,'h','Solicita una ITO|obra, zona, descripción'],['a1',4,1,'s','Crea la ITO|estado solicitada'],['a2',4,2,'x','Aviso por correo|al supervisor'],['a3',1,3,'h','Recibe la solicitud|en su panel'],['a4',4,4,'o','Queda a la espera|de aceptar y asignar']],
+ edges:[['a0','a1'],['a1','a2'],['a2','a3'],['a3','a4']],path:['a0','a1','a2','a3','a4'],
+ reglas:['El perfil cliente puede solicitar; no crea ni asigna.','Es opcional: el supervisor también puede crear una ITO sin solicitud.']},
+{id:'e1',n:'Programación',who:'Supervisor',
+ ins:['Solicitud o necesidad propia','Obra (000–999) y zona','Inspector y contratista','Fecha programada','Plantilla (versión)','Planos de la biblioteca','Partidas, una a una'],
+ steps:['Crea o acepta y asigna la ITO','Elige plantilla: queda con esa versión (R12)','Carga planos y escribe las partidas','Opcional: informa el plan al contratista','El servidor asigna el correlativo (provisional sin red)','Se crea el evento en el Calendario'],
+ outs:['ITO programada','Número NNNN.OOO.CLI.MM.AA','Evento en el Calendario','Correo al contratista (opcional)'],
+ nodes:[['b0',1,0,'h','Crea o acepta|y asigna la ITO'],['b1',1,1,'h','Obra, zona, inspector,|contratista y fecha'],['b2',1,2,'h','Plantilla, planos y|partidas (opcional ahora)'],['b3',4,3,'s','Guarda y congela|la versión de plantilla'],['b4',4,4,'x','Asigna correlativo|por cliente y año'],['b5',4,5,'x','Crea el evento|en el Calendario'],['b6',3,6,'h','Recibe el plan|(si se informó)'],['b7',4,7,'o','ITO programada|con número']],
+ edges:[['b0','b1'],['b1','b2'],['b2','b3'],['b3','b4'],['b4','b5'],['b5','b7'],['b5','b6','opcional']],path:['b0','b1','b2','b3','b4','b5','b7'],
+ reglas:['Cabecera obligatoria: obra, zona, inspector, contratista y fecha. Plantilla, planos y partidas pueden agregarse después.','R9: el correlativo lo asigna el servidor, de forma atómica por cliente y año; sin red queda provisional.','R15: desde que empieza la ejecución, la cabecera solo se cambia con conexión.','El evento del Calendario lo escribe y mantiene el código de ITO; es de solo lectura en el Calendario.']},
+{id:'e2',n:'Ejecución',who:'Inspector',
+ ins:['ITO programada','Planos con revisión','Checklist y mediciones','Partidas del contrato','Cámara y archivos'],
+ steps:['Marca cada ítem: Cumple, No cumple o N/A','Registra mediciones con su rango esperado','Anota el % de avance de cada partida','Observaciones: planificadas y no planificadas (crítica)','Fotos (~300 KB) y PDF (hasta 3 MB)','Marca pines, líneas, círculos y texto sobre el plano'],
+ outs:['Checklist evaluado','Avance de partidas','Observaciones con evidencia','Marcas en capa transparente','Aviso al responsable de cada hallazgo'],
+ nodes:[['c0',2,0,'h','Abre la ITO|en el celular'],['c1',2,1,'h','Evalúa el checklist|y las mediciones'],['c2',2,2,'h','Avance de partidas|y observaciones'],['c3',2,3,'h','Evidencia y marcas|sobre el plano'],['c4',4,4,'s','Guarda en el dispositivo|(funciona sin red)'],['c5',4,5,'d','¿Completo y con|evidencia? (R1)'],['c6',4,6,'x','Sincroniza y avisa|a los responsables'],['c7',4,7,'o','Listo para|firmar']],
+ edges:[['c0','c1'],['c1','c2'],['c2','c3'],['c3','c4'],['c4','c5'],['c5','c1','No: falta algo','back'],['c5','c6','Sí'],['c6','c7']],path:['c0','c1','c2','c3','c4','c5','c6','c7'],
+ reglas:['R1: no se firma con ítems sin evaluar, ni con un No cumple sin observación, acción correctiva, responsable, fecha límite y foto. Tampoco con una crítica no planificada sin descripción, responsable y foto.','Una observación no planificada lleva descripción, foto y responsable; bloquea la aprobación solo si el inspector la marca crítica.','Las marcas viven en una capa aparte: el plano original no se modifica (R11).','Observaciones y marcas van en tablas propias; el aviso por correo sale al asignar el hallazgo.']},
+{id:'e3',n:'Firma del inspector',who:'Inspector',
+ ins:['Ejecución completa (R1)','Conexión, o cola hasta sincronizar'],
+ steps:['Firma en el recuadro (nombre, RUT, cargo)','Sin red: la firma queda en cola','Al sincronizar: número definitivo','La ITO pasa a «por firmar»','Se avisa al contratista y al cliente'],
+ outs:['Firma 1 del inspector','ITO por firmar','Aviso a contratista y cliente'],
+ nodes:[['d0',2,0,'h','Firma como|inspector'],['d1',4,1,'s','Guarda la firma|en el dispositivo'],['d2',4,2,'d','¿Hay conexión?'],['d3',4,3,'s','Queda en cola|«pendiente de sincronizar»'],['d4',4,4,'x','Número definitivo y|estado por firmar'],['d5',4,5,'x','Aviso por correo|contratista y cliente'],['d6',3,6,'h','Recibe el aviso|de firma'],['d7',0,6,'h','Recibe el aviso|de firma']],
+ edges:[['d0','d1'],['d1','d2'],['d2','d3','No'],['d3','d4','al volver la red'],['d2','d4','Sí'],['d4','d5'],['d5','d6'],['d5','d7']],path:['d0','d1','d2','d4','d5','d6'],
+ reglas:['El inspector puede firmar sin red; el paso a «por firmar» y los avisos esperan a sincronizar.','Mientras el número sea provisional, la pantalla muestra «Pendiente de sincronización».','R10: el orden es inspector, contratista, cliente; ninguna se salta.']},
+{id:'e4',n:'Contratista',who:'Contratista',
+ ins:['ITO por firmar','Resultado y observaciones','Fechas límite'],
+ steps:['Revisa el resultado y los hallazgos','Firma el acuse de recibo, o rechaza con motivo','Con bloqueantes abiertos: la ITO queda «observada»','Un rechazo pasa a «rechazada»; el supervisor decide'],
+ outs:['Firma 2 del contratista','ITO observada (si hay bloqueantes)','ITO rechazada con motivo'],
+ nodes:[['f0',3,0,'h','Revisa resultado|y hallazgos'],['f1',3,1,'d','¿Firma o|rechaza?'],['f2',3,2,'h','Firma el acuse|de recibo'],['f3',3,3,'h','Rechaza con|motivo obligatorio'],['f4',4,4,'d','¿Quedan bloqueantes|abiertos?'],['f5',4,5,'o','Estado observada|a re-inspección'],['f6',4,6,'o','Sigue por firmar|(pasa al cliente)'],['f7',1,5,'h','Supervisor decide:|reabrir o archivar'],['f8',4,3,'x','Estado rechazada|y aviso al supervisor']],
+ edges:[['f0','f1'],['f1','f2','Firma'],['f1','f3','Rechaza'],['f2','f4'],['f4','f5','Sí'],['f4','f6','No'],['f3','f8'],['f8','f7','avisa']],path:['f0','f1','f2','f4','f6'],
+ reglas:['El contratista firma el acuse inicial; con bloqueantes abiertos la ITO queda observada.','Rechazar exige motivo; el supervisor decide si reabre a «en progreso» o archiva.']},
+{id:'e5',n:'Re-inspección',who:'Inspector',loop:true,
+ ins:['ITO observada o reabierta','Observaciones abiertas','Corrección del contratista'],
+ steps:['Se reabre la misma ITO','Solo se re-evalúan los puntos pendientes','Críticas: se cierran por re-inspección (con foto) o por aceptación (con justificación)','Las firmas del inspector y del contratista se conservan (R10)','Cada re-inspección queda en el historial'],
+ outs:['Observaciones cerradas','Historial de re-inspección','ITO de vuelta a «por firmar»'],
+ nodes:[['g0',2,0,'h','Reabre la ITO|observada'],['g1',2,1,'h','Re-evalúa solo|lo pendiente'],['g2',2,2,'d','¿Cómo se cierra|la crítica?'],['g3',2,3,'h','Re-inspección|con foto'],['g4',2,4,'h','Aceptación con|justificación escrita'],['g5',4,5,'s','Historial: fecha,|inspector, resultado'],['g6',4,6,'o','Vuelve a por firmar|firmas conservadas']],
+ edges:[['g0','g1'],['g1','g2'],['g2','g3','Re-inspección'],['g2','g4','Aceptación'],['g3','g5'],['g4','g5'],['g5','g6']],path:['g0','g1','g2','g3','g5','g6'],
+ reglas:['Se reabre la misma ITO; el historial de cada ítem se conserva.','R14: la crítica se cierra por re-inspección (con foto) o por aceptación del inspector (con justificación escrita). Ambas quedan en el historial y en el informe.','Consecuencia aceptada: el contratista no firma el resultado final, solo el acuse inicial.']},
+{id:'e6',n:'Aprobación del cliente',who:'Cliente',
+ ins:['ITO por firmar sin bloqueantes','Sesión del cliente (o enlace temporal)','Resumen, planos y fotos'],
+ steps:['Abre la ITO dentro de la app (o por enlace sin cuenta)','Revisa resumen, planos y fotos','R3: solo firma con 0 No cumple y 0 críticas abiertas','Firma con nombre, RUT y cargo, o rechaza con motivo'],
+ outs:['Firma 3 del cliente','ITO aprobada','O ITO rechazada con motivo'],
+ nodes:[['h0',0,0,'h','Abre la ITO|(app o enlace)'],['h1',4,1,'d','¿Sesión de cliente|o enlace vigente?'],['h2',0,2,'h','Revisa resumen,|planos y fotos'],['h3',4,3,'d','¿0 No cumple y|0 críticas? (R3)'],['h4',0,4,'h','Firma con nombre,|RUT y cargo'],['h5',4,5,'x','Registra la firma|(enlace: queda inválido)'],['h6',4,6,'o','ITO aprobada'],['h7',0,6,'h','Rechaza con|motivo']],
+ edges:[['h0','h1'],['h1','h2','Sí'],['h2','h3'],['h3','h4','Sí'],['h3','h7','No'],['h4','h5'],['h5','h6']],path:['h0','h1','h2','h3','h4','h5','h6'],
+ reglas:['El perfil cliente firma dentro de la app; el enlace temporal es solo para quien no tiene cuenta.','R7: token de 256 bits (solo su hash en la base), vence en 7 días, un uso; se regenera desde la pantalla de firmas.','El perfil cliente ve las ITO enviadas a firma, observadas, rechazadas y aprobadas.']},
+{id:'e7',n:'Cierre y entrega',who:'Sistema',
+ ins:['ITO aprobada','Firmas y evidencia','Logo del cliente'],
+ steps:['Hash SHA-256 y código de verificación','Sella la ITO: inmutable (R4)','Arma el PDF con el logo del cliente','Lo envía por correo (Resend)','Registra auditoría y actualiza el Calendario'],
+ outs:['Informe PDF verificable','Correo a cliente, contratista e inspector','ITO inmutable','Evento realizado en el Calendario','Registro de auditoría'],
+ nodes:[['i0',4,0,'x','Hash SHA-256 y|código CO-AAAA-…'],['i1',4,1,'x','Sella la ITO|(inmutable, R4)'],['i2',4,2,'s','Arma el PDF|con logo del cliente'],['i3',4,3,'x','Envía por correo|(Resend)'],['i4',4,4,'x','Auditoría y evento|del Calendario'],['i5',0,5,'h','Recibe el informe|y puede verificarlo'],['i6',3,5,'h','Recibe el informe'],['i7',2,5,'h','Recibe el informe'],['i8',4,6,'o','ITO cerrada y|verificable']],
+ edges:[['i0','i1'],['i1','i2'],['i2','i3'],['i3','i4'],['i3','i5'],['i3','i6'],['i3','i7'],['i4','i8']],path:['i0','i1','i2','i3','i4','i8'],
+ reglas:['R4: aprobada es inmutable; el servidor rechaza con 409 toda escritura posterior, también la que llegue por sincronización.','R13: si un dispositivo envía un cambio rechazado por 409, descarta el cambio y toma la versión del servidor.','El PDF se arma con jsPDF; el hash lo fija el servidor.','Cualquiera con el código verifica la autenticidad en la página pública /verificar.']}
+];
+var EBY={};ET.forEach(function(e){EBY[e.id]=e;});
+var REGLAS=[['R1','El inspector no firma con ítems sin evaluar, ni con un No cumple sin observación, acción correctiva, responsable, fecha límite y foto; ni con una crítica no planificada incompleta','Ejecución'],['R2','No cumple → Cumple en re-inspección: el pin pasa a resuelto y el historial se conserva','Re-inspección'],['R3','El cliente aprueba solo con 0 No cumple abiertos y 0 críticas no planificadas abiertas, y al menos un ítem aplicable en Cumple','Aprobación'],['R4','Aprobada es inmutable: el servidor rechaza toda escritura posterior con 409','Cierre'],['R5','El módulo no escribe en órdenes de servicio ni en mantenimientos','Todas'],['R6','Cumplimiento % = Cumple ÷ (Cumple + No cumple); N/A no cuenta','Panel e informe'],['R7','Token de 256 bits, solo su hash en la base, vence en 7 días, un uso; límite de intentos en base de datos','Aprobación'],['R8','Foto en Cumple solo si la plantilla lo exige','Ejecución'],['R9','Correlativo atómico por cliente y año, asignado por el servidor','Programación'],['R10','Firmas en orden: inspector, contratista, cliente. Al reabrir se conservan las del inspector y del contratista','Firmas'],['R11','El plano original no se modifica; una revisión nueva no borra las marcas de la anterior','Ejecución'],['R12','Una ITO conserva la versión de plantilla con que nació','Programación'],['R13','Ante un 409 por inmutabilidad, el dispositivo descarta su cambio y toma la versión del servidor','Cierre'],['R14','Una crítica no planificada se cierra por re-inspección (con foto) o por aceptación del inspector (con justificación)','Re-inspección'],['R15','La cabecera solo se modifica con conexión; un dispositivo que estuvo sin red no la sobrescribe','Programación']];
+var DATOS=[['obras','000–999 por cliente, nombre, sucursal opcional'],['obra_partidas','código, descripción, origen (planificada o de terreno)'],['ito_plantillas','plantilla con versión, ítems y mediciones'],['planos','biblioteca; cada plano con sus revisiones (Rev A, B, C)'],['itos','cabecera, estado, checklist, avance de partidas, firmas, historial'],['ito_observaciones','planificadas y no planificadas, crítica, responsable, fecha límite'],['ito_marcas','pines, líneas, círculos y texto sobre una revisión de plano'],['ito_media','fotos y adjuntos PDF'],['ito_secuencias','solo servidor: contador por cliente y año'],['ito_tokens_firma','solo servidor: hash del token, vencimiento, uso'],['clientes','se agrega un código corto único de hasta 6 letras']];
+
+/* ---------- Estados ---------- */
+function stateDiagram(){
+  function N(id,t,cx,cy,lab){return {id:id,t:t,lab:lab,cx:cx,cy:cy,w:150,h:50};}
+  var nodes=[N('sol','s',100,60,'solicitada|la pidió el cliente'),N('pro','s',350,60,'programada|con inspector y fecha'),N('prg','s',600,60,'en progreso|ya hay registros'),N('xf','x',850,60,'por firmar|firmó el inspector'),N('apr','o',1100,60,'aprobada|inmutable'),
+    N('obs','g',850,200,'observada|bloqueantes abiertos'),N('rec','g',600,200,'rechazada|con motivo'),N('arc','s',350,200,'archivada|decide el supervisor')];
+  var edges=[['sol','pro','acepta y asigna'],['pro','prg','primer registro'],['prg','xf','firma inspector'],['xf','apr','firma cliente (R3)'],['xf','obs','acuse con bloqueantes'],['xf','rec','alguien rechaza'],['obs','prg','reabre','back'],['rec','prg','supervisor reabre','back'],['rec','arc','supervisor archiva']];
+  return drawDiagram({nodes:nodes,W:1200,H:290,bands:null},edges,{uid:'s'+(++UID),aria:'Estados de una ITO'});
+}
+
+/* ---------- Mapa IPO ---------- */
+function ipoMap(){
+  var cols=ET.length,h='<div class="ipo-scroll"><div class="ipo" id="ipo" style="grid-template-columns:90px repeat('+cols+',minmax(112px,1fr))">';
+  h+='<div class="ipo-lab" style="grid-row:1"><span>Entradas</span></div><div class="ipo-lab" style="grid-row:2"><span>Proceso</span></div><div class="ipo-lab" style="grid-row:3"><span>Salidas</span></div>';
+  ET.forEach(function(e,i){
+    var c=i+2;
+    h+='<div class="ipo-in" data-i="'+i+'" style="grid-column:'+c+';grid-row:1"><ul>'+e.ins.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+    h+='<div class="ipo-pr" data-i="'+i+'" style="grid-column:'+c+';grid-row:2"><div class="ipo-h"><b>'+(i)+'</b><div><strong>'+esc(e.n)+'</strong><span class="who">'+esc(e.who)+(e.opt?' · opcional':'')+(e.loop?' · ciclo':'')+'</span></div></div><ol>'+e.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol><a class="more" href="#et-'+e.id+'">Ver flujo →</a></div>';
+    h+='<div class="ipo-out" data-i="'+i+'" style="grid-column:'+c+';grid-row:3"><ul>'+e.outs.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+    if(i<cols-1)h+='<i class="ipo-arr" style="grid-column:'+c+';grid-row:2"></i>';
+    h+='<i class="ipo-v1" style="grid-column:'+c+';grid-row:1"></i><i class="ipo-v2" style="grid-column:'+c+';grid-row:2"></i>';
+  });
+  return h+'</div></div>';
+}
+
+/* ---------- Revisión ---------- */
+var REVKEY='ito-mapa-revision';
+function loadRev(){try{return JSON.parse(localStorage.getItem(REVKEY)||'{}');}catch(e){return {};}}
+function saveRev(r){try{localStorage.setItem(REVKEY,JSON.stringify(r));}catch(e){}}
+var REV=loadRev();
+
+/* ---------- Vistas ---------- */
+var app=document.getElementById('app'),timers=[];
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+function chips(a,c){return '<div class="chips">'+a.map(function(x){return '<span class="chip '+c+'">'+esc(x)+'</span>';}).join('')+'</div>';}
+function legend(){return '<div class="legend" aria-label="Leyenda"><span><i class="sw h"></i>Persona interviene</span><span><i class="sw s"></i>App en el dispositivo</span><span><i class="sw x"></i>Servidor o servicio externo</span><span><i class="sw d"></i>Decisión</span><span><i class="sw o"></i>Resultado</span><span><i class="sw g"></i>Estado de excepción</span></div>';}
+function ctl(){return '<div class="ctl"><button class="btn pri" id="play" type="button">▶ Reproducir recorrido</button><button class="btn" id="step" type="button">Paso ›</button><button class="btn" id="reset" type="button">Reiniciar</button><div class="stepcap" id="cap" aria-live="polite">Pulsa reproducir para seguir el camino principal paso a paso.</div></div>';}
+function mount(D,path){
+  var svg=app.querySelector('svg.dg'),cap=document.getElementById('cap'),i=-1,running=false,byId={};
+  D.nodes.forEach(function(n){byId[n.id]=n;});
+  function show(k){
+    i=k;svg.classList.add('dim');
+    svg.querySelectorAll('.node.on,.node.seen').forEach(function(n){n.classList.remove('on','seen');});
+    svg.querySelectorAll('.edge.hot').forEach(function(n){n.classList.remove('hot');});
+    for(var j=0;j<=k;j++){var nd=svg.querySelector('.node[data-id="'+path[j]+'"]');if(nd)nd.classList.add(j===k?'on':'seen');
+      if(j>0){var ed=svg.querySelector('.edge[data-f="'+path[j-1]+'"][data-t="'+path[j]+'"]');if(ed)ed.classList.add('hot');}}
+    var n=byId[path[k]];cap.innerHTML='<b>Paso '+(k+1)+' de '+path.length+'</b> · '+esc(LANES[n.lane])+': '+esc(lines(n.lab).join(' '));
+  }
+  function stop(){running=false;clearTimers();document.getElementById('play').textContent='▶ Reproducir recorrido';}
+  function tick(){if(!running)return;if(i+1>=path.length){stop();return;}show(i+1);timers.push(setTimeout(tick,1300));}
+  document.getElementById('play').addEventListener('click',function(){if(running){stop();return;}if(i+1>=path.length)i=-1;running=true;this.textContent='⏸ Pausar';tick();});
+  document.getElementById('step').addEventListener('click',function(){stop();show(Math.min(i+1,path.length-1));});
+  document.getElementById('reset').addEventListener('click',function(){stop();i=-1;svg.classList.remove('dim');svg.querySelectorAll('.on,.hot,.seen').forEach(function(n){n.classList.remove('on','hot','seen');});cap.textContent='Pulsa reproducir para seguir el camino principal paso a paso.';});
+  if(!REDUCED){running=true;document.getElementById('play').textContent='⏸ Pausar';timers.push(setTimeout(tick,700));}
+}
+function viewMapa(){
+  app.innerHTML='<h2>Mapa de proceso · Módulo ITO</h2><p>De la solicitud al informe verificable, en ocho etapas. Cada columna muestra lo que <b>entra</b>, lo que <b>ocurre</b> y lo que <b>sale</b>. Una persona interviene en las etapas 0 a 6; la etapa 7 la ejecuta el sistema. La etapa 5 es un ciclo que se repite mientras queden bloqueantes.</p>'+
+  '<div class="kpis"><div class="kpi"><b>8</b><span>etapas</span></div><div class="kpi"><b>4</b><span>perfiles que firman o actúan</span></div><div class="kpi"><b>3</b><span>firmas en orden</span></div><div class="kpi"><b>15</b><span>reglas de negocio</span></div></div>'+
+  '<div class="ctl" style="padding:0 0 8px"><button class="btn pri" id="iplay" type="button">▶ Recorrer las etapas</button><button class="btn" id="ireset" type="button">Reiniciar</button><div class="stepcap" id="icap" aria-live="polite">Pulsa para iluminar cada etapa en orden.</div></div>'+
+  ipoMap()+'<p class="note" style="margin-top:10px">Los colores: azul = entradas, neutro = proceso, verde = salidas. Haz clic en «Ver flujo» para abrir el detalle por rol de cada etapa.</p>';
+  var i=-1,run=false,P=app.querySelectorAll('.ipo-pr'),I=app.querySelectorAll('.ipo-in'),O=app.querySelectorAll('.ipo-out');
+  function show(k){i=k;app.querySelector('#ipo').classList.add('dim');
+    [P,I,O].forEach(function(L){L.forEach(function(n,j){n.classList.toggle('on',j===k);n.classList.toggle('seen',j<k);});});
+    document.getElementById('icap').innerHTML='<b>Etapa '+k+' de '+(ET.length-1)+'</b> · '+esc(ET[k].n)+' · '+esc(ET[k].who);}
+  function stop(){run=false;clearTimers();document.getElementById('iplay').textContent='▶ Recorrer las etapas';}
+  function tick(){if(!run)return;if(i+1>=ET.length){stop();return;}show(i+1);timers.push(setTimeout(tick,1500));}
+  document.getElementById('iplay').onclick=function(){if(run){stop();return;}if(i+1>=ET.length)i=-1;run=true;this.textContent='⏸ Pausar';tick();};
+  document.getElementById('ireset').onclick=function(){stop();i=-1;app.querySelector('#ipo').classList.remove('dim');[P,I,O].forEach(function(L){L.forEach(function(n){n.classList.remove('on','seen');});});document.getElementById('icap').textContent='Pulsa para iluminar cada etapa en orden.';};
+  if(!REDUCED){run=true;document.getElementById('iplay').textContent='⏸ Pausar';timers.push(setTimeout(tick,900));}
+}
+function viewFlujos(){
+  app.innerHTML='<h2>Flujos por etapa</h2><p>Cada flujo separa quién hace qué: cliente, supervisor, inspector, contratista y sistema.</p><div class="grid">'+ET.map(function(e,i){return '<a class="card" href="#et-'+e.id+'"><div><h4>'+i+' · '+esc(e.n)+'</h4><div class="route">'+esc(e.who)+(e.opt?' · opcional':'')+'</div></div><div class="lbl">Entra</div>'+chips(e.ins.slice(0,3),'i')+'<div class="lbl">Sale</div>'+chips(e.outs.slice(0,3),'o')+'</a>';}).join('')+'</div>';
+}
+function viewEtapa(id){
+  var e=EBY[id];if(!e){location.hash='#flujos';return;}
+  var D=toNodes(e),k=ET.indexOf(e);
+  app.innerHTML='<a class="back" href="#flujos">← Todas las etapas</a><h2 style="margin-top:8px">'+k+' · '+esc(e.n)+'</h2><div class="route">'+esc(e.who)+(e.opt?' · opcional':'')+(e.loop?' · ciclo':'')+'</div>'+
+  '<div class="two"><div class="panel"><h3>Entra</h3>'+chips(e.ins,'i')+'</div><div class="panel"><h3>Proceso</h3><ol style="margin:0;padding-left:18px">'+e.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol></div><div class="panel"><h3>Sale</h3>'+chips(e.outs,'o')+'</div></div>'+
+  legend()+'<figure><div class="scroll">'+drawDiagram(D,e.edges,{uid:'e'+(++UID),aria:'Flujo de la etapa '+e.n})+'</div>'+ctl()+'<figcaption>Camino principal en '+e.path.length+' pasos.</figcaption></figure>'+
+  '<div class="panel" style="margin-top:14px"><h3>Reglas de esta etapa</h3><ul>'+e.reglas.map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></div>'+
+  '<div class="row" style="margin-top:12px">'+(k>0?'<a class="btn" href="#et-'+ET[k-1].id+'">← '+esc(ET[k-1].n)+'</a>':'')+(k<ET.length-1?'<a class="btn" href="#et-'+ET[k+1].id+'">'+esc(ET[k+1].n)+' →</a>':'')+'</div>';
+  mount(D,e.path);
+}
+function viewEstados(){
+  app.innerHTML='<h2>Estados de la ITO</h2><p>La ITO avanza hacia la aprobación con tres retornos: reabrir tras observaciones, reabrir tras un rechazo, o archivar. Una vez aprobada queda sellada.</p>'+legend()+'<figure><div class="scroll">'+stateDiagram()+'</div><figcaption>Estados de una ITO. Los estados con borde rojo punteado son excepciones: requieren una acción para volver al camino principal.</figcaption></figure>';
+}
+function viewReglas(){
+  app.innerHTML='<h2>Reglas y datos</h2><p>Las reglas viven en un módulo compartido entre la app y el servidor; el servidor es la autoridad.</p><div class="panel"><div class="tw"><table><thead><tr><th>Regla</th><th>Qué exige</th><th>Etapa</th></tr></thead><tbody>'+REGLAS.map(function(r){return '<tr><td><b>'+r[0]+'</b></td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>Datos que guarda el módulo</h2><div class="panel"><div class="tw"><table><thead><tr><th>Tabla</th><th>Contenido</th></tr></thead><tbody>'+DATOS.map(function(r){return '<tr><td><code>'+r[0]+'</code></td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>Conexión con la app existente</h2><div class="two"><div class="panel"><h3>Se conecta con</h3><ul><li>Clientes (cliente, código corto, logo)</li><li>Calendario (un evento por ITO)</li><li>Usuarios y perfiles</li><li>Sincronización offline</li><li>Envío por correo (Resend)</li></ul></div><div class="panel"><h3>No toca</h3><ul><li>Órdenes de servicio</li><li>Mantenimientos</li><li>Tickets</li><li>Inventario</li></ul></div></div>';
+}
+function summaryText(){
+  var ap=[],ob=[];
+  ET.forEach(function(e,i){var r=REV[e.id];if(!r)return;var t=i+' · '+e.n;if(r.s==='ok')ap.push(t);else if(r.s==='obs')ob.push(t+(r.c?': '+r.c:''));});
+  var pend=ET.filter(function(e){return !REV[e.id];}).map(function(e){return ET.indexOf(e)+' · '+e.n;});
+  var g=REV.__general||'';
+  return 'REVISIÓN DEL MAPA DE PROCESO ITO\nAprobadas ('+ap.length+'): '+(ap.join('; ')||'ninguna')+'\nCon observaciones ('+ob.length+'):\n'+(ob.map(function(x){return '- '+x;}).join('\n')||'- ninguna')+'\nSin revisar ('+pend.length+'): '+(pend.join('; ')||'ninguna')+(g?'\nComentario general: '+g:'')+'\n'+(ap.length===ET.length?'DECISIÓN: APRUEBO EL MAPA':'DECISIÓN: pendiente');
+}
+function viewAprob(){
+  var done=ET.filter(function(e){return REV[e.id];}).length,ok=ET.filter(function(e){return REV[e.id]&&REV[e.id].s==='ok';}).length;
+  app.innerHTML='<h2>Revisión y aprobación</h2><p>Marca cada etapa como aprobada u observada. Tu avance se guarda en este navegador. Al terminar, copia el resumen y pégalo en la conversación.</p>'+
+  '<div class="kpis"><div class="kpi good"><b>'+ok+'</b><span>aprobadas</span></div><div class="kpi bad"><b>'+(done-ok)+'</b><span>con observaciones</span></div><div class="kpi"><b>'+(ET.length-done)+'</b><span>sin revisar</span></div></div>'+
+  '<div class="rev">'+ET.map(function(e,i){var r=REV[e.id]||{};return '<div class="rv"><div class="row" style="justify-content:space-between"><div><b>'+i+' · '+esc(e.n)+'</b><div class="route">'+esc(e.who)+' · <a href="#et-'+e.id+'">ver flujo</a></div></div><div class="row"><button class="btn'+(r.s==='ok'?' okb':'')+'" data-rv="'+e.id+'" data-v="ok" aria-pressed="'+(r.s==='ok')+'">Aprobar</button><button class="btn'+(r.s==='obs'?' nob':'')+'" data-rv="'+e.id+'" data-v="obs" aria-pressed="'+(r.s==='obs')+'">Observar</button></div></div>'+(r.s==='obs'?'<label class="fl" for="c-'+e.id+'">¿Qué cambiarías?</label><textarea class="in" id="c-'+e.id+'" data-c="'+e.id+'">'+esc(r.c||'')+'</textarea>':'')+'</div>';}).join('')+'</div>'+
+  '<label class="fl" for="gen">Comentario general (opcional)</label><textarea class="in" id="gen">'+esc(REV.__general||'')+'</textarea>'+
+  '<div class="row" style="margin-top:12px"><button class="btn pri" id="allok" type="button">Aprobar todas las etapas</button><button class="btn" id="copy" type="button">Copiar resumen</button><button class="btn" id="clear" type="button">Limpiar revisión</button></div><div id="sumbox" class="panel" style="margin-top:12px"><h3>Resumen</h3><pre id="sum" style="white-space:pre-wrap;margin:0;font:12px var(--mono)">'+esc(summaryText())+'</pre></div>';
+  app.querySelectorAll('[data-rv]').forEach(function(b){b.onclick=function(){var id=b.getAttribute('data-rv'),v=b.getAttribute('data-v');if(REV[id]&&REV[id].s===v)delete REV[id];else REV[id]={s:v,c:(REV[id]&&REV[id].c)||''};saveRev(REV);viewAprob();};});
+  app.querySelectorAll('[data-c]').forEach(function(t){t.oninput=function(){REV[t.getAttribute('data-c')].c=t.value;saveRev(REV);document.getElementById('sum').textContent=summaryText();};});
+  document.getElementById('gen').oninput=function(){REV.__general=this.value;saveRev(REV);document.getElementById('sum').textContent=summaryText();};
+  document.getElementById('allok').onclick=function(){ET.forEach(function(e){REV[e.id]={s:'ok',c:''};});saveRev(REV);viewAprob();};
+  document.getElementById('clear').onclick=function(){REV={};saveRev(REV);viewAprob();};
+  document.getElementById('copy').onclick=function(){var t=summaryText(),b=this;function fb(){var r=document.createRange();r.selectNodeContents(document.getElementById('sum'));var s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Selecciona y copia (Ctrl+C)';}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){b.textContent='Copiado ✓';},fb);}else fb();};
+}
+function route_(){
+  clearTimers();
+  var h=(location.hash||'#mapa').slice(1);
+  var v=h.indexOf('et-')===0?'flujos':h;
+  document.querySelectorAll('#tabs a').forEach(function(a){if(a.getAttribute('data-v')===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  if(h.indexOf('et-')===0)viewEtapa(h.slice(3));
+  else if(h==='flujos')viewFlujos();
+  else if(h==='estados')viewEstados();
+  else if(h==='reglas')viewReglas();
+  else if(h==='aprobacion')viewAprob();
+  else viewMapa();
+  window.scrollTo(0,0);applyPause();
+}
+var paused=REDUCED;
+function applyPause(){
+  document.body.classList.toggle('paused',paused);
+  document.querySelectorAll('svg.dg').forEach(function(s){try{if(paused)s.pauseAnimations();else s.unpauseAnimations();}catch(e){}});
+  var b=document.getElementById('pauseBtn');b.textContent='Animación: '+(paused?'pausada':'activa');b.setAttribute('aria-pressed',String(paused));
+}
+document.getElementById('pauseBtn').addEventListener('click',function(){paused=!paused;applyPause();});
+window.addEventListener('hashchange',route_);
+route_();
+
+})();
+</script>
+</body></html>

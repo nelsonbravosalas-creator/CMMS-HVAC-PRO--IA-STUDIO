@@ -239,7 +239,8 @@ Supuesto vigente: cada ITO y plano pertenece al cliente activo y a una de sus ob
 | `docs/INFORME_ITO_EJEMPLO.pdf`, `docs/FILOSOFIA_DISENO_INFORME.md` | vigentes (diseño del informe) |
 | `docs/DIAGRAMAS_PROCESO_MODULOS.html` | vigente (cómo funciona hoy la app) |
 | `SPEC-INSPECCIONES.md` | histórico, reemplazado por este plan |
-| `docs/PLAN_INSPECCION_DE_OBRA.html` | **desactualizado**: muestra dos firmas y no incluye partidas, planos con revisiones ni observaciones no planificadas |
+| `docs/MAPA_PROCESO_ITO.html` | **vigente**: mapa de proceso con entradas, proceso y salidas, flujos por rol, estados, reglas y revisión |
+| `docs/PLAN_INSPECCION_DE_OBRA.html` | **reemplazado** por el mapa de proceso; muestra dos firmas y no incluye partidas, planos con revisiones ni observaciones no planificadas |
 
 ## 13. Lista de lanzamiento
 
