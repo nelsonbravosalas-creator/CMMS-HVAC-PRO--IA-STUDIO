@@ -367,3 +367,62 @@ difieran.** La ITO se entiende como **hija del Libro de Obra** (sección 16, apu
 4. **Plazo de firma con aviso al supervisor (I11) frente a «sin correo al vencer» (I13).** Un aviso al vencer un plazo necesita una tarea programada o una revisión al abrir la app. Hay que elegir: una ejecución diaria en Vercel Hobby (solo para este aviso) o mostrar los plazos vencidos en el panel y avisar al abrir. **Por decidir.**
 5. **Tope de 150 MB por ITO (I14).** Con muchas ITO por obra puede superar el almacenamiento de Neon contratado. Verificar la cuota y, si hace falta, bajar el tope o pasar la evidencia a otro almacén.
 6. **Efecto en el mapa de proceso.** Hay que agregar la etapa de respuesta del contratista, las revisiones R00 y siguientes, las dos fechas por revisión y el Libro de Obra como entidad principal. El mapa publicado todavía muestra el flujo anterior.
+
+## 18. Resolución de las cinco tensiones (2026-11-17)
+
+| # | Tensión | Decisión |
+|---|---------|----------|
+| 1 | Cuándo se «cierra» una revisión | **Cuando el inspector firma su cierre.** Ahí se fija la fecha de cierre y queda como R00. Si después el contratista deja observaciones abiertas, se abre R01 con nueva fecha de apertura. La última revisión cierra en conformidad cuando ya no hay bloqueantes |
+| 2 | Obra creada con la primera ITO | **Asistente en un solo paso**: obra (número y nombre), participantes con su rol y partidas. Al terminar se crean la obra, su libro y la ITO como primera anotación |
+| 3 | Contrapeso a que el inspector cierre sus críticas | **La aceptación se destaca en el informe y en la pantalla de aprobación; el cliente puede objetarla** y la observación se reabre |
+| 4 | Plazo de firma con aviso al supervisor | **Una tarea diaria solo para plazos de firma** (una ejecución al día en el plan Hobby). Las observaciones vencidas siguen sin correo |
+| 5 | Tope de 150 MB por ITO | **Verificar la cuota de Neon antes de la Fase 1** y bajar el tope o mover la evidencia si hace falta |
+
+## 19. Diseño del Libro de Obra (2026-11-17)
+
+Entrevista de 13 preguntas. **La ITO es hija del Libro de Obra.** Estas decisiones prevalecen sobre las
+secciones 2 a 18 donde difieran.
+
+| # | Tema | Decisión |
+|---|------|----------|
+| 1 | Alcance | **Libro completo con gestión de obra**, por fases (distinto de la recomendación, que era el libro mínimo) |
+| 2 | Orden de los módulos de gestión | Tras el libro base: **cronograma y curva S**, y **órdenes de cambio y trabajos adicionales**. Registro diario, consultas técnicas (RFI) y seguridad, después |
+| 3 | Roles de participante | **Cliente, inspector, contratista (por especialidad) y supervisor** |
+| 4 | Tipos de anotación | ITO, corrección, **instrucción, consulta, respuesta, hecho relevante y recepción de trabajos**. Sin accidente, paralización ni reinicio por ahora. *(La respuesta marcó además «Solo ITO y corrección», que contradice a las otras dos; se asumió la lista anterior. **Por confirmar.**)* |
+| 5 | Campos obligatorios | Tipo, texto, autor con su rol, al menos un destinatario y plazo si pide respuesta. Folio y hora se asignan solos. Adjuntos y referencia al plano, opcionales |
+| 6 | Firma de una anotación | **El autor la firma al emitirla; los destinatarios dan acuse.** La ITO conserva sus tres firmas |
+| 7 | Respuestas | **Hilo con estados (abierta, respondida, cerrada) y plazo por obra**; lo vencido se destaca en rojo |
+| 8 | Libros y folio | **Un libro por obra, con folio consecutivo único** para todas las anotaciones |
+| 9 | Sin conexión | **Sí**: la anotación queda como borrador firmado, sin folio, hasta sincronizar. El libro muestra la hora de escritura y la de recepción; el folio sigue el orden de llegada al servidor |
+| 10 | Visibilidad | **Todas las anotaciones emitidas son visibles para todos los participantes de la obra** (no los borradores). Las ITO siguen su propio criterio de visibilidad |
+| 11 | Cierre del libro | **Acta firmada por cliente, inspector y contratista**; el libro pasa a solo lectura y se genera el PDF completo foliado |
+| 12 | Integridad | **Hash de cada anotación encadenado con el de la anterior** de la obra; el PDF lleva el hash final y el código de verificación |
+| 13 | Validez legal | **No: es un registro entre las partes.** Basta la firma dibujada y el hash. Si el alcance cambia, hay que revisar este punto con un especialista |
+
+### Reglas nuevas (se suman a R1 a R21)
+
+| ID | Regla |
+|----|-------|
+| R22 | Una anotación la firma su autor al emitirla; cada destinatario registra un acuse de lectura |
+| R23 | Una anotación que pide respuesta tiene estado (abierta, respondida, cerrada) y plazo por obra; vencida se destaca en rojo |
+| R24 | Cada anotación guarda el hash de la anterior de la obra; romper la cadena se detecta |
+| R25 | Todas las anotaciones emitidas son visibles para todos los participantes de la obra |
+| R26 | Sin conexión, una anotación queda como borrador firmado sin folio; el folio lo asigna el servidor al sincronizar |
+| R27 | El cierre del libro exige el acta firmada por cliente, inspector y contratista; después el libro es de solo lectura |
+| R28 | Una observación cerrada por aceptación del inspector se destaca en el informe; el cliente puede objetarla y la observación se reabre |
+| R29 | Las respuestas del contratista, las aceptaciones y las objeciones quedan en el historial de cada observación |
+| R30 | El informe de la ITO muestra la fecha de apertura y el cierre de la última revisión cuando el inspector la cierra en conformidad |
+
+### Hoja de ruta por fases (tamaños relativos, no estimaciones de tiempo)
+
+| Fase | Contenido | Tamaño |
+|------|-----------|--------|
+| **0. Cierre del diseño** | Aprobar el mapa de proceso; confirmar los tipos de anotación; verificar la cuota de Neon | Pequeño |
+| **1. Libro base** | Obras, participantes con rol e invitaciones por correo, libro con folio, anotaciones (instrucción, consulta, respuesta, hecho relevante, recepción, corrección), firma y acuse, hilos con plazo, hash encadenado, trabajo sin conexión. Incluye tests de inmutabilidad y de aislamiento entre obras | Grande |
+| **2. ITO dentro del libro** | Revisiones R00…, observaciones en una sola tabla, respuesta del contratista, firmas, planos con capa de marcas, partidas y avance, informe | Grande |
+| **3. Cronograma y curva S** | Partidas con cantidad y ponderación; programado contra real; hitos | Grande |
+| **4. Órdenes de cambio y trabajos adicionales** | Aprobación, costo y plazo, apoyadas en el trabajo no planificado | Mediano |
+| **5. Cierre del libro y módulos restantes** | Acta de cierre y PDF completo; luego registro diario, consultas técnicas y seguridad, según prioridad | Mediano a grande |
+
+Nota: lo que antes era la Fase 1A (estructura de la ITO) queda absorbido por las fases 1 y 2.
+Si el alcance completo resulta demasiado, la **Fase 1 sola** ya es un libro de obra mínimo utilizable.
