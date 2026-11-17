@@ -239,7 +239,7 @@ Supuesto vigente: cada ITO y plano pertenece al cliente activo y a una de sus ob
 | `docs/INFORME_ITO_EJEMPLO.pdf`, `docs/FILOSOFIA_DISENO_INFORME.md` | vigentes (diseño del informe) |
 | `docs/DIAGRAMAS_PROCESO_MODULOS.html` | vigente (cómo funciona hoy la app) |
 | `SPEC-INSPECCIONES.md` | histórico, reemplazado por este plan |
-| `docs/MAPA_PROCESO_ITO.html` | **vigente**: mapa de proceso con entradas, proceso y salidas, flujos por rol, estados, reglas, **revisión crítica** (14 inconsistencias, 10 optimizaciones y 20 capacidades de libro de obra) y revisión para aprobar |
+| `docs/MAPA_PROCESO_ITO.html` | **vigente** (actualizado el 2026-11-17): Libro de Obra (5 etapas) e ITO hija del libro (8 etapas) con entradas, proceso y salidas, flujos por rol, estados, 30 reglas, fases, revisión crítica resuelta y revisión para aprobar |
 | `docs/PLAN_INSPECCION_DE_OBRA.html` | **reemplazado** por el mapa de proceso; muestra dos firmas y no incluye partidas, planos con revisiones ni observaciones no planificadas |
 
 ## 13. Lista de lanzamiento
