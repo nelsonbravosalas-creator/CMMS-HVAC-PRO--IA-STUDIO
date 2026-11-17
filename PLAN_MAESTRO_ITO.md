@@ -1,11 +1,11 @@
 # Plan Maestro — Módulo ITO (Inspección Técnica de Obra)
 
-Estado: **plan consolidado, sin código, revisado por Gemini (veredicto: listo con condiciones), sin lanzar** · 2026-11-16
+Estado: **plan consolidado, sin código, revisado por Gemini; los cinco puntos que bloqueaban el inicio están resueltos; pendiente solo la aprobación para lanzar la Fase 1** · 2026-11-17
 
 Este documento compila y reemplaza a `SPEC-INSPECCIONES.md`. Donde ambos difieran, vale este.
 Fuentes: transcripción del flujo de controlobrax.cl (el video no fue visto por quien redactó),
-revisión del código del repositorio y dos entrevistas con el propietario (20 preguntas más 5
-decisiones previas).
+revisión del código del repositorio, dos entrevistas con el propietario (20 preguntas más 5
+decisiones previas) y una tercera ronda de 10 preguntas sobre las observaciones de Gemini.
 
 ## 1. Qué es y qué no es
 
@@ -31,7 +31,14 @@ Servicio y Mantenimientos: no los lee ni los modifica. Se conecta con **Clientes
 | Ítem de checklist | Cumple / No cumple / N/A, con **medición opcional** (valor, unidad, rango esperado) |
 | Observaciones | Dos pestañas dentro de la ITO: **planificado** y **no planificado** |
 | No planificada | Descripción, foto y responsable. **Bloquea la aprobación solo si el inspector la marca crítica** |
-| Hallazgos | Responsable y fecha límite, con **aviso por correo** al asignar y al vencer. La fecha aparece en el Calendario |
+| Hallazgos | Responsable y fecha límite, con **aviso por correo al asignar**. La fecha aparece en el Calendario. **Sin correo al vencer por ahora**: los vencidos se ven en rojo en el panel y en el Calendario |
+| Cierre de una observación crítica no planificada | **Re-inspección o aceptación del inspector.** La aceptación exige una justificación escrita, que queda en el historial y en el informe |
+| Obra | **Entidad nueva** por cliente (número 00–99, nombre), con **sucursal opcional**. Una sucursal puede tener varias obras |
+| Código corto del cliente | **Campo nuevo** en la ficha del cliente, de hasta 6 letras y único. El sistema sugiere las primeras letras del nombre y el administrador lo ajusta |
+| Firmas al reabrir | **Se conservan** las del inspector y del contratista; solo falta el cliente (ver R10) |
+| Rechazo de firma | Estado **`rechazada`** con motivo obligatorio; el supervisor decide si reabre o archiva |
+| Inspector sin conexión | Puede firmar; el paso a «por firmar», el número definitivo y los avisos ocurren al sincronizar |
+| Conflictos de edición | Observaciones y marcas en tablas propias; la **cabecera solo se edita con conexión** |
 | Evidencia | Fotos y **archivos adjuntos (PDF)** por ítem |
 | Planos | **Biblioteca** de planos. Varios por ITO, con **revisiones** (Rev A, B, C). Imágenes primero; PDF en fase posterior |
 | Marcas | Pines y dibujo (línea, círculo, texto) sobre una **capa transparente**. El documento base nunca se modifica |
@@ -61,8 +68,9 @@ solicitada ──(supervisor acepta y asigna)──► programada ──(primer 
 - **por_firmar**: el inspector firmó (R1 cumplida). Esperan contratista y cliente.
 - **observada**: el contratista acusó recibo y quedan bloqueantes abiertos (No cumple u observación crítica).
 - **aprobada**: firmó el cliente. Queda sellada (R4).
-- **rechazada**: el contratista o el cliente se niegan a firmar, con motivo obligatorio. Se avisa al supervisor, que la reabre a `en_progreso` o la archiva. *(Agregado tras la revisión externa.)*
-- Pasar a `por_firmar` y crear enlaces de firma exige conexión: sin red, la firma del inspector queda en cola hasta sincronizar y recibir el correlativo definitivo.
+- **rechazada**: el contratista o el cliente se niegan a firmar, con motivo obligatorio. Se avisa al supervisor, que la reabre a `en_progreso` o la archiva.
+- **Reapertura**: una ITO `observada` o `rechazada` vuelve a `en_progreso` para re-inspeccionar solo lo pendiente. Las firmas del inspector y del contratista se conservan (R10).
+- El inspector puede firmar sin red. El paso a `por_firmar`, la creación de enlaces de firma y los avisos quedan en cola hasta sincronizar y recibir el número definitivo.
 - Mientras el número sea provisional, la pantalla muestra «Pendiente de sincronización» en lugar del número de ITO.
 
 ## 4. Modelo de datos
@@ -72,7 +80,8 @@ espejo en Dexie y cola de sincronización.
 
 | Tabla | Sync | Contenido |
 |-------|------|-----------|
-| `obras` | sí | número 00–99 por cliente, nombre, sucursal opcional, estado |
+| `obras` | sí | número 00–99 por cliente, nombre, `sucursal_id` opcional, estado |
+| `clientes` (existente) | sí | **se agrega** `codigo_corto` (hasta 6 letras, único, sugerido por el sistema, editable por el administrador) |
 | `obra_partidas` | sí | obra, código, descripción, origen (`planificada` o `terreno`) |
 | `ito_plantillas` | sí | nombre, especialidad, **versión**, ítems (con medición y regla de foto) |
 | `planos` | sí | biblioteca por cliente u obra: nombre, revisiones `[{rev, media_id, ancho, alto}]` |
@@ -108,10 +117,12 @@ servidor es la autoridad.
 | R7 | Token de 256 bits, solo su hash en la base, vence en 7 días (configurable), un uso. Límite de intentos con el limitador respaldado en base de datos (`cmms_rate_limits`), no en memoria. Un enlace vencido se regenera desde la pantalla de firmas, lo que invalida el anterior |
 | R8 | Foto obligatoria en Cumple solo si la plantilla lo exige |
 | R9 | El correlativo lo asigna el servidor de forma atómica por cliente y año; nunca se reutiliza un número |
-| R10 | Orden de firmas: inspector, contratista, cliente. Ninguna se salta |
+| R10 | Orden de firmas: inspector, contratista, cliente. Ninguna se salta. **Al reabrir una ITO observada o rechazada, las firmas del inspector y del contratista se conservan** y solo falta la del cliente. Cada re-inspección se registra en el historial con fecha, inspector y resultado, y el informe final las lista. Consecuencia aceptada: el contratista no firma el resultado final, solo el acuse inicial |
 | R11 | El archivo original de un plano no se modifica; una revisión nueva no borra las marcas de la anterior |
 | R12 | Una ITO conserva la versión de plantilla con que nació |
 | R13 | Si el servidor rechaza un cambio por inmutabilidad (409), el dispositivo descarta ese cambio de su cola y reemplaza su copia local por la versión del servidor |
+| R14 | Una observación crítica no planificada se cierra por re-inspección (con foto) o por aceptación del inspector (con justificación escrita). Ambas quedan en el historial |
+| R15 | La cabecera de una ITO (inspector, fecha, obra, contratista) solo la modifica el servidor con conexión; un dispositivo que estuvo sin red no la sobrescribe |
 
 ## 6. Perfiles
 
@@ -164,11 +175,11 @@ relativos entre sí, no estimaciones de tiempo.
 
 | Fase | Contenido | Tamaño | Criterio de aceptación |
 |------|-----------|--------|------------------------|
-| **0. Cierre del plan** | Resolver los puntos abiertos de la sección 11; revisión externa del plan | Pequeño | Sin puntos abiertos que cambien el modelo de datos |
+| **0. Cierre del plan** | Resolver los puntos abiertos de la sección 11; revisión externa del plan | Pequeño | **Cumplida** salvo los puntos 6 a 10, que no cambian el modelo |
 | **1A. Estructura** | Reglas con tests; Dexie v17; tablas en Neon; obras y partidas; código corto del cliente; plantillas con versiones; menú y permisos | Mediano | Datos maestros creados y sincronizados; migración sin pérdida de datos |
 | **1B. Ejecución** | Crear ITO; ejecución con checklist, mediciones, avance de partidas y observaciones; fotos y adjuntos; panel. **Incluye los tests de inmutabilidad (R4, R13) y de aislamiento entre clientes** | Grande | Un inspector completa una ITO sin red y se sincroniza al volver; los tests de seguridad pasan |
 | **2. Planos** | Biblioteca, revisiones, visor con zoom, capa de marcas (pin, línea, círculo, texto), pines ligados a ítems | Mediano | Una marca hecha en Rev A sigue con Rev A tras subir Rev B; el original no cambia |
-| **3. Firmas y avisos** | Tres firmas en orden; rechazo con motivo; solicitud del cliente; firma del cliente en la app; enlace temporal y su regeneración; avisos por correo de hallazgos. **Incluye los tests del token** (reutilizado, vencido, fuerza bruta) | Mediano | El cliente no puede aprobar con bloqueantes; el enlace usado deja de servir; los tests del token pasan |
+| **3. Firmas y avisos** | Tres firmas en orden; rechazo con motivo; solicitud del cliente; firma del cliente en la app; enlace temporal y su regeneración; aviso por correo al asignar un hallazgo y al enviar a firma. **Incluye los tests del token** (reutilizado, vencido, fuerza bruta) | Mediano | El cliente no puede aprobar con bloqueantes; el enlace usado deja de servir; los tests del token pasan |
 | **4. Informe y calendario** | PDF con el diseño aprobado en jsPDF; hash y código de verificación; envío automático; página de verificación; fuente en el Calendario | Mediano | Un PDF aprobado se verifica por código y la ITO aparece en el Calendario |
 | **5. Piloto** | Repaso completo de seguridad y piloto con una obra real | Pequeño | Pruebas de regresión en verde y piloto sin incidentes |
 
@@ -181,22 +192,26 @@ relativos entre sí, no estimaciones de tiempo.
 | Dos backends (Express y Vercel) que divergen | Lógica en módulos compartidos; un test que ejercite ambos |
 | Primera ruta pública de la app (`/liberar`) | Respuesta mínima sin identificadores internos, límite de intentos, token con hash, pruebas antes de publicar |
 | Dos inspectores editando la misma ITO sin red: gana el último y el otro cambio se pierde sin aviso | Una ITO, un inspector asignado; detectar versión en el servidor y avisar del conflicto |
-| El aviso «al vencer» necesita una tarea programada que hoy no existe | Definir el mecanismo en la Fase 0 (ver punto abierto 5) |
+| Sin aviso por correo al vencer un hallazgo | Decisión del propietario: se agrega más adelante; mientras tanto, rojo en el panel y en el Calendario |
+| El contratista no firma el resultado final tras una re-inspección | Decisión del propietario; el historial y el informe listan cada re-inspección con fecha, inspector y resultado |
+| La aceptación de una crítica por el inspector, sin volver a terreno, reduce la evidencia | Justificación escrita obligatoria, visible en el informe que recibe el cliente |
 | El PDF real se arma con jsPDF, que no replica el HTML del prototipo | Reproducir el diseño con sus primitivas; validar contra el PDF de ejemplo |
 | Migración Dexie destructiva (precedente en v14 y v16) | v17 solo agrega tablas; revisión explícita en el PR |
 
 ## 11. Puntos abiertos antes de lanzar
 
-1. **Cierre de una observación crítica no planificada**: ¿por re-inspección, por aceptación del inspector, o ambas?
-2. **Obra**: ¿es una entidad nueva (00–99 por cliente) o equivale a una sucursal existente?
-3. **Código corto del cliente** (`NORTEC` en el número): los clientes hoy no tienen ese campo; hay que agregarlo y definir quién lo asigna.
-4. **Firmas al reabrir**: si una ITO observada se reabre, ¿las firmas del inspector y del contratista se piden de nuevo?
-5. **Aviso al vencer un hallazgo**: requiere una tarea programada en el servidor; confirmar que el plan de Vercel la permite.
-6. **Tamaño máximo** de fotos y adjuntos, y si las fotos exigen GPS.
-7. **Límites del número**: 100 obras por cliente y 9.999 ITO por cliente al año. ¿Alcanzan?
-8. **Supuestos por confirmar**: el Calendario lee las ITO sin duplicar eventos; el cliente ve solo ITO enviadas a firma, aprobadas u observadas; cada ITO y plano pertenece al cliente activo.
-9. **Límite de funciones en Vercel**: hoy hay 6 en `api/`; por eso los endpoints nuevos entran en `api/operations.ts`. Verificar el plan contratado.
-10. **Validar las pantallas contra el video**, que no fue visto al redactar.
+**Resueltos el 2026-11-17** (los cinco que bloqueaban el inicio): cierre de una crítica no
+planificada, entidad obra, código corto del cliente, firmas al reabrir y aviso al vencer.
+Las decisiones están en la sección 2.
+
+**Siguen abiertos** (no cambian el modelo de datos):
+
+1. **Tamaño máximo** de fotos y adjuntos, y si las fotos exigen GPS.
+2. **Límites del número**: 100 obras por cliente y 9.999 ITO por cliente al año. ¿Alcanzan?
+3. **Supuestos por confirmar**: el Calendario lee las ITO sin duplicar eventos; el cliente ve solo ITO enviadas a firma, aprobadas u observadas; cada ITO y plano pertenece al cliente activo.
+4. **Límite de funciones en Vercel**: hoy hay 6 en `api/`; por eso los endpoints nuevos entran en `api/operations.ts`. Verificar el plan contratado.
+5. **Validar las pantallas contra el video**, que no fue visto al redactar.
+6. **Aviso por correo al vencer un hallazgo**: aplazado. Para agregarlo después se necesita una tarea programada en el servidor, que hoy no existe.
 
 ## 12. Documentos del proyecto
 
@@ -212,8 +227,8 @@ relativos entre sí, no estimaciones de tiempo.
 ## 13. Lista de lanzamiento
 
 - [x] Revisión externa del plan (Gemini, sección 14)
-- [ ] Puntos abiertos 1 a 5 resueltos (cambian el modelo o el flujo)
-- [ ] Puntos abiertos 6 a 10 resueltos o aceptados como riesgo
+- [x] Los cinco puntos que cambiaban el modelo o el flujo, resueltos (2026-11-17)
+- [ ] Puntos abiertos 1 a 5 de la sección 11 resueltos o aceptados como riesgo
 - [ ] Diagrama del plan actualizado o retirado
 - [ ] Aprobación del propietario para iniciar la Fase 1
 
@@ -225,7 +240,7 @@ nivel gratuito de la clave. Respuesta completa, sin editar: `docs/REVISION_GEMIN
 
 | # | Hallazgo de Gemini | Gravedad | Qué se hizo |
 |---|--------------------|----------|-------------|
-| 1.1 | Las firmas al reabrir no están definidas y chocan con R10 | Alta | **Pendiente del propietario** (punto abierto 4). Gemini recomienda invalidarlas y pedir las tres de nuevo |
+| 1.1 | Las firmas al reabrir no están definidas y chocan con R10 | Alta | **Resuelto con una decisión distinta a la de Gemini**: el propietario eligió conservar las firmas del inspector y del contratista. R10 lo declara y registra cada re-inspección en el historial |
 | 1.2 | R1 no cubría las observaciones críticas no planificadas | Media | **Aceptado**: R1 ampliada |
 | 2.1 | No había salida si el contratista o el cliente rechazan | Alta | **Aceptado**: estado `rechazada` |
 | 2.2 | Firma del inspector sin red con número provisional | Alta | **Aceptado**: `por_firmar` exige conexión |
@@ -239,14 +254,19 @@ nivel gratuito de la clave. Respuesta completa, sin editar: `docs/REVISION_GEMIN
 | 5.1 | La Fase 1 es demasiado grande | Media | **Aceptado**: dividida en 1A y 1B |
 | 5.2 | Las pruebas de seguridad llegaban al final | Media | **Aceptado**: pasan a las fases 1B y 3 |
 
-Recomendaciones de Gemini para los puntos abiertos 1 a 5, que **siguen siendo decisión del propietario**:
+Recomendaciones de Gemini para los cinco puntos que bloqueaban el inicio, y qué decidió el propietario el 2026-11-17:
 
-1. Observación crítica no planificada: se cierra solo por re-inspección, con foto.
-2. Obra: entidad nueva ligada al cliente, con sucursal opcional.
-3. Código corto del cliente: campo nuevo editable por el administrador, con las primeras letras del nombre por defecto.
-4. Firmas al reabrir: se invalidan y se piden las tres de nuevo.
-5. Aviso al vencer: tarea programada diaria en Vercel. Hoy `vercel.json` no define ninguna.
+| # | Punto | Recomendación de Gemini | Decisión del propietario |
+|---|-------|-------------------------|--------------------------|
+| 1 | Cierre de una crítica no planificada | Solo por re-inspección, con foto | **Distinta**: re-inspección **o** aceptación del inspector con justificación |
+| 2 | Obra | Entidad nueva, sucursal opcional | **Igual** |
+| 3 | Código corto del cliente | Campo nuevo, editable por el administrador | **Igual** |
+| 4 | Firmas al reabrir | Invalidarlas y pedir las tres de nuevo | **Distinta**: se conservan; solo falta el cliente |
+| 5 | Aviso al vencer un hallazgo | Tarea diaria en Vercel | **Distinta**: sin correo al vencer por ahora |
 
-Condiciones de Gemini para iniciar la Fase 1 y su estado: resolver los puntos abiertos 1 a 5
-(**pendiente**), separar observaciones y marcas del JSON (**hecho en el plan**) y definir el
-manejo del 409 (**hecho en el plan**, R13).
+También respondió el propietario a las demás observaciones: rechazo de firma con estado `rechazada` (igual),
+firma del inspector sin red en cola (igual), tablas separadas y cabecera bloqueada (igual), Fase 1 dividida en
+1A y 1B (igual) y pruebas de seguridad en cada fase (igual).
+
+Condiciones de Gemini para iniciar la Fase 1: resolver los cinco puntos (**hecho**), separar observaciones y
+marcas del JSON (**hecho**) y definir el manejo del 409 (**hecho**, R13). **Las tres condiciones están cumplidas.**
