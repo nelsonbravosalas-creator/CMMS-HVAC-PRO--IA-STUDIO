@@ -137,6 +137,9 @@ label.fl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.1em;text
 .ipo-h{display:flex;gap:9px;align-items:center;margin-bottom:6px}
 .ipo-h b{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--bg);display:grid;place-items:center;font:700 13px var(--font-d);flex:none}
 .ipo-h strong{display:block;font:700 14px var(--font-d);line-height:1.15} .who{display:block;font-size:10.5px;color:var(--mute);letter-spacing:.04em}
+.bdg{display:inline-block;margin-bottom:6px;font-size:10.5px;font-weight:700;color:var(--gap);background:var(--gap-bg);border-radius:99px;padding:1px 8px;text-decoration:none}
+.sev{font-size:10.5px;font-weight:800;border-radius:99px;padding:2px 9px;white-space:nowrap}.sev-A{background:var(--gap-bg);color:var(--gap)}.sev-M{background:var(--human-bg);color:var(--human)}.sev-B{background:var(--soft);color:var(--mute)}
+.est{font-size:10.5px;font-weight:800;border-radius:99px;padding:2px 9px;white-space:nowrap}.est-C{background:var(--out-bg);color:var(--out)}.est-P{background:var(--human-bg);color:var(--human)}.est-F{background:var(--gap-bg);color:var(--gap)}
 .more{display:inline-block;margin-top:7px;font-size:11.5px;font-weight:600}
 .ipo-arr,.ipo-v1,.ipo-v2{pointer-events:none;position:relative;z-index:1}
 .ipo-arr{justify-self:end;align-self:center;width:22px;height:2px;transform:translateX(22px);background:repeating-linear-gradient(90deg,var(--accent) 0 6px,transparent 6px 11px);background-size:11px 2px;animation:fx 1s linear infinite}
@@ -153,7 +156,7 @@ label.fl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.1em;text
 <header class="top">
   <div>
     <h1>Mapa de proceso · Módulo ITO</h1>
-    <p class="sub">Inspección técnica de obra: entradas, proceso y salidas de cada etapa, con los cambios de las revisiones. Para tu revisión y aprobación.</p>
+    <p class="sub">Inspección técnica de obra: entradas, proceso y salidas de cada etapa, con la revisión crítica de inconsistencias, optimizaciones y brechas frente a un libro de obra.</p>
   </div>
   <div class="meta">Plan maestro · 17-nov-2026<br>Sin código · pendiente de aprobación</div>
 </header>
@@ -162,6 +165,7 @@ label.fl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.1em;text
   <a href="#flujos" data-v="flujos">Flujos por etapa</a>
   <a href="#estados" data-v="estados">Estados</a>
   <a href="#reglas" data-v="reglas">Reglas y datos</a>
+  <a href="#critica" data-v="critica">Revisión crítica</a>
   <a href="#aprobacion" data-v="aprobacion">Revisión y aprobación</a>
   <span class="sp"></span>
   <button type="button" id="pauseBtn" aria-pressed="false">Animación: activa</button>
@@ -324,6 +328,65 @@ var ET=[
  edges:[['i0','i1'],['i1','i2'],['i2','i3'],['i3','i4'],['i3','i5'],['i3','i6'],['i3','i7'],['i4','i8']],path:['i0','i1','i2','i3','i4','i8'],
  reglas:['R4: aprobada es inmutable; el servidor rechaza con 409 toda escritura posterior, también la que llegue por sincronización.','R13: si un dispositivo envía un cambio rechazado por 409, descarta el cambio y toma la versión del servidor.','El PDF se arma con jsPDF; el hash lo fija el servidor.','Cualquiera con el código verifica la autenticidad en la página pública /verificar.']}
 ];
+
+/* ---------- Revisión crítica ---------- */
+// sev: A alta, M media, B baja · e: etapas afectadas (índices del mapa)
+var INC=[
+ {id:'I1',sev:'A',e:[5,6,7],t:'Una ITO aprobada no se puede corregir',d:'Aprobada es inmutable (R4), pero no existe camino para un error descubierto después: ni ITO rectificatoria, ni anulación, ni anotación de corrección.',f:'Nunca se edita: se agrega una ITO complementaria o una anotación de corrección que referencia la original y queda en el historial.'},
+ {id:'I2',sev:'A',e:[3,4,5],t:'Las firmas conservadas ya no respaldan lo que firmaron',d:'Al reabrir se conservan las firmas del inspector y del contratista (R10), pero el resultado cambió con la re-inspección. El inspector firmó un estado anterior y el contratista dio acuse de un estado anterior.',f:'Ligar cada firma a una versión del contenido (hash). El cliente aprueba la versión final con la lista de cambios; o el inspector vuelve a firmar solo lo reabierto.'},
+ {id:'I3',sev:'A',e:[2,5],t:'Dos fuentes de verdad para las observaciones',d:'El plan guarda los No cumple dentro de la ITO (ítems del checklist) y a la vez crea la tabla de observaciones «planificadas y no planificadas». R1 y R3 hablan de ítems; R14 habla de observaciones.',f:'Una sola tabla de observaciones para ambos tipos. El ítem del checklist guarda solo su resultado y apunta a la observación.'},
+ {id:'I4',sev:'A',e:[5],t:'Se cierran distinto, y quien la levanta puede cerrarla',d:'Un No cumple planificado solo se cierra por re-inspección, pero una crítica no planificada puede cerrarla el mismo inspector que la levantó, con una justificación (R14). Trato desigual y conflicto de interés.',f:'La aceptación sin re-inspección la confirma una segunda persona (supervisor o cliente). Misma regla para ambos tipos.'},
+ {id:'I5',sev:'A',e:[1],t:'El número de ITO no sirve como folio de obra',d:'El correlativo se reinicia por cliente y año, no por obra: dentro de una obra los números quedan con saltos (0042 en la obra 007, 0043 en la 003). Un libro de obra exige folios consecutivos por obra.',f:'Agregar un folio consecutivo por obra además del número de ITO, asignado por el servidor.'},
+ {id:'I6',sev:'A',e:[0,1,6],t:'No está definido quién es dueño de la cuenta ni cómo entra el contratista',d:'La app separa datos por cliente, pero el contratista y el cliente son empresas distintas. No se dice cómo accede a una ITO un contratista de otra empresa, ni si quien usa la app es el mandante, la empresa inspectora o el constructor.',f:'Modelo de participantes por obra: usuario, empresa y rol (mandante, inspector, constructor, subcontratista).'},
+ {id:'I7',sev:'M',e:[1,2,4],t:'Una ITO tiene una sola fecha, pero ocurre en varias visitas',d:'La primera inspección y cada re-inspección son visitas distintas. Con una fecha programada y un evento por ITO, el Calendario no las representa y el historial pierde las fechas reales.',f:'Entidad Visita (fecha, inspector, resultado) y un evento por visita.'},
+ {id:'I8',sev:'M',e:[1],t:'Un evento por ITO acopla tablas y puede desalinearse',d:'Se decidió escribir un evento por cada ITO, pero el Calendario lo trata como solo lectura y el plan no dice si hay también un evento por cada fecha límite de hallazgo. Si cambia la fecha o el estado, el evento puede quedar atrasado.',f:'Definir los tipos de evento y escribirlos en la misma operación que la ITO; o derivarlos por lectura, como se recomendó al inicio.'},
+ {id:'I9',sev:'M',e:[1,2],t:'Dos conceptos para lo mismo: trabajo fuera de contrato',d:'«Partida agregada en terreno para levantar una observación» y «observación no planificada» cubren el mismo caso con reglas distintas.',f:'Una sola figura, «trabajo no planificado», con partida opcional.'},
+ {id:'I10',sev:'M',e:[3],t:'La hora de la firma sin red la da el dispositivo',d:'Si el inspector firma sin conexión, la fecha y hora son las de su teléfono, fácil de alterar. La firma pierde valor probatorio.',f:'Guardar la hora del dispositivo y la hora del servidor al sincronizar, ambas en el documento.'},
+ {id:'I11',sev:'M',e:[3,4,6],t:'«Por firmar» agrupa tres firmas sin plazo ni escalamiento',d:'No hay estado por firma ni plazo. Si el contratista nunca firma, la ITO queda detenida indefinidamente y nadie lo sabe.',f:'Estado por firma, plazo configurable y aviso al supervisor al vencer.'},
+ {id:'I12',sev:'M',e:[1],t:'Falta el flujo previo: crear la obra y sus partidas',d:'El mapa empieza en la programación, pero la obra, su catálogo de partidas y la biblioteca de planos deben existir antes. La obra es una entidad nueva sin pantallas ni responsable.',f:'Agregar una etapa de apertura de obra (crear obra, partidas, planos, participantes).'},
+ {id:'I13',sev:'M',e:[2],t:'El aviso al responsable sale tarde, y la fecha límite no tiene consecuencia',d:'El correo «al asignar» solo se envía cuando el inspector sincroniza. Sin aviso al vencer, la fecha límite es solo un dato.',f:'Declarar el retraso en el plan y mostrar los vencidos al responsable en su panel.'},
+ {id:'I14',sev:'B',e:[2],t:'Sin tope de cantidad de evidencia',d:'Se fijó el tamaño (300 KB y 3 MB) pero no cuántas fotos o adjuntos por ítem ni por ITO; en el plan Hobby el cuerpo de una petición llega a 4,5 MB.',f:'Tope por ítem y por ITO, y subida por partes.'}
+];
+var OPT=[
+ {t:'Cadena de firmas configurable',d:'Por cliente u obra: una, dos o tres firmas. El contratista omite el acuse cuando no hay hallazgos.',e:[4]},
+ {t:'Una sola tabla de observaciones',d:'Planificadas, no planificadas y críticas en la misma tabla, con tipo y criticidad.',e:[2,5]},
+ {t:'Bloqueo suave por ITO',d:'Un inspector activo; los demás ven solo lectura. Evita conflictos al trabajar sin red.',e:[2]},
+ {t:'Evidencia en una cola aparte',d:'Los datos de la ITO se sincronizan primero y las fotos después, con subida reanudable y miniaturas.',e:[2]},
+ {t:'Avisos agrupados',d:'Un resumen por ITO en vez de un correo por hallazgo.',e:[2,4]},
+ {t:'Avance acumulado de la obra',d:'Calcular el avance por partida entre ITO (curva S), no solo el % de cada ITO.',e:[2]},
+ {t:'Repetir una ITO anterior',d:'Copiar planos, partidas y plantilla de la ITO previa de la misma obra.',e:[1]},
+ {t:'Informe de una página y cambios',d:'Resumen ejecutivo al inicio y, tras una re-inspección, solo lo que cambió.',e:[7]},
+ {t:'Cadena de hash entre ITO',d:'Cada ITO aprobada incluye el hash de la anterior de la misma obra: se detecta cualquier alteración.',e:[7]},
+ {t:'Panel por obra',d:'Vencidos, bloqueantes y firmas pendientes por obra, no solo por ITO.',e:[1]}
+];
+// est: C cubierto, P parcial, F falta · pr: A, M, B
+var LIB=[
+ {c:'Libro por obra con folio consecutivo e inmutable',est:'F',pr:'A',n:'El plan solo numera ITO; no hay un libro por obra.'},
+ {c:'Anotaciones tipificadas: instrucción, consulta, respuesta, hecho relevante, recepción, accidente, paralización, visita',est:'F',pr:'A',n:'La ITO cubre un solo tipo de registro: la inspección.'},
+ {c:'Folio legal asignado por el servidor, con anotaciones sin red',est:'F',pr:'A',n:'Choca con el modo sin conexión: el folio definitivo exige al servidor.'},
+ {c:'Autoría y firma por rol en cada anotación o cierre diario',est:'P',pr:'A',n:'Hay tres firmas por ITO, no por anotación.'},
+ {c:'Corrección sin borrar: nueva anotación que referencia la anterior',est:'F',pr:'A',n:'Ver inconsistencia I1.'},
+ {c:'Participantes por obra con empresa y rol',est:'F',pr:'A',n:'Hoy el acceso es por cliente; ver I6.'},
+ {c:'Integridad verificable: hora del servidor y cadena de hash entre folios',est:'P',pr:'A',n:'Hay hash por ITO, sin cadena y con hora del dispositivo.'},
+ {c:'Libro completo en PDF foliado, por rango de fechas',est:'P',pr:'A',n:'El informe es por ITO, no por libro.'},
+ {c:'Retención, respaldo y exportación para entregar a terceros',est:'F',pr:'A',n:'Verificar plazos de conservación que exija la normativa.'},
+ {c:'Validez legal: firma electrónica avanzada y formato exigido',est:'F',pr:'A',n:'La firma dibujada en pantalla es simple. Confirmar con un especialista qué exige la normativa del país.'},
+ {c:'Hilos de respuesta con plazo, estado y escalamiento',est:'P',pr:'M',n:'Hay hallazgos con fecha límite, sin respuesta formal ni escalamiento.'},
+ {c:'Registro diario: dotación, maquinaria, clima, horas, subcontratistas, materiales',est:'F',pr:'M',n:'No existe.'},
+ {c:'Notificaciones y copias a las partes, con acuse de lectura',est:'P',pr:'M',n:'Solo correo, al asignar y al enviar a firma.'},
+ {c:'Cronograma, hitos y curva S: programado contra real',est:'F',pr:'M',n:'Solo se registra el % de avance por partida.'},
+ {c:'Partidas con cantidad, unidad y ponderación',est:'P',pr:'M',n:'Hoy solo código, descripción y %. Sin ponderación no hay avance total de la obra.'},
+ {c:'Órdenes de cambio y trabajos adicionales con aprobación, costo y plazo',est:'P',pr:'M',n:'La observación no planificada no lleva costo ni aprobación (decisión del propietario).'},
+ {c:'Consultas técnicas (RFI) y su respuesta',est:'F',pr:'M',n:'No existe.'},
+ {c:'No conformidades y acciones correctivas con verificación de cierre',est:'P',pr:'M',n:'Las observaciones con responsable y fecha cubren una parte.'},
+ {c:'Búsqueda, filtros y línea de tiempo de la obra',est:'F',pr:'M',n:'El panel filtra ITO por estado, no la historia de la obra.'},
+ {c:'Seguridad y prevención: charlas, incidentes, inspecciones',est:'F',pr:'B',n:'Fuera del alcance de la ITO.'}
+];
+var ENC=[
+ {n:'A. Solo la ITO (el plan actual)',d:'Se construye lo del plan maestro. Es la opción más corta y sirve como inspección con firmas. No cumple como libro de obra.',r:'Aceptable solo si el objetivo es inspecciones, no el libro.'},
+ {n:'B. ITO + libro mínimo',d:'Se agrega la entidad Libro de obra por obra, con folio consecutivo y anotaciones tipificadas (la ITO pasa a ser un tipo de anotación). Corrección sin borrar, firma por rol y participantes por obra.',r:'Recomendada: cierra las brechas de prioridad alta con un cambio acotado.'},
+ {n:'C. Libro completo y gestión de obra',d:'Además: registro diario, cronograma y curva S, órdenes de cambio, consultas técnicas y seguridad. Es un producto nuevo, de varios módulos.',r:'Solo con la B funcionando y validada en una obra real.'}
+];
 var EBY={};ET.forEach(function(e){EBY[e.id]=e;});
 var REGLAS=[['R1','El inspector no firma con ítems sin evaluar, ni con un No cumple sin observación, acción correctiva, responsable, fecha límite y foto; ni con una crítica no planificada incompleta','Ejecución'],['R2','No cumple → Cumple en re-inspección: el pin pasa a resuelto y el historial se conserva','Re-inspección'],['R3','El cliente aprueba solo con 0 No cumple abiertos y 0 críticas no planificadas abiertas, y al menos un ítem aplicable en Cumple','Aprobación'],['R4','Aprobada es inmutable: el servidor rechaza toda escritura posterior con 409','Cierre'],['R5','El módulo no escribe en órdenes de servicio ni en mantenimientos','Todas'],['R6','Cumplimiento % = Cumple ÷ (Cumple + No cumple); N/A no cuenta','Panel e informe'],['R7','Token de 256 bits, solo su hash en la base, vence en 7 días, un uso; límite de intentos en base de datos','Aprobación'],['R8','Foto en Cumple solo si la plantilla lo exige','Ejecución'],['R9','Correlativo atómico por cliente y año, asignado por el servidor','Programación'],['R10','Firmas en orden: inspector, contratista, cliente. Al reabrir se conservan las del inspector y del contratista','Firmas'],['R11','El plano original no se modifica; una revisión nueva no borra las marcas de la anterior','Ejecución'],['R12','Una ITO conserva la versión de plantilla con que nació','Programación'],['R13','Ante un 409 por inmutabilidad, el dispositivo descarta su cambio y toma la versión del servidor','Cierre'],['R14','Una crítica no planificada se cierra por re-inspección (con foto) o por aceptación del inspector (con justificación)','Re-inspección'],['R15','La cabecera solo se modifica con conexión; un dispositivo que estuvo sin red no la sobrescribe','Programación']];
 var DATOS=[['obras','000–999 por cliente, nombre, sucursal opcional'],['obra_partidas','código, descripción, origen (planificada o de terreno)'],['ito_plantillas','plantilla con versión, ítems y mediciones'],['planos','biblioteca; cada plano con sus revisiones (Rev A, B, C)'],['itos','cabecera, estado, checklist, avance de partidas, firmas, historial'],['ito_observaciones','planificadas y no planificadas, crítica, responsable, fecha límite'],['ito_marcas','pines, líneas, círculos y texto sobre una revisión de plano'],['ito_media','fotos y adjuntos PDF'],['ito_secuencias','solo servidor: contador por cliente y año'],['ito_tokens_firma','solo servidor: hash del token, vencimiento, uso'],['clientes','se agrega un código corto único de hasta 6 letras']];
@@ -344,7 +407,7 @@ function ipoMap(){
   ET.forEach(function(e,i){
     var c=i+2;
     h+='<div class="ipo-in" data-i="'+i+'" style="grid-column:'+c+';grid-row:1"><ul>'+e.ins.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
-    h+='<div class="ipo-pr" data-i="'+i+'" style="grid-column:'+c+';grid-row:2"><div class="ipo-h"><b>'+(i)+'</b><div><strong>'+esc(e.n)+'</strong><span class="who">'+esc(e.who)+(e.opt?' · opcional':'')+(e.loop?' · ciclo':'')+'</span></div></div><ol>'+e.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol><a class="more" href="#et-'+e.id+'">Ver flujo →</a></div>';
+    h+='<div class="ipo-pr" data-i="'+i+'" style="grid-column:'+c+';grid-row:2"><div class="ipo-h"><b>'+(i)+'</b><div><strong>'+esc(e.n)+'</strong><span class="who">'+esc(e.who)+(e.opt?' · opcional':'')+(e.loop?' · ciclo':'')+'</span></div></div>'+(function(){var n=INC.filter(function(x){return x.e.indexOf(i)>=0;}).length;return n?'<a class="bdg" href="#critica" title="Inconsistencias que afectan esta etapa">'+n+' inconsistencia'+(n>1?'s':'')+'</a>':'';})()+'<ol>'+e.steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol><a class="more" href="#et-'+e.id+'">Ver flujo →</a></div>';
     h+='<div class="ipo-out" data-i="'+i+'" style="grid-column:'+c+';grid-row:3"><ul>'+e.outs.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
     if(i<cols-1)h+='<i class="ipo-arr" style="grid-column:'+c+';grid-row:2"></i>';
     h+='<i class="ipo-v1" style="grid-column:'+c+';grid-row:1"></i><i class="ipo-v2" style="grid-column:'+c+';grid-row:2"></i>';
@@ -381,6 +444,23 @@ function mount(D,path){
   document.getElementById('step').addEventListener('click',function(){stop();show(Math.min(i+1,path.length-1));});
   document.getElementById('reset').addEventListener('click',function(){stop();i=-1;svg.classList.remove('dim');svg.querySelectorAll('.on,.hot,.seen').forEach(function(n){n.classList.remove('on','hot','seen');});cap.textContent='Pulsa reproducir para seguir el camino principal paso a paso.';});
   if(!REDUCED){running=true;document.getElementById('play').textContent='⏸ Pausar';timers.push(setTimeout(tick,700));}
+}
+
+function sevLb(x){return {A:'Alta',M:'Media',B:'Baja'}[x];}
+function viewCritica(){
+  var a=INC.filter(function(i){return i.sev==='A';}).length,m=INC.filter(function(i){return i.sev==='M';}).length,b=INC.filter(function(i){return i.sev==='B';}).length;
+  var f=LIB.filter(function(x){return x.est==='F';}).length,p=LIB.filter(function(x){return x.est==='P';}).length,c=LIB.filter(function(x){return x.est==='C';}).length;
+  var fa=LIB.filter(function(x){return x.est!=='C'&&x.pr==='A';}).length;
+  app.innerHTML='<h2>Revisión crítica del proceso</h2><p>Lectura independiente del plan maestro tal como está, con tres preguntas: qué se contradice, qué se puede mejorar y qué le falta para funcionar como libro de obra. Las referencias a la normativa son orientativas y deben confirmarse con un especialista. No vi el video de referencia ni un libro de obra real en uso, así que lo que falta se basa en cómo funcionan en general.</p>'+
+  '<div class="kpis"><div class="kpi bad"><b>'+INC.length+'</b><span>inconsistencias ('+a+' altas)</span></div><div class="kpi"><b>'+OPT.length+'</b><span>optimizaciones</span></div><div class="kpi bad"><b>'+(f+p)+'</b><span>de '+LIB.length+' capacidades de libro sin cubrir del todo</span></div><div class="kpi bad"><b>'+fa+'</b><span>faltantes de prioridad alta</span></div></div>'+
+  '<div class="panel gapbox" style="margin-top:12px"><h3>Conclusión</h3><p style="margin:0">El proceso funciona como <b>inspección con tres firmas</b>. No es todavía un <b>libro de obra</b>: un libro es un registro cronológico, por obra, de todo lo que ocurre, con folios consecutivos que nadie borra, firmado por roles y verificable ante terceros. La ITO sería un tipo de anotación dentro de ese libro. Antes de la Fase 1A conviene cerrar las seis inconsistencias altas y decidir cuál de las tres vías de la sección 4 se sigue.</p></div>'+
+  '<h2>1. Inconsistencias del proceso</h2><div class="panel"><div class="tw"><table><thead><tr><th>#</th><th>Gravedad</th><th>Qué pasa</th><th>Propuesta</th><th>Etapas</th></tr></thead><tbody>'+
+  INC.map(function(i){return '<tr><td><b>'+i.id+'</b></td><td><span class="sev sev-'+i.sev+'">'+sevLb(i.sev)+'</span></td><td><b>'+esc(i.t)+'</b><br>'+esc(i.d)+'</td><td>'+esc(i.f)+'</td><td>'+i.e.map(function(k){return '<a href="#et-e'+k+'">'+k+'</a>';}).join(', ')+'</td></tr>';}).join('')+'</tbody></table></div></div>'+
+  '<h2>2. Qué se puede optimizar</h2><div class="grid">'+OPT.map(function(o){return '<div class="card"><h4 style="font-size:15px">'+esc(o.t)+'</h4><p style="margin:0;font-size:13px">'+esc(o.d)+'</p><div class="route">Etapas: '+o.e.join(', ')+'</div></div>';}).join('')+'</div>'+
+  '<h2>3. Qué le falta para ser un libro de obra</h2><p>Cubierto: '+c+' · Parcial: '+p+' · Falta: '+f+'. Ordenado por prioridad.</p><div class="panel"><div class="tw"><table><thead><tr><th>Capacidad de un libro de obra</th><th>Estado en el plan</th><th>Prioridad</th><th>Comentario</th></tr></thead><tbody>'+
+  ['A','M','B'].map(function(pr){return LIB.filter(function(x){return x.pr===pr;}).map(function(x){return '<tr><td>'+esc(x.c)+'</td><td><span class="est est-'+x.est+'">'+({C:'Cubierto',P:'Parcial',F:'Falta'}[x.est])+'</span></td><td><span class="sev sev-'+x.pr+'">'+sevLb(x.pr)+'</span></td><td>'+esc(x.n)+'</td></tr>';}).join('');}).join('')+'</tbody></table></div></div>'+
+  '<h2>4. Cómo encajaría</h2><div class="grid">'+ENC.map(function(x){return '<div class="card"><h4 style="font-size:15px">'+esc(x.n)+'</h4><p style="margin:0;font-size:13px">'+esc(x.d)+'</p><p style="margin:0;font-size:12.5px;font-weight:600">'+esc(x.r)+'</p></div>';}).join('')+'</div>'+
+  '<h2>5. Qué decidir antes de lanzar la Fase 1A</h2><div class="panel"><ol style="margin:0;padding-left:20px"><li><b>Alcance:</b> ¿inspección con firmas (vía A) o libro de obra (vía B o C)? Cambia el modelo de datos desde el primer día.</li><li><b>Quién es el usuario principal:</b> mandante, empresa inspectora o constructor, y cómo entran las otras empresas (I6).</li><li><b>Firmas al reabrir (I2) y cierre de críticas (I4):</b> ambas decisiones se tomaron sin ver el efecto en el valor de la firma.</li><li><b>Folio por obra (I5)</b> y si el libro admite anotaciones sin red.</li><li><b>Validez legal:</b> si el documento debe tener validez ante la autoridad, confirmar con un especialista qué firma y qué formato exige.</li></ol></div>';
 }
 function viewMapa(){
   app.innerHTML='<h2>Mapa de proceso · Módulo ITO</h2><p>De la solicitud al informe verificable, en ocho etapas. Cada columna muestra lo que <b>entra</b>, lo que <b>ocurre</b> y lo que <b>sale</b>. Una persona interviene en las etapas 0 a 6; la etapa 7 la ejecuta el sistema. La etapa 5 es un ciclo que se repite mientras queden bloqueantes.</p>'+
@@ -450,6 +530,7 @@ function route_(){
   else if(h==='estados')viewEstados();
   else if(h==='reglas')viewReglas();
   else if(h==='aprobacion')viewAprob();
+  else if(h==='critica')viewCritica();
   else viewMapa();
   window.scrollTo(0,0);applyPause();
 }

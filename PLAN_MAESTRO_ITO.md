@@ -239,7 +239,7 @@ Supuesto vigente: cada ITO y plano pertenece al cliente activo y a una de sus ob
 | `docs/INFORME_ITO_EJEMPLO.pdf`, `docs/FILOSOFIA_DISENO_INFORME.md` | vigentes (diseño del informe) |
 | `docs/DIAGRAMAS_PROCESO_MODULOS.html` | vigente (cómo funciona hoy la app) |
 | `SPEC-INSPECCIONES.md` | histórico, reemplazado por este plan |
-| `docs/MAPA_PROCESO_ITO.html` | **vigente**: mapa de proceso con entradas, proceso y salidas, flujos por rol, estados, reglas y revisión |
+| `docs/MAPA_PROCESO_ITO.html` | **vigente**: mapa de proceso con entradas, proceso y salidas, flujos por rol, estados, reglas, **revisión crítica** (14 inconsistencias, 10 optimizaciones y 20 capacidades de libro de obra) y revisión para aprobar |
 | `docs/PLAN_INSPECCION_DE_OBRA.html` | **reemplazado** por el mapa de proceso; muestra dos firmas y no incluye partidas, planos con revisiones ni observaciones no planificadas |
 
 ## 13. Lista de lanzamiento
@@ -289,3 +289,21 @@ firma del inspector sin red en cola (igual), tablas separadas y cabecera bloquea
 
 Condiciones de Gemini para iniciar la Fase 1: resolver los cinco puntos (**hecho**), separar observaciones y
 marcas del JSON (**hecho**) y definir el manejo del 409 (**hecho**, R13). **Las tres condiciones están cumplidas.**
+
+## 15. Revisión crítica (2026-11-17)
+
+Lectura independiente del plan, incluida en `docs/MAPA_PROCESO_ITO.html` (pestaña «Revisión crítica»).
+Conclusión: el proceso funciona como **inspección con tres firmas**, pero **no es todavía un libro de obra**.
+Seis inconsistencias son de gravedad alta y se recomienda cerrarlas **antes de la Fase 1A**:
+
+| # | Inconsistencia alta |
+|---|---------------------|
+| I1 | Una ITO aprobada no se puede corregir: falta ITO complementaria o anotación de corrección |
+| I2 | Las firmas conservadas al reabrir ya no respaldan el resultado final |
+| I3 | Dos fuentes de verdad para las observaciones (checklist y tabla de observaciones) |
+| I4 | Las críticas no planificadas las puede cerrar quien las levantó; trato distinto al No cumple |
+| I5 | El número de ITO es por cliente y año; un libro exige folio consecutivo por obra |
+| I6 | No está definido quién es dueño de la cuenta ni cómo entra el contratista de otra empresa |
+
+Decisión previa a lanzar: ¿se construye la inspección con firmas (vía A), la inspección más un libro de obra
+mínimo (vía B, recomendada) o el libro completo con gestión de obra (vía C)? Cambia el modelo de datos desde la Fase 1A.
