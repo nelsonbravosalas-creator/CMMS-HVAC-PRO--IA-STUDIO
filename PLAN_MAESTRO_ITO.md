@@ -323,3 +323,47 @@ Efecto previsto de la línea 3 sobre el plan, a confirmar al diseñarla: el Libr
 principal (una por obra, con folio consecutivo) y la ITO se convierte en un tipo de anotación dentro de él. Eso
 reordena las fases: el libro, los participantes por obra y las anotaciones van antes que la ITO. Aborda de
 raíz las inconsistencias I1 (corrección sin borrar), I5 (folio por obra) e I6 (participantes por obra y empresa).
+
+## 17. Resolución de las 14 inconsistencias (2026-11-17)
+
+Decisiones del propietario sobre la revisión crítica (sección 15). **Prevalecen sobre las secciones 2 a 11 donde
+difieran.** La ITO se entiende como **hija del Libro de Obra** (sección 16, apunte 3).
+
+| # | Inconsistencia | Decisión | Respecto a la recomendación |
+|---|----------------|----------|------------------------------|
+| I1 | Una ITO aprobada no se puede corregir | **Anotación de corrección en el libro**: no se toca la ITO; la anotación la referencia y lleva firma | Igual |
+| I2 | Las firmas conservadas no respaldan el resultado final | **Cada firma queda ligada a la versión que firmó (con hash).** Al cerrar una revisión queda como **R00**; cada nuevo cierre agrega **R01, R02…** (R de revisión y correlativo de 2 dígitos). El cliente aprueba la versión final, que lista qué cambió | Igual, con el formato de revisión definido por el propietario |
+| nuevo | Cómo responde el contratista | **Respuesta por observación, con texto, fotos y adjuntos, acción tomada y fecha.** La observación pasa a «respondida»; el inspector verifica en la re-inspección y la cierra o la devuelve. La respuesta queda en el historial y en la revisión siguiente | Igual |
+| I3 | Dos fuentes de verdad para las observaciones | **Una sola tabla de observaciones** (planificadas, no planificadas, críticas); el ítem del checklist guarda su resultado y apunta a la observación | Igual |
+| I4 | Cierre desigual de las críticas | **Como está: el inspector acepta con justificación**, sin segunda persona | **Distinta** (se recomendaba segunda persona) |
+| I5 | El número no sirve como folio de obra | **Folio del libro por obra, consecutivo, además del número de ITO** (que conserva su formato y su revisión) | Igual |
+| I6 | Dueño de la cuenta y acceso del contratista | **Participantes por obra**: usuario con correo, empresa y rol en esa obra, invitados por correo | Igual |
+| I7 | Una sola fecha para varias visitas | **Dos fechas por revisión: apertura y cierre**; cada revisión reinicia ambas. El informe final muestra la **fecha de apertura** y el **cierre de la última revisión**, cuando el inspector la cierra en conformidad. No hay entidad Visita | **Distinta** (se proponía una entidad Visita) |
+| I8 | Eventos del Calendario | **Un evento por revisión (de apertura a cierre)** más uno por cada fecha límite de observación; se escriben en la misma operación que la ITO y son de solo lectura en el Calendario | Igual |
+| I9 | Dos conceptos para trabajo fuera de contrato | **Una sola figura: trabajo no planificado**, con partida opcional | Igual |
+| I10 | Hora de una firma sin red | **Se guardan la hora del dispositivo y la del servidor**; una diferencia grande queda marcada | Igual |
+| I11 | «Por firmar» sin plazo | **Estado por firma, plazo configurable por obra y aviso al supervisor** | Igual |
+| I12 | Falta el flujo previo de apertura de obra | **Se crea la obra al programar la primera ITO** | **Distinta** (se proponía una etapa de apertura del libro) |
+| I13 | Avisos tardíos y fecha límite sin consecuencia | **Se declara que el aviso sale al sincronizar** y los vencidos se destacan en rojo en los paneles y en el Calendario, sin correo al vencer | Igual |
+| I14 | Sin tope de evidencia | **Hasta 5 fotos y 2 PDF por observación y 150 MB por ITO; subida por partes** de no más de 4,5 MB por petición, reanudable | Igual |
+
+### Reglas nuevas o modificadas
+
+| ID | Regla |
+|----|-------|
+| R16 | Una ITO cerrada no se edita ni se borra: un error se corrige con una anotación del libro que la referencia |
+| R17 | Cada firma lleva el hash de la versión que firmó, la hora del dispositivo y la hora del servidor |
+| R18 | Cada revisión (R00, R01…) tiene fecha de apertura y de cierre propias; al reabrir se crea la siguiente |
+| R19 | La respuesta del contratista es por observación; el inspector la verifica o la devuelve |
+| R20 | Cada firma tiene su estado y su plazo; al vencer el plazo se avisa al supervisor |
+| R21 | Cada anotación del libro, incluida la ITO, lleva un folio consecutivo por obra asignado por el servidor |
+| R14 (modificada) | El inspector cierra una observación por re-inspección o por aceptación con justificación escrita; no requiere segunda persona |
+
+### Tensiones que dejan estas decisiones (a revisar antes de lanzar)
+
+1. **Interpretación de «cierre» (I2 e I7).** Se asume que una revisión se cierra cuando el inspector firma. Si el contratista queda con observaciones, se abre la revisión siguiente (R01) con nueva fecha de apertura. **Por confirmar.**
+2. **Crear la obra con la primera ITO (I12) frente al Libro de Obra y los participantes por obra (I6).** El libro de una obra debería existir desde el inicio y los participantes se necesitan para asignar al inspector y al contratista. Al crear la primera ITO habrá que pedir, en el mismo asistente, la obra, sus participantes y sus partidas. Mientras tanto, el libro de la obra empezaría con la ITO como primer folio y no podría haber anotaciones anteriores.
+3. **El inspector cierra sus propias críticas (I4).** Se mantiene el conflicto de interés. Mitigación propuesta: toda aceptación con justificación aparece destacada en el informe que recibe el cliente, que puede rechazar la aprobación.
+4. **Plazo de firma con aviso al supervisor (I11) frente a «sin correo al vencer» (I13).** Un aviso al vencer un plazo necesita una tarea programada o una revisión al abrir la app. Hay que elegir: una ejecución diaria en Vercel Hobby (solo para este aviso) o mostrar los plazos vencidos en el panel y avisar al abrir. **Por decidir.**
+5. **Tope de 150 MB por ITO (I14).** Con muchas ITO por obra puede superar el almacenamiento de Neon contratado. Verificar la cuota y, si hace falta, bajar el tope o pasar la evidencia a otro almacén.
+6. **Efecto en el mapa de proceso.** Hay que agregar la etapa de respuesta del contratista, las revisiones R00 y siguientes, las dos fechas por revisión y el Libro de Obra como entidad principal. El mapa publicado todavía muestra el flujo anterior.
