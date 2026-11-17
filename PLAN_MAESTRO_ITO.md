@@ -426,3 +426,55 @@ secciones 2 a 18 donde difieran.
 
 Nota: lo que antes era la Fase 1A (estructura de la ITO) queda absorbido por las fases 1 y 2.
 Si el alcance completo resulta demasiado, la **Fase 1 sola** ya es un libro de obra mínimo utilizable.
+
+---
+
+## 20. Ejecución de la Fase 1: Libro base (2026-11-17)
+
+Primera entrega, en la rama `claude/nice-babbage-9fzse9` (sin tocar `main`). Cubre datos, sincronización,
+reglas y permisos. **Las pantallas son la segunda entrega.**
+
+### Qué incluye
+
+| Pieza | Archivo | Reglas |
+|-------|---------|--------|
+| Reglas puras: validación, canónico, hash encadenado, verificación de cadena, hilos | `server/libroObra.ts` | R16, R21, R22, R24, R25 |
+| SQL compartido por los dos servidores: folio y hash atómicos, inmutabilidad, aislamiento por cliente, lectura por participante | `server/libroObraDb.ts` | R16, R21, R24, R25 |
+| Tablas `obras`, `participantes_obra`, `anotaciones`, `anotacion_acuses`, `libro_obra_secuencias`; trigger que impide editar o borrar anotaciones y acuses; `UNIQUE (obra_id, folio)` | `scripts/db/bootstrap.ts` | R16, R21 |
+| Dexie v17 (solo agrega tablas; no limpia nada) y repositorios | `src/db/database.ts`, `src/repositories/ObraRepository.ts`, `AnotacionRepository.ts` | R16, R26 |
+| Sincronización en Vercel y Express, y permisos por rol | `server/vercel/handlers/sync.ts`, `server.ts`, `server/vercel/auth.ts` | R16, R25 |
+| Pruebas | `tests/libro-obra-rules.test.ts` (14), `tests/security-regression.test.mjs` (1 nueva) | |
+
+### Cómo funciona el folio
+
+El folio y el hash se asignan en una sola sentencia `UPDATE ... RETURNING` sobre `libro_obra_secuencias`, con
+`hash = sha256(hash_anterior | folio | canónico)`. Dos anotaciones simultáneas de una obra no pueden recibir el mismo
+folio. Un reintento de una anotación ya emitida devuelve su folio original. La misma fórmula se calcula en
+JavaScript para verificar la cadena.
+
+### Verificación hecha
+
+- `tsc --noEmit` sin errores y `npm test` completo en verde (59 pruebas).
+- 14 comprobaciones contra Postgres real en memoria (PGlite), con el DDL del bootstrap: 8 escrituras simultáneas dan
+  los folios 1 a 10 sin saltos; la cadena calculada en SQL coincide con la de JavaScript; el trigger bloquea
+  `UPDATE` y `DELETE` directos; un no participante no puede anotar; una obra de otro cliente no es accesible; un
+  libro cerrado no admite anotaciones; un ajeno no recibe nada al sincronizar.
+- **Esas 14 comprobaciones no están en el repositorio**, porque exigirían agregar PGlite como dependencia de desarrollo.
+
+### Desviaciones respecto al diseño
+
+1. **No hay tabla `libros_obra`.** El estado del libro (`libro_estado`) vive en la obra, porque hay un libro por obra.
+   El hash final y el acta se agregarán en la fase de cierre.
+2. **El cierre explícito de un hilo no está.** El estado «respondida» se deriva de las anotaciones de tipo respuesta
+   que referencian la original. Cerrar un hilo requiere decidir si es una anotación más; queda para la iteración siguiente.
+3. **Acuse de lectura:** existe la tabla y el permiso, sin pantalla todavía.
+4. **Express con base simulada:** las consultas del libro usan funciones de Postgres (`sha256`, `ANY`); el modo sin
+   `DATABASE_URL` de `server.ts` no las soporta. El libro requiere Neon.
+5. **Folio con reintentos concurrentes de la misma anotación:** un doble envío simultáneo de la misma anotación podría
+   consumir un folio y dejar un salto. El caso normal (reintento posterior) está cubierto; el simultáneo es improbable y
+   queda anotado.
+
+### Pendiente de la Fase 1
+
+Pantallas (obras, participantes, libro con anotaciones, acuses), entrada en el menú, invitaciones por correo,
+evento del libro en el Calendario y PDF del libro. Los tipos de anotación siguen **por confirmar** (S1).

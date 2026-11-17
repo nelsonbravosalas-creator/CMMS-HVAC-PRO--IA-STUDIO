@@ -13,6 +13,8 @@ import {
   writeSecurityAudit
 } from '../security.js';
 import { validateClientLogoPayload } from '../../clientLogo.js';
+import { LIBRO_TABLES, isLibroTable } from '../../libroObra.js';
+import { LibroError, applyLibroDelete, applyLibroInsert, applyLibroUpdate, pullLibro } from '../../libroObraDb.js';
 
 const ALLOWED_TABLES = [
   'assets',
@@ -27,7 +29,8 @@ const ALLOWED_TABLES = [
   'settings',
   'ordenes_servicio',
   'inventory',
-  'calendar'
+  'calendar',
+  ...LIBRO_TABLES
 ];
 
 const SYNC_WRITABLE_TABLES = new Set([
@@ -39,7 +42,8 @@ const SYNC_WRITABLE_TABLES = new Set([
   'catalog_asset_types',
   'ordenes_servicio',
   'inventory',
-  'calendar'
+  'calendar',
+  ...LIBRO_TABLES
 ]);
 
 function sanitizeRows(table: string, rows: any[]) {
@@ -343,7 +347,9 @@ export default async function handler(req: any, res: any) {
       const pullPromises = ALLOWED_TABLES.map(async (table) => {
         try {
           let rows: any[] = [];
-          switch (table) {
+          if (isLibroTable(table)) {
+            rows = await pullLibro(sql, table, { clienteId: clienteIdSync, since, globalScope, user: authUser });
+          } else switch (table) {
             case 'assets': rows = globalScope ? await sql`SELECT * FROM assets WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM assets WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
             case 'users': rows = globalScope ? await sql`SELECT * FROM users WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT DISTINCT u.* FROM users u JOIN user_clientes uc ON uc.user_id = u.uuid_sync WHERE uc.cliente_id = ${clienteIdSync} AND (u.updated_at > ${since} OR u.updated_at IS NULL) ORDER BY u.updated_at ASC LIMIT 200`; break;
             case 'preventive_maintenance': rows = globalScope ? await sql`SELECT * FROM preventive_maintenance WHERE (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200` : await sql`SELECT * FROM preventive_maintenance WHERE cliente_id = ${clienteIdSync} AND (updated_at > ${since} OR updated_at IS NULL) ORDER BY updated_at ASC LIMIT 200`; break;
@@ -435,7 +441,9 @@ export default async function handler(req: any, res: any) {
           if (table === 'ordenes_servicio') {
             await validateServiceOrderClose(sql, data, recordClienteId, uuid_sync);
           }
-          if (table === 'assets') {
+          if (isLibroTable(table)) {
+            await applyLibroInsert({ sql, table, uuid_sync, data, updated_at, clienteId: recordClienteId, user: authUser });
+          } else if (table === 'assets') {
             const d = data;
             let final_cliente_id = recordClienteId;
             let final_sucursal_id = d.sucursal_id || 'default-sucursal';
@@ -521,8 +529,8 @@ export default async function handler(req: any, res: any) {
             }
           }
         } catch (err: any) {
-          status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
-          errorMsg = 'No fue posible sincronizar el registro';
+          status = err instanceof LibroError ? (err.code === 'immutable' ? 'conflict' : 'error') : (err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error');
+          errorMsg = err instanceof LibroError ? err.message : 'No fue posible sincronizar el registro';
           console.error('[sync] insert failed', {
             table,
             uuid_sync,
@@ -569,7 +577,9 @@ export default async function handler(req: any, res: any) {
           if (table === 'ordenes_servicio') {
             await validateServiceOrderClose(sql, data, recordClienteId, uuid_sync, true);
           }
-          if (table === 'assets') {
+          if (isLibroTable(table)) {
+            await applyLibroUpdate({ sql, table, uuid_sync, data, updated_at, clienteId: recordClienteId, user: authUser });
+          } else if (table === 'assets') {
             const d = data;
             let final_cliente_id = recordClienteId;
             let final_sucursal_id = d.sucursal_id || 'default-sucursal';
@@ -625,8 +635,8 @@ export default async function handler(req: any, res: any) {
             }
           }
         } catch (err: any) {
-          status = err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error';
-          errorMsg = 'No fue posible sincronizar el registro';
+          status = err instanceof LibroError ? (err.code === 'immutable' ? 'conflict' : 'error') : (err.message?.toLowerCase().includes('unique') ? 'conflict' : 'error');
+          errorMsg = err instanceof LibroError ? err.message : 'No fue posible sincronizar el registro';
           console.error('[sync] update failed', {
             table,
             uuid_sync,
@@ -655,7 +665,9 @@ export default async function handler(req: any, res: any) {
         let status = 'applied';
         let errorMsg = '';
         try {
-          switch (table) {
+          if (isLibroTable(table)) {
+            await applyLibroDelete({ sql, table, uuid_sync: del.uuid_sync, clienteId: clienteIdSync, ts });
+          } else switch (table) {
             case 'assets':
               if (isAdminUser(authUser)) {
                 // Los administradores pueden sanear activos heredados cuyo
@@ -785,7 +797,9 @@ export default async function handler(req: any, res: any) {
       const pullPromises = ALLOWED_TABLES.map(async (table) => {
         try {
           let rows: any[] = [];
-          switch (table) {
+          if (isLibroTable(table)) {
+            rows = await pullLibro(sql, table, { clienteId: clienteIdSync, since: lastSync, globalScope: false, user: authUser });
+          } else switch (table) {
             case 'assets': rows = await sql`SELECT * FROM assets WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
             case 'users': rows = await sql`SELECT * FROM users WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;
             case 'preventive_maintenance': rows = await sql`SELECT * FROM preventive_maintenance WHERE (cliente_id = ${clienteIdSync} OR cliente_id = 'cliente-default-001') AND (updated_at > ${lastSync} OR updated_at IS NULL) LIMIT 200`; break;

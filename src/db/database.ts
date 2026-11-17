@@ -197,6 +197,63 @@ export interface AuditLog {
   cliente_id?: string;
 }
 
+export interface LocalObra extends LocalBase {
+  id: string;
+  cliente_id: string;
+  /** Número de obra 000-999 dentro del cliente. */
+  numero: string;
+  nombre: string;
+  sucursal_id?: string;
+  estado: 'activa' | 'cerrada';
+  /** Estado del libro: 'cerrado' lo vuelve de solo lectura. */
+  libro_estado?: 'abierto' | 'cerrado';
+}
+
+export interface LocalParticipanteObra extends LocalBase {
+  id: string;
+  cliente_id: string;
+  obra_id: string;
+  usuario_id: string;
+  correo: string;
+  nombre?: string;
+  empresa?: string;
+  rol: 'cliente' | 'inspector' | 'contratista' | 'supervisor';
+  especialidad?: string;
+  activo?: boolean;
+}
+
+/**
+ * Anotación del libro. Sin conexión queda como borrador firmado: sin folio ni hash
+ * hasta que el servidor los asigne al sincronizar (R26).
+ */
+export interface LocalAnotacion extends LocalBase {
+  id: string;
+  cliente_id: string;
+  obra_id: string;
+  tipo: 'ito' | 'correccion' | 'instruccion' | 'consulta' | 'respuesta' | 'hecho_relevante' | 'recepcion';
+  texto: string;
+  autor_id: string;
+  autor_rol: 'cliente' | 'inspector' | 'contratista' | 'supervisor';
+  destinatarios: string[];
+  plazo?: number | null;
+  pide_respuesta?: boolean;
+  referencia_uuid?: string | null;
+  escrito_en: number;
+  folio?: number;
+  hash?: string;
+  hash_anterior?: string;
+  recibido_en?: number;
+}
+
+export interface LocalAcuse extends LocalBase {
+  id: string;
+  cliente_id: string;
+  obra_id: string;
+  anotacion_uuid: string;
+  usuario_id: string;
+  acusado_en: number;
+}
+
 export interface LocalBlob {
   uuid_sync: string;
   blob: Blob;
@@ -222,6 +279,10 @@ export class CMMSDatabase extends Dexie {
   sync_queue!: Table<SyncOperation>;
   audit_logs!: Table<AuditLog>;
   blobs!: Table<LocalBlob>;
+  obras!: Table<LocalObra>;
+  participantes_obra!: Table<LocalParticipanteObra>;
+  anotaciones!: Table<LocalAnotacion>;
+  anotacion_acuses!: Table<LocalAcuse>;
 
   constructor() {
     super('CMMS_LocalDB_v11');
@@ -371,6 +432,17 @@ export class CMMSDatabase extends Dexie {
       }
     });
 
+    // v17: Libro de Obra. Solo agrega tablas; no limpia ni migra datos existentes.
+    // Se declara un esquema nuevo para no alterar las versiones 10 a 16, que comparten `schema`.
+    const schemaV17 = {
+      ...schema,
+      obras: 'uuid_sync, id, cliente_id, numero, sync_status, updated_at',
+      participantes_obra: 'uuid_sync, id, cliente_id, obra_id, usuario_id, [obra_id+usuario_id], sync_status, updated_at',
+      anotaciones: 'uuid_sync, id, cliente_id, obra_id, folio, tipo, [obra_id+folio], sync_status, updated_at',
+      anotacion_acuses: 'uuid_sync, id, cliente_id, obra_id, anotacion_uuid, usuario_id, [anotacion_uuid+usuario_id], sync_status, updated_at'
+    };
+    this.version(17).stores(schemaV17);
+
     // La carga inicial proviene del servidor. Evitar registros locales sintéticos
     // que luego aparezcan duplicados al sincronizar con Neon.
     this.on('populate', async () => undefined);
@@ -392,7 +464,11 @@ export async function clearTenantOperationalCache() {
     db.events,
     db.inventory,
     db.audit_logs,
-    db.blobs
+    db.blobs,
+    db.obras,
+    db.participantes_obra,
+    db.anotaciones,
+    db.anotacion_acuses
   ];
   await db.transaction('rw', tables, async () => {
     await Promise.all(tables.map((table) => table.clear()));

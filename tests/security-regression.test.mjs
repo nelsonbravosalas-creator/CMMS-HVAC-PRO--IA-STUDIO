@@ -424,3 +424,41 @@ test('forced PIN routing cannot trigger an unconditional React state loop', asyn
   assert.doesNotMatch(app, /\n\s*setIsAuthenticated\(auth\);\n\s*setHasClientSelected\(client\);/);
   assert.doesNotMatch(app, /setLocation\('\/biometria'\)/);
 });
+
+test('Libro de Obra: anotaciones inmutables, folio atómico y aislamiento por cliente', async () => {
+  const [db, rules, bootstrap, auth, syncHandler, server] = await Promise.all([
+    read('server/libroObraDb.ts'),
+    read('server/libroObra.ts'),
+    read('scripts/db/bootstrap.ts'),
+    read('server/vercel/auth.ts'),
+    read('server/vercel/handlers/sync.ts'),
+    read('server.ts')
+  ]);
+  // El folio y el hash se asignan en una sola sentencia UPDATE (sin lectura previa separada)
+  assert.match(db, /UPDATE libro_obra_secuencias SET[\s\S]*ultimo_folio = ultimo_folio \+ 1[\s\S]*RETURNING/);
+  assert.match(db, /ON CONFLICT \(uuid_sync\) DO NOTHING/);
+  // Toda lectura y escritura queda acotada al cliente de la sesión
+  assert.match(db, /obras\.cliente_id = EXCLUDED\.cliente_id/);
+  assert.match(db, /participantes_obra\.cliente_id = EXCLUDED\.cliente_id/);
+  // R16 en la aplicación y en la base de datos
+  assert.match(db, /Una anotación emitida no se edita/);
+  assert.match(db, /Una anotación emitida no se borra/);
+  assert.match(bootstrap, /CREATE TRIGGER anotaciones_inmutables BEFORE UPDATE OR DELETE ON anotaciones/);
+  assert.match(bootstrap, /UNIQUE \(obra_id, folio\)/);
+  // Solo un participante de la obra anota, y el autor es el usuario autenticado
+  assert.match(db, /Solo un participante de la obra puede anotar en el libro/);
+  assert.match(db, /El autor debe ser el usuario autenticado/);
+  assert.match(rules, /R16/);
+  // Permisos por rol: la obra la administra el supervisor; las anotaciones solo se crean
+  assert.match(auth, /LIBRO_MANAGED_TABLES[\s\S]*role === 'supervisor'/);
+  assert.match(auth, /LIBRO_PARTICIPANT_TABLES[\s\S]*operation === 'insert'/);
+  // Ambos servidores sincronizan las tablas del libro y mapean la inmutabilidad a conflicto
+  for (const source of [syncHandler, server]) {
+    assert.match(source, /isLibroTable\(table\)/);
+    assert.match(source, /applyLibroInsert/);
+    assert.match(source, /applyLibroUpdate/);
+    assert.match(source, /applyLibroDelete/);
+    assert.match(source, /pullLibro/);
+    assert.match(source, /err\.code === 'immutable' \? 'conflict'/);
+  }
+});
